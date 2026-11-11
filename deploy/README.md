@@ -6,7 +6,7 @@ One athlete per installation, on a machine that is always on (a home server or a
 
 ```bash
 uv tool install git+https://github.com/rvartanov/vibesynergy   # update: uv tool upgrade vibesynergy
-vibesynergy init          # first time: config + database
+vibesynergy init --email you@example.com   # first time: config, database and the login link
 vibesynergy db upgrade    # after an update, before the restart: applies migrations
 ```
 
@@ -171,8 +171,21 @@ Other tools can use the cache: as an XYZ tile layer from any tailnet device
 directly from the folder on the server (`file:///home/<you>/.local/share/vibesynergy/tiles/osm/{z}/{x}/{y}.png`).
 Show "© OpenStreetMap contributors" wherever the tiles are displayed.
 
-Never run `tailscale funnel` for port 8447: the portal has no login of its own; the tailnet
-is its access control.
+## Logging in
+
+The portal has one account, made by `vibesynergy init --email …`. Every page asks for it:
+a password, or a link by mail (needs `[mail]`), plus an optional second step (a code by
+mail, or an authenticator app with ten backup codes). Forgot the password: "Forgot your
+password?" on the login page mails a reset link; without mail, run `vibesynergy login-link`
+on the server. Links work once and expire (15 minutes; the first one 24 hours). After five
+wrong attempts for the address, or twenty from one address, logging in pauses for 15 minutes.
+Settings → Account changes the password and the second step (both ask for the password
+again) and shows the devices you are logged in on.
+
+Behind a reverse proxy, serve it over https only and pass `X-Forwarded-For` and
+`X-Forwarded-Proto` (Caddy does both): sessions then use a Secure cookie and HSTS. Add the
+public name to `[portal] hosts`. `[portal] auth = false` turns the login off; only do that on
+a machine nobody else can reach.
 
 ## 8. History
 

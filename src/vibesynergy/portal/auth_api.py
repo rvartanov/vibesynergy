@@ -51,6 +51,11 @@ class Password(_Body):
 
 class MailOn(_Body):
     on: bool
+    current: str | None = None
+
+
+class Recheck(_Body):
+    current: str | None = None
 
 
 class SessionId(_Body):
@@ -329,15 +334,28 @@ def build_auth_router(rt) -> APIRouter:
             raise HTTPException(status_code=401, detail="Log in first.")
         return token, current
 
+    def recheck(request: Request, password: str | None) -> None:
+        """Changing how you log in asks for the password again (once one is set), with the
+        same brake as the login itself: a stolen open session alone cannot lock you out."""
+        acc = auth.account(engine)
+        assert acc is not None
+        if not acc["password_hash"]:
+            return
+        client = _client(request)
+        if auth.locked(engine, acc["email"], client):
+            raise HTTPException(
+                status_code=429, detail="Too many attempts. Try again in 15 minutes."
+            )
+        ok = auth.verify_password(password or "", acc["password_hash"])
+        auth.note_attempt(engine, acc["email"], client, ok)
+        if not ok:
+            audit("auth.recheck", request, "refused")
+            raise auth.AuthError("Your current password is not right.")
+
     @router.post("/auth/password")
     def change_password(body: Password, request: Request) -> dict[str, Any]:
         _, current = me(request)
-        acc = auth.account(engine)
-        assert acc is not None
-        if acc["password_hash"] and not auth.verify_password(
-            body.current or "", acc["password_hash"]
-        ):
-            raise auth.AuthError("Your current password is not right.")
+        recheck(request, body.current)
         auth.set_password(engine, current.account_id, body.password, keep=current.id)
         audit("auth.password", request)
         return {"ok": True}
@@ -373,8 +391,9 @@ def build_auth_router(rt) -> APIRouter:
         }
 
     @router.post("/auth/totp/start")
-    def totp_start(request: Request) -> dict[str, Any]:
+    def totp_start(body: Recheck, request: Request) -> dict[str, Any]:
         me(request)
+        recheck(request, body.current)
         acc = auth.account(engine)
         assert acc is not None
         secret = auth.start_totp(rt.settings)
@@ -390,6 +409,7 @@ def build_auth_router(rt) -> APIRouter:
     @router.post("/auth/mfa/mail")
     def mfa_mail(body: MailOn, request: Request) -> dict[str, Any]:
         _, current = me(request)
+        recheck(request, body.current)
         auth.set_mail_mfa(engine, rt.settings, current.account_id, body.on)
         audit("auth.mfa.mail" if body.on else "auth.mfa.off", request)
         return {"ok": True}

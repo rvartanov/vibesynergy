@@ -119,7 +119,9 @@ def test_second_factor_by_app_and_by_mail(runtime, portal, mail):
     acc = auth.create_account(runtime.engine, EMAIL)
     auth.set_password(runtime.engine, acc["id"], GOOD)
     portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}, headers=WRITE)
-    secret = portal.post("/auth/totp/start", headers=WRITE).json()["secret"]
+    # Changing how you log in asks for the password again.
+    assert portal.post("/auth/totp/start", json={}, headers=WRITE).status_code == 400
+    secret = portal.post("/auth/totp/start", json={"current": GOOD}, headers=WRITE).json()["secret"]
     code = auth._totp(secret, int(auth.time.time() // 30))
     codes = portal.post("/auth/totp/confirm", json={"code": code}, headers=WRITE).json()[
         "backup_codes"
@@ -133,7 +135,10 @@ def test_second_factor_by_app_and_by_mail(runtime, portal, mail):
         "next": "done"
     }
     assert portal.get("/api/meta").status_code == 200
-    portal.post("/auth/mfa/mail", json={"on": True}, headers=WRITE)
+    off = {"on": False, "current": "wrong-password-here"}
+    assert portal.post("/auth/mfa/mail", json=off, headers=WRITE).status_code == 400
+    assert auth.account(runtime.engine)["mfa"] == "totp"
+    portal.post("/auth/mfa/mail", json={"on": True, "current": GOOD}, headers=WRITE)
     portal.post("/auth/logout", headers=WRITE)
     assert (
         portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}, headers=WRITE).json()[
