@@ -885,3 +885,11 @@ table.activities .part-mark { color: var(--secondary); }
 .login-card form { display: grid; gap: 8px; margin: 12px 0; }
 .login-card .btn.link { background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; color: inherit; }
 .login-brand { font-weight: 600; margin: 0 0 4px; }
+
+/* Bug report dialog ---------------------------------------------------------------------- */
+.bug-dialog { width: min(560px, calc(100vw - 32px)); color: var(--ink); border: 1px solid var(--ring); }
+.bug-dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.bug-dialog label { display: grid; gap: 4px; margin-bottom: 10px; font-size: 14px; }
+.bug-dialog textarea { width: 100%; font: inherit; resize: vertical; }
+.bug-dialog ul { padding-left: 18px; word-break: break-word; }
+.bug-code code { font-size: 1.5rem; letter-spacing: 0.15em; user-select: all; }
