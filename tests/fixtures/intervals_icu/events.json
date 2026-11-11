@@ -1,0 +1,109 @@
+[
+  {
+    "id": 1001,
+    "external_id": "2026-11-02:Run",
+    "category": "WORKOUT",
+    "type": "Run",
+    "start_date_local": "2026-11-02T09:00:00",
+    "name": "Easy run",
+    "description": "- 40m Z2",
+    "workout_doc": {
+      "description": "- 40m Z2",
+      "steps": [{"duration": 2400, "target": "Z2"}]
+    },
+    "tags": [],
+    "for_week": false,
+    "updated": "2026-10-30T08:15:00.000Z"
+  },
+  {
+    "id": 1002,
+    "external_id": "2026-11-08:Ride:fiets",
+    "category": "WORKOUT",
+    "type": "Ride",
+    "start_date_local": "2026-11-08T09:00:00",
+    "name": "Brick bike",
+    "description": "- 45m Z2",
+    "tags": ["brick"],
+    "for_week": false,
+    "updated": "2026-10-30T08:15:00.000Z"
+  },
+  {
+    "id": 1003,
+    "external_id": "2026-11-08:Run:loop",
+    "category": "WORKOUT",
+    "type": "Run",
+    "start_date_local": "2026-11-08T09:01:00",
+    "name": "Brick run",
+    "description": "- 15m Z2",
+    "tags": ["brick"],
+    "for_week": false,
+    "updated": "2026-10-30T08:15:00.000Z"
+  },
+  {
+    "id": 1010,
+    "external_id": "2026-11-08:Swim",
+    "category": "WORKOUT",
+    "type": "Swim",
+    "start_date_local": "2026-11-08T18:00:00",
+    "name": "Easy swim",
+    "description": "- 30m Z2",
+    "for_week": false
+  },
+  {
+    "id": 1004,
+    "external_id": "2027-07-03:Run",
+    "category": "RACE_A",
+    "type": "Run",
+    "start_date_local": "2027-07-03T00:00:00",
+    "name": "Goal race",
+    "for_week": false
+  },
+  {
+    "id": 1005,
+    "external_id": "2027-05-30:Run",
+    "category": "RACE_B",
+    "type": "Run",
+    "start_date_local": "2027-05-30T00:00:00",
+    "name": "Build race",
+    "for_week": false
+  },
+  {
+    "id": 1006,
+    "external_id": "2026-12-20:Run",
+    "category": "RACE_C",
+    "type": "Run",
+    "start_date_local": "2026-12-20T00:00:00",
+    "name": "Tune-up",
+    "for_week": false
+  },
+  {
+    "id": 1007,
+    "external_id": "2026-11-02:Note",
+    "category": "NOTE",
+    "start_date_local": "2026-11-02T00:00:00",
+    "end_date_local": "2026-11-29T00:00:00",
+    "name": "Fase: base",
+    "description": "Base block",
+    "for_week": false
+  },
+  {
+    "id": 1008,
+    "external_id": "2026-11-02:Week",
+    "category": "NOTE",
+    "start_date_local": "2026-11-02T00:00:00",
+    "end_date_local": "2026-11-08T00:00:00",
+    "name": "Week 1",
+    "description": "Run 4h, Ride 3h",
+    "for_week": true,
+    "time_target": 25200,
+    "load_target": 300
+  },
+  {
+    "id": 1009,
+    "category": "NOTE",
+    "start_date_local": "2026-11-04T00:00:00",
+    "name": "Dentist",
+    "description": "Afternoon",
+    "for_week": false
+  }
+]

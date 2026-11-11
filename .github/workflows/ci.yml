@@ -1,0 +1,85 @@
+name: CI
+
+# Docs-only (Markdown) changes skip CI, except README.md and THIRD_PARTY.md, which the package build reads.
+on:
+  push:
+    branches: [main]
+    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+  pull_request:
+    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+
+# A new push to a PR cancels its running or pending CI. Each main push gets its own group
+# (keyed by sha), so no main run is ever cancelled or replaced while pending.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # PRs test the lowest supported Python only; main runs the full matrix.
+      matrix:
+        python: ${{ fromJSON(github.event_name == 'push' && '["3.12", "3.13"]' || '["3.12"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      # Types: query/ and mcp/, against the baseline in .basedpyright/baseline.json.
+      - run: uv run basedpyright
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node tools/check_zone_presentation.mjs
+      - run: node tools/check_nav.mjs
+      - run: node tools/check_period_picker.mjs
+      - run: node tools/check_dashboard_refresh.mjs
+      # Portal JS has no build step: catch syntax errors in every module, then run the
+      # node:test unit tests.
+      - run: for f in $(find src/vibesynergy/portal/static/js -name '*.js'); do node --check "$f"; done
+      - run: node --test tests/*.test.mjs
+      - run: uv run python docs/design/check_design.py
+      # PRs run one `uv run` variant of the serve shutdown tests; main runs them all.
+      - run: uv run pytest -n 4
+        env:
+          VIBESYNERGY_FULL_MATRIX: ${{ github.event_name == 'push' && '1' || '' }}
+      # Populated portal, axe and keyboard. Own step so a missing browser fails here,
+      # and the default pytest run above stays skipped and fast.
+      - run: uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_agent_links_a11y.py tests/test_coach_runner_a11y.py -q
+        env:
+          VIBESYNERGY_A11Y_REQUIRED: "1"
+      # Language/appearance and small-polish browser checks. Their own step, so a
+      # change to the a11y list above does not touch this line.
+      - run: uv run --with playwright pytest tests/test_language_appearance.py tests/test_portal_polish.py -q
+      # Phone start page: advice first, check-in next, keyboard and axe at 390x844.
+      # Its own step, like the two above, so it cannot go stale outside CI again.
+      - run: uv run --with playwright pytest tests/test_dashboard_phone.py -q
+        env:
+          VIBESYNERGY_A11Y_REQUIRED: "1"
+
+  install:
+    # The app installs and starts from the built package alone, with demo data.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - run: uv venv /tmp/app && VIRTUAL_ENV=/tmp/app uv pip install dist/*.whl
+      - name: init, demo sync and status from a clean home
+        env:
+          XDG_CONFIG_HOME: /tmp/home/config
+          XDG_DATA_HOME: /tmp/home/data
+        run: |
+          /tmp/app/bin/vibesynergy version
+          /tmp/app/bin/vibesynergy init
+          printf '\n[sources.demo]\nenabled = true\n' >> /tmp/home/config/vibesynergy/config.toml
+          /tmp/app/bin/vibesynergy sync
+          /tmp/app/bin/vibesynergy status

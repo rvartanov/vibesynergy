@@ -1,0 +1,86 @@
+[project]
+name = "vibesynergy"
+version = "0.1.0.dev0"
+description = "VibeSynergy: Personal Health & Fitness Store (self-hosted data archive, MCP server and portal)"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "VibeSynergy", email = "info@vibesynergy.nl" }]
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY.md"]
+# Private: PyPI rejects uploads carrying this classifier.
+classifiers = ["Private :: Do Not Upload"]
+dependencies = [
+    "alembic>=1.20",
+    "anthropic>=1",
+    "cryptography>=46",
+    "defusedxml>=0.7.1",
+    "fastapi>=0.141",
+    "fitdecode>=0.11",
+    "garminconnect>=0.3.16",
+    "icalendar>=6.3",
+    "mcp>=2.2",
+    "pyarrow>=25",
+    "python-ulid>=4.0",
+    "recurring-ical-events>=3.8",
+    "requests>=2.33",
+    "rich>=14",
+    "sqlalchemy>=2.1",
+    "tomlkit>=0.15.1",
+    "typer>=0.27",
+    "uvicorn>=0.53",
+    "zstandard>=0.25",
+]
+
+[project.scripts]
+vibesynergy = "vibesynergy.cli.main:app"
+
+# Source plugins. Third-party packages register sources under the same group.
+[project.entry-points."vibesynergy.sources"]
+demo = "vibesynergy.sources.demo:DemoSource"
+caldav = "vibesynergy.sources.caldav:CalDAVSource"
+files = "vibesynergy.sources.files:FilesSource"
+garmin = "vibesynergy.sources.garmin:GarminSource"
+garmin_export = "vibesynergy.sources.garmin.export:GarminExportSource"
+strava = "vibesynergy.sources.strava:StravaSource"
+strava_export = "vibesynergy.sources.strava.export:StravaExportSource"
+withings = "vibesynergy.sources.withings:WithingsSource"
+intervals_icu = "vibesynergy.sources.intervals_icu:IntervalsIcuSource"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.31",
+    "httpx2>=2.13",
+    "pytest>=9.1",
+    "pytest-xdist>=3.8",
+    "ruff>=0.16",
+]
+
+[build-system]
+requires = ["hatchling>=1.32"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vibesynergy"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+addopts = "-q"
+markers = ["integration: optional browser and external test server checks"]
+
+# Type checking: basedpyright with a baseline, so CI fails only on new errors.
+# query/ and mcp/ first; widen `include` as modules get clean. Refresh the baseline after
+# fixing old errors with `uv run basedpyright --writebaseline`.
+[tool.basedpyright]
+include = ["src/vibesynergy/query", "src/vibesynergy/mcp"]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
+baselineFile = ".basedpyright/baseline.json"

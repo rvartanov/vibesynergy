@@ -1,0 +1,119 @@
+/* VibeSynergy design v1 colour roles. Layout and type tokens live in design.css.
+   Decisions and citations: docs/design/README.md. Contrast: docs/design/check_design.py. */
+:root {
+  color-scheme: light;
+  --page: #f4f6f5; --surface: #ffffff; --ink: #172b35; --secondary: #48606a;
+  --line: #748b96; --subtle: #e9f0ee; --action: #006b5b; --on-action: #ffffff;
+  --focus: #175bc4; --warning: #815400; --warning-bg: #fff4d9;
+  --error: #a32632; --error-bg: #fff0f1;
+  --z1: #536b7b; --z2: #126ead; --z3: #137c65; --z4: #966100; --z5: #9a418e; --z6: #b33e34; --z7: #5146a8;
+  --radius: 12px; --space: 8px;
+  /* VibeSynergy brand accents (docs/BRAND.md): logo, icons and display text of 24px and up only,
+     never body text, buttons, status or zones. The same in light and dark. */
+  --brand-navy: #06102b; --brand-cyan: #12d6f0; --brand-sky: #4bcaf2; --brand-violet: #9c6afc;
+  --brand-gradient: linear-gradient(90deg, var(--brand-cyan), var(--brand-violet));
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #101b22; --surface: #182932; --ink: #eff5f5; --secondary: #b5c8cd;
+  --line: #607982; --subtle: #223c44; --action: #73d9bd; --on-action: #102c27;
+  --focus: #8cbaff; --warning: #ffd087; --warning-bg: #3e321d;
+  --error: #ffb2ba; --error-bg: #43272e;
+  --z1: #adbfcb; --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0; --z7: #b9b2ff;
+}
+
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #101b22; --surface: #182932; --ink: #eff5f5; --secondary: #b5c8cd;
+  --line: #607982; --subtle: #223c44; --action: #73d9bd; --on-action: #102c27;
+  --focus: #8cbaff; --warning: #ffd087; --warning-bg: #3e321d;
+  --error: #ffb2ba; --error-bg: #43272e;
+  --z1: #adbfcb; --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0; --z7: #b9b2ff;
+}
+}
+
+/* Colour themes. Light/dark/system stays a separate choice (data-theme); the colour
+   theme is data-palette. Zones keep their own ramp in every theme. Contrast:
+   docs/design/check_design.py checks every block below. */
+/* Volt (from RunSynergy): light, explicit dark and system dark. */
+:root[data-palette="volt"] {
+  color-scheme: light;
+  --page: #f2f4f8; --surface: #ffffff; --ink: #0b1026; --secondary: #5b6478; --line: #7a8296;
+  --subtle: #e9ecf3; --action: #3d4fd6; --on-action: #ffffff; --focus: #3d4fd6; --warning: #8a5100;
+  --warning-bg: #fff4d9; --error: #b3261e; --error-bg: #fff0f1; --muted: #5b6478; --z1: #536b7b;
+  --z2: #126ead; --z3: #137c65; --z4: #966100; --z5: #9a418e; --z6: #b33e34;
+  --z7: #5146a8;
+}
+:root[data-palette="volt"][data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0b1026; --surface: #161d3c; --ink: #eef1f8; --secondary: #aeb6cc; --line: #6b7499;
+  --subtle: #1f2750; --action: #c8f53c; --on-action: #0b1026; --focus: #c8f53c; --warning: #f0b35a;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #aeb6cc; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+@media (prefers-color-scheme: dark) {
+:root[data-palette="volt"]:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #0b1026; --surface: #161d3c; --ink: #eef1f8; --secondary: #aeb6cc; --line: #6b7499;
+  --subtle: #1f2750; --action: #c8f53c; --on-action: #0b1026; --focus: #c8f53c; --warning: #f0b35a;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #aeb6cc; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+}
+/* Stroom (from RunSynergy): light, explicit dark and system dark. */
+:root[data-palette="stroom"] {
+  color-scheme: light;
+  --page: #f1f4f9; --surface: #ffffff; --ink: #070d1c; --secondary: #56627a; --line: #76829a;
+  --subtle: #e6ecf4; --action: #0e7490; --on-action: #ffffff; --focus: #0e7490; --warning: #8a5100;
+  --warning-bg: #fff4d9; --error: #b3261e; --error-bg: #fff0f1; --muted: #56627a; --z1: #536b7b;
+  --z2: #126ead; --z3: #137c65; --z4: #966100; --z5: #9a418e; --z6: #b33e34;
+  --z7: #5146a8;
+}
+:root[data-palette="stroom"][data-theme="dark"] {
+  color-scheme: dark;
+  --page: #070d1c; --surface: #121b30; --ink: #eaf0f8; --secondary: #a7b3c9; --line: #5f6e8e;
+  --subtle: #1a2540; --action: #2de2e6; --on-action: #070d1c; --focus: #2de2e6; --warning: #f0b35a;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #a7b3c9; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+@media (prefers-color-scheme: dark) {
+:root[data-palette="stroom"]:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #070d1c; --surface: #121b30; --ink: #eaf0f8; --secondary: #a7b3c9; --line: #5f6e8e;
+  --subtle: #1a2540; --action: #2de2e6; --on-action: #070d1c; --focus: #2de2e6; --warning: #f0b35a;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #a7b3c9; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+}
+/* Hartslag (from RunSynergy): light, explicit dark and system dark. */
+:root[data-palette="hartslag"] {
+  color-scheme: light;
+  --page: #f6f3f7; --surface: #ffffff; --ink: #120d1a; --secondary: #6a5f74; --line: #8a7f94;
+  --subtle: #eee8f0; --action: #c8102e; --on-action: #ffffff; --focus: #c8102e; --warning: #8a5100;
+  --warning-bg: #fff4d9; --error: #9f1d14; --error-bg: #fff0f1; --muted: #6a5f74; --z1: #536b7b;
+  --z2: #126ead; --z3: #137c65; --z4: #966100; --z5: #9a418e; --z6: #b33e34;
+  --z7: #5146a8;
+}
+:root[data-palette="hartslag"][data-theme="dark"] {
+  color-scheme: dark;
+  --page: #120d1a; --surface: #201829; --ink: #f3eef6; --secondary: #bbafc6; --line: #76688a;
+  --subtle: #2b2135; --action: #ff7a86; --on-action: #120d1a; --focus: #ffc53d; --warning: #ffc53d;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #bbafc6; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+@media (prefers-color-scheme: dark) {
+:root[data-palette="hartslag"]:not([data-theme="light"]) {
+  color-scheme: dark;
+  --page: #120d1a; --surface: #201829; --ink: #f3eef6; --secondary: #bbafc6; --line: #76688a;
+  --subtle: #2b2135; --action: #ff7a86; --on-action: #120d1a; --focus: #ffc53d; --warning: #ffc53d;
+  --warning-bg: #3e321d; --error: #ff8a80; --error-bg: #43272e; --muted: #bbafc6; --z1: #adbfcb;
+  --z2: #77bff0; --z3: #66d6b2; --z4: #e8b963; --z5: #e79cdb; --z6: #ffaaa0;
+  --z7: #b9b2ff;
+}
+}

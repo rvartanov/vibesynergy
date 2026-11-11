@@ -1,0 +1,23 @@
+# systemd user service for VibeSynergy.
+#   mkdir -p ~/.config/systemd/user && cp deploy/vibesynergy.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now vibesynergy
+#   loginctl enable-linger "$USER"        # keep it running when not logged in
+#   journalctl --user -u vibesynergy -f   # logs
+# Installed with `uv tool install`: the command is ~/.local/bin/vibesynergy. Running from a
+# checkout instead: WorkingDirectory=<checkout> and ExecStart=uv run --frozen vibesynergy serve …
+[Unit]
+Description=VibeSynergy: webhooks, sync worker, scheduler and portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/vibesynergy serve --host 127.0.0.1 --port 8448
+Restart=on-failure
+RestartSec=10
+# Only the owner can read what the service writes.
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

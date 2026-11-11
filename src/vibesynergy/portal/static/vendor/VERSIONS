@@ -1,0 +1,3 @@
+echarts 6.1.0 (Apache-2.0) from npm: dist/echarts.esm.min.mjs
+maplibre-gl 6.11.2 (BSD-3-Clause) from npm: dist/maplibre-gl{,-shared,-worker}.mjs, maplibre-gl.css
+lucide icons (ISC, LICENSE kept) via rvartanov/design-system @ 5c5496ecd7e6: icons/lucide/*.svg -> lucide/ (the same shapes as js/ds_icons.js)

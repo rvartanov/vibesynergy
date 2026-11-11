@@ -1,0 +1,35 @@
+# VibeSynergy: source only. Personal data, tokens and exports never belong in git.
+data/
+*.fit
+*.FIT
+*.zip
+*.json.gz
+*.json.zst
+*.parquet
+*.sqlite
+*.sqlite3
+*.db
+.env
+*.env
+secrets/
+tokens/
+
+# Python / tooling
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Coach threshold ledger. Absolute values never belong in git.
+thresholds.json
+
+# Portal
+portal/node_modules/
+portal/.svelte-kit/
+portal/build/
+src/vibesynergy/api/static/

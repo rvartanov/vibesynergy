@@ -1,0 +1,117 @@
+/* Vendored unmodified from rvartanov/design-system css/semantic.css @ 42239ed (content unchanged since 5c5496ecd7e6, checked 2-11-2026).
+   Change colours there and re-vendor; VibeSynergy's own rules are in design.css. */
+/* Server semantic colour and symbol language v1 (2026-10-31, VibeSynergy).
+   Message types and sport identities: one colour family (text, background, border) and one
+   Lucide icon each (js/icons.js, icons/lucide/). Colour is never the only signal: every use
+   has an icon (aria-hidden) and a text label. Requires tokens.css (palette and mode).
+   The families are the same in every colour theme (vibesynergy, volt, stroom, hartslag);
+   warning and danger reuse the theme's --warning and --error roles. Light/dark follows
+   data-theme, data-mode and prefers-color-scheme, like tokens.css.
+   Contrast (WCAG 2.2 AA) for every theme and mode: tests/test_contrast.py.
+   Sport colours are not zone colours: sports are tinted chips with an icon and a name,
+   zones are Z1…Zn swatches with a label (tokens.css --z1…--z7). Do not swap them. */
+:root {
+  --msg-info: #1b67bf; --msg-info-bg: #ecf3fb; --msg-info-border: #3a89e3;
+  --msg-advice: #117568; --msg-advice-bg: #ecfbf9; --msg-advice-border: #169988;
+  --msg-success: #117934; --msg-success-bg: #ecfbf1; --msg-success-border: #169d43;
+  --msg-warning: var(--warning); --msg-warning-bg: var(--warning-bg); --msg-warning-border: var(--warning);
+  --msg-danger: var(--error); --msg-danger-bg: var(--error-bg); --msg-danger-border: var(--error);
+  --msg-planned: #594ce5; --msg-planned-bg: #edecfb; --msg-planned-border: #7e74eb;
+  --msg-recovery: #8e2fe1; --msg-recovery-bg: #f4ecfb; --msg-recovery-border: #ab63e9;
+  --msg-race: #be1b83; --msg-race-bg: #fbecf6; --msg-race-border: #e445aa;
+  --sport-swim: #157190; --sport-swim-bg: #ecf7fb; --sport-swim-border: #1b93bc;
+  --sport-bike: #a65018; --sport-bike-bg: #fbf2ec; --sport-bike-border: #d7691f;
+  --sport-run: #c51c4f; --sport-run-bg: #fbecf1; --sport-run-border: #e64e7b;
+  --sport-strength: #6f6b10; --sport-strength-bg: #fbfaec; --sport-strength-border: #908c15;
+  --sport-mobility: #a71dca; --sport-mobility-bg: #f8ecfb; --sport-mobility-border: #c84fe6;
+  --sport-brick: #3f55e4; --sport-brick-bg: #eceefb; --sport-brick-border: #6a7bea;
+  --sport-walk: #1f7911; --sport-walk-bg: #eefbec; --sport-walk-border: #289d16;
+  --sport-other: #5a6b77; --sport-other-bg: #f2f4f5; --sport-other-border: #778b99;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode="light"]):not([data-theme="light"]) {
+    --msg-info: #5c9adf; --msg-info-bg: #1b2939; --msg-info-border: #3177c6;
+    --msg-advice: #24b8a4; --msg-advice-bg: #1b3935; --msg-advice-border: #249082;
+    --msg-success: #24bb56; --msg-success-bg: #1b3925; --msg-success-border: #259349;
+    --msg-warning: var(--warning); --msg-warning-bg: var(--warning-bg); --msg-warning-border: var(--warning);
+    --msg-danger: var(--error); --msg-danger-bg: var(--error-bg); --msg-danger-border: var(--error);
+    --msg-planned: #928ae8; --msg-planned-bg: #1e1b39; --msg-planned-border: #6e65d8;
+    --msg-recovery: #b57de6; --msg-recovery-bg: #2b1b39; --msg-recovery-border: #9853d4;
+    --msg-race: #e26bb6; --msg-race-bg: #391b2e; --msg-race-border: #cc3495;
+    --sport-swim: #29abd6; --sport-swim-bg: #1b3239; --sport-swim-border: #2986a5;
+    --sport-bike: #dc8449; --sport-bike-bg: #39271b; --sport-bike-border: #b3632d;
+    --sport-run: #e37193; --sport-run-bg: #391b24; --sport-run-border: #ce3d68;
+    --sport-strength: #b1ac22; --sport-strength-bg: #39381b; --sport-strength-border: #8b8823;
+    --sport-mobility: #cc71e3; --sport-mobility-bg: #331b39; --sport-mobility-border: #b23fcf;
+    --sport-brick: #818fe7; --sport-brick-bg: #1b1f39; --sport-brick-border: #5a6bd6;
+    --sport-walk: #38bb24; --sport-walk-bg: #1f391b; --sport-walk-border: #339325;
+    --sport-other: #8c9ba6; --sport-other-bg: #272b2d; --sport-other-border: #6a7a85;
+  }
+}
+:root[data-mode="dark"],
+:root[data-theme="dark"] {
+  --msg-info: #5c9adf; --msg-info-bg: #1b2939; --msg-info-border: #3177c6;
+  --msg-advice: #24b8a4; --msg-advice-bg: #1b3935; --msg-advice-border: #249082;
+  --msg-success: #24bb56; --msg-success-bg: #1b3925; --msg-success-border: #259349;
+  --msg-warning: var(--warning); --msg-warning-bg: var(--warning-bg); --msg-warning-border: var(--warning);
+  --msg-danger: var(--error); --msg-danger-bg: var(--error-bg); --msg-danger-border: var(--error);
+  --msg-planned: #928ae8; --msg-planned-bg: #1e1b39; --msg-planned-border: #6e65d8;
+  --msg-recovery: #b57de6; --msg-recovery-bg: #2b1b39; --msg-recovery-border: #9853d4;
+  --msg-race: #e26bb6; --msg-race-bg: #391b2e; --msg-race-border: #cc3495;
+  --sport-swim: #29abd6; --sport-swim-bg: #1b3239; --sport-swim-border: #2986a5;
+  --sport-bike: #dc8449; --sport-bike-bg: #39271b; --sport-bike-border: #b3632d;
+  --sport-run: #e37193; --sport-run-bg: #391b24; --sport-run-border: #ce3d68;
+  --sport-strength: #b1ac22; --sport-strength-bg: #39381b; --sport-strength-border: #8b8823;
+  --sport-mobility: #cc71e3; --sport-mobility-bg: #331b39; --sport-mobility-border: #b23fcf;
+  --sport-brick: #818fe7; --sport-brick-bg: #1b1f39; --sport-brick-border: #5a6bd6;
+  --sport-walk: #38bb24; --sport-walk-bg: #1f391b; --sport-walk-border: #339325;
+  --sport-other: #8c9ba6; --sport-other-bg: #272b2d; --sport-other-border: #6a7a85;
+}
+
+/* Icon inside text: 1em by default, aligned to the text. */
+.ds-i{flex:none;width:1.25em;height:1.25em;vertical-align:-.25em}
+
+/* Callout / notice: icon + type label + message. Body text stays --ink. */
+.ds-callout{--tone:var(--msg-info);--tone-bg:var(--msg-info-bg);--tone-border:var(--msg-info-border);display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-1,4px) var(--space-3,12px);align-items:start;margin:0 0 var(--space-3,12px);padding:var(--space-3,12px) var(--space-4,16px);background:var(--tone-bg);color:var(--ink);border:1px solid var(--tone-border);border-left-width:4px;border-radius:var(--radius-m,8px);max-width:var(--measure,75ch)}
+.ds-callout>.ds-i{color:var(--tone);width:20px;height:20px;margin-top:2px}
+.ds-callout__title{display:block;margin:0;color:var(--tone);font-weight:600;font-size:var(--type-body,16px);line-height:var(--leading-body,1.5)}
+.ds-callout__body{min-width:0}
+.ds-callout__body>p{margin:0}
+.ds-callout__body>*+*{margin-top:var(--space-2,8px)}
+.ds-callout__body a{color:var(--ink);text-decoration:underline}
+.ds-callout__body details>summary{cursor:pointer;color:var(--ink);min-height:var(--target-min,24px)}
+
+/* Status chip and sport chip: icon + short text in a pill. Not a button. */
+.ds-status,.ds-sport{--tone:var(--secondary);--tone-bg:var(--subtle);--tone-border:var(--line);display:inline-flex;align-items:center;gap:var(--space-1,4px);min-height:var(--target-min,24px);padding:1px var(--space-2,8px) 1px 6px;border:1px solid var(--tone-border);border-radius:var(--radius-pill,999px);background:var(--tone-bg);color:var(--tone);font-size:var(--type-secondary,14px);font-weight:600;line-height:1.3;white-space:nowrap;vertical-align:middle}
+.ds-status>.ds-i,.ds-sport>.ds-i{width:16px;height:16px}
+.ds-sport{--tone:var(--sport-other);--tone-bg:var(--sport-other-bg);--tone-border:var(--sport-other-border)}
+
+/* Icon list: scannable lines in long text (advice, weekly note, workout steps, help). */
+.ds-icon-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2,8px)}
+.ds-icon-item{--tone:var(--secondary);display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2,8px);align-items:start;color:var(--ink)}
+.ds-icon-item>.ds-i{color:var(--tone);width:20px;height:20px;margin-top:2px}
+.ds-icon-item__label{color:var(--tone);font-weight:600}
+
+/* Tone: each modifier sets --tone (text and icon), --tone-bg and --tone-border.
+   After the components, so a modifier wins over the component default. */
+.ds-callout--info,.ds-status--info,.ds-icon-item--info{--tone:var(--msg-info);--tone-bg:var(--msg-info-bg);--tone-border:var(--msg-info-border)}
+.ds-callout--advice,.ds-status--advice,.ds-icon-item--advice{--tone:var(--msg-advice);--tone-bg:var(--msg-advice-bg);--tone-border:var(--msg-advice-border)}
+.ds-callout--success,.ds-status--success,.ds-icon-item--success{--tone:var(--msg-success);--tone-bg:var(--msg-success-bg);--tone-border:var(--msg-success-border)}
+.ds-callout--warning,.ds-status--warning,.ds-icon-item--warning{--tone:var(--msg-warning);--tone-bg:var(--msg-warning-bg);--tone-border:var(--msg-warning-border)}
+.ds-callout--danger,.ds-status--danger,.ds-icon-item--danger{--tone:var(--msg-danger);--tone-bg:var(--msg-danger-bg);--tone-border:var(--msg-danger-border)}
+.ds-callout--planned,.ds-status--planned,.ds-icon-item--planned{--tone:var(--msg-planned);--tone-bg:var(--msg-planned-bg);--tone-border:var(--msg-planned-border)}
+.ds-callout--recovery,.ds-status--recovery,.ds-icon-item--recovery{--tone:var(--msg-recovery);--tone-bg:var(--msg-recovery-bg);--tone-border:var(--msg-recovery-border)}
+.ds-callout--race,.ds-status--race,.ds-icon-item--race{--tone:var(--msg-race);--tone-bg:var(--msg-race-bg);--tone-border:var(--msg-race-border)}
+.ds-sport--swim,.ds-icon-item--swim{--tone:var(--sport-swim);--tone-bg:var(--sport-swim-bg);--tone-border:var(--sport-swim-border)}
+.ds-sport--bike,.ds-icon-item--bike{--tone:var(--sport-bike);--tone-bg:var(--sport-bike-bg);--tone-border:var(--sport-bike-border)}
+.ds-sport--run,.ds-icon-item--run{--tone:var(--sport-run);--tone-bg:var(--sport-run-bg);--tone-border:var(--sport-run-border)}
+.ds-sport--strength,.ds-icon-item--strength{--tone:var(--sport-strength);--tone-bg:var(--sport-strength-bg);--tone-border:var(--sport-strength-border)}
+.ds-sport--mobility,.ds-icon-item--mobility{--tone:var(--sport-mobility);--tone-bg:var(--sport-mobility-bg);--tone-border:var(--sport-mobility-border)}
+.ds-sport--brick,.ds-icon-item--brick{--tone:var(--sport-brick);--tone-bg:var(--sport-brick-bg);--tone-border:var(--sport-brick-border)}
+.ds-sport--walk,.ds-icon-item--walk{--tone:var(--sport-walk);--tone-bg:var(--sport-walk-bg);--tone-border:var(--sport-walk-border)}
+.ds-sport--other,.ds-icon-item--other{--tone:var(--sport-other);--tone-bg:var(--sport-other-bg);--tone-border:var(--sport-other-border)}
+
+@media (forced-colors:active){
+  .ds-callout,.ds-status,.ds-sport{border-color:CanvasText}
+  .ds-callout>.ds-i,.ds-icon-item>.ds-i,.ds-status>.ds-i,.ds-sport>.ds-i{color:CanvasText}
+}

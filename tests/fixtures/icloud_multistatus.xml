@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+<d:response><d:href>/12345/calendars/home/</d:href><d:status>HTTP/1.1 404 Not Found</d:status></d:response>
+<d:response><d:href>https://p02-caldav.icloud.com/12345/calendars/home/A.ics</d:href><d:propstat><d:prop><d:getetag>"0"</d:getetag><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:synthetic@example.test
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+SUMMARY:Synthetic appointment
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+<d:response><d:href>/12345/calendars/home/B.ics</d:href><d:propstat><d:prop><d:getetag>"1"</d:getetag><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:synthetic@example.test
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+SUMMARY:Synthetic appointment
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+<d:response><d:href>/12345/calendars/home/C%2Eics</d:href><d:propstat><d:prop><d:getetag>"2"</d:getetag><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:synthetic@example.test
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+SUMMARY:Synthetic appointment
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+<d:response><d:href>https://foreign.test/12345/calendars/home/x.ics</d:href><d:propstat><d:prop><d:getetag>"3"</d:getetag><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:synthetic@example.test
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+SUMMARY:Synthetic appointment
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+<d:response><d:href>/12345/calendars/home/../y.ics</d:href><d:propstat><d:prop><d:getetag>"4"</d:getetag><c:calendar-data>BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:synthetic@example.test
+DTSTART:20261010T090000Z
+DTEND:20261010T100000Z
+SUMMARY:Synthetic appointment
+END:VEVENT
+END:VCALENDAR
+</c:calendar-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>
+</d:multistatus>
