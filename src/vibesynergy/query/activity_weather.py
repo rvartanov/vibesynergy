@@ -11,6 +11,7 @@ Indoor and virtual sessions get none. Open-Meteo needs no key; only coordinates 
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import date
 from typing import Any
@@ -19,7 +20,7 @@ import requests
 from sqlalchemy import select
 
 from vibesynergy.query import publication_format, publication_plugins, views
-from vibesynergy.store.schema import activity_unified
+from vibesynergy.store.schema import activity, activity_unified
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
@@ -46,14 +47,42 @@ def for_day(rt, day: date, language: str = "nl", *, http=requests.get) -> list[d
     return out
 
 
+_PLACE = re.compile(r"[^\W\d_][\w .,'()/-]{0,59}")
+
+
+def place(rt, group_id: str) -> str | None:
+    """Where the session was: Garmin's place name for it (e.g. 'Leeuwarden'), if it has one."""
+    with rt.engine.connect() as conn:
+        sources = conn.scalar(
+            select(activity_unified.c.sources).where(activity_unified.c.group_id == group_id)
+        )
+        for ref in sources or []:
+            source, _, source_id = str(ref).partition(":")
+            if source != "garmin":
+                continue
+            extra = conn.scalar(
+                select(activity.c.extra).where(
+                    activity.c.source == source, activity.c.source_id == source_id
+                )
+            )
+            name = (extra or {}).get("locationName") if isinstance(extra, dict) else None
+            if isinstance(name, str) and _PLACE.fullmatch(name.strip()):
+                return name.strip()
+    return None
+
+
 def for_activity(rt, activity_id: str, language: str = "nl", *, http=requests.get):
     group = views.resolve_activity(rt.engine, activity_id)
     if publication_plugins.indoor(rt, group):
         return None
-    key = f"{group}:{language}"
+    key = f"{group}:{language}:{rt.settings.temperature}:{rt.settings.wind}"
     cached = publication_plugins._cached(rt, key, PLUGIN)
     if cached and cached.get("version") == CACHE_VERSION:
-        return {"line": cached["section"], "source": (cached["provenance"] or {}).get("source")}
+        return {
+            "line": cached["section"],
+            "source": (cached["provenance"] or {}).get("source"),
+            "place": place(rt, group),
+        }
     try:
         found = publication_plugins._weather(rt, group, language, http=http, recent=True)
     except (requests.RequestException, ValueError):
@@ -65,7 +94,7 @@ def for_activity(rt, activity_id: str, language: str = "nl", *, http=requests.ge
     publication_plugins._save(
         rt, key, PLUGIN, line, {**provenance, "source": source}, CACHE_VERSION
     )
-    return {"line": line, "source": source}
+    return {"line": line, "source": source, "place": place(rt, group)}
 
 
 def _last_outdoor_point(rt) -> tuple[float, float] | None:

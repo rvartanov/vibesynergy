@@ -422,6 +422,8 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             "user": {
                 "timezone": on_disk.timezone,
                 "units": on_disk.units,
+                "temperature": on_disk.temperature,
+                "wind": on_disk.wind,
                 **{
                     k: on_disk.athlete.get(k)
                     for k in ("sex", "max_hr", "resting_hr", "birth_date", "load_source")
@@ -1180,6 +1182,8 @@ def portal_url(settings) -> str | None:
 RESTART_TABS: dict[str, tuple[str, ...]] = {
     "timezone": ("system",),
     "units": ("system",),
+    "temperature": ("system",),
+    "wind": ("system",),
     "athlete": ("training",),  # Training → Zones & thresholds, "About you"
     "sources": ("sources",),  # datasets live on the source cards
     "schedule": ("sources", "system"),  # per source on its card; service checks in System
@@ -1206,6 +1210,8 @@ def _differs(running, on_disk) -> bool:
     fields = (
         "timezone",
         "units",
+        "temperature",
+        "wind",
         "athlete",
         "sources",
         "schedule",

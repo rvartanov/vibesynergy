@@ -100,7 +100,7 @@ def test_activity_weather_outdoor_only_cached_and_independent(runtime, monkeypat
     monkeypatch.setattr(publication_plugins, "_weather", weather)
     assert activity_weather.for_activity(runtime, "garmin:in") is None
     out = activity_weather.for_activity(runtime, "garmin:out")
-    assert out == {"line": "☁️ Bewolkt, 9°C", "source": "open-meteo"}
+    assert out == {"line": "☁️ Bewolkt, 9°C", "source": "open-meteo", "place": None}
     assert activity_weather.for_activity(runtime, "garmin:out") == out
     assert calls == [("garmin:out", True)]  # once, then from the cache
 

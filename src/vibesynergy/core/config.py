@@ -40,6 +40,8 @@ class Settings:
     data_dir: Path
     timezone: str = "UTC"
     units: str = "metric"
+    temperature: str = "c"  # [user] temperature: c | f (weather and temperatures shown)
+    wind: str = "kmh"  # [user] wind: kmh | ms | kn | bft
     # [user] sex / max_hr / resting_hr: for the HR training load (TRIMP); optional.
     athlete: dict[str, Any] = field(default_factory=dict)
     sources: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -151,6 +153,8 @@ def load_settings(config_path: Path | None = None) -> Settings:
         data_dir=Path(data_dir).expanduser(),
         timezone=user.get("timezone", "UTC"),
         units=user.get("units", "metric"),
+        temperature=user.get("temperature") or ("f" if user.get("units") == "imperial" else "c"),
+        wind=user.get("wind", "kmh"),
         athlete={
             k: user[k]
             for k in ("sex", "max_hr", "resting_hr", "birth_date", "load_source")
@@ -251,6 +255,12 @@ def _validate(settings: Settings) -> None:
         raise ConfigError(f"unknown timezone {settings.timezone!r}") from exc
     if settings.units not in UNITS:
         raise ConfigError(f"units must be one of {UNITS}, got {settings.units!r}")
+    from vibesynergy.core.weather_units import TEMPERATURES, WINDS
+
+    if settings.temperature not in TEMPERATURES:
+        raise ConfigError(f"[user] temperature must be one of {TEMPERATURES}")
+    if settings.wind not in WINDS:
+        raise ConfigError(f"[user] wind must be one of {WINDS}")
     sex = settings.athlete.get("sex")
     if sex is not None and sex not in ("male", "female"):
         raise ConfigError(f"[user] sex must be male or female, got {sex!r}")
@@ -345,6 +355,8 @@ DEFAULT_CONFIG = """\
 [user]
 timezone = "{timezone}"
 units = "metric"   # metric | imperial
+# temperature = "c" # c | f; default f with imperial units
+# wind = "kmh"      # kmh | ms | kn (knots) | bft (Beaufort)
 # For the heart-rate training load (TRIMP), all optional: sex = "male" | "female" (Banister's
 # weighting; male when unset), max_hr and resting_hr in bpm (default: the highest max HR in
 # your heart-rate zones and your median resting HR).

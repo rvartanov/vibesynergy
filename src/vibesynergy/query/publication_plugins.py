@@ -1423,7 +1423,8 @@ def _weather(
         garmin = publication_format.garmin_fields(rt, activity_id).get("weather")
     except ValueError:
         garmin = None
-    if line := publication_format.garmin_weather(garmin, language):
+    units = {"temperature": rt.settings.temperature, "wind": rt.settings.wind}
+    if line := publication_format.garmin_weather(garmin, language, **units):
         return line, {
             "source": "garmin activity weather",
             "time": garmin.get("issueDate") if isinstance(garmin.get("issueDate"), str) else None,
@@ -1476,6 +1477,7 @@ def _weather(
         None,
         at("wind_direction_10m"),
         language,
+        **units,
     )
     if line is None:
         return None
@@ -1526,7 +1528,12 @@ def collect(
             # Checked before the cache, so an earlier weather line is never reused here.
             states[name] = {"status": "not_applicable", "reason": "indoor", "version": VERSION}
             continue
-        extra_key = settings.get("quote_themes") if name == "quote" else None
+        # A different unit choice makes a new weather line, not the cached one.
+        extra_key = (
+            settings.get("quote_themes")
+            if name == "quote"
+            else (rt.settings.temperature, rt.settings.wind)
+        )
         old = _cached(rt, identity, name)
         cache_version = hashlib.sha256(
             str((VERSION, name, identity, language, extra_key)).encode()

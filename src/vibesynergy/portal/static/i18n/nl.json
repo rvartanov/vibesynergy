@@ -3149,7 +3149,6 @@
  "load {n}": "belasting {n}",
  "rain": "regen",
  "snow": "sneeuw",
- "wind {n} m/s": "wind {n} m/s",
  "{n} done": "{n} gedaan",
  "{n} mm rain": "{n} mm regen",
  "{n} planned": "{n} gepland",
@@ -3516,5 +3515,14 @@
  "Your password": "Je wachtwoord",
  "Pull the newest image and start the container again.": "Haal de nieuwste image op en start de container opnieuw.",
  "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.": "In de checkout: git pull, uv sync, vibesynergy db upgrade, en dan herstarten.",
- "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Installeer opnieuw vanaf GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy"
+ "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Installeer opnieuw vanaf GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy",
+ "Temperature": "Temperatuur",
+ "Wind": "Wind",
+ "Celsius (°C)": "Celsius (°C)",
+ "Fahrenheit (°F)": "Fahrenheit (°F)",
+ "Knots (kn)": "Knopen (kn)",
+ "Beaufort (Bft)": "Beaufort (Bft)",
+ "wind {speed}": "wind {speed}",
+ "Weather in {place}": "Weer in {place}",
+ "where you last trained outside": "waar je het laatst buiten trainde"
 }

@@ -68,6 +68,7 @@ def register(kit: PortalKit) -> None:
                 "version": __version__,
                 "today": str(today()),
                 "units": settings.units,
+                "weather_units": {"temperature": settings.temperature, "wind": settings.wind},
                 "sources": sorted({d["source"] for d in status["datasets"]}),
                 "problems": len(status["problems"]),
                 "metrics": {m.id: m.to_dict() for m in catalog.KNOWN.values()},
