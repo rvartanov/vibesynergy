@@ -29,7 +29,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import Engine, delete, func, select, text
 
@@ -283,9 +283,12 @@ def link_activities(
     ordered = sorted(rows, key=lambda r: r["start_utc"])
     candidates = []
     for i, a in enumerate(ordered):
+        # A trainer app's copy can start well into a longer ride (``_inside``): look as far
+        # as that ride lasts, not only the overlap window.
+        reach = max(OVERLAP_WINDOW, timedelta(seconds=a["elapsed_s"] or a["moving_s"] or 0))
         for b in ordered[i + 1 :]:
             gap = b["start_utc"] - a["start_utc"]
-            if gap > OVERLAP_WINDOW:
+            if gap > reach:
                 break
             if a["source"] != b["source"] and _matches(a, b):
                 candidates.append(
@@ -293,7 +296,12 @@ def link_activities(
                 )
     for _, a, b in sorted(candidates):
         ga, gb = members[uf.find(a)], members[uf.find(b)]
-        if ga is gb or {m["source"] for m in ga} & {m["source"] for m in gb}:
+        if ga is gb:
+            continue
+        # Groups that share a source are two sessions, unless that source holds the same
+        # session twice: a trainer app's copy inside the watch's (both uploaded to Strava).
+        shared = {m["source"] for m in ga} & {m["source"] for m in gb}
+        if shared and not all(_inside(x, y) for x in ga for y in gb if x["source"] == y["source"]):
             continue
         if all(_matches(x, y) for x in ga for y in gb):
             merge(a, b, "time")
@@ -304,9 +312,45 @@ def link_activities(
     return groups, rules
 
 
+_INDOOR = ("virtual", "indoor", "trainer")
+_FAMILIES = (("ride", ("ride", "cycl", "bik")), ("run", ("run",)), ("swim", ("swim",)))
+
+
+def _indoor(r: dict) -> bool:
+    """A trainer or app session (Zwift, MyWhoosh): its distance is virtual, not comparable."""
+    return any(word in str(r.get("sport") or "").lower() for word in _INDOOR)
+
+
+def _family(r: dict) -> str | None:
+    text = str(r.get("sport") or "").lower()
+    return next((name for name, words in _FAMILIES if any(w in text for w in words)), None)
+
+
+def _span(r: dict) -> tuple[datetime, datetime] | None:
+    duration = r["elapsed_s"] or r["moving_s"]
+    if not duration:
+        return None
+    return r["start_utc"], r["start_utc"] + timedelta(seconds=duration)
+
+
+def _inside(a: dict, b: dict) -> bool:
+    """An indoor recording that lies within another session of the same sport is part of it:
+    a trainer app (MyWhoosh, Zwift) uploads its own copy of part of a ride the watch recorded
+    whole, sometimes to the same Strava account. Both must be the same family and one indoor."""
+    fam = _family(a)
+    if fam is None or fam != _family(b) or not (_indoor(a) or _indoor(b)):
+        return False
+    sa, sb = _span(a), _span(b)
+    if sa is None or sb is None:
+        return False
+    overlap = (min(sa[1], sb[1]) - max(sa[0], sb[0])).total_seconds()
+    shorter = min((sa[1] - sa[0]).total_seconds(), (sb[1] - sb[0]).total_seconds())
+    return overlap >= MIN_OVERLAP * shorter
+
+
 def _matches(a: dict, b: dict) -> bool:
     close_start = abs(a["start_utc"] - b["start_utc"]) <= START_TOLERANCE
-    return (close_start and _same_session(a, b)) or _overlapping(a, b)
+    return (close_start and _same_session(a, b)) or _overlapping(a, b) or _inside(a, b)
 
 
 def _overlapping(a: dict, b: dict) -> bool:
@@ -319,6 +363,8 @@ def _overlapping(a: dict, b: dict) -> bool:
     overlap = (min(end_a, end_b) - max(a["start_utc"], b["start_utc"])).total_seconds()
     if overlap < MIN_OVERLAP * max(da, db):
         return False
+    if _indoor(a) or _indoor(b):
+        return _family(a) == _family(b)  # virtual distance: the time says it
     ma, mb = a["distance_m"], b["distance_m"]
     return not (ma and mb and abs(ma - mb) > max(100.0, OVERLAP_DISTANCE * max(ma, mb)))
 
@@ -328,6 +374,8 @@ def _same_session(a: dict, b: dict) -> bool:
     db = b["elapsed_s"] or b["moving_s"]
     if da and db and abs(da - db) > max(120.0, 0.1 * max(da, db)):
         return False
+    if _indoor(a) or _indoor(b):
+        return _family(a) == _family(b)  # virtual distance: the time says it
     ma, mb = a["distance_m"], b["distance_m"]
     return not (ma and mb and abs(ma - mb) > max(100.0, 0.05 * max(ma, mb)))
 

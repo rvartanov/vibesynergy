@@ -284,3 +284,84 @@ def test_source_order_longest_prefix() -> None:
     assert unify.source_order("body.weight")[0] == "withings"
     assert unify.source_order("sleep.score")[0] == "garmin"
     assert unify.source_order("body.weight", {"body.weight": ["garmin"]}) == ["garmin"]
+
+
+def test_a_trainer_app_ride_merges_with_the_watch_ride(runtime) -> None:
+    """MyWhoosh/Zwift upload their own copy of an indoor ride (#11): the virtual distance
+    differs from the watch's, and a shorter app session can lie inside a longer ride that
+    Strava also has from Garmin. One session, one activity."""
+    start = T
+    _put(
+        runtime,
+        "garmin",
+        _act("g1", start=start, sport="indoor_cycling", elapsed_s=2097.0, distance_m=17276.0),
+    )
+    _put(
+        runtime,
+        "strava",
+        _act(
+            "s1",
+            start=start + timedelta(seconds=14),
+            sport="VirtualRide",
+            elapsed_s=2086.0,
+            distance_m=10733.0,
+        ),
+    )
+    # A long watch ride, on Strava from Garmin too, with an app hour inside it.
+    later = T + timedelta(hours=4)
+    _put(
+        runtime,
+        "garmin",
+        _act("g2", start=later, sport="indoor_cycling", elapsed_s=9068.0, distance_m=73788.0),
+    )
+    _put(
+        runtime,
+        "strava",
+        _act("s2", start=later, sport="Ride", elapsed_s=9069.0, distance_m=73784.0),
+    )
+    _put(
+        runtime,
+        "strava",
+        _act(
+            "s3",
+            start=later + timedelta(minutes=88),
+            sport="VirtualRide",
+            elapsed_s=3761.0,
+            distance_m=28372.0,
+        ),
+    )
+    unify.rebuild(runtime.engine)
+    rows = sorted(_rows(runtime, activity_unified), key=lambda r: r["start_utc"])
+    assert len(rows) == 2
+    assert sorted(rows[0]["sources"]) == ["garmin:g1", "strava:s1"]
+    assert sorted(rows[1]["sources"]) == ["garmin:g2", "strava:s2", "strava:s3"]
+
+
+def test_outdoor_rides_still_need_a_matching_distance_and_runs_never_merge_into_rides(
+    runtime,
+) -> None:
+    _put(runtime, "garmin", _act("g1", elapsed_s=3600.0, distance_m=30000.0))
+    _put(
+        runtime,
+        "strava",
+        _act("s1", start=T + timedelta(seconds=20), elapsed_s=3590.0, distance_m=20000.0),
+    )
+    # A treadmill run during an indoor ride's hour is still its own session.
+    _put(
+        runtime,
+        "garmin",
+        _act("g2", start=T + timedelta(hours=3), sport="indoor_cycling", elapsed_s=3600.0),
+    )
+    _put(
+        runtime,
+        "strava",
+        _act(
+            "s2",
+            start=T + timedelta(hours=3, minutes=10),
+            sport="VirtualRun",
+            elapsed_s=1200.0,
+            distance_m=4000.0,
+        ),
+    )
+    unify.rebuild(runtime.engine)
+    assert len(_rows(runtime, activity_unified)) == 4
