@@ -878,3 +878,10 @@ table.activities tr.is-part td:first-child + td { padding-left: 20px; }
 table.activities .part-mark { color: var(--secondary); }
 /* the parts of a multisport on the day page, under their holder. */
 .done-parts { margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--line); }
+
+/* Login page: one card in the middle, the same tokens as the portal. */
+.login-main { display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+.login-card { width: min(420px, 100%); }
+.login-card form { display: grid; gap: 8px; margin: 12px 0; }
+.login-card .btn.link { background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; color: inherit; }
+.login-brand { font-weight: 600; margin: 0 0 4px; }

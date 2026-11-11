@@ -543,3 +543,19 @@ def clean(engine: Engine, now: datetime | None = None) -> None:
     with engine.begin() as conn:
         conn.execute(delete(auth_token).where(auth_token.c.expires_at < now - timedelta(days=1)))
         conn.execute(delete(auth_session).where(auth_session.c.expires_at < now))
+
+
+def audit(engine: Engine, action: str, client: str, outcome: str = "ok") -> None:
+    """Every login, refusal, link and change in the audit log (no secrets, no email)."""
+    from vibesynergy.store.schema import audit_log
+
+    with engine.begin() as conn:
+        conn.execute(
+            audit_log.insert().values(
+                at=utc_now(),
+                actor="portal",
+                action=action,
+                detail={"client": client},
+                outcome=outcome,
+            )
+        )

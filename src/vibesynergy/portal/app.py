@@ -131,6 +131,8 @@ class PortalGuard:
                     (b"x-content-type-options", b"nosniff"),
                     (b"referrer-policy", b"no-referrer"),
                 ]
+                if headers.get("x-forwarded-proto") == "https":
+                    extra.append((b"strict-transport-security", b"max-age=31536000"))
                 names = {k for k, _ in extra}
                 kept = [(k, v) for k, v in message.get("headers", []) if k.lower() not in names]
                 if not any(k.lower() == b"cache-control" for k, _ in kept):
@@ -267,8 +269,23 @@ def create_portal_app(rt: Runtime, *, share_mode: bool = False, caldav_http=None
             return Response(status_code=404)
         return await old_versions.get_response(path, request.scope)
 
+    if not share_mode:
+        from vibesynergy.portal.auth_api import build_auth_router
+
+        app.include_router(build_auth_router(rt))
+
+        @app.get("/login", include_in_schema=False)
+        def login_page() -> HTMLResponse:
+            html = (STATIC / "login.html").read_text().replace('"static/', f'"/static/v/{version}/')
+            return HTMLResponse(html, headers={"cache-control": "no-cache"})
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
-    guarded = PortalGuard(app, allowed_hosts(settings), content_security_policy(tile_origins(rt)))
+    inner: ASGIApp = app
+    if not share_mode:
+        from vibesynergy.portal.auth_gate import AuthGate
+
+        inner = AuthGate(app, rt)
+    guarded = PortalGuard(inner, allowed_hosts(settings), content_security_policy(tile_origins(rt)))
     return ShareGuard(guarded) if share_mode else guarded
 
 

@@ -203,3 +203,12 @@ def test_mcp_token_create_duplicate_name_reports_clean_error(env) -> None:
     assert "name already used" in result.output
     assert "IntegrityError" not in result.output
     assert "token_hash" not in result.output
+
+
+def test_init_with_email_makes_the_account_and_a_first_login_link(env) -> None:
+    out = run("init", "--email", "Athlete@Example.com")
+    assert "Account created for athlete@example.com" in out and "/login#link=" in out
+    again = run("init", "--email", "other@example.com")
+    assert "Account created" not in again  # one account per installation
+    link = run("login-link")
+    assert "Login link for athlete@example.com" in link and "/login#link=" in link

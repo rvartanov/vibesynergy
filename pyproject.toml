@@ -73,7 +73,10 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 testpaths = ["tests"]
 pythonpath = ["tests"]
 addopts = "-q"
-markers = ["integration: optional browser and external test server checks"]
+markers = [
+    "integration: optional browser and external test server checks",
+    "auth: runs with the portal login gate on (it is off for other tests)",
+]
 
 # Type checking: basedpyright with a baseline, so CI fails only on new errors.
 # query/ and mcp/ first; widen `include` as modules get clean. Refresh the baseline after

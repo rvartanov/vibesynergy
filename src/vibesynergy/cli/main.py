@@ -103,8 +103,14 @@ def version() -> None:
 
 
 @app.command()
-def init(config: ConfigOpt = None) -> None:
-    """Create the config file (if missing), data directories and database schema."""
+def init(
+    email: Annotated[
+        str | None,
+        typer.Option(help="Your email address: the account, and where its first login link goes."),
+    ] = None,
+    config: ConfigOpt = None,
+) -> None:
+    """Create the config file (if missing), data directories, database schema and account."""
     path = config or default_config_path()
     if not path.exists():
         write_default_config(path, detect_timezone())
@@ -116,6 +122,56 @@ def init(config: ConfigOpt = None) -> None:
     rt.migrate()
     console.print(f"Data directory {rt.settings.data_dir}")
     console.print(f"Database schema at revision {db.current_revision(rt.engine)}")
+    from vibesynergy.query import auth
+
+    if email and auth.account(rt.engine) is None:
+        acc = auth.create_account(rt.engine, email)
+        _first_link(rt, acc, "Account created for")
+    elif auth.account(rt.engine) is None:
+        console.print("No account yet: run `vibesynergy init --email you@example.com`.")
+
+
+def _portal_base(rt) -> str:
+    """Where the portal is opened: the first portal host name, else this machine."""
+    from vibesynergy.portal.app import portal_port
+
+    hosts = [h for h in rt.settings.portal.get("hosts", []) if h not in ("localhost", "127.0.0.1")]
+    return f"https://{hosts[0]}" if hosts else f"http://127.0.0.1:{portal_port(rt.settings)}"
+
+
+def _first_link(rt, acc: dict, what: str) -> None:
+    """A login link (24 hours) on the screen, and by mail when mail is set up."""
+    from vibesynergy import mailer
+    from vibesynergy.query import auth
+
+    token = auth.issue_token(rt.engine, acc["id"], "setup", auth.SETUP_TTL)
+    url = f"{_portal_base(rt)}/login#link={token}"
+    console.print(f"{what} {acc['email']}. Open this link once, within 24 hours, to log in:")
+    console.print(url, soft_wrap=True)
+    if mailer.configured(rt.settings):
+        try:
+            mailer.send(
+                rt.settings,
+                acc["email"],
+                "Log in to VibeSynergy",
+                f"Open this link once, within 24 hours, to log in and choose a password:\n\n{url}",
+            )
+            console.print("The link was also mailed.")
+        except mailer.MailError as exc:
+            console.print(f"Mailing the link failed: {exc}")
+
+
+@app.command("login-link")
+def login_link(config: ConfigOpt = None) -> None:
+    """A new one-time login link for the account (when you cannot log in)."""
+    from vibesynergy.query import auth
+
+    rt = _runtime(config)
+    acc = auth.account(rt.engine)
+    if acc is None:
+        console.print("No account yet: run `vibesynergy init --email you@example.com`.")
+        raise typer.Exit(1)
+    _first_link(rt, acc, "Login link for")
 
 
 def _seconds(value: float | None) -> str:
