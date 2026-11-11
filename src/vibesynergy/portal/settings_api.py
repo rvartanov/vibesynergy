@@ -54,15 +54,6 @@ class SettingsChange(BaseModel):
     changes: dict[str, Any]
 
 
-class BugReport(BaseModel):
-    description: str
-    page: str = ""
-    errors: list[str] = []
-    failed_requests: list[dict[str, Any]] = []
-    browser: str = ""
-    screenshot: str | None = None  # a data: URL
-
-
 class SecretRequest(BaseModel):
     value: str
 
@@ -727,50 +718,10 @@ def build_settings_router(rt: Runtime) -> APIRouter:
 
     @router.get("/bugs")
     def bug_reports() -> dict[str, Any]:
+        """Where the bug button sends you: a new issue on GitHub."""
         return {
-            "data": {
-                "reports": bugs.listing(settings),
-                "token_set": bugs.token_set(settings),
-                "connection": bugs.connection(settings),
-                "can_connect": bugs.client_id(settings) is not None,
-                "repo": bugs.repo(settings),
-            }
+            "data": {"repo": bugs.repo(settings), "new_issue_url": bugs.new_issue_url(settings)}
         }
-
-    @router.post("/bugs")
-    def report_bug(request: BugReport) -> dict[str, Any]:
-        """Keep the report on this server and file it as a GitHub issue if a token is set up."""
-        return {"data": bugs.create(settings, request.model_dump())}
-
-    @router.post("/bugs/token")
-    def bug_token(request: SecretRequest) -> dict[str, Any]:
-        """The GitHub token for filing issues (write-only)."""
-        bugs.save_token(settings, request.value)
-        return bug_reports()
-
-    @router.post("/bugs/connect")
-    def bug_connect() -> dict[str, Any]:
-        """Start connecting a GitHub account: the code to enter on github.com."""
-        try:
-            return {"data": bugs.start_connect(settings)}
-        except RuntimeError as exc:
-            raise ValueError(str(exc)) from exc
-
-    @router.post("/bugs/connect/poll")
-    def bug_connect_poll() -> dict[str, Any]:
-        try:
-            return {"data": bugs.poll_connect(settings)}
-        except RuntimeError as exc:
-            raise ValueError(str(exc)) from exc
-
-    @router.post("/bugs/disconnect")
-    def bug_disconnect() -> dict[str, Any]:
-        bugs.disconnect(settings)
-        return bug_reports()
-
-    @router.post("/bugs/{report_id}/send")
-    def send_bug(report_id: str) -> dict[str, Any]:
-        return {"data": bugs.send(settings, report_id)}
 
     @router.get("/push")
     def push_state() -> dict[str, Any]:

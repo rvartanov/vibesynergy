@@ -1,0 +1,55 @@
+name: Feature request
+description: An idea, or something you miss in VibeSynergy.
+title: "Idea: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The fields marked * are needed to weigh a request; without them it gets the label
+        `needs-info` and waits for you. Describe the problem first, not only the solution.
+        See [how to ask](https://github.com/rvartanov/vibesynergy/blob/main/docs/REPORTING.md).
+        **This page is public.** Dutch is fine too.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do, and what stops you now?
+      description: The situation, e.g. "After a long ride I want to see …, but now I have to …".
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it matter, and how often?
+      description: Daily, weekly, once a season? For your training, your coach, your data?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in VibeSynergy?
+      options:
+        - Portal (pages, charts, settings)
+        - Coach and training plan
+        - Sources and sync (Garmin, Strava, Withings, …)
+        - AI apps and MCP
+        - Installing and updating
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you picture it (optional)
+      description: A sketch, an example from another app, or the words you'd expect on the screen.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do now instead (optional)
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I looked for an existing issue about this.
+          required: true

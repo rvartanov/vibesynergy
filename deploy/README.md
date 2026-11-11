@@ -196,36 +196,11 @@ a machine nobody else can reach.
 
 ## Bug reports
 
-The bug button at the top of every page files a report as a GitHub issue on
-`rvartanov/vibesynergy` (or `[bugs] repo = "owner/name"`). With it go the page, the error it
-showed, the API calls that failed lately, the version and the browser; the dialog shows all of
-it before you send. A screenshot stays on the server. Reports are always kept in
-`~/.local/share/vibesynergy/bug-reports`, and unsent ones can be sent later from Settings →
-System → Bug reports.
-
-Who files the issue:
-
-- **Your GitHub account** (recommended): "Connect GitHub" shows a code to enter on
-  github.com/login/device. Issues are then filed in your name. This needs the project's GitHub
-  App in the config:
-
-  ```toml
-  [bugs]
-  github_client_id = "Iv23li…"   # public, not a secret
-  ```
-
-  Making that app once (on github.com, as the repository owner): Settings → Developer settings →
-  GitHub Apps → New GitHub App. Name: VibeSynergy bug reports. Homepage: the repository.
-  Callback URL: none. Turn off Webhook. Turn on **Enable Device Flow**. Repository permissions:
-  **Issues: Read and write** (Metadata read-only comes with it), nothing else. Where can it be
-  installed: Any account, or only this one. Create, then **Install App** on the repository.
-  Under Optional features, turn off "User-to-server token expiration" (the server keeps no
-  client secret to refresh with). The client ID on the app's page goes in `[bugs]
-  github_client_id`. The app can only open issues, only where it is installed, and only for
-  people who may open issues there; on a private repository that means its collaborators.
-- **A token** (when there is no app): a fine-grained token with access to only that repository
-  and Issues: Read and write, pasted in Settings → System → Bug reports. Issues are then filed
-  as the token's owner.
+The bug button at the top of every page opens GitHub's bug report form for
+`rvartanov/vibesynergy` (or `[bugs] repo = "owner/name"`, a fork) in a new tab, with the
+version, the page, the error it showed and the browser filled in. The reporter adds what
+happened and sends it from their own GitHub account; the server sends nothing and keeps no
+GitHub token. What a report or a feature request needs: [docs/REPORTING.md](../docs/REPORTING.md).
 
 ## 8. History
 
