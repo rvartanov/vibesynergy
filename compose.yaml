@@ -1,0 +1,17 @@
+# docker compose up -d   (or: podman compose up -d)
+# Then: docker compose logs vibesynergy   → the one-time login link, and open it.
+services:
+  vibesynergy:
+    image: ghcr.io/rvartanov/vibesynergy:latest
+    # build: .            # instead of image:, to build from this checkout
+    container_name: vibesynergy
+    restart: unless-stopped
+    environment:
+      VIBESYNERGY_EMAIL: you@example.com   # your login; the first link goes here (and to the log)
+      # VIBESYNERGY_DEMO: "1"              # first start only: synthetic data to look around
+    ports:
+      - "127.0.0.1:8447:8447"   # the portal, only on this computer
+    volumes:
+      - vibesynergy-data:/data
+volumes:
+  vibesynergy-data:

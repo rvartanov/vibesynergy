@@ -3511,5 +3511,10 @@
  "The bug button at the top files a report as an issue on {repo} on GitHub. Without a connection, reports wait here.": "De foutknop bovenaan zet een melding als issue op {repo} op GitHub. Zonder koppeling wachten meldingen hier.",
  "The code expired. Try again.": "De code is verlopen. Probeer het opnieuw.",
  "Use a token instead": "Een token gebruiken",
- "Waiting for GitHub…": "Wachten op GitHub…"
+ "Waiting for GitHub…": "Wachten op GitHub…",
+ "An update is available": "Er is een update",
+ "Your password": "Je wachtwoord",
+ "Pull the newest image and start the container again.": "Haal de nieuwste image op en start de container opnieuw.",
+ "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.": "In de checkout: git pull, uv sync, vibesynergy db upgrade, en dan herstarten.",
+ "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Installeer opnieuw vanaf GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy"
 }

@@ -3,8 +3,8 @@
 Read-only. The commit comes from the git checkout the package runs from (server runs an
 editable install of the service checkout). The last deploy comes from ``deploy.json`` in
 the data directory when the deploy script writes one; without it that part is empty.
-Only ``updates`` reaches the network: an hourly ``git fetch`` of ``main`` in the checkout
-(phase 2, read-only; it never pulls or deploys).
+Only ``updates`` reaches the network, at most hourly and read-only: a ``git fetch`` of ``main``
+in a checkout, or for an installed copy ``vibesynergy.updater.check`` (``git ls-remote``).
 """
 
 from __future__ import annotations
@@ -49,6 +49,10 @@ def build() -> dict[str, Any]:
     except metadata.PackageNotFoundError:
         version = None
     commit = _git("rev-parse", "HEAD")
+    if commit is None:
+        from vibesynergy import updater
+
+        commit = updater.installed()["commit"]  # an installed copy: the commit it was built from
     committed = _git("log", "-1", "--format=%cI", "HEAD")
     subject = _git("log", "-1", "--format=%s", "HEAD")
     if subject and subject.startswith("Merge pull request"):
@@ -76,10 +80,17 @@ UPDATES_SECONDS = 3600
 
 def updates(now: float | None = None) -> dict[str, Any] | None:
     """How far ``main`` on GitHub is ahead of what runs: count and the PR titles. Cached."""
+    from vibesynergy import updater
+
     now = time.monotonic() if now is None else now
     with _UPDATES_LOCK:
         if _UPDATES["value"] is not None and now - _UPDATES["at"] < UPDATES_SECONDS:
             return _UPDATES["value"]
+        if updater.installed()["kind"] != "checkout":
+            value = updater.check()
+            if value is not None:
+                _UPDATES.update(at=now, value=value)
+            return value
         if (
             _git("fetch", "-q", "origin", "main") is None
             and _git("rev-parse", "origin/main") is None
@@ -125,8 +136,17 @@ def _systemctl(*args: str) -> str | None:
     return out.stdout
 
 
-def update_unit() -> dict[str, Any] | None:
+def update_unit(data_dir: Path | None = None) -> dict[str, Any] | None:
     """The update unit's state, or None when this server has none."""
+    from vibesynergy import updater
+
+    if updater.installed()["kind"] == "tool":
+        state = updater.unit_state()
+        if state is None:
+            return None
+        last = last_deploy(data_dir) if data_dir else None
+        result = None if not last else "success" if last.get("result") == "ok" else "failed"
+        return {**state, "result": None if state["running"] else result, "finished": None}
     out = _systemctl(
         "show", UPDATE_UNIT, "-p", "LoadState,ActiveState,Result,ExecMainExitTimestamp"
     )
@@ -145,7 +165,11 @@ def update_unit() -> dict[str, Any] | None:
 
 def last_update_log(data_dir: Path, lines: int = 12) -> dict[str, Any] | None:
     """The newest autodeploy log: when, and its last lines (the backup and the health)."""
-    logs = sorted((data_dir / "reports").glob("autodeploy-*.log"))
+    reports = data_dir / "reports"
+    logs = sorted(
+        [*reports.glob("autodeploy-*.log"), *reports.glob("update-*.log")],
+        key=lambda p: p.stat().st_mtime,
+    )
     if not logs:
         return None
     try:
@@ -158,9 +182,12 @@ def last_update_log(data_dir: Path, lines: int = 12) -> dict[str, Any] | None:
 def start_update(rt) -> dict[str, Any]:
     """Start the update unit. Refused without one, while it runs, while a job runs, or when
     there is nothing new."""
-    unit = update_unit()
+    from vibesynergy import updater
+
+    kind = updater.installed()["kind"]
+    unit = update_unit(rt.settings.data_dir)
     if unit is None:
-        raise ValueError("This server has no update unit; update it with vibesynergy-deploy.")
+        raise ValueError(updater.how(kind) or "This server can't update itself from here.")
     if unit["running"]:
         raise ValueError("An update is already running.")
     running = rt.jobs.counts().get("running", 0)
@@ -169,6 +196,9 @@ def start_update(rt) -> dict[str, Any]:
     news = updates()
     if news is not None and not news["behind"]:
         raise ValueError("Already up to date.")
+    if kind == "tool":
+        updater.start()
+        return {"started": updater.UNIT, "behind": news["behind"] if news else None}
     if _systemctl("start", "--no-block", UPDATE_UNIT) is None:
         raise ValueError("The update could not be started.")
     return {"started": UPDATE_UNIT, "behind": news["behind"] if news else None}
@@ -176,9 +206,14 @@ def start_update(rt) -> dict[str, Any]:
 
 def about(rt) -> dict[str, Any]:
     """Everything the footer and Settings → System → About this version show."""
+    from vibesynergy import updater
+    from vibesynergy.query import auth
     from vibesynergy.store import db
 
     started = STARTED_AT.astimezone(UTC)
+    account = auth.account(rt.engine)
+    news = updates()
+    unit = update_unit(rt.settings.data_dir)
     return {
         **build(),
         "started_at": started.isoformat(),
@@ -187,7 +222,11 @@ def about(rt) -> dict[str, Any]:
         "schema_head": db.head_revision(),
         "deploy": last_deploy(rt.settings.data_dir),
         "repo_url": REPO_URL,
-        "updates": updates(),
-        "update": update_unit(),
+        "updates": news,
+        "update": unit,
+        "confirm": "password" if account and account["password_hash"] else "passphrase",
+        "update_hint": updater.how(updater.installed()["kind"])
+        if news and news.get("behind") and unit is None
+        else None,
         "update_log": last_update_log(rt.settings.data_dir),
     }

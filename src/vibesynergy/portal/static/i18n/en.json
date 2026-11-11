@@ -3511,5 +3511,10 @@
  "The bug button at the top files a report as an issue on {repo} on GitHub. Without a connection, reports wait here.": "The bug button at the top files a report as an issue on {repo} on GitHub. Without a connection, reports wait here.",
  "The code expired. Try again.": "The code expired. Try again.",
  "Use a token instead": "Use a token instead",
- "Waiting for GitHub…": "Waiting for GitHub…"
+ "Waiting for GitHub…": "Waiting for GitHub…",
+ "An update is available": "An update is available",
+ "Your password": "Your password",
+ "Pull the newest image and start the container again.": "Pull the newest image and start the container again.",
+ "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.": "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.",
+ "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy"
 }

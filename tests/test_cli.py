@@ -212,3 +212,13 @@ def test_init_with_email_makes_the_account_and_a_first_login_link(env) -> None:
     assert "Account created" not in again  # one account per installation
     link = run("login-link")
     assert "Login link for athlete@example.com" in link and "/login#link=" in link
+
+
+def test_init_demo_and_database_backups(env, tmp_path) -> None:
+    assert "Demo source on" in run("init", "--demo")
+    assert "[sources.demo]" in env.read_text()
+    assert "backed up" in run("db", "backup")
+    assert list((tmp_path / "data" / "backups").glob("backup-*.sqlite"))
+    # Nothing pending: no backup before the upgrade.
+    assert "backed up" not in run("db", "upgrade", "--backup")
+    assert not list((tmp_path / "data" / "backups").glob("before-update-*.sqlite"))

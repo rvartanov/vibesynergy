@@ -5,13 +5,20 @@ One athlete per installation, on a machine that is always on (a home server or a
 ## 1. Install or update
 
 ```bash
-uv tool install git+https://github.com/rvartanov/vibesynergy   # update: uv tool upgrade vibesynergy
+uv tool install git+https://github.com/rvartanov/vibesynergy
 vibesynergy init --email you@example.com   # first time: config, database and the login link
-vibesynergy db upgrade    # after an update, before the restart: applies migrations
 ```
 
-Before an update, make an online backup of the database while it runs (never copy the
-file while it is being written):
+Updating: `vibesynergy update --check` says whether `main` on GitHub has something newer;
+`vibesynergy update` then backs up the database (`backups/before-update-*.sqlite`, the newest
+three are kept), runs `uv tool upgrade vibesynergy`, applies the migrations with the new code and
+restarts the user service, with a log in `reports/update-*.log`. Settings → System → About this
+version shows waiting updates (checked hourly) and has **Update now**, which asks your password
+and runs the same update in its own systemd unit, so the restart doesn't cut it off. Run from a
+git checkout instead: `git pull && uv sync && uv run vibesynergy db upgrade`, then restart.
+
+`update` makes that backup itself. By hand, make an online backup while the service runs
+(never copy the file while it is being written):
 
 ```bash
 sqlite3 ~/.local/share/vibesynergy/db/vibesynergy.sqlite ".backup '/path/to/backup.sqlite'"

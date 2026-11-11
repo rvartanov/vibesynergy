@@ -14,57 +14,29 @@ it unless you connect a service yourself.
 - Running it as a service: [deploy/README.md](deploy/README.md)
 - Map of the code: [docs/OVERVIEW.md](docs/OVERVIEW.md)
 
-Status: alpha. Expect changes between versions.
-
-## Requirements
-
-- Linux or macOS
-- Python 3.12 or newer
-- [uv](https://docs.astral.sh/uv/) (recommended) or pipx
+Status: alpha (0.0.1). Expect changes between versions.
 
 ## Install
 
-```bash
-uv tool install git+https://github.com/rvartanov/vibesynergy
-```
+**[INSTALL.md](INSTALL.md)** has every way, step by step, for people and for AI assistants.
+In short:
 
-Or from a checkout:
+- **Windows, macOS, Linux, with Docker**: save [compose.yaml](compose.yaml), put your email
+  address in it, `docker compose up -d`, and open the login link from
+  `docker compose logs vibesynergy`.
+- **macOS, Linux, with [uv](https://docs.astral.sh/uv/)** (Python 3.12+):
 
-```bash
-git clone https://github.com/rvartanov/vibesynergy
-cd vibesynergy
-uv tool install .
-```
+  ```bash
+  uv tool install git+https://github.com/rvartanov/vibesynergy
+  vibesynergy init --email you@example.com   # prints your one-time login link
+  vibesynergy serve                          # the portal on http://127.0.0.1:8447
+  ```
 
-## First run
-
-```bash
-vibesynergy init --email you@example.com   # config file, data folder, database and your login
-```
-
-`init` prints a one-time link (valid 24 hours) that logs you in for the first time; there you
-choose your password and, if you like, a second step (a code by mail or an authenticator app).
-Lost the link? `vibesynergy login-link` makes a new one.
-
-`init` writes `~/.config/vibesynergy/config.toml` (or `$XDG_CONFIG_HOME/vibesynergy`). Data
-goes to `~/.local/share/vibesynergy` (or `$XDG_DATA_HOME/vibesynergy`).
-
-To look around without any account, enable the demo source (synthetic data) in the
-config file:
-
-```toml
-[sources.demo]
-enabled = true
-```
-
-Then:
-
-```bash
-vibesynergy sync      # collect data from the enabled sources
-vibesynergy serve     # the service, with the portal on http://127.0.0.1:8447
-```
-
-Open the link from `init` (or http://127.0.0.1:8447) in your browser.
+Open the link, choose a password, and optionally a second step (a code by mail or an
+authenticator app). To look around without any account: `vibesynergy init --demo` and
+`vibesynergy sync demo` (synthetic data).
+Updating: `vibesynergy update` or **Update now** in Settings → System (container:
+`docker compose pull && docker compose up -d`).
 
 ## Connect your accounts
 

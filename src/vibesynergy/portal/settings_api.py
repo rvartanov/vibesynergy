@@ -212,6 +212,7 @@ class PushSubscription(BaseModel):
 
 class UpdateBody(BaseModel):
     passphrase: str = Field(default="", max_length=1024)
+    password: str = Field(default="", max_length=1024)  # the login's, when the install has one
 
 
 class PassphraseBody(BaseModel):
@@ -1004,10 +1005,20 @@ def build_settings_router(rt: Runtime) -> APIRouter:
 
     @router.post("/settings/update")
     def update_now(request: UpdateBody) -> dict[str, Any]:
-        """Settings → System → Update now: the passphrase, then the update unit."""
-        from vibesynergy.query import about
+        """Settings → System → Update now: your password (or, without a login, the coach
+        passphrase), then the update unit."""
+        from vibesynergy.query import about, auth
 
-        confirm_passphrase(request.passphrase, "update")
+        account = auth.account(rt.engine)
+        if account and account["password_hash"]:
+            if limiter.locked("portal"):
+                raise ValueError("Too many wrong attempts. Try again in 15 minutes.")
+            if not auth.verify_password(request.password, account["password_hash"]):
+                limiter.fail("portal")
+                _audit_portal("portal.password.denied", {"action": "update"})
+                raise ValueError("Your current password is not right.")
+        else:
+            confirm_passphrase(request.passphrase, "update")
         started = about.start_update(rt)
         _audit_portal("portal.update.start", started)
         return {"data": started}
