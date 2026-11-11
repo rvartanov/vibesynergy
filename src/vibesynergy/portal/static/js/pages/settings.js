@@ -20,6 +20,7 @@ import { loadShares } from "../settings_shares.js";
 import { bindCoachApps, coachAppsHtml, logHtml } from "../settings_access.js";
 import { archiveImport } from "../archive_import.js";
 import { mountAbout } from "../about_version.js";
+import { mountAccount } from "../account_settings.js";
 import { bestSourceSettings } from "../best_source_settings.js";
 import { bindIcuConnect } from "../icu_connect.js";
 import { weatherLocationSettings } from "../weather_location.js";
@@ -33,6 +34,7 @@ const THEMES = [
   ["sync", N("Sync between sources")],
   ["alerts", N("Alerts")],
   ["sharing", N("Sharing")],
+  ["account", N("Account")],
   ["system", N("System")],
 ];
 
@@ -194,6 +196,7 @@ function drawSharedSources(view, ctx) {
 function draw(view, ctx, flash = "") {
   const { s, prefs, theme, stale, query, access } = ctx;
   const parts = {
+    account: `<div data-account-host></div>`,
     sharing: `${coachAppsHtml(access || {})}<section class="card" data-shares aria-labelledby="shares-title"></section>${logHtml()}`,
     sync: syncTabHtml(s),
     sources: ctx.dataSub ? `<div data-data-panel class="settings-data-panel"></div>` : sourcesTabHtml(s, { focus: ctx.focus }),
@@ -721,6 +724,7 @@ function bind(view, ctx) {
   bindAlertGroups(view, ctx);
   bindPortalHosts(view, ctx, draw);
   mountAbout(view.querySelector("[data-about-host]"), { open: ctx.query?.get?.("section") === "about" });
+  mountAccount(view.querySelector("[data-account-host]"));
   mountPush(view.querySelector("[data-push]"));
 }
 

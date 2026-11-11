@@ -39,8 +39,12 @@ uv tool install .
 ## First run
 
 ```bash
-vibesynergy init      # config file, data folder and database
+vibesynergy init --email you@example.com   # config file, data folder, database and your login
 ```
+
+`init` prints a one-time link (valid 24 hours) that logs you in for the first time; there you
+choose your password and, if you like, a second step (a code by mail or an authenticator app).
+Lost the link? `vibesynergy login-link` makes a new one.
 
 `init` writes `~/.config/vibesynergy/config.toml` (or `$XDG_CONFIG_HOME/vibesynergy`). Data
 goes to `~/.local/share/vibesynergy` (or `$XDG_DATA_HOME/vibesynergy`).
@@ -60,7 +64,7 @@ vibesynergy sync      # collect data from the enabled sources
 vibesynergy serve     # the service, with the portal on http://127.0.0.1:8447
 ```
 
-Open http://127.0.0.1:8447 in your browser.
+Open the link from `init` (or http://127.0.0.1:8447) in your browser.
 
 ## Connect your accounts
 

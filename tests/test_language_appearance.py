@@ -69,7 +69,7 @@ def portal(tmp_path: Path):
     data = tmp_path / "data"
     config.write_text(
         '[user]\ntimezone = "Europe/Amsterdam"\nunits = "metric"\n'
-        f"[portal]\nport = {PORTAL_PORT}\n[sources.demo]\nenabled = true\n"
+        f"[portal]\nport = {PORTAL_PORT}\nauth = false\n[sources.demo]\nenabled = true\n"
     )
     env = {**os.environ, "VIBESYNERGY_CONFIG": str(config), "VIBESYNERGY_DATA_DIR": str(data)}
     subprocess.run([vibesynergy, "init"], env=env, check=True, capture_output=True, text=True)

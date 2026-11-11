@@ -23,7 +23,7 @@ PORTAL = f"http://127.0.0.1:{PORTAL_PORT}"
 
 pytestmark = pytest.mark.integration
 
-TABS = ("sources", "sync", "alerts", "sharing", "system")
+TABS = ("sources", "sync", "alerts", "sharing", "account", "system")
 # System is long by design; the athlete tabs stay short on a phone. Coach settings holds one
 # folded line per harness task, so it grows with the task list.
 LONG_TABS = ("system", "coach-settings")
@@ -94,7 +94,7 @@ def test_settings_tabs_accessibility(tmp_path: Path) -> None:
     data = tmp_path / "data"
     config.write_text(
         '[user]\ntimezone = "Europe/Amsterdam"\nunits = "metric"\n'
-        f"[portal]\nport = {PORTAL_PORT}\n[sources.demo]\nenabled = true\n"
+        f"[portal]\nport = {PORTAL_PORT}\nauth = false\n[sources.demo]\nenabled = true\n"
     )
     env = {
         **os.environ,

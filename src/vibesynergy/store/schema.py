@@ -1287,3 +1287,52 @@ gear_default = Table(
     Column("since", Date, nullable=False),
     Column("updated_at", UTCDateTime, nullable=False),
 )
+
+# Portal login (query/auth.py): one account per installation. Secrets never in plain text:
+# the password as an scrypt hash, tokens and session ids as SHA-256 hashes, the TOTP secret
+# in the encrypted secret store.
+auth_account = Table(
+    "auth_account",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("email", String, nullable=False, unique=True),
+    Column("password_hash", String),  # None until the first login sets it
+    Column("password_set_at", UTCDateTime),
+    Column("mfa", String, nullable=False),  # none | mail | totp
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+)
+
+auth_session = Table(
+    "auth_session",
+    metadata,
+    Column("id", String, primary_key=True),  # sha256 of the cookie value
+    Column("account_id", Integer, ForeignKey("auth_account.id"), nullable=False),
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("last_seen", UTCDateTime, nullable=False),
+    Column("expires_at", UTCDateTime, nullable=False),
+    Column("mfa_ok", Boolean, nullable=False),  # False: waiting for the second factor
+    Column("client", String, nullable=False),
+    Column("agent", String, nullable=False),
+)
+
+auth_token = Table(
+    "auth_token",
+    metadata,
+    Column("hash", String, primary_key=True),  # sha256 of the link token or mailed code
+    Column("account_id", Integer, ForeignKey("auth_account.id"), nullable=False),
+    Column("purpose", String, nullable=False),  # login | reset | setup | mfa_mail
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("expires_at", UTCDateTime, nullable=False),
+    Column("used_at", UTCDateTime),
+)
+
+auth_attempt = Table(
+    "auth_attempt",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("key", String, nullable=False),  # email:<address> or client:<address>
+    Column("at", UTCDateTime, nullable=False),
+    Column("ok", Boolean, nullable=False),
+    Index("ix_auth_attempt_key_at", "key", "at"),
+)

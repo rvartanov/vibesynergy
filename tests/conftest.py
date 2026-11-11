@@ -54,3 +54,13 @@ def _no_live_intervals_icu(monkeypatch: pytest.MonkeyPatch) -> None:
         raise IntervalsIcuError("intervals.icu is not set up: tests")
 
     monkeypatch.setattr(thresholds, "icu_settings_live", offline)
+
+
+@pytest.fixture(autouse=True)
+def _portal_login_off(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The login gate has its own tests (marked ``auth``); the rest test the portal itself."""
+    if request.node.get_closest_marker("auth"):
+        return
+    from vibesynergy.portal import auth_gate
+
+    monkeypatch.setattr(auth_gate, "auth_required", lambda settings: False)
