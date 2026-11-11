@@ -42,6 +42,7 @@ GROUP = {"dashboard": ("today", "calendar", "diary", "coach")}
 OWNER_ONLY = {
     ("GET", "/meta"),  # always allowed (share.ALWAYS)
     ("GET", "/prefs"),  # the owner's menu and blocks; a shared view uses the defaults
+    ("GET", "/weather"),  # a coming day's forecast on the day page: never in a shared view
     ("POST", "/prefs"),
     ("POST", "/activity-effort"),  # the owner's own RPE
     ("POST", "/race-priority"),

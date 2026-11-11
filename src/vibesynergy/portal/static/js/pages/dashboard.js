@@ -17,6 +17,8 @@ import { dayJournalHtml, mountDayDetails } from "./day.js";
 import { mountDiary } from "./diary.js";
 import { bindCollapse, mountArrange, mountBests, mountBody, mountUpcoming } from "../start_blocks.js";
 import { arrangedBlocks } from "../start_layout.js";
+import { weatherHtml } from "../weather_day.js";
+import { setWeatherUnits } from "../weather_units.js";
 
 const PHASES = { build: N("Build"), peak: N("Peak"), taper: N("Taper"), recovery: N("Recovery") };
 const CHIP = {
@@ -63,15 +65,18 @@ function dayHref(date, today) {
 
 export async function render(view, { args, query, meta, stale }) {
   const today = meta.data.today;
-  const date = args?.[0] && ISO_DAY.test(args[0]) && args[0] <= today ? args[0] : today;
+  // Any day opens: a past one with what happened, a coming one with what is planned (#8).
+  const date = args?.[0] && ISO_DAY.test(args[0]) ? args[0] : today;
   const isToday = date === today;
+  const isFuture = date > today;
   const share = meta.data.share ? new Set(meta.data.share.pages) : null;
   const can = (...pages) => !share || pages.some((page) => share.has(page));
   const showBoard = isToday && can("dashboard");
   const showDay = can("today", "day");
+  const showMeasured = showDay && !isFuture; // nothing measured yet on a coming day
   const showDiary = can("diary");
   const showCalendar = can("calendar");
-  const timelinePromise = showDay ? get("day", { date }) : null; // slower: drawn when it arrives
+  const timelinePromise = showMeasured ? get("day", { date }) : null; // slower: drawn when it arrives
   timelinePromise?.catch(() => {}); // reported where it is drawn
   const [boardReply, dayReply, prefs] = await Promise.all([
     showBoard ? get("dashboard") : null,
@@ -118,11 +123,12 @@ export async function render(view, { args, query, meta, stale }) {
   } else if (dayReply) {
     html.advice = `<div class="dash-block-group">
         <section class="card dash-today" aria-labelledby="dash-plan-title">
-          <h2 id="dash-plan-title">${t("Plan and done")}</h2>
+          <h2 id="dash-plan-title">${isFuture ? t("Planned") : t("Plan and done")}</h2>
           <div class="dash-plan dash-plan-first">
             ${planHtml(dayReply.data.plan.filter((row) => TRAINING.has(row.kind)), dayReply.data.not_in_plan || [], share)}
-            ${completedHtml(dayReply.data.day.activities, null, share)}
+            ${isFuture ? "" : completedHtml(dayReply.data.day.activities, null, share)}
           </div>
+          ${isFuture && !share ? `<div data-day-weather></div>` : ""}
         </section>
         ${!can("coach") ? "" : `<section class="card" aria-labelledby="day-coaching"><div data-day-coaching><h2 id="day-coaching">${t("Coaching")}</h2><p class="sub" role="status">${t("Loading…")}</p></div></section>`}
       </div>`;
@@ -150,7 +156,7 @@ export async function render(view, { args, query, meta, stale }) {
         ${showUpcoming ? `<p class="sub"><a href="#/plan">${t("Training plan")}</a></p>` : ""}
       </section>`;
   }
-  if (showDay) {
+  if (showMeasured) {
     html.numbers = `<section class="dash-block-plain" aria-labelledby="day-details-title"><h2 id="day-details-title" class="dash-block-title">${t("Key numbers")}</h2><div data-day-numbers></div></section>`;
     html.sleep = `<section class="card" aria-labelledby="day-sleep-title"><h2 id="day-sleep-title">${isToday ? t("Last night") : t("Sleep")}</h2><div data-day-sleep></div></section>`;
     html.body = `<section class="card dash-body" aria-labelledby="day-body-title"><h2 id="day-body-title">${t("Body and measurements")}</h2><div data-day-body><p class="sub" role="status">${t("Loading…")}</p></div></section>`;
@@ -216,6 +222,19 @@ export async function render(view, { args, query, meta, stale }) {
     });
   }
   const work = [];
+  const weatherHost = view.querySelector("[data-day-weather]");
+  if (weatherHost) {
+    // The forecast reaches 14 days; a later day simply shows none. Not in a shared view:
+    // the forecast says where (your weather place, or where you last trained outside).
+    work.push(
+      get("weather").then((reply) => {
+        if (stale() || !weatherHost.isConnected) return;
+        const day = (reply.data?.days || []).find((w) => w.date === date);
+        setWeatherUnits(meta?.data?.weather_units);
+        weatherHost.innerHTML = weatherHtml(day, reply.data?.location);
+      }, () => {}),
+    );
+  }
   const hosts = {
     numbers: view.querySelector("[data-day-numbers]"),
     sleep: view.querySelector("[data-day-sleep]"),
@@ -413,7 +432,7 @@ function bindRefresh(view, ctx) {
 function bindDayPicker(view, today) {
   view.querySelector("[data-day-picker]")?.addEventListener("change", (event) => {
     const value = event.target.value;
-    if (value && ISO_DAY.test(value)) location.hash = dayHref(value > today ? today : value, today);
+    if (value && ISO_DAY.test(value)) location.hash = dayHref(value, today);
   });
 }
 
@@ -426,9 +445,7 @@ function headerHtml(d, zone, { date, today, showBoard }) {
     ? `<p class="sub dash-updated">${esc(t("Updated {when}", { when: userDateTime(d.updated_at, zone) }))}</p>`
     : "";
   const title = capitalise(isToday ? longDate(date).replace(/\s\d{4}$/, "") : longDate(date));
-  const next = isToday
-    ? `<span class="btn" aria-disabled="true" aria-label="${esc(t("Next day"))}">›</span>`
-    : `<a class="btn" href="${dayHref(addDays(date, 1), today)}" aria-label="${esc(t("Next day"))}">›</a>`;
+  const next = `<a class="btn" href="${dayHref(addDays(date, 1), today)}" aria-label="${esc(t("Next day"))}">›</a>`;
   return `<header class="dash-head">
     <div class="dash-head-text">
       <h1>${esc(title)}</h1>
@@ -439,7 +456,7 @@ function headerHtml(d, zone, { date, today, showBoard }) {
     <div class="dash-head-status">
       <nav class="stepper" aria-label="${esc(t("Days"))}">
         <a class="btn" href="${dayHref(addDays(date, -1), today)}" aria-label="${esc(t("Previous day"))}">‹</a>
-        <input class="btn" type="date" value="${esc(date)}" max="${esc(today)}" aria-label="${esc(t("Choose a date"))}" data-day-picker>
+        <input class="btn" type="date" value="${esc(date)}" aria-label="${esc(t("Choose a date"))}" data-day-picker>
         ${next}
         ${isToday ? "" : `<a class="btn" href="#/dashboard">${t("Today")}</a>`}
       </nav>

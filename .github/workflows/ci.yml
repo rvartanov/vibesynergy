@@ -50,7 +50,7 @@ jobs:
           VIBESYNERGY_FULL_MATRIX: ${{ github.event_name == 'push' && '1' || '' }}
       # Populated portal, axe and keyboard. Own step so a missing browser fails here,
       # and the default pytest run above stays skipped and fast.
-      - run: uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_agent_links_a11y.py tests/test_coach_runner_a11y.py tests/test_login_a11y.py tests/test_bug_report_a11y.py -q
+      - run: uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_agent_links_a11y.py tests/test_coach_runner_a11y.py tests/test_login_a11y.py tests/test_bug_report_a11y.py tests/test_future_day_a11y.py -q
         env:
           VIBESYNERGY_A11Y_REQUIRED: "1"
       # Language/appearance and small-polish browser checks. Their own step, so a
