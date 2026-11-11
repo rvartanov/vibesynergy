@@ -25,17 +25,32 @@ SPORTS = {
 }
 RHYTHMS = ("3:1", "2:1")
 PRIORITIES = ("A", "B", "C")
-_FULL = re.compile(r"lakeside|ironman|full|hele afstand|226", re.IGNORECASE)
+_FULL = re.compile(r"ironman|full|hele afstand|226|140\.6", re.IGNORECASE)
 _MIDDLE = re.compile(r"70\.3|half|middle|halve|xxl", re.IGNORECASE)
 _HOURS = re.compile(r"~(\d+(?:[.,]\d+)?)u")
 
 
-def _guess_sport(title: str) -> dict[str, Any]:
+def _km(target: Any) -> float | None:
+    """The race's distance from its target, when it is one."""
+    if not isinstance(target, dict) or target.get("unitType") != "distance":
+        return None
+    try:
+        value = float(target.get("value"))
+    except (TypeError, ValueError):
+        return None
+    return value / 1000 if target.get("unit") == "meter" else value
+
+
+def _guess_sport(title: str, target: Any = None) -> dict[str, Any]:
+    """The sport and distance of a race, from its title and, when it has one, its distance.
+    Beyond 100 km (and not a trail) only a triathlon fits; a name alone often says nothing."""
     low = title.lower()
-    if "tri" in low or _FULL.search(title):
-        distance = (
-            "full" if _FULL.search(title) else "middle" if _MIDDLE.search(title) else "olympic"
-        )
+    km = _km(target)
+    long_tri = km is not None and km >= 100 and "trail" not in low and "ultra" not in low
+    if "tri" in low or _FULL.search(title) or long_tri:
+        full = _FULL.search(title) or (km is not None and km >= 180)
+        middle = _MIDDLE.search(title) or (km is not None and km >= 100)
+        distance = "full" if full else "middle" if middle else "olympic"
         return {
             "sport": "triathlon",
             "distance": distance,
@@ -79,7 +94,7 @@ def defaults(engine: Any, today: date) -> dict[str, Any]:
         "fixed": [],
     }
     out.update(
-        _guess_sport(goal["title"])
+        _guess_sport(goal["title"], goal.get("target"))
         if goal
         else {"sport": "triathlon", "distance": "full", "type": "road"}
     )
