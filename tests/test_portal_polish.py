@@ -163,7 +163,7 @@ def test_small_polish_on_throwaway_portal(tmp_path, monkeypatch) -> None:
     data = tmp_path / "data"
     config.write_text(
         '[user]\ntimezone = "Europe/Amsterdam"\n'
-        f"[portal]\nport = {PORTAL_PORT}\n"
+        f"[portal]\nport = {PORTAL_PORT}\nauth = false\n"
         "[sources.demo]\nenabled = true\n"
     )
     monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
