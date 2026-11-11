@@ -8,7 +8,7 @@ from vibesynergy.query import plan_builder
 
 
 def test_sport_guess_from_the_race_title() -> None:
-    assert plan_builder._guess_sport("Lakeside hele afstand") == {
+    assert plan_builder._guess_sport("Hometown hele afstand") == {
         "sport": "triathlon",
         "distance": "full",
         "type": "road",
@@ -16,6 +16,13 @@ def test_sport_guess_from_the_race_title() -> None:
     assert plan_builder._guess_sport("Cross triathlon")["type"] == "cross"
     assert plan_builder._guess_sport("Trail Ardennen")["distance"] == "ultra"
     assert plan_builder._guess_sport("Rotterdam")["sport"] == "run"
+    # A name that says nothing: the race's distance decides.
+    km = {"unit": "kilometer", "unitType": "distance", "value": 226.34}
+    assert plan_builder._guess_sport("Hometown 2027", km)["distance"] == "full"
+    half = {"unit": "meter", "unitType": "distance", "value": 113000}
+    assert plan_builder._guess_sport("Hometown 2027", half)["distance"] == "middle"
+    trail = {"unit": "kilometer", "unitType": "distance", "value": 110}
+    assert plan_builder._guess_sport("Hometown trail", trail)["sport"] == "run"
 
 
 def test_validate_takes_every_sport_distance_and_type() -> None:

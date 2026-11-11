@@ -1,6 +1,7 @@
 // Portal shell: hash routes (#/dashboard, #/dashboard/2026-09-25, …), theme switch, footer.
 import { get, invalidateMeta, meta, setMetaMaxAge } from "./api.js";
 import { calendarDay, shouldAutoRefresh } from "./refresh_policy.js";
+import { bindBugReport } from "./bugreport.js";
 import { ago, esc } from "./format.js";
 import { versionLinkHtml } from "./about_version.js";
 import { setLanguage, storedLanguage, t } from "./i18n.js";
@@ -555,6 +556,7 @@ window.addEventListener("pageshow", refreshPage);
 window.addEventListener("online", refreshPage);
 
 window.addEventListener("hashchange", render);
+bindBugReport(header.querySelector(".bug-report"));
 window.vibesynergyStarted = true; // read by boot.js
 loadRefresh();
 bindNav(nav, header);
@@ -623,6 +625,7 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
+  label(".bug-report", t("Report a bug"));
   const quickTitle = document.querySelector("#quick-title");
   if (quickTitle) quickTitle.textContent = t("Quick add");
   const quickClose = document.querySelector("[data-quick-close]");
