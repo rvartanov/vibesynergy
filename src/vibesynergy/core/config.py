@@ -55,6 +55,7 @@ class Settings:
     )  # [ai]: provider/model, chat_provider/chat_model, coach_provider/coach_model, local_url
     publication: dict[str, Any] = field(default_factory=dict)
     calendar: dict[str, Any] = field(default_factory=dict)  # [calendar]: lookahead_months
+    bugs: dict[str, Any] = field(default_factory=dict)  # [bugs]: repo (owner/name)
     # [coach_runner]: defaults for the API coach (docs/COACH_RUNNER.md); the portal's
     # switch and cap override them. Off unless switched on in the portal.
     coach_runner: dict[str, Any] = field(default_factory=dict)
@@ -166,6 +167,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
         ai=raw.get("ai", {}),
         publication=publication,
         calendar=raw.get("calendar") or {},
+        bugs=raw.get("bugs") or {},
         coach_runner=raw.get("coach_runner") or {},
     )
     _validate(settings)

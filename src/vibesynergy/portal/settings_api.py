@@ -20,7 +20,7 @@ from urllib.parse import urlencode, urlsplit
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from vibesynergy import alerts, dropfolder, mailer
+from vibesynergy import alerts, bugs, dropfolder, mailer
 from vibesynergy.api import oauth as mcp_oauth
 from vibesynergy.core import config_edit
 from vibesynergy.core.config import ConfigError, load_settings
@@ -52,6 +52,15 @@ LOGIN_ERRORS = ("AuthError", "not logged in", "invalid_grant", "401")
 
 class SettingsChange(BaseModel):
     changes: dict[str, Any]
+
+
+class BugReport(BaseModel):
+    description: str
+    page: str = ""
+    errors: list[str] = []
+    failed_requests: list[dict[str, Any]] = []
+    browser: str = ""
+    screenshot: str | None = None  # a data: URL
 
 
 class SecretRequest(BaseModel):
@@ -713,6 +722,53 @@ def build_settings_router(rt: Runtime) -> APIRouter:
         return {"data": {"sent": sent, "errors": errors}}
 
     # Push notifications on this device -------------------------------------------
+
+    @router.get("/bugs")
+    def bug_reports() -> dict[str, Any]:
+        return {
+            "data": {
+                "reports": bugs.listing(settings),
+                "token_set": bugs.token_set(settings),
+                "connection": bugs.connection(settings),
+                "can_connect": bugs.client_id(settings) is not None,
+                "repo": bugs.repo(settings),
+            }
+        }
+
+    @router.post("/bugs")
+    def report_bug(request: BugReport) -> dict[str, Any]:
+        """Keep the report on this server and file it as a GitHub issue if a token is set up."""
+        return {"data": bugs.create(settings, request.model_dump())}
+
+    @router.post("/bugs/token")
+    def bug_token(request: SecretRequest) -> dict[str, Any]:
+        """The GitHub token for filing issues (write-only)."""
+        bugs.save_token(settings, request.value)
+        return bug_reports()
+
+    @router.post("/bugs/connect")
+    def bug_connect() -> dict[str, Any]:
+        """Start connecting a GitHub account: the code to enter on github.com."""
+        try:
+            return {"data": bugs.start_connect(settings)}
+        except RuntimeError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @router.post("/bugs/connect/poll")
+    def bug_connect_poll() -> dict[str, Any]:
+        try:
+            return {"data": bugs.poll_connect(settings)}
+        except RuntimeError as exc:
+            raise ValueError(str(exc)) from exc
+
+    @router.post("/bugs/disconnect")
+    def bug_disconnect() -> dict[str, Any]:
+        bugs.disconnect(settings)
+        return bug_reports()
+
+    @router.post("/bugs/{report_id}/send")
+    def send_bug(report_id: str) -> dict[str, Any]:
+        return {"data": bugs.send(settings, report_id)}
 
     @router.get("/push")
     def push_state() -> dict[str, Any]:

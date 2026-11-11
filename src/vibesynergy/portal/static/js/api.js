@@ -9,8 +9,11 @@ export class ApiError extends Error {
   }
 }
 
-// The latest failed calls (kept for debugging in the console).
+// The latest failed calls, for a bug report.
 const failed = [];
+export function failures() {
+  return [...failed];
+}
 function note(method, path, status, error) {
   failed.unshift({ method, url: path, status, error: String(error).slice(0, 300), at: new Date().toISOString() });
   failed.length = Math.min(failed.length, 20);
