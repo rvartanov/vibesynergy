@@ -151,6 +151,9 @@ def init(
         str | None,
         typer.Option(help="Your email address: the account, and where its first login link goes."),
     ] = None,
+    demo: Annotated[
+        bool, typer.Option("--demo", help="Turn on the demo source (synthetic data, no account).")
+    ] = False,
     config: ConfigOpt = None,
 ) -> None:
     """Create the config file (if missing), data directories, database schema and account."""
@@ -158,6 +161,11 @@ def init(
     if not path.exists():
         write_default_config(path, detect_timezone())
         console.print(f"Created config {path}")
+    if demo:
+        from vibesynergy.core import config_edit
+
+        config_edit.apply_changes(path, {"sources": {"demo": {"enabled": True}}})
+        console.print("Demo source on: `vibesynergy sync demo` fills in synthetic data.")
     rt = _runtime(path, require_schema=False)
     for directory in (rt.settings.data_dir, rt.settings.blob_dir, rt.settings.db_path.parent):
         directory.mkdir(parents=True, exist_ok=True)
@@ -579,12 +587,19 @@ def serve(
     portal: Annotated[
         bool, typer.Option(help="Serve the web portal on its own local port ([portal]).")
     ] = True,
+    portal_host: Annotated[
+        str,
+        typer.Option(
+            help="Address the portal listens on. 0.0.0.0 only inside a container, whose "
+            "published port you bind to the host's 127.0.0.1."
+        ),
+    ] = "127.0.0.1",
     config: ConfigOpt = None,
 ) -> None:
     """Run the service: webhook receivers, the job worker, the scheduler and the portal.
 
-    The portal listens on its own port on 127.0.0.1 (default 8447), separate from the port
-    the Funnel forwards to, so it is only reachable through `tailscale serve` on the tailnet.
+    The portal listens on its own port on 127.0.0.1 (default 8447), separate from the service
+    port, so only this machine (or a reverse proxy on it) reaches it.
     """
     import logging
     import os
@@ -666,7 +681,7 @@ def serve(
         portal_server = uvicorn.Server(
             uvicorn.Config(
                 create_portal_app(rt),
-                host="127.0.0.1",
+                host=portal_host,
                 port=portal_port(rt.settings),
                 log_level="info",
                 log_config=log_config(),
@@ -676,7 +691,7 @@ def serve(
         # Not the main thread, so uvicorn leaves signal handling to the main server; the
         # thread is a daemon and ends with the process.
         threads.append(threading.Thread(target=portal_server.run, name="portal"))
-        console.print(f"Portal on http://127.0.0.1:{portal_port(rt.settings)} (tailnet only)")
+        console.print(f"Portal on http://127.0.0.1:{portal_port(rt.settings)}")
     for thread in threads:
         thread.daemon = True
         thread.start()
@@ -1049,11 +1064,34 @@ def jobs(
 
 
 @db_app.command("upgrade")
-def db_upgrade(config: ConfigOpt = None) -> None:
+def db_upgrade(
+    backup: Annotated[
+        bool, typer.Option(help="Back up the database first when a migration is pending.")
+    ] = False,
+    config: ConfigOpt = None,
+) -> None:
     """Apply pending schema migrations."""
     rt = _runtime(config, require_schema=False)
+    current = db.current_revision(rt.engine)
+    if backup and current is not None and current != db.head_revision():
+        from vibesynergy import updater
+
+        saved = updater.backup_database(rt.settings.db_path, rt.settings.data_dir / "backups")
+        console.print(f"Database backed up to {saved}")
     rt.migrate()
     console.print(f"schema at {db.current_revision(rt.engine)}")
+
+
+@db_app.command("backup")
+def db_backup(config: ConfigOpt = None) -> None:
+    """An online copy of the database (safe while the service runs) in backups/."""
+    from vibesynergy import updater
+
+    rt = _runtime(config, require_schema=False)
+    saved = updater.backup_database(
+        rt.settings.db_path, rt.settings.data_dir / "backups", prefix="backup"
+    )
+    console.print(f"Database backed up to {saved}")
 
 
 @db_app.command("revision")

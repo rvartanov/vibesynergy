@@ -159,11 +159,11 @@ def _uv() -> str | None:
     return None
 
 
-def _backup(db_path: Path, folder: Path) -> Path:
+def backup_database(db_path: Path, folder: Path, prefix: str = "before-update") -> Path:
     """An online copy of the database (safe while the service writes), and only the newest
     few of these kept."""
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"before-update-{utc_now().strftime('%Y%m%d-%H%M%S')}.sqlite"
+    target = folder / f"{prefix}-{utc_now().strftime('%Y%m%d-%H%M%S-%f')}.sqlite"
     source = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         dest = sqlite3.connect(target)
@@ -172,7 +172,7 @@ def _backup(db_path: Path, folder: Path) -> Path:
         dest.close()
     finally:
         source.close()
-    for old in sorted(folder.glob("before-update-*.sqlite"))[:-KEEP_BACKUPS]:
+    for old in sorted(folder.glob(f"{prefix}-*.sqlite"))[:-KEEP_BACKUPS]:
         old.unlink(missing_ok=True)
     return target
 
@@ -199,7 +199,7 @@ def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> 
 
     record: dict[str, Any] = {"at": utc_now().isoformat(), "result": "failed", "migrated": False}
     try:
-        backup = _backup(settings.db_path, settings.data_dir / "backups")
+        backup = backup_database(settings.db_path, settings.data_dir / "backups")
         record["backup"] = str(backup)
         note(f"Database backed up to {backup}")
         upgrade = _run([uv, "tool", "upgrade", "vibesynergy"], timeout=900)
