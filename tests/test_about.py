@@ -112,7 +112,7 @@ def test_update_now_starts_the_unit_only_when_it_may(runtime, monkeypatch) -> No
         about.start_update(runtime)
     state["LoadState"] = "not-found"
     assert about.update_unit() is None
-    with pytest.raises(ValueError, match="no update unit"):
+    with pytest.raises(ValueError, match="git pull"):
         about.start_update(runtime)
     assert len(started) == 1
 
@@ -135,3 +135,21 @@ def test_last_update_log(runtime) -> None:
     (reports / "autodeploy-20261106-120000.log").write_text("a\nb\nhealth ok\n")
     out = about.last_update_log(runtime.settings.data_dir, lines=2)
     assert out == {"file": "autodeploy-20261106-120000.log", "tail": ["b", "health ok"]}
+
+
+def test_update_now_asks_the_login_password_when_there_is_one(runtime, monkeypatch) -> None:
+    from vibesynergy.query import auth
+
+    acc = auth.create_account(runtime.engine, "athlete@example.com")
+    auth.set_password(runtime.engine, acc["id"], "lange-zin-met-fietsen-2027")
+    started = []
+    monkeypatch.setattr(about, "start_update", lambda rt: started.append(1) or {"started": "u"})
+    client = TestClient(create_portal_app(runtime), base_url="http://localhost")
+    write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
+    reply = client.post("/api/settings/update", json={"password": "wrong"}, headers=write)
+    assert reply.status_code == 400 and "password" in reply.text and not started
+    reply = client.post(
+        "/api/settings/update", json={"password": "lange-zin-met-fietsen-2027"}, headers=write
+    )
+    assert reply.status_code == 200 and started == [1]
+    assert about.about(runtime)["confirm"] == "password"

@@ -3492,5 +3492,10 @@
  "Unknown device": "Unknown device",
  "This device": "This device",
  "Log out everywhere": "Log out everywhere",
- "Your password, to confirm the change": "Your password, to confirm the change"
+ "Your password, to confirm the change": "Your password, to confirm the change",
+ "An update is available": "An update is available",
+ "Your password": "Your password",
+ "Pull the newest image and start the container again.": "Pull the newest image and start the container again.",
+ "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.": "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.",
+ "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy"
 }

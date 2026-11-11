@@ -103,6 +103,49 @@ def version() -> None:
 
 
 @app.command()
+def update(
+    check: Annotated[
+        bool, typer.Option("--check", help="Only say whether an update is waiting.")
+    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Don't ask first.")] = False,
+    restart: Annotated[
+        bool, typer.Option(help="Restart the user service afterwards (when it runs).")
+    ] = True,
+    force: Annotated[bool, typer.Option(help="Update even while a job runs.")] = False,
+    config: ConfigOpt = None,
+) -> None:
+    """Update to the newest version on GitHub: backup, upgrade, migrations, restart."""
+    from vibesynergy import updater
+
+    news = updater.check()
+    kind = updater.installed()["kind"]
+    if news is None:
+        console.print(updater.how(kind) or "Can't reach GitHub to check for updates.")
+        raise typer.Exit(1 if kind in ("tool", "container") else 0)
+    if not news["behind"]:
+        console.print(f"Up to date ({news['latest'][:7]}).")
+        return
+    count = f"{news['behind']} update(s)" if news["count_known"] else "An update"
+    console.print(f"{count} waiting (newest {news['latest'][:7]}).")
+    for title in news["titles"]:
+        console.print(f"  - {title}")
+    if check:
+        return
+    if kind != "tool":
+        console.print(updater.how(kind) or "This install can't update itself.")
+        raise typer.Exit(1)
+    rt = _runtime(config)
+    running = rt.jobs.counts().get("running", 0)
+    if running and not force:
+        console.print("A job is running; try again when it has finished (or use --force).")
+        raise typer.Exit(1)
+    if not yes and not typer.confirm("Back up the database and update now?", default=True):
+        raise typer.Exit(0)
+    record = updater.run(rt.settings, restart=restart, say=console.print)
+    raise typer.Exit(0 if record["result"] == "ok" else 1)
+
+
+@app.command()
 def init(
     email: Annotated[
         str | None,
