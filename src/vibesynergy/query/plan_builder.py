@@ -34,9 +34,12 @@ def _km(target: Any) -> float | None:
     """The race's distance from its target, when it is one."""
     if not isinstance(target, dict) or target.get("unitType") != "distance":
         return None
+    raw = target.get("value")
+    if not isinstance(raw, (int, float, str)):
+        return None
     try:
-        value = float(target.get("value"))
-    except (TypeError, ValueError):
+        value = float(raw)
+    except ValueError:
         return None
     return value / 1000 if target.get("unit") == "meter" else value
 
