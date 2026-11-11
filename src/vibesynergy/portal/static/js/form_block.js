@@ -4,7 +4,7 @@ import { esc, isNum, number } from "./format.js";
 import { N, t } from "./i18n.js";
 import { fitnessChart, fitnessLegendHtml } from "./fitness_chart.js";
 
-// intervals.icu's form zones: name and what it means for the race.
+// Friel's form zones: name and what it means for the race.
 export const FORM_ZONE = {
   transition: [N("Transition"), N("very rested; fitness is fading")],
   fresh: [N("Fresh"), N("ready to race")],
@@ -50,23 +50,17 @@ export function formHtml(fitness, projection, range = "90") {
     return `<section class="card" aria-labelledby="form-title">
       <h2 id="form-title">${t("Fitness, fatigue and form")}</h2>
       ${rangePicker}
-      <p class="empty">${t("No training load yet. It comes from intervals.icu, or without it from your heart rate: set your maximum heart rate under Zones & thresholds.")} <a href="#/zones">${t("Zones & thresholds")}</a></p>
+      <p class="empty">${t("No training load yet. VibeSynergy counts it from power, pace or heart rate: set your thresholds under Zones & thresholds.")} <a href="#/zones">${t("Zones & thresholds")}</a></p>
     </section>`;
   }
   const zone = FORM_ZONE[c.form_zone];
   const signed = (v, digits = 0) => (isNum(v) ? `${v > 0 ? "+" : ""}${number(v, digits)}` : "–");
   const tile = (label, value, context) => `<div class="card tile"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div><div class="context">${context}</div></div>`;
-  const source = fitness.source === "vibesynergy"
-    ? t("VibeSynergy's own calculation: power on the bike, otherwise heart rate or pace, from your thresholds.")
-    : !fitness.has_intervals
-    ? t("No intervals.icu data yet: these are VibeSynergy's own estimates from heart rate.")
-    : fitness.days_by_source?.computed
-      ? t("From intervals.icu, like in its app. Days it has no figures for are VibeSynergy's estimate (dashed in the chart).")
-      : t("From intervals.icu, like in its app.");
+  const source = t("Your load as VibeSynergy counts it: power on the bike, pace in the water, otherwise heart rate.");
   const proj = projection?.rows?.length
     ? `<p class="sub">${esc(t("After today: a projection if you do the plan as written. It changes when the plan changes."))}</p>
       <details class="details"><summary>${t("How the projection is made")}</summary>
-        <p class="sub">${esc(t("Planned load per day: the workout's load in intervals.icu ({a} workouts); without one, its planned time at your recent load per hour of {rate} ({b} workouts); weeks with only a weekly target get that target spread over the week ({c} weeks). Nothing else is added.", { a: number(projection.basis.workouts_with_load), b: number(projection.basis.workouts_from_time), c: number(projection.basis.weeks_from_targets), rate: number(projection.basis.load_per_hour) }))}</p>
+        <p class="sub">${esc(t("Planned load per session: from its steps and their intensity ({a} sessions); without steps, its planned time at your own recent load per hour for that kind of session ({b} sessions); weeks with only a weekly target get that target spread over the week ({c} weeks). Nothing else is added.", { a: number(projection.basis.workouts_with_load), b: number(projection.basis.workouts_from_time), c: number(projection.basis.weeks_from_targets) }))}</p>
       </details>`
     : "";
   return `<section class="card" aria-labelledby="form-title">

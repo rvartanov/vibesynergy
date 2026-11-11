@@ -1181,9 +1181,8 @@ def intensity_distribution(
     raw=None,
 ) -> dict:
     """Time per zone over the period, per week and in total. Heart rate, power and pace
-    each keep their own zone count. With ``raw``, an activity intervals.icu has is counted
-    with intervals.icu's zone times (its own sport settings, so the split matches its
-    app); others with the first source copy that has zone times (Garmin). For five heart
+    each keep their own zone count, from the first source copy that has zone times
+    (Garmin, measured with the zones VibeSynergy keeps there). ``raw`` is not used. For five heart
     rate zones the zones are also folded into three (1-2 low, 3 moderate, 4-5 high) with
     the polarisation index of Treff et al. (2019): log10(low/moderate x high x 100) on
     fractions. Power and pace are not folded."""
@@ -1199,18 +1198,12 @@ def intensity_distribution(
             activity_unified.c.kind,
         ).where(activity_unified.c.local_date.between(window.start, window.end)),
     )
-    icu: dict[str, dict] = {}
-    if raw is not None and groups:
-        from vibesynergy.query import activity_effort
-
-        icu = activity_effort.icu_for_groups(
-            engine, raw, [{**g, "sources": g["sources"] or []} for g in groups]
-        )
+    del raw
     weekly: dict[str, dict[int, float]] = {}
     total: dict[int, float] = {}
     coaching_total: dict[int, float] = {}
     counted = 0
-    by_source = {"intervals": 0, "other": 0}
+    by_source = {"other": 0}
 
     def add(g: dict, zones) -> None:
         week = str(qs.bucket(date.fromisoformat(str(g["local_date"])[:10]), "week"))
@@ -1224,12 +1217,6 @@ def intensity_distribution(
     with engine.connect() as conn:
         for g in groups:
             if g["kind"] == "coaching" and not include_coaching:
-                continue
-            from_icu = ((icu.get(g["group_id"]) or {}).get("zones") or {}).get(basis)
-            if from_icu:
-                counted += 1
-                by_source["intervals"] += 1
-                add(g, sorted(from_icu.items()))
                 continue
             for key in g["sources"] or []:  # the first copy that has zone times
                 source, source_id = key.split(":", 1)

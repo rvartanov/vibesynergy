@@ -45,19 +45,18 @@ def register(kit: ToolKit) -> None:
         start: str | None = None,
         end: str | None = None,
         sport: str | None = None,
-        load: str = "intervals",
+        load: str = "vibesynergy",
         include_coaching: bool = True,
     ) -> dict[str, Any]:
         """Fitness, fatigue and form (CTL/ATL/TSB, the performance management chart) from
         daily training load, with the current form band and 7-day CTL ramp. load:
-        intervals (default; intervals.icu's own fitness/fatigue/ramp rate and activity
-        load, so the numbers match its app; each row's source is intervals or computed,
-        and load_source intervals or trimp, for days it has nothing for; form = same-day
-        CTL - ATL, form_zone is intervals.icu's zone on form % of fitness: transition,
-        fresh, grey, optimal, high_risk), trimp (Banister TRIMP from duration and
-        average HR), tss (from power and FTP; only activities with power) or garmin
-        (Garmin's per-activity load; only activities from the Garmin API).
-        Default last_90d."""
+        vibesynergy (default, the one the portal and coach use: per activity power (TSS)
+        for rides with power, pace against CSS for swims, else the heart-rate stream
+        (TRIMP, an hour at LTHR is 100), with the thresholds valid that day; form =
+        same-day CTL - ATL, form_zone on form % of fitness: transition, fresh, grey,
+        optimal, high_risk), trimp (Banister TRIMP from duration and average HR), tss
+        (from power and FTP; only activities with power) or garmin (Garmin's per-activity
+        load). Default last_90d."""
         span = window(period, start, end, "last_90d")
         data = training.training_load(
             engine,
@@ -67,6 +66,7 @@ def register(kit: ToolKit) -> None:
             athlete=settings.athlete,
             include_coaching=include_coaching,
             raw=rt.raw,
+            parquet=rt.parquet,
         )
         return envelope(data, span=span, method="CTL 42-day and ATL 7-day EWMA of daily load")
 
@@ -273,7 +273,9 @@ def register(kit: ToolKit) -> None:
         hour; a week with only a weekly target gets that target spread over its remaining
         days. ``basis`` counts each kind and ``assumptions`` names them; say so when you
         quote it. Changes as soon as the plan changes."""
-        data = planning.projection(engine, rt.raw, today(), athlete=settings.athlete)
+        data = planning.projection(
+            engine, rt.raw, today(), athlete=settings.athlete, parquet=rt.parquet
+        )
         return envelope(data, span=Window(_date(data["start"]), _date(data["end"])))
 
     @tool(READ, "read")

@@ -262,14 +262,17 @@ Differences from the spec below, for now:
 - `vibesynergy_sql` uses SQLite, not DuckDB, over the documented tables. Streams are available
   through `vibesynergy_activity_streams`.
 - Lists use `offset` instead of opaque cursors; there are no result sets or charts yet.
-- `vibesynergy_training_load` uses intervals.icu's own numbers by default (`load="intervals"`): its wellness fitness/fatigue/ramp rate per day and each activity's
-  `icu_training_load`, so they match its app. Days it has no figures for are computed with
-  its algorithm (42/7-day EWMA with weights `1 - e^(-1/n)`, form = same-day CTL - ATL),
-  from its activity load when it has the day's activities, else TRIMP; each row carries
-  `source` (`intervals` | `computed`) and `load_source` (`intervals` | `trimp`), and
-  `current.form_zone` is its zone on form % of fitness (`transition` > +20, `fresh` +5..+20,
-  `grey` -10..+5, `optimal` -30..-10, `high_risk` < -30). `current.form` keeps the older
-  absolute band. `load="trimp"` uses TRIMP (Banister, from each activity's duration and
+- `vibesynergy_training_load` uses VibeSynergy's own load by default (`load="vibesynergy"`,
+  the one the portal and the coach use; intervals.icu's fitness is not read). Per activity:
+  power (TSS from normalized power and FTP) for rides with power, pace against CSS for swims
+  (sTSS, from the first confirmed CSS on; before it heart rate), else the heart-rate stream
+  (TRIMP scaled so an hour at LTHR is 100; the average without a stream), else run pace; with
+  the thresholds valid on the activity's date (Zones & thresholds, then Garmin's history; the
+  oldest known before that; LTHR 90 % of max heart rate until one is known). A session stored
+  twice (Garmin and Strava not merged) counts once. Fitness and fatigue are 42/7-day EWMAs with
+  weights `1 - e^(-1/n)`, form = same-day CTL - ATL, and `current.form_zone` is the zone on
+  form % of fitness (`transition` > +20, `fresh` +5..+20, `grey` -10..+5, `optimal` -30..-10,
+  `high_risk` < -30). `current.form` keeps the older absolute band. `load="trimp"` uses TRIMP (Banister, from each activity's duration and
   average heart rate), which covers every activity with heart rate; `load="garmin"` uses
   Garmin's per-activity load, which only activities from the Garmin API carry; `load_metric="tss"`
   uses TSS from power (normalized power when present, else average) where a power zone/FTP
@@ -751,11 +754,12 @@ Planning & progress page shows (`query/planning.py`, built on `week_progress`).
 #### `vibesynergy_projection`
 A projection, not a measurement: fitness, fatigue and form per day from today to the last
 upcoming race (or the plan's end; at most 300 days) if the plan is done as written, run
-through intervals.icu's model (`icu_fitness.project`) from today's values.
+through VibeSynergy's model (`fitness_model.project`) from today's values.
 - Returns: `rows` (`date`, `load`, `ctl`, `atl`, `tsb`, `form_pct`, `form_zone`), `races`
-  (each upcoming race with its projected values on race day), `basis` (workouts with
-  intervals.icu's own load, workouts estimated from planned time at the recent load per
-  hour, weeks with only a weekly target spread over their days, the rate used),
+  (each upcoming race with its projected values on race day), `basis` (sessions counted
+  from their steps and intensity (`planned_load`), sessions without steps counted at the
+  athlete's own recent load per hour for that kind of session, weeks with only a weekly
+  target spread over their days, the overall rate used),
   `assumptions` and `label: "projection"`. It follows the plan as soon as it changes.
 
 #### `vibesynergy_model_run_write` *(scope `coach.write`)*

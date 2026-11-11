@@ -207,10 +207,8 @@ def register(kit: PortalKit) -> None:
         except Exception:  # the gear picker must never break the activity page
             detail["gear"] = None
         try:
-            from vibesynergy.query import own_load
-
-            detail["own_load"] = own_load.for_activity(engine, rt.raw, rt.parquet, id)
-        except Exception:  # a comparison must never break the activity page
+            detail["own_load"] = training.load_of_activity(rt, id)
+        except Exception:  # the load line must never break the activity page
             detail["own_load"] = None
         detail["multisport"] = _multisport_of(detail["activity"])
         return envelope({**detail, "stream_data": streams})

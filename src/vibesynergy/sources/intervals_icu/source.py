@@ -2,10 +2,12 @@
 
 The API key and athlete id come from the environment (``INTERVALS_ICU_API_KEY``,
 ``INTERVALS_ICU_ATHLETE_ID``). Turn the source on in Settings → Sources like the others.
-This plugin only reads: events (including weekly targets and notes), the workout
-library, activities and wellness (its fitness, fatigue and ramp rate per day). Calendar
-events are cached in ``icu_event``. Workouts, activities and wellness stay in the raw
-archive; ``query.icu_fitness`` reads activities and wellness from there.
+intervals.icu is where VibeSynergy puts the active plan, so it reaches Zwift and the other
+services connected there. This plugin reads only what that needs: events (including weekly
+targets and notes) and the workout library, plus activities for the RPE and Feel recorded
+there (``query.activity_effort``). Fitness, fatigue and form are VibeSynergy's own
+(``query.fitness_model``); intervals.icu's are not read. Calendar events are cached in
+``icu_event``; workouts and activities stay in the raw archive.
 """
 
 from __future__ import annotations
@@ -23,7 +25,6 @@ from vibesynergy.sources.registry import SourceError
 # so 15 reaches today-14. max_days stops a later sync from walking further back.
 _LOOKBACK_DAYS = 14
 _LOOKAHEAD_DAYS = 300
-_WELLNESS_DAYS = 366
 
 
 def _window_spec(name: str, description: str, *, lookahead_days: int = 0) -> DatasetSpec:
@@ -53,16 +54,7 @@ DATASETS = [
         lookahead_days=_LOOKAHEAD_DAYS,
     ),
     DatasetSpec("workouts", DatasetKind.SNAPSHOT, "Workout library"),
-    _window_spec("activities", "Activities recorded on intervals.icu"),
-    # intervals.icu's fitness, fatigue and ramp rate per day, so the Training page
-    # shows its numbers. A year on the first sync; one payload per month like activities.
-    DatasetSpec(
-        "wellness",
-        DatasetKind.RANGE,
-        "Fitness, fatigue and ramp rate per day as intervals.icu computes them",
-        initial_days=_WELLNESS_DAYS,
-        refetch_days=_LOOKBACK_DAYS,
-    ),
+    _window_spec("activities", "Activities on intervals.icu, for the RPE and Feel set there"),
 ]
 
 
@@ -115,9 +107,9 @@ class IntervalsIcuSource(Source):
         if dataset.name == "workouts":
             yield FetchedItem("current", self.client.workouts(), request={"dataset": "workouts"})
             return
-        if dataset.name in ("activities", "wellness"):
+        if dataset.name == "activities":
             assert window is not None
-            read = self.client.activities if dataset.name == "activities" else self.client.wellness
+            read = self.client.activities
             # One raw item per month, and each new version replaces the previous one, so
             # always fetch the whole month (up to today): a 14-day refetch that starts mid-month
             # would otherwise drop the month's earlier days from the archive.

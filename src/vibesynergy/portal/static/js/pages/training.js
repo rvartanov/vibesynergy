@@ -1,9 +1,9 @@
 // Training analysis, the second tab of Planning & progress (the former Training page,
 // #/training redirects here): fitness, fatigue and form (the performance management chart), weekly volume
 // per sport, time in heart-rate, pace and power zones, fitness markers and the power curve.
-// By default the numbers are intervals.icu's own (fitness, fatigue, form, ramp rate and
-// load per activity), so they match its app; days it has nothing for are estimated
-// with its method and say so. TRIMP, TSS and Garmin's load stay available. The power curve reads every power stream, so it loads on its own.
+// The numbers are VibeSynergy's own (load per activity from power, pace or the heart-rate
+// stream, with the thresholds valid that day). TRIMP, TSS and Garmin's load stay available
+// to compare. The power curve reads every power stream, so it loads on its own.
 import { get } from "../api.js";
 import { alpha, mount, series, token, tooltipBase } from "../charts.js";
 import { addDays, clock, esc, hoursMinutes, isNum, km, monthYear, number, shortDate, sportName } from "../format.js";
@@ -33,7 +33,7 @@ const SPORTS = [
   ["swim", N("Swimming")],
 ];
 const LOADS = [
-  ["intervals", N("intervals.icu")],
+  ["vibesynergy", N("VibeSynergy")],
   ["trimp", N("Heart rate (TRIMP)")],
   ["tss", N("Power (TSS)")],
   ["garmin", N("Garmin training load")],
@@ -48,7 +48,7 @@ const FAMILIES = [
   [N("Gym & strength"), /strength|training|fitness|yoga|pilates|mobility|elliptical|row/i],
 ];
 const OTHER = N("Other");
-// intervals.icu's form zones (form as % of fitness) and, for the other loads, the older bands.
+// Friel's form zones (form as % of fitness) and, for the other loads, the older bands.
 const FORM_ZONE = {
   transition: [N("Transition"), N("very rested; fitness is fading")],
   fresh: [N("Fresh"), N("ready to race")],
@@ -73,7 +73,7 @@ export async function render(view, { query, meta, stale }) {
   const periodValue = mergePeriodValue(query, STORAGE, DEFAULT, { today });
   const state = {
     sport: query.get("sport") || "",
-    load: query.get("load") || "intervals",
+    load: query.get("load") || "vibesynergy",
     include_coaching: query.get("include_coaching") !== "false",
     curve: query.get("curve") || "cycl",
   };
@@ -101,7 +101,7 @@ export async function render(view, { query, meta, stale }) {
     <section class="card">
       <h2>${t("Fitness, fatigue and form")}</h2>
       ${withLoad ? `${fitnessLegendHtml()}
-      <div class="chart pmc" role="img" aria-label="${esc(t("Fitness, fatigue and form over the period"))}"></div>` : `<p class="empty">${t("No training load yet. It comes from intervals.icu, or without it from your heart rate: set your maximum heart rate under Zones & thresholds.")} <a href="#/zones">${t("Zones & thresholds")}</a></p>`}
+      <div class="chart pmc" role="img" aria-label="${esc(t("Fitness, fatigue and form over the period"))}"></div>` : `<p class="empty">${t("No training load yet. VibeSynergy counts it from power, pace or heart rate: set your thresholds under Zones & thresholds.")} <a href="#/zones">${t("Zones & thresholds")}</a></p>`}
       ${withLoad ? `<p class="sub">${esc(t("Coaching load in this period: {n}", { n: number(Object.values(load.coaching_daily_load).reduce((sum, value) => sum + value, 0), 1) }))}</p>` : ""}
       <p class="sub">${esc(loadNote(load))}</p>
       ${loadDetails(load)}
@@ -170,7 +170,7 @@ function select(name, options, current) {
 }
 
 function bind(view, state, periodValue, today) {
-  const defaults = { sport: "", load: "intervals", curve: "cycl", include_coaching: true };
+  const defaults = { sport: "", load: "vibesynergy", curve: "cycl", include_coaching: true };
   const navigate = (period) => {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(state)) {
@@ -219,24 +219,18 @@ function tilesHtml(c) {
   </section>`;
 }
 
-// intervals.icu's numbers: which days are its own and which VibeSynergy estimated.
+// How VibeSynergy's own load is made, for who wants to know.
 function loadDetails(load) {
-  if (load.load !== "intervals") return "";
-  const days = load.days_by_source || {};
-  const loadDays = load.load_days_by_source || {};
+  if (load.load !== "vibesynergy") return "";
   return `<details class="details"><summary>${esc(t("Details"))}</summary>
-    <p class="sub">${esc(t("Days with intervals.icu's own fitness and fatigue: {n}. Days estimated by VibeSynergy with the same method: {m}.", { n: number(days.intervals || 0), m: number(days.computed || 0) }))}</p>
-    <p class="sub">${esc(t("Days with intervals.icu's load: {n}. Days with VibeSynergy's heart-rate estimate: {m}.", { n: number(loadDays.intervals || 0), m: number(loadDays.trimp || 0) }))}</p>
+    <p class="sub">${esc(t("Per session: power on the bike (TSS from normalized power and FTP), pace in the water (against CSS), otherwise the heart rate over the whole session (an hour at threshold heart rate counts 100). Always with the thresholds that were valid on that day."))}</p>
     <p class="sub">${esc(t("Fitness and fatigue are 42- and 7-day weighted averages of the daily load; form is today's fitness minus today's fatigue; the form zone reads form as a share of fitness."))}</p>
   </details>`;
 }
 
 function loadNote(load) {
-  if (load.load === "intervals") {
-    const days = load.days_by_source || {};
-    if (!load.has_intervals) return t("No intervals.icu data yet: these are VibeSynergy's own estimates from heart rate.");
-    if (days.computed) return t("From intervals.icu, like in its app. Days it has no figures for are VibeSynergy's estimate (dashed in the chart).");
-    return t("From intervals.icu, like in its app.");
+  if (load.load === "vibesynergy") {
+    return t("Your load as VibeSynergy counts it: power on the bike, pace in the water, otherwise heart rate.");
   }
   if (load.load === "tss") {
     return t("Load is estimated from power and your FTP. Activities without power add nothing.");

@@ -207,13 +207,6 @@ class IntervalsIcuClient:
             "activities", {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
         )
 
-    def wellness(self, oldest: date, newest: date) -> list[dict[str, Any]]:
-        """Wellness records in the inclusive window: intervals.icu's own fitness (``ctl``),
-        fatigue (``atl``), ``rampRate`` and the day's load (``ctlLoad``), one per date."""
-        return self._get_list(
-            "wellness", {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
-        )
-
     def notes(self, oldest: date, newest: date) -> list[dict[str, Any]]:
         return [event for event in self.events(oldest, newest) if event.get("category") == "NOTE"]
 

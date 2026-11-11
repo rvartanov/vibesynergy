@@ -1,21 +1,19 @@
-"""VibeSynergy's own training load per activity, validated against intervals.icu.
+"""VibeSynergy's training load per activity: the only one fitness, fatigue and form use.
 
-Formulas, fitted on the athlete's intervals.icu data (2025-06 to 2026-11):
-- power: TSS = s · NP · IF / (FTP · 3600) · 100, IF = NP / FTP (bike; matches power_load);
-- swim pace: s · IF³ / 3600 · 100, IF = speed / CSS speed (matches pace_load for Swim);
+Formulas (an hour at threshold is 100):
+- power: TSS = s · NP · IF / (FTP · 3600) · 100, IF = NP / FTP (rides with power);
+- swim pace: s · IF³ / 3600 · 100, IF = speed / CSS speed (sTSS);
 - run pace: s · IF² / 3600 · 100, IF = speed / threshold speed;
-- heart rate: Banister TRIMP, normalised so one hour at LTHR is 100 (close to HRSS).
-The choice per activity follows what intervals.icu picks in the athlete's data: power for rides
-with power, else heart rate (also for swims and runs), else pace. ``compare`` reports the
-difference with intervals.icu's ``icu_training_load`` per sport; nothing uses the own model
-yet (intervals.icu leads).
+- heart rate: Banister TRIMP over the stream, normalised so an hour at LTHR is 100 (HRSS).
+Which one per activity: ``method_for``. Checked on the athlete's data on 11-11-2026 against
+intervals.icu, which then counted the same sessions: rides with power within 1 %, runs and
+strength on the heart-rate stream within 4-7 % (median), pool swims on pace within 1 %.
 """
 
 from __future__ import annotations
 
 import math
-import statistics
-from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -63,183 +61,123 @@ def hr_stream_load(
     return total / _trimp(60, lthr, rest, top) * 100
 
 
-def from_icu(item: dict[str, Any]) -> tuple[str, float] | None:
-    """Own load for one intervals.icu activity, from the inputs intervals.icu used."""
-    seconds = item.get("moving_time")
-    if not seconds:
-        return None
-    kind = str(item.get("type") or "")
-    np_watts, ftp = item.get("icu_weighted_avg_watts"), item.get("icu_ftp")
-    if "Ride" in kind and np_watts and ftp:
-        return "power", power_load(seconds, np_watts, ftp)
-    avg_hr, lthr = item.get("average_heartrate"), item.get("lthr")
-    if avg_hr and lthr:
-        rest = item.get("icu_resting_hr") or 45
-        top = item.get("athlete_max_hr") or 180
-        return "hr", hr_load(seconds, avg_hr, lthr, rest, top)
-    speed, threshold = item.get("pace"), item.get("threshold_pace")
-    if speed and threshold:
-        return "pace", pace_load(seconds, speed, threshold, 3 if "Swim" in kind else 2)
+# --- the load per activity, as VibeSynergy counts it ---------------------------------------
+
+# A Garmin multisport session is also stored as its parts; the parent would count twice.
+PARENT_SPORTS = frozenset({"multi_sport", "multisport", "triathlon"})
+
+
+@dataclass(frozen=True)
+class Inputs:
+    """The confirmed thresholds the load is computed from (Zones & thresholds)."""
+
+    ftp: float | None
+    css: float | None  # s per 100 m
+    threshold_pace: float | None  # s per km
+    lthr: dict[str, float]  # per family (ride, run, swim, other)
+    max_hr: dict[str, float]
+    rest_hr: float
+
+    def key(self, fam: str) -> str:
+        return (
+            f"{self.ftp}|{self.css}|{self.threshold_pace}|{self.lthr.get(fam)}|"
+            f"{self.top(fam)}|{self.rest_hr}"
+        )
+
+    def top(self, fam: str) -> float:
+        """Max heart rate for a family; strength, Pilates and walking use the general one."""
+        return self.max_hr.get(fam) or self.max_hr.get("other") or 0.0
+
+
+def method_for(
+    fam: str,
+    *,
+    np_watts: float | None,
+    avg_power: float | None,
+    avg_hr: float | None,
+    speed: float | None,
+    has_stream: bool,
+    inputs: Inputs,
+) -> str | None:
+    """Which way the load of an activity is counted, in this order: power for rides with
+    power (TSS); pace against CSS for swims (sTSS, wrist heart rate is unreliable in the
+    water); heart rate, from the stream when there is one, else the average (TRIMP scaled so
+    an hour at LTHR is 100); pace for runs without heart rate. None: nothing to count with."""
+    if fam == "ride" and (np_watts or avg_power) and inputs.ftp:
+        return "power"
+    if fam == "swim" and speed and inputs.css:
+        return "pace"
+    lthr = inputs.lthr.get(fam) or inputs.lthr.get("run")
+    if avg_hr and lthr and inputs.top(fam) > inputs.rest_hr:
+        return "hr_stream" if has_stream else "hr"
+    if fam == "run" and speed and inputs.threshold_pace:
+        return "pace"
     return None
 
 
-def compare(items: list[dict[str, Any]]) -> dict[str, Any]:
-    """Own load against intervals.icu's per sport: count, median and P90 relative error."""
-    errors: dict[str, list[float]] = defaultdict(list)
-    for item in items:
-        theirs = item.get("icu_training_load")
-        mine = from_icu(item)
-        if not theirs or mine is None:
-            continue
-        errors[str(item.get("type") or "?")].append(abs(mine[1] - theirs) / theirs)
-    out = {}
-    for sport, errs in sorted(errors.items()):
-        errs.sort()
-        out[sport] = {
-            "n": len(errs),
-            "median_pct": round(100 * statistics.median(errs), 1),
-            "p90_pct": round(100 * errs[min(len(errs) - 1, int(len(errs) * 0.9))], 1),
-        }
-    return out
+def load_of(
+    method: str,
+    fam: str,
+    seconds: float,
+    *,
+    np_watts: float | None,
+    avg_power: float | None,
+    avg_hr: float | None,
+    speed: float | None,
+    inputs: Inputs,
+    stream: tuple[list[float], list[float | None]] | None = None,
+) -> float:
+    lthr = inputs.lthr.get(fam) or inputs.lthr.get("run") or 0.0
+    top = inputs.top(fam)
+    if method == "power":
+        return power_load(seconds, float(np_watts or avg_power or 0), float(inputs.ftp or 1))
+    if method == "pace" and fam == "swim":
+        return pace_load(seconds, float(speed or 0), 100 / float(inputs.css or 1), 3)
+    if method == "pace":
+        return pace_load(seconds, float(speed or 0), 1000 / float(inputs.threshold_pace or 1), 2)
+    if method == "hr_stream" and stream is not None:
+        found = hr_stream_load(stream[0], stream[1], lthr, inputs.rest_hr, top)
+        if found is not None:
+            return found
+    return hr_load(seconds, float(avg_hr or 0), lthr, inputs.rest_hr, top)
 
 
-def compare_archive(engine: Any, raw: Any, window: Any) -> dict[str, Any]:
-    """``compare`` over the intervals.icu activities stored in the archive for ``window``."""
-    from vibesynergy.query import icu_fitness
+def fingerprint(method: str | None, fam: str, row: dict[str, Any], inputs: Inputs) -> str:
+    """What a stored load was computed from; a change in any of it means computing again."""
+    import hashlib
 
-    items: dict[Any, dict[str, Any]] = {}
-    for payload in icu_fitness._payloads(engine, raw, "activities", window):  # pyright: ignore[reportPrivateUsage]
-        for item in payload:
-            items[item.get("id")] = item
-    return compare(list(items.values()))
-
-
-def _icu_start(item: dict[str, Any]) -> float | None:
-    from datetime import UTC, datetime
-
-    text = item.get("start_date")
-    if not text:
-        return None
-    try:
-        when = datetime.fromisoformat(str(text).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return (when if when.tzinfo else when.replace(tzinfo=UTC)).timestamp()
+    text = "|".join(
+        str(row.get(k))
+        for k in ("moving_s", "elapsed_s", "norm_power", "avg_power", "avg_hr", "avg_speed")
+    )
+    text += f"|{row.get('stream_key')}|{method}|{fam}|{inputs.key(fam)}|v2"
+    return hashlib.sha256(text.encode()).hexdigest()[:24]
 
 
-def compare_streams(engine: Any, raw: Any, parquet: Any, window: Any) -> dict[str, Any]:
-    """Heart-rate load from the stream against intervals.icu's, for activities where
-    intervals.icu used heart rate: per sport the error of the average-based and the
-    stream-based load."""
-    from sqlalchemy import select
-
-    from vibesynergy.query import icu_fitness
-    from vibesynergy.store.schema import activity_unified as au
-
-    items: dict[Any, dict[str, Any]] = {}
-    for payload in icu_fitness._payloads(engine, raw, "activities", window):  # pyright: ignore[reportPrivateUsage]
-        for item in payload:
-            items[item.get("id")] = item
-    with engine.connect() as conn:
-        ours = conn.execute(
-            select(au.c.start_utc, au.c.stream_key).where(
-                au.c.local_date.between(window.start, window.end), au.c.stream_key.is_not(None)
-            )
-        ).all()
-    starts = [(row.start_utc.timestamp(), row.stream_key) for row in ours if row.start_utc]
-    errors: dict[str, dict[str, list[float]]] = defaultdict(lambda: {"avg": [], "stream": []})
-    for item in items.values():
-        theirs = item.get("icu_training_load")
-        mine = from_icu(item)
-        start = _icu_start(item)
-        if not theirs or mine is None or mine[0] != "hr" or start is None:
-            continue
-        key = next((k for t, k in starts if abs(t - start) <= 120), None)
-        if key is None or not parquet.stream_path(key).exists():
-            continue
-        table = parquet.read_stream(key)
-        if "hr" not in table.column_names:
-            continue
-        times = [v.timestamp() for v in table.column("t").to_pylist()]
-        load = hr_stream_load(
-            times,
-            table.column("hr").to_pylist(),
-            item["lthr"],
-            item.get("icu_resting_hr") or 45,
-            item.get("athlete_max_hr") or 180,
-        )
-        if load is None:
-            continue
-        sport = str(item.get("type") or "?")
-        errors[sport]["avg"].append(abs(mine[1] - theirs) / theirs)
-        errors[sport]["stream"].append(abs(load - theirs) / theirs)
-    out = {}
-    for sport, pair in sorted(errors.items()):
-        row: dict[str, Any] = {"n": len(pair["avg"])}
-        for name, errs in pair.items():
-            errs.sort()
-            row[f"{name}_median_pct"] = round(100 * statistics.median(errs), 1)
-            row[f"{name}_p90_pct"] = round(100 * errs[min(len(errs) - 1, int(len(errs) * 0.9))], 1)
-        out[sport] = row
-    return out
+# Methods from most to least telling, to choose between two records of one session.
+_QUALITY = {"power": 4, "hr_stream": 3, "pace": 2, "hr": 1, None: 0}
 
 
-def for_activity(engine: Any, raw: Any, parquet: Any, group_id: str) -> dict[str, Any] | None:
-    """VibeSynergy's load for one activity next to intervals.icu's: power for rides with
-    power, the heart-rate stream otherwise, the heart-rate average for pool swims (the
-    stream is unreliable in the water). None when intervals.icu has no copy of it."""
-    from datetime import timedelta
-
-    from sqlalchemy import select
-
-    from vibesynergy.core.timeutil import Window
-    from vibesynergy.query import icu_fitness
-    from vibesynergy.store.schema import activity_unified as au
-
-    with engine.connect() as conn:
-        row = conn.execute(
-            select(au.c.start_utc, au.c.local_date, au.c.stream_key, au.c.sport).where(
-                au.c.group_id == group_id
-            )
-        ).first()
-    if row is None or row.start_utc is None:
-        return None
-    start = row.start_utc.timestamp()
-    window = Window(row.local_date - timedelta(days=1), row.local_date + timedelta(days=1))
-    item = None
-    for payload in icu_fitness._payloads(engine, raw, "activities", window):  # pyright: ignore[reportPrivateUsage]
-        for candidate in payload:
-            at = _icu_start(candidate)
-            if at is not None and abs(at - start) <= 120:
-                item = candidate
-    if item is None or not item.get("icu_training_load"):
-        return None
-    mine = from_icu(item)
-    if mine is None:
-        return None
-    method, value = mine
-    kind = str(item.get("type") or "")
-    if (
-        method == "hr"
-        and kind != "Swim"
-        and row.stream_key
-        and parquet.stream_path(row.stream_key).exists()
-    ):
-        table = parquet.read_stream(row.stream_key)
-        if "hr" in table.column_names:
-            stream = hr_stream_load(
-                [v.timestamp() for v in table.column("t").to_pylist()],
-                table.column("hr").to_pylist(),
-                item["lthr"],
-                item.get("icu_resting_hr") or 45,
-                item.get("athlete_max_hr") or 180,
-            )
-            if stream is not None:
-                method, value = "hr_stream", stream
-    theirs = float(item["icu_training_load"])
-    return {
-        "intervals": round(theirs),
-        "vibesynergy": round(value),
-        "method": method,
-        "difference_pct": round(100 * (value - theirs) / theirs),
-    }
+def without_duplicates(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One session stored twice (e.g. a Zwift ride from Garmin and from Strava that were not
+    merged) counts once: two activities of the same family that overlap for more than half of
+    the shorter one keep the better-measured record."""
+    keep: list[dict[str, Any]] = []
+    for item in sorted(items, key=lambda x: (x.get("start") is None, x.get("start") or 0)):
+        start = item.get("start")
+        twin = None
+        if start is not None:
+            for other in keep:
+                if other["family"] != item["family"] or other.get("start") is None:
+                    continue
+                a0, a1 = other["start"].timestamp(), other["start"].timestamp() + other["seconds"]
+                b0, b1 = start.timestamp(), start.timestamp() + item["seconds"]
+                overlap = min(a1, b1) - max(a0, b0)
+                if overlap > 0.5 * min(other["seconds"], item["seconds"]):
+                    twin = other
+                    break
+        if twin is None:
+            keep.append(item)
+        elif _QUALITY.get(item["method"], 0) > _QUALITY.get(twin["method"], 0):
+            keep[keep.index(twin)] = item
+    return keep

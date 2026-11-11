@@ -113,7 +113,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
         raise ConfigError(f"{path}: {exc}") from exc
 
     paths = raw.get("paths", {})
-    user = raw.get("user", {})
+    user = _without_retired(dict(raw.get("user", {})), "user")
     data_dir = (
         os.environ.get("VIBESYNERGY_DATA_DIR")
         or paths.get("data_dir")
@@ -155,11 +155,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
         units=user.get("units", "metric"),
         temperature=user.get("temperature") or ("f" if user.get("units") == "imperial" else "c"),
         wind=user.get("wind", "kmh"),
-        athlete={
-            k: user[k]
-            for k in ("sex", "max_hr", "resting_hr", "birth_date", "load_source")
-            if k in user
-        },
+        athlete={k: user[k] for k in ("sex", "max_hr", "resting_hr", "birth_date") if k in user},
         sources=sources,
         server=raw.get("server", {}),
         schedule=schedule,
@@ -187,6 +183,8 @@ RETIRED_KEYS = {
     "alerts": ("whatsapp_phone", "whatsapp_bridge"),
     # VibeSynergy no longer adds approved workouts to Garmin.
     "coach": ("workout_push_enabled",),
+    # Fitness is VibeSynergy's own calculation only; intervals.icu's is no longer read.
+    "user": ("load_source",),
 }
 _RETIRED_WARNED: set[str] = set()
 
@@ -271,9 +269,6 @@ def _validate(settings: Settings) -> None:
     if "birth_date" in settings.athlete:
         settings.athlete["birth_date"] = _birth_date(settings.athlete["birth_date"])
     # Whose training load counts: intervals.icu's model or VibeSynergy's own.
-    source = settings.athlete.get("load_source")
-    if source is not None and source not in ("intervals", "vibesynergy"):
-        raise ConfigError(f"[user] load_source must be intervals or vibesynergy, got {source!r}")
     security = settings.mail.get("smtp_security")
     if security is not None and security not in ("starttls", "ssl", "none"):
         raise ConfigError("[mail] smtp_security must be starttls, ssl or none")

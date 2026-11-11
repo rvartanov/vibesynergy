@@ -6,11 +6,12 @@ plan leads.
   workouts) against time done, the workouts done / changed / missed, and intervals.icu's
   compliance for the paired ones; plus the same per training phase (from the weekly notes).
 - ``projection``: fitness, fatigue and form from today to the last upcoming race if the plan
-  is done as written, run through intervals.icu's model (``icu_fitness.project``) from
-  today's intervals.icu values. A day's planned load is the intervals.icu workout's own load;
-  a workout without one gets its planned time at the athlete's recent load per hour; a week
-  with only a weekly target gets that target (its load, else its time at that rate) spread
-  over its remaining days. It is a projection, labelled as one, with these assumptions.
+  is done as written, run through VibeSynergy's model (``fitness_model.project``) from
+  today's values. A session's planned load comes from its steps (``planned_load``); one
+  without steps it can count (strength, Pilates, a free ride) gets its planned time at the
+  athlete's own recent load per hour for that kind of session; a week with only a weekly
+  target gets that target (its load, else its time at that rate) spread over its remaining
+  days. It is a projection, labelled as one, with these assumptions.
 """
 
 from __future__ import annotations
@@ -22,7 +23,14 @@ from typing import Any
 from sqlalchemy import Engine, func, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import icu_fitness, training, training_plan, week_progress
+from vibesynergy.query import (
+    fitness_model,
+    planned_load,
+    training,
+    training_plan,
+    week_progress,
+    workout_model,
+)
 from vibesynergy.query import plan as plan_q
 from vibesynergy.store.schema import activity_unified
 
@@ -34,7 +42,7 @@ FITNESS_RANGES = frozenset({42, 90, 182, 365})  # days of past in the fitness ch
 DEFAULT_LOAD_PER_HOUR = 50.0  # when there is no recent history to learn from
 ASSUMPTIONS = (
     "plan_done_as_written",
-    "workout_load_from_intervals",
+    "workout_load_from_steps",
     "missing_load_from_recent_load_per_hour",
     "weekly_targets_spread_evenly",
     "nothing_else_added",
@@ -192,8 +200,7 @@ def _totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def load_per_hour(engine: Engine, fitness_rows: list[list[Any]], today: date) -> float | None:
-    """The athlete's recent load per hour of training (intervals.icu's load where it has
-    it), from the last ``RATE_DAYS`` days."""
+    """The athlete's recent load per hour of training, from the last ``RATE_DAYS`` days."""
     since = today - timedelta(days=RATE_DAYS - 1)
     load = sum(row[1] or 0 for row in fitness_rows if row[0] >= str(since))
     with engine.connect() as conn:
@@ -208,6 +215,20 @@ def load_per_hour(engine: Engine, fitness_rows: list[list[Any]], today: date) ->
     return round(load / hours, 1)
 
 
+def family_rates(
+    engine: Engine, today: date, athlete: dict[str, Any] | None = None, *, parquet=None
+) -> dict[str, float]:
+    """The athlete's own load per hour per kind of session (ride, run, swim, strength, …)
+    over the last ``RATE_DAYS`` days, for planned sessions without steps to count."""
+    since = today - timedelta(days=RATE_DAYS - 1)
+    load: dict[str, float] = defaultdict(float)
+    hours: dict[str, float] = defaultdict(float)
+    for item in training.activity_loads(engine, Window(since, today), athlete, parquet=parquet):
+        load[item["family"]] += item["load"]
+        hours[item["family"]] += item["seconds"] / 3600
+    return {fam: round(load[fam] / hours[fam], 1) for fam in load if hours[fam] >= 1}
+
+
 def projection(
     engine: Engine,
     raw,
@@ -216,6 +237,7 @@ def projection(
     athlete: dict[str, Any] | None = None,
     overview: dict[str, Any] | None = None,
     fitness: dict[str, Any] | None = None,
+    parquet=None,
 ) -> dict[str, Any]:
     """Fitness, fatigue and form per day from today to the last upcoming race (or the end of
     the plan) if the plan is done as written, with the projected values on each race day."""
@@ -223,9 +245,10 @@ def projection(
     fitness = fitness or training.training_load(
         engine,
         Window(today - timedelta(days=89), today),
-        load="intervals",
+        load="vibesynergy",
         athlete=athlete,
         raw=raw,
+        parquet=parquet,
     )
     rows = fitness.get("rows") or []
     races = [r for r in overview.get("races") or [] if r.get("date") and r["date"] >= str(today)]
@@ -247,6 +270,8 @@ def projection(
 
     rate = load_per_hour(engine, rows, today)
     used_rate = rate or DEFAULT_LOAD_PER_HOUR
+    inputs = training.ThresholdTimeline(engine, athlete).on(today)
+    rates = family_rates(engine, today, athlete, parquet=parquet)
     plan = plan_q.plan(engine, Window(today, horizon), today, include_sync_status=False)
     daily: dict[date, float] = defaultdict(float)
     detail_days = from_time = 0
@@ -257,15 +282,22 @@ def projection(
         day = date.fromisoformat(item["date"])
         if day < today or item.get("status") in ("done", "changed", "missed"):
             continue
-        load = (item.get("extra") or {}).get("load")
-        if load is None:
-            seconds = plan_q.planned_duration_s(item)
-            if not seconds:
-                continue
-            load = seconds / 3600 * used_rate
-            from_time += 1
-        else:
+        extra = item.get("extra") or {}
+        fam = plan_q.family(item.get("sport")) or "other"
+        found = planned_load.planned_load(
+            workout_model.parse_intervals(extra.get("description") or "").steps,
+            fam,
+            inputs,
+            seconds=plan_q.planned_duration_s(item),
+            rate_per_hour=rates.get(fam) or used_rate,
+        )
+        if found is None:
+            continue
+        load, how = found
+        if how == "steps":
             detail_days += 1
+        else:
+            from_time += 1
         daily[day] += float(load)
         detailed_weeks.add(monday_of(day))
     target_weeks = 0
@@ -296,12 +328,12 @@ def projection(
     loads = dict(daily)
     if yesterday:
         loads[today] = done_today + daily.get(today, 0.0)
-        series = icu_fitness.project(
+        series = fitness_model.project(
             yesterday[2], yesterday[3], today - timedelta(days=1), loads, horizon
         )
     else:
         last = rows[-1]
-        series = icu_fitness.project(last[2], last[3], today, loads, horizon)
+        series = fitness_model.project(last[2], last[3], today, loads, horizon)
     by_date = {row["date"]: row for row in series}
     race_rows = []
     for race in races:
@@ -345,6 +377,7 @@ def page(
     week: date | None = None,
     athlete: dict[str, Any] | None = None,
     fitness_days: int = 90,
+    parquet=None,
 ) -> dict[str, Any]:
     """Everything the planning & progress page shows, for the week of ``week``.
     ``fitness_days`` is how much past the fitness chart shows: 42, 90, 182 or 365."""
@@ -358,7 +391,15 @@ def page(
         "today": str(today),
         "week": week_progress.week_progress(engine, monday, today, raw=raw),
         "trend": plan_vs_done(engine, raw, today, last=trend_last, overview=overview),
-        **form(engine, raw, today, athlete=athlete, fitness_days=fitness_days, overview=overview),
+        **form(
+            engine,
+            raw,
+            today,
+            athlete=athlete,
+            fitness_days=fitness_days,
+            overview=overview,
+            parquet=parquet,
+        ),
         "plan": overview,
     }
 
@@ -371,6 +412,7 @@ def form(
     athlete: dict[str, Any] | None = None,
     fitness_days: int = 90,
     overview: dict[str, Any] | None = None,
+    parquet=None,
 ) -> dict[str, Any]:
     """Fitness, fatigue and form over ``fitness_days`` and the projection to the races:
     the Form tab under Fitness and the race cards on Planning & progress."""
@@ -380,9 +422,10 @@ def form(
     fitness = training.training_load(
         engine,
         Window(today - timedelta(days=fitness_days - 1), today),
-        load="intervals",
+        load="vibesynergy",
         athlete=athlete,
         raw=raw,
+        parquet=parquet,
     )
     return {
         "fitness": {
@@ -391,9 +434,14 @@ def form(
             "current": fitness["current"],
             "source": fitness["source"],
             "days_by_source": fitness["days_by_source"],
-            "has_intervals": fitness["has_intervals"],
         },
         "projection": projection(
-            engine, raw, today, athlete=athlete, overview=overview, fitness=fitness
+            engine,
+            raw,
+            today,
+            athlete=athlete,
+            overview=overview,
+            fitness=fitness,
+            parquet=parquet,
         ),
     }

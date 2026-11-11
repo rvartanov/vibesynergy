@@ -146,7 +146,14 @@ def test_pairing_compliance_effort_and_extras(runtime) -> None:
     assert ride["compliance"] == 95.2
     assert ride["planned"]["duration_s"] == 6300
     assert ride["actual"]["duration_s"] == 6000
-    assert ride["actual"]["load"] == 70
+    # VibeSynergy's own load of the ride, not intervals.icu's 70 (11-11-2026).
+    from vibesynergy.core.timeutil import Window
+    from vibesynergy.query import training
+
+    own = training.own_loads(
+        runtime.engine, Window(date(2026, 11, 2), date(2026, 11, 8)), [ride["actual"]["id"]]
+    )
+    assert ride["actual"]["load"] == own.get(ride["actual"]["id"]) != 70
     assert (ride["rpe"], ride["feel"]) == (4, 2)
     coached = sessions["Groepstraining geven, zelf Z1 60'"]
     assert coached["status"] == "done"
