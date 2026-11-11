@@ -197,9 +197,10 @@ def _coach_context(reader, rt, activity_id, detail, day, daily, planned_today):
     load = training.training_load(
         reader,
         Window(day - timedelta(days=34), day),
-        load="intervals",
+        load="vibesynergy",
         athlete=rt.settings.athlete,
         raw=getattr(rt, "raw", None),
+        parquet=getattr(rt, "parquet", None),
     )
     load_rows = load["rows"]
     load_available = bool((load.get("hr_profile") or {}).get("max_hr"))

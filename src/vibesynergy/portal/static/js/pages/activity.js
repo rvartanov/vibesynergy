@@ -57,8 +57,8 @@ function channels(sport) {
 const LOAD_METHODS = { power: N("from power"), hr_stream: N("from heart rate"), hr: N("from average heart rate"), pace: N("from pace") };
 function ownLoadHtml(load) {
   if (!load) return "";
-  return `<details class="card collapsible"><summary>${esc(t("Training load: {n}", { n: number(load.intervals) }))}</summary>
-    <p class="sub">${esc(t("intervals.icu {theirs} · VibeSynergy {mine} ({method}). intervals.icu counts for your fitness; VibeSynergy's own number is being checked against it.", { theirs: number(load.intervals), mine: number(load.vibesynergy), method: t(LOAD_METHODS[load.method] || load.method) }))}</p></details>`;
+  return `<details class="card collapsible"><summary>${esc(t("Training load: {n}", { n: number(load.load) }))}</summary>
+    <p class="sub">${esc(t("Counted {method}, with your thresholds of that day. This is what your fitness is built from.", { method: t(LOAD_METHODS[load.method] || load.method) }))}</p></details>`;
 }
 
 // A multisport holder lists its parts; a part links back to its holder.

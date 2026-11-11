@@ -524,8 +524,9 @@ def _load(engine: Engine, today: date, athlete: dict | None, rt) -> dict[str, An
         engine,
         Window(today - timedelta(days=27), today),
         athlete=athlete,
-        load="intervals",
+        load="vibesynergy",
         raw=getattr(rt, "raw", None),
+        parquet=getattr(rt, "parquet", None),
     )
     loads = [row[1] for row in pmc["rows"]]
     acute = statistics.fmean(loads[-7:]) if loads else 0.0

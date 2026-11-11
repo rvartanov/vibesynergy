@@ -416,8 +416,7 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "temperature": on_disk.temperature,
                 "wind": on_disk.wind,
                 **{
-                    k: on_disk.athlete.get(k)
-                    for k in ("sex", "max_hr", "resting_hr", "birth_date", "load_source")
+                    k: on_disk.athlete.get(k) for k in ("sex", "max_hr", "resting_hr", "birth_date")
                 },
             },
             "sources": sources,

@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import Engine, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import activity_effort, horizon, icu_plan
+from vibesynergy.query import activity_effort, horizon, icu_plan, training
 from vibesynergy.query import plan as plan_q
 from vibesynergy.store.schema import activity_unified
 
@@ -72,6 +72,15 @@ def week_progress(
         if item["kind"] in plan_q.TRAINING_KINDS and lo <= item["date"] <= hi
     ]
     activities = _activities(engine, monday, min(sunday, today))
+    own = (
+        training.own_loads(
+            engine, Window(monday, min(sunday, today)), [a["group_id"] for a in activities]
+        )
+        if activities
+        else {}
+    )
+    for act in activities:
+        act["own_load"] = own.get(act["group_id"])
     icu = activity_effort.icu_for_groups(engine, raw, activities) if raw is not None else {}
     effort = activity_effort.for_groups(engine, raw, activities) if activities else {}
     by_id = {a["group_id"]: a for a in activities}
@@ -220,14 +229,13 @@ def _effort(found: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _actual(act: dict[str, Any], icu_row: dict[str, Any] | None) -> dict[str, Any]:
-    load = (icu_row or {}).get("load")
+    del icu_row  # the load is VibeSynergy's own, not intervals.icu's
     return {
         "id": act["group_id"],
         "name": act.get("name"),
         "duration_s": round(_seconds(act), 1) or None,
         "distance_m": act.get("distance_m") or None,
-        "load": load if load is not None else act.get("training_load"),
-        "intensity_pct": (icu_row or {}).get("intensity"),
+        "load": act.get("own_load"),
         "coaching": act.get("kind") == "coaching",
     }
 
@@ -312,9 +320,9 @@ def _sum(values) -> float:
 
 
 def _load(act: dict[str, Any], icu: dict[str, dict]) -> float | None:
-    """intervals.icu's load when it has the activity, so the numbers match its app."""
-    found = (icu.get(act["group_id"]) or {}).get("load")
-    return found if found is not None else act.get("training_load")
+    """VibeSynergy's own load of the activity (``training.own_loads``)."""
+    del icu
+    return act.get("own_load")
 
 
 def _sports(sessions, activities, used, containers, targets, icu) -> list[dict[str, Any]]:

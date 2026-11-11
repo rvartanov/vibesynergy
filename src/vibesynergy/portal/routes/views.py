@@ -125,7 +125,13 @@ def register(kit: PortalKit) -> None:
         from vibesynergy.query import horizon
 
         data = planning.page(
-            engine, rt.raw, today(), week=chosen, athlete=settings.athlete, fitness_days=range
+            engine,
+            rt.raw,
+            today(),
+            week=chosen,
+            athlete=settings.athlete,
+            fitness_days=range,
+            parquet=rt.parquet,
         )
         # Are the coming days on the Garmin? The dashboard's warnings link here.
         data["horizon"] = horizon.for_runtime(rt, today())
@@ -138,7 +144,14 @@ def register(kit: PortalKit) -> None:
     def form_page(range: int = 90) -> dict[str, Any]:
         """Fitness → Form: fitness, fatigue and form and the projection to the races."""
         return envelope(
-            planning.form(engine, rt.raw, today(), athlete=settings.athlete, fitness_days=range)
+            planning.form(
+                engine,
+                rt.raw,
+                today(),
+                athlete=settings.athlete,
+                fitness_days=range,
+                parquet=rt.parquet,
+            )
         )
 
     @router.get("/plan/builder/draft")
@@ -216,7 +229,7 @@ def register(kit: PortalKit) -> None:
         start: str | None = None,
         end: str | None = None,
         sport: str | None = None,
-        load: str = "intervals",
+        load: str = "vibesynergy",
         include_coaching: bool = True,
     ) -> dict[str, Any]:
         """Training page: load (CTL/ATL/TSB), weekly volume per sport, time in heart-rate,
@@ -242,9 +255,10 @@ def register(kit: PortalKit) -> None:
             athlete=settings.athlete,
             include_coaching=include_coaching,
             raw=rt.raw,
+            parquet=rt.parquet,
         )
         # The Form tile matches the dashboard when this view ends today.
-        if sport is None and load == "intervals" and include_coaching and span.end == today():
+        if sport is None and load == "vibesynergy" and include_coaching and span.end == today():
             snapshot = training.current_load(rt, today())
             load_payload["today"] = snapshot
             if load_payload.get("current"):

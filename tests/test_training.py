@@ -1,5 +1,8 @@
-def test_vibesynergy_load_from_own_data_when_chosen(runtime) -> None:
-    # [user] load_source = "vibesynergy" makes VibeSynergy's own model the load everywhere.
+import pytest
+
+
+def test_vibesynergy_load_is_the_default_and_the_only_fitness(runtime) -> None:
+    # VibeSynergy's own model is the load everywhere; intervals.icu's is gone (11-11-2026).
     from datetime import UTC, date, datetime
 
     from vibesynergy.core.timeutil import Window
@@ -27,18 +30,11 @@ def test_vibesynergy_load_from_own_data_when_chosen(runtime) -> None:
     span = Window(day, day)
     daily = training.daily_vibesynergy(runtime.engine, span)
     assert round(daily[day]) == 100  # an hour at FTP is 100
-    out = training.training_load(
-        runtime.engine,
-        span,
-        load="intervals",
-        athlete={"load_source": "vibesynergy"},
-        warmup_days=0,
-    )
+    out = training.training_load(runtime.engine, span, warmup_days=0)
+    with pytest.raises(ValueError):
+        training.training_load(runtime.engine, span, load="intervals")
     assert out["source"] == "vibesynergy" and out["columns"][7] == "source"
     assert out["rows"][-1][1] == 100.0 and out["current"]["form_zone"]
     # The coach, the assessments and the rhythm read hr_profile (8-11: a None crashed them).
     assert "max_hr" in out["hr_profile"]
-    assert (
-        training.training_load(runtime.engine, span, load="intervals", warmup_days=0)["load"]
-        == "intervals"
-    )
+    assert training.training_load(runtime.engine, span, warmup_days=0)["load"] == "vibesynergy"

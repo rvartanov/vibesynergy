@@ -182,11 +182,8 @@ def test_sync_caches_events_and_leaves_workouts_in_the_raw_archive(env, monkeypa
             assert params["oldest"] >= first_month
             assert params["oldest"].endswith("-01")
             assert params["newest"] <= today.isoformat()
-        wellness_calls = [call for call in calls if call[0].endswith("/wellness")]
-        assert wellness_calls
-        for _url, params, _headers in wellness_calls:
-            assert params["oldest"].endswith("-01")
-            assert params["newest"] <= today.isoformat()
+        # intervals.icu's fitness is not read any more (VibeSynergy's own is the only one).
+        assert not [call for call in calls if call[0].endswith("/wellness")]
 
         with runtime.engine.connect() as conn:
             rows = conn.execute(select(icu_event).order_by(icu_event.c.id)).all()
@@ -416,7 +413,7 @@ def test_settings_show_the_athlete_and_not_the_key(env, monkeypatch) -> None:
         assert row["login"]["state"] == "logged in"
         assert row["login"]["account"] == ATHLETE
         names = {item["name"] for item in row["datasets"]}
-        assert names == {"events", "workouts", "activities", "wellness"}
+        assert names == {"events", "workouts", "activities"}
         assert KEY not in json.dumps(data)
     finally:
         runtime.close()

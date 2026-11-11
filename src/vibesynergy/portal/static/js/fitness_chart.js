@@ -1,6 +1,6 @@
 // Fitness, fatigue and form: one chart for Planning & progress and Training analysis,
 // so both look the same. Top: daily load (bars), fitness and fatigue. Bottom: form, with the
-// heavy-fatigue band below -30. Days VibeSynergy estimated (no intervals.icu figure) are dashed;
+// heavy-fatigue band below -30. Rows marked computed are dashed;
 // an optional projection continues dashed after today, with race days marked.
 // rows: [date, load, ctl, atl, tsb, …, …, source] as the training-load query returns them.
 import { alpha, mount, series, token, tooltipBase } from "./charts.js";
@@ -36,7 +36,7 @@ export function fitnessChart(el, rows, { projection = null, zoneText = () => "" 
     splitLine: { lineStyle: { color: token("grid") } },
   });
   const pad = ahead.map(() => null);
-  // Estimated stretches (no intervals.icu figure that day) are dashed, never passed off as its.
+  // Rows marked computed (an estimate) are dashed, never passed off as measured.
   const estimated = rows.map((r) => r[7] === "computed");
   const mixed = estimated.some(Boolean) && estimated.some((e) => !e);
   const line = (name, i, color, axisIndex = 0) => ({

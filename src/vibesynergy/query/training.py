@@ -3,14 +3,12 @@
 Load model: the performance management chart (Banister). CTL is a 42-day and ATL a 7-day
 exponentially weighted average of daily load. Loads:
 
-- ``intervals`` (the portal's and MCP's default): intervals.icu's own numbers
-  (wellness fitness/fatigue/ramp rate and each activity's load), so they match its app;
-  days it has nothing for are computed with its algorithm from VibeSynergy's TRIMP and
-  labelled as such. Form is the same day's CTL - ATL. See ``query.icu_fitness``.
-- ``trimp``: Banister's TRIMP from each activity's duration and average heart rate, which
-  every activity with heart rate has from any device; ``tss`` from power and FTP; and
-  ``garmin``, Garmin's per-activity training load. For these, TSB = CTL - ATL of the
-  previous day (VibeSynergy's own model, which internal rules still read).
+- ``vibesynergy`` (the default everywhere: portal, MCP, coach): VibeSynergy's own load per
+  activity (``activity_loads``: power, pace or the heart-rate stream, from the thresholds
+  valid that day), form is the same day's CTL - ATL. See ``query.fitness_model``.
+- ``trimp``: Banister's TRIMP from each activity's duration and average heart rate; ``tss``
+  from power and FTP; ``garmin``, Garmin's per-activity training load. For these, TSB = CTL -
+  ATL of the previous day. Alternatives for comparison over MCP; nothing leads on them.
 """
 
 from __future__ import annotations
@@ -43,7 +41,7 @@ FITNESS_METRICS = (
 )
 
 
-LOADS = ("intervals", "trimp", "garmin", "tss", "vibesynergy")
+LOADS = ("vibesynergy", "trimp", "garmin", "tss")
 BEST_DISTANCES = (400, 1000, 1609.34, 5000, 10000, 21097.5)
 # Faster than this between two samples is not running (a bike, car or train mid-activity);
 # best efforts are only looked for between such stretches.
@@ -182,70 +180,286 @@ def daily_tss(
     return out
 
 
-def daily_vibesynergy(
+# Garmin's threshold history (zone_set) by family and metric: (sport, kind, which value).
+_GARMIN_THRESHOLDS = {
+    ("ride", "ftp"): ("cycling", "power", "threshold"),
+    ("ride", "lthr"): ("cycling", "hr", "threshold"),
+    ("ride", "max_hr"): ("cycling", "hr", "max_value"),
+    ("run", "lthr"): ("running", "hr", "threshold"),
+    ("run", "max_hr"): ("running", "hr", "max_value"),
+    ("swim", "lthr"): ("swimming", "hr", "threshold"),
+    ("swim", "max_hr"): ("swimming", "hr", "max_value"),
+    # No CSS: Garmin's oldest one (1.000 m/s since 2023) is a placeholder that never matched
+    # the athlete's swims; its later ones are the confirmed values.
+    ("other", "lthr"): ("default", "hr", "threshold"),
+    ("other", "max_hr"): ("default", "hr", "max_value"),
+}
+_FAMILY_KEYS = {"ride": "bike", "run": "run", "swim": "swim", "other": "other"}
+
+
+class ThresholdTimeline:
+    """The thresholds valid on a given day, per family: the confirmed ones (Zones &
+    thresholds, from the day they were set) before Garmin's zone history, and before the first
+    known value the oldest one (nothing older is known; not for CSS, see ``NO_BACKFILL``)."""
+
+    def __init__(self, engine: Engine, athlete: dict[str, Any] | None = None) -> None:
+        from vibesynergy.query import thresholds
+
+        self.profile = hr_profile(engine, athlete)
+        series: dict[tuple[str, str], list[tuple[date, int, float]]] = defaultdict(list)
+        # Priority 1 (confirmed) wins over 0 (Garmin) on the same day.
+        for row in thresholds._ledger(engine):  # pyright: ignore[reportPrivateUsage]
+            fam = str({"bike": "ride"}.get(row["sport"], row["sport"]))
+            when = row["date_set"]
+            if row["status"] in ("current", "superseded") and when:
+                series[(fam, row["metric"])].append(
+                    (date.fromisoformat(str(when)), 1, float(row["value"]))
+                )
+        with engine.connect() as conn:
+            rows = conn.execute(
+                select(
+                    zone_set.c.sport,
+                    zone_set.c.kind,
+                    zone_set.c.valid_from,
+                    zone_set.c.threshold,
+                    zone_set.c.max_value,
+                ).where(zone_set.c.source == "garmin")
+            ).all()
+        for (fam, metric), (sport, kind, which) in _GARMIN_THRESHOLDS.items():
+            for row in rows:
+                if row.sport != sport or row.kind != kind:
+                    continue
+                value = row.threshold if which == "threshold" else row.max_value
+                if not value:
+                    continue
+                series[(fam, metric)].append((row.valid_from, 0, float(value)))
+        self.series = {key: sorted(points) for key, points in series.items()}
+        self._cache: dict[date, Any] = {}
+
+    # Before the first known value the oldest one stands in, except for CSS: swims before
+    # the first confirmed CSS count on heart rate (a guessed CSS weighs them arbitrarily).
+    NO_BACKFILL = frozenset({("swim", "css")})
+
+    def value(self, fam: str, metric: str, day: date) -> float | None:
+        points = self.series.get((fam, metric))
+        if not points:
+            return None
+        found = None
+        for when, _priority, value in points:
+            if when > day:
+                break
+            found = value
+        if found is None and (fam, metric) not in self.NO_BACKFILL:
+            found = points[0][2]
+        return found
+
+    def on(self, day: date):
+        from vibesynergy.query import own_load
+
+        if day not in self._cache:
+            fams = ("ride", "run", "swim", "other")
+            general = float(self.profile.get("max_hr") or 0)  # 0: no heart-rate load
+            top = {f: self.value(f, "max_hr", day) or general for f in fams}
+            # No LTHR known yet: 90 % of max heart rate, the usual estimate (Friel), so a new
+            # install has a heart-rate load until Zones & thresholds has a real one.
+            lthr = {
+                f: v
+                for f in fams
+                if (v := self.value(f, "lthr", day) or (round(0.9 * top[f]) if top[f] else None))
+            }
+            self._cache[day] = own_load.Inputs(
+                ftp=self.value("ride", "ftp", day),
+                css=self.value("swim", "css", day),
+                threshold_pace=self.value("run", "threshold_pace", day),
+                lthr=lthr,
+                max_hr=top,
+                rest_hr=float(self.profile.get("rest_hr") or DEFAULT_REST_HR),
+            )
+        return self._cache[day]
+
+
+def own_inputs(engine: Engine, athlete: dict[str, Any] | None = None):
+    """The thresholds the own load is computed from, as valid today."""
+    return ThresholdTimeline(engine, athlete).on(date.today())
+
+
+def activity_loads(
     engine: Engine,
     window: Window,
     athlete: dict[str, Any] | None = None,
     *,
+    parquet: ParquetStore | None = None,
     sport: str | None = None,
     include_coaching: bool = True,
-) -> dict[date, float]:
-    """VibeSynergy's own load per day, from its own data only: power (TSS from NP and
-    FTP) for rides with power, else heart rate (TRIMP scaled so an hour at LTHR is 100), else
-    pace (swim and run, from CSS and threshold pace). The thresholds are the confirmed ones
-    (Zones & thresholds); resting and max heart rate as for TRIMP."""
-    from vibesynergy.query import own_load, thresholds
+) -> list[dict[str, Any]]:
+    """VibeSynergy's own load per activity in ``window``: day, id, method and load. Kept in
+    ``activity_load`` and computed again only when what it came from changed (the activity,
+    its stream or the thresholds). Without ``parquet`` the heart-rate average stands in for
+    the stream, and nothing is stored, so the stored value always comes from the stream."""
+    from sqlalchemy.dialects.sqlite import insert
+
+    from vibesynergy.core.timeutil import utc_now
+    from vibesynergy.query import own_load
     from vibesynergy.query import plan as plan_q
+    from vibesynergy.store.schema import activity_load
 
-    values = thresholds.current_values(engine)
-    profile = hr_profile(engine, athlete)
-    rest = profile["rest_hr"]
-
-    def value(fam: str, metric: str) -> float | None:
-        key = {"ride": "bike", "run": "run", "swim": "swim"}.get(fam, fam)
-        row = (values.get(key) or {}).get(metric) or {}
-        return row.get("value")
-
+    timeline = ThresholdTimeline(engine, athlete)
     t = activity_unified
     where: list[Any] = [t.c.local_date.between(window.start, window.end)]
     if sport:
         where.append(t.c.sport.ilike(f"%{sport}%"))
     if not include_coaching:
         where.append(t.c.kind.is_distinct_from("coaching"))
-    daily: dict[date, float] = defaultdict(float)
-    css = value("swim", "css")
-    threshold_pace = value("run", "threshold_pace")
+    fields = (
+        t.c.group_id, t.c.local_date, t.c.sport, t.c.moving_s, t.c.elapsed_s, t.c.norm_power,
+        t.c.avg_power, t.c.avg_hr, t.c.avg_speed, t.c.stream_key, t.c.start_utc,
+    )  # fmt: skip
     with engine.connect() as conn:
-        rows = conn.execute(
-            select(
-                t.c.local_date,
-                t.c.sport,
-                t.c.moving_s,
-                t.c.elapsed_s,
-                t.c.norm_power,
-                t.c.avg_power,
-                t.c.avg_hr,
-                t.c.avg_speed,
-            ).where(and_(*where))
-        ).all()
-    for day, kind, moving, elapsed, np_watts, avg_power, avg_hr, speed in rows:
-        seconds = moving or elapsed or 0
-        if seconds <= 0:
+        rows = [dict(r._mapping) for r in conn.execute(select(*fields).where(and_(*where)))]
+        stored = {
+            r.group_id: r
+            for r in conn.execute(
+                select(activity_load).where(
+                    activity_load.c.group_id.in_([r["group_id"] for r in rows])
+                )
+            )
+        }
+    out, fresh = [], []
+    for row in rows:
+        seconds = row["moving_s"] or row["elapsed_s"] or 0
+        if seconds <= 0 or str(row["sport"] or "").lower() in own_load.PARENT_SPORTS:
             continue
-        fam = plan_q.family(kind) or "other"
-        top = value(fam, "max_hr") or profile["max_hr"]
-        lthr = value(fam, "lthr") or value("run", "lthr")
-        ftp = value("ride", "ftp")
-        load = 0.0
-        if fam == "ride" and (np_watts or avg_power) and ftp:
-            load = own_load.power_load(seconds, float(np_watts or avg_power), float(ftp))
-        elif avg_hr and lthr and top:
-            load = own_load.hr_load(seconds, float(avg_hr), float(lthr), rest, float(top))
-        elif speed and fam == "swim" and css:
-            load = own_load.pace_load(seconds, float(speed), 100 / float(css), 3)
-        elif speed and fam == "run" and threshold_pace:
-            load = own_load.pace_load(seconds, float(speed), 1000 / float(threshold_pace), 2)
-        daily[day] += load
+        fam = plan_q.family(row["sport"]) or "other"
+        inputs = timeline.on(row["local_date"])
+        has_stream = bool(
+            parquet is not None
+            and row["stream_key"]
+            and fam != "swim"  # in the water the average beats the stream (measured 11-11)
+            and parquet.stream_path(row["stream_key"]).exists()
+        )
+        method = own_load.method_for(
+            fam,
+            np_watts=row["norm_power"],
+            avg_power=row["avg_power"],
+            avg_hr=row["avg_hr"],
+            speed=row["avg_speed"],
+            has_stream=has_stream,
+            inputs=inputs,
+        )
+        key = own_load.fingerprint(method, fam, row, inputs)
+        hit = stored.get(row["group_id"])
+        if hit is not None and hit.inputs == key:
+            method, load = hit.method, hit.load
+        elif method is None:
+            load = 0.0
+        else:
+            stream = None
+            if method == "hr_stream" and parquet is not None:
+                table = parquet.read_stream(row["stream_key"])
+                if "hr" in table.column_names:
+                    times = [v.timestamp() for v in table.column("t").to_pylist()]
+                    stream = (times, table.column("hr").to_pylist())
+                else:
+                    method = "hr"
+            load = own_load.load_of(
+                method,
+                fam,
+                float(seconds),
+                np_watts=row["norm_power"],
+                avg_power=row["avg_power"],
+                avg_hr=row["avg_hr"],
+                speed=row["avg_speed"],
+                inputs=inputs,
+                stream=stream,
+            )
+            if parquet is not None:
+                fresh.append(
+                    {"group_id": row["group_id"], "inputs": key, "method": method,
+                     "load": round(load, 2), "computed_at": utc_now()}
+                )  # fmt: skip
+        out.append(
+            {
+                "date": row["local_date"],
+                "id": row["group_id"],
+                "method": method,
+                "load": load,
+                "family": fam,
+                "start": row["start_utc"],
+                "seconds": float(seconds),
+            }
+        )
+    if fresh:
+        with engine.begin() as conn:
+            for chunk in range(0, len(fresh), 500):
+                statement = insert(activity_load).values(fresh[chunk : chunk + 500])
+                conn.execute(
+                    statement.on_conflict_do_update(
+                        index_elements=["group_id"],
+                        set_={
+                            k: statement.excluded[k]
+                            for k in ("inputs", "method", "load", "computed_at")
+                        },
+                    )
+                )
+    return own_load.without_duplicates(out)
+
+
+def own_loads(engine: Engine, window: Window, ids: list[str]) -> dict[str, float]:
+    """VibeSynergy's load per activity id: the stored one (from the stream), else computed
+    from the heart-rate average for now (the next fitness computation stores the stream's)."""
+    from vibesynergy.store.schema import activity_load
+
+    if not ids:
+        return {}
+    with engine.connect() as conn:
+        found = {
+            r.group_id: float(r.load)
+            for r in conn.execute(
+                select(activity_load.c.group_id, activity_load.c.load).where(
+                    activity_load.c.group_id.in_(ids)
+                )
+            )
+        }
+    missing = [i for i in ids if i not in found]
+    if missing:
+        for item in activity_loads(engine, window):
+            if item["id"] in missing:
+                found[item["id"]] = item["load"]
+    return found
+
+
+def load_of_activity(rt, group_id: str) -> dict[str, Any] | None:
+    """VibeSynergy's load for one activity and how it was counted (the activity page)."""
+    with rt.engine.connect() as conn:
+        day = conn.scalar(
+            select(activity_unified.c.local_date).where(activity_unified.c.group_id == group_id)
+        )
+    if day is None:
+        return None
+    found = activity_loads(
+        rt.engine, Window(day, day), rt.settings.athlete, parquet=getattr(rt, "parquet", None)
+    )
+    item = next((x for x in found if x["id"] == group_id), None)
+    if item is None or not item["method"]:
+        return None
+    return {"load": round(item["load"]), "method": item["method"]}
+
+
+def daily_vibesynergy(
+    engine: Engine,
+    window: Window,
+    athlete: dict[str, Any] | None = None,
+    *,
+    parquet: ParquetStore | None = None,
+    sport: str | None = None,
+    include_coaching: bool = True,
+) -> dict[date, float]:
+    """VibeSynergy's own load per day: the sum of ``activity_loads``."""
+    daily: dict[date, float] = defaultdict(float)
+    for item in activity_loads(
+        engine, window, athlete, parquet=parquet, sport=sport, include_coaching=include_coaching
+    ):
+        daily[item["date"]] += item["load"]
     return daily
 
 
@@ -254,28 +468,15 @@ def training_load(
     window: Window,
     *,
     sport: str | None = None,
-    load: str = "trimp",
+    load: str = "vibesynergy",
     athlete: dict[str, Any] | None = None,
     include_coaching: bool = True,
     warmup_days: int = 126,
     raw=None,
+    parquet: ParquetStore | None = None,
 ) -> dict[str, Any]:
     if load not in LOADS:
         raise ValueError(f"load must be one of {', '.join(LOADS)}")
-    # Which model is "the" load: intervals.icu's, or VibeSynergy's own when the athlete
-    # chose it ([athlete] load_source = "vibesynergy"). Every page and the coach follow it.
-    if load == "intervals" and (athlete or {}).get("load_source") == "vibesynergy":
-        load = "vibesynergy"
-    if load == "intervals":
-        return _intervals_load(
-            engine,
-            window,
-            sport=sport,
-            athlete=athlete,
-            include_coaching=include_coaching,
-            warmup_days=warmup_days,
-            raw=raw,
-        )
     # Default warm-up is 3 x the 42-day CTL constant, before the window starts.
     warmup = Window(window.start - timedelta(days=warmup_days), window.end)
     profile = None
@@ -290,7 +491,12 @@ def training_load(
         # The coach and the assessments read hr_profile whatever the model (8-11 crash).
         profile = hr_profile(engine, athlete)
         daily = daily_vibesynergy(
-            engine, warmup, athlete, sport=sport, include_coaching=include_coaching
+            engine,
+            warmup,
+            athlete,
+            parquet=parquet,
+            sport=sport,
+            include_coaching=include_coaching,
         )
     else:
         t = activity_unified
@@ -317,7 +523,7 @@ def training_load(
         elif load == "vibesynergy":
             all_daily = daily
             own_daily = daily_vibesynergy(
-                engine, warmup, athlete, sport=sport, include_coaching=False
+                engine, warmup, athlete, parquet=parquet, sport=sport, include_coaching=False
             )
         else:
             own_daily = defaultdict(float)
@@ -397,7 +603,7 @@ def training_load(
 def _vibesynergy_shape(result: dict[str, Any]) -> dict[str, Any]:
     """VibeSynergy's own model in the same shape as intervals.icu's fitness, so the
     Form tab, the dashboard and the coach read it unchanged."""
-    from vibesynergy.query import icu_fitness
+    from vibesynergy.query import fitness_model
 
     rows = []
     for i, (day, load, ctl, atl, _previous) in enumerate(result["rows"]):
@@ -411,7 +617,7 @@ def _vibesynergy_shape(result: dict[str, Any]) -> dict[str, Any]:
                 atl,
                 tsb,
                 ramp,
-                icu_fitness.form_pct(ctl, tsb),
+                fitness_model.form_pct(ctl, tsb),
                 "vibesynergy",
                 "vibesynergy",
             ]
@@ -422,9 +628,9 @@ def _vibesynergy_shape(result: dict[str, Any]) -> dict[str, Any]:
         current = {
             **current,
             "tsb": tsb,
-            "form_pct": icu_fitness.form_pct(ctl, tsb),
-            "form_zone": icu_fitness.form_zone(ctl, tsb),
-            "form": icu_fitness.legacy_form(tsb),
+            "form_pct": fitness_model.form_pct(ctl, tsb),
+            "form_zone": fitness_model.form_zone(ctl, tsb),
+            "form": fitness_model.legacy_form(tsb),
             "source": "vibesynergy",
         }
     return {
@@ -449,73 +655,22 @@ def _vibesynergy_shape(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _intervals_load(
-    engine: Engine,
-    window: Window,
-    *,
-    sport: str | None,
-    athlete: dict[str, Any] | None,
-    include_coaching: bool,
-    warmup_days: int,
-    raw,
-) -> dict[str, Any]:
-    """intervals.icu's fitness model, with VibeSynergy's TRIMP for days it has nothing for."""
-    from vibesynergy.query import icu_fitness
-
-    warmup = Window(window.start - timedelta(days=warmup_days), window.end)
-    profile = hr_profile(engine, athlete)
-    every = daily_trimp(engine, warmup, profile, sport=sport, include_coaching=True)
-    own = daily_trimp(engine, warmup, profile, sport=sport, include_coaching=False)
-    coaching = {d: v - own.get(d, 0.0) for d, v in every.items() if v != own.get(d, 0.0)}
-    result = icu_fitness.fitness(
-        engine,
-        raw,
-        window,
-        sport=sport,
-        include_coaching=include_coaching,
-        trimp_daily=every,
-        trimp_coaching=coaching,
-        warmup_days=warmup_days,
-    )
-    days = result["days_by_source"]
-    return {
-        **result,
-        "include_coaching": include_coaching,
-        "load": "intervals",
-        "load_metric": "intervals.icu fitness, fatigue and load where it has them; other "
-        "days computed with its algorithm (42/7-day EWMA, form = same-day CTL - ATL) from "
-        "intervals.icu's activity load, else TRIMP",
-        "hr_profile": profile,
-        "source": "intervals"
-        if days["intervals"] and not days["computed"]
-        else "mixed"
-        if days["intervals"]
-        else "intervals_load"
-        if result["load_days_by_source"]["intervals"]
-        else "vibesynergy",
-        "warmup_note": (
-            f"Computed days start {warmup_days} days before the period; intervals.icu's "
-            "own values replace them wherever it has a wellness record."
-        ),
-    }
-
-
 # Dashboard and the Training page share this snapshot. 180 days is long enough for CTL
 # (42-day constant) to forget a zero start. The window ends on ``today``.
 CURRENT_WARMUP_DAYS = 180
 
 
 def current_load(rt, today: date) -> dict[str, Any]:
-    """CTL, ATL and TSB for ``today``: intervals.icu's when it has them, else computed with
-    its algorithm after a fixed 180-day warm-up ending that day."""
+    """CTL, ATL and TSB for ``today``, after a fixed 180-day warm-up ending that day."""
     start = today - timedelta(days=CURRENT_WARMUP_DAYS - 1)
     result = training_load(
         rt.engine,
         Window(start, today),
         athlete=rt.settings.athlete,
         warmup_days=0,
-        load="intervals",
+        load="vibesynergy",
         raw=getattr(rt, "raw", None),
+        parquet=getattr(rt, "parquet", None),
     )
     current = result.get("current") or {}
     return {

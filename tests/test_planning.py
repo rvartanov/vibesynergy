@@ -5,16 +5,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
 from test_mcp_today import call
 from test_plan_intervals import EVENTS, MONDAY, _event, _seed
 from test_week_progress import WEDNESDAY, _more
 
+from vibesynergy.core.timeutil import Window
 from vibesynergy.normalize.normaliser import write_records
 from vibesynergy.portal.app import create_portal_app
-from vibesynergy.query import icu_fitness, planning
+from vibesynergy.query import fitness_model, planning, training
 from vibesynergy.runtime import Runtime
 from vibesynergy.sources.intervals_icu.mappers import map_events
 
@@ -22,7 +23,8 @@ TAILNET = "server.example.ts.net"
 
 
 def _future_workout(runtime) -> None:
-    """A planned ride on Friday with intervals.icu's own load, and next week's target."""
+    """A planned ride on Friday with steps (an hour at 85 % FTP), and next week's target.
+    intervals.icu's own load (100) is there but not read."""
     extra = [
         _event(
             60,
@@ -33,6 +35,7 @@ def _future_workout(runtime) -> None:
             external_id="lake27:2026-11-06:ride",
             moving_time=3600,
             icu_training_load=100,
+            description="Main set\n- 60m 85%",
         ),
         _event(
             61,
@@ -62,21 +65,6 @@ def _future_workout(runtime) -> None:
         )
 
 
-def _wellness(runtime) -> None:
-    runtime.raw.put(
-        source="intervals_icu",
-        dataset="wellness",
-        item_key="2026-11",
-        payload=json.dumps(
-            [
-                {"id": "2026-11-03", "ctl": 40.0, "atl": 45.0, "rampRate": 1.5},
-                {"id": "2026-11-04", "ctl": 41.0, "atl": 47.0, "rampRate": 1.8},
-            ]
-        ).encode(),
-        content_type="application/json",
-    )
-
-
 def test_plan_vs_done_per_week_and_phase(runtime) -> None:
     _seed(runtime)
     _more(runtime)
@@ -100,24 +88,26 @@ def test_projection_runs_the_planned_load_to_each_race(runtime) -> None:
     _seed(runtime)
     _more(runtime)
     _future_workout(runtime)
-    _wellness(runtime)
     out = planning.projection(runtime.engine, runtime.raw, WEDNESDAY)
     assert out["label"] == "projection" and "plan_done_as_written" in out["assumptions"]
-    assert out["fitness_source"] == "intervals"
+    assert out["fitness_source"] == "vibesynergy"
     # To the last race, the example triathlon on 3 July 2027.
     assert out["rows"][0]["date"] == "2026-11-04" and out["end"] == "2027-07-03"
     assert out["rows"][-1]["date"] == "2027-07-03"
     by_day = {row["date"]: row for row in out["rows"]}
-    assert by_day["2026-11-06"]["load"] == 100.0  # intervals.icu's own workout load
+    # From its steps: an hour at 85 % FTP is 0.85² x 100, not intervals.icu's 100.
+    assert by_day["2026-11-06"]["load"] == 72.2
     # Next week only has a weekly target: its load spread over the seven days.
     assert by_day["2026-11-10"]["load"] == 40.0
     assert out["basis"]["workouts_with_load"] == 1 and out["basis"]["weeks_from_targets"] == 1
-    # From today's intervals.icu values (yesterday's state plus today's load).
-    ctl, _ = icu_fitness.step(40.0, 45.0, by_day["2026-11-04"]["load"])
+    # It continues from today's own values (yesterday's state plus today's load).
+    past = training.training_load(runtime.engine, Window(WEDNESDAY - timedelta(days=89), WEDNESDAY))
+    yesterday = next(r for r in past["rows"] if r[0] == "2026-11-03")
+    ctl, _ = fitness_model.step(yesterday[2], yesterday[3], by_day["2026-11-04"]["load"])
     assert by_day["2026-11-04"]["ctl"] == round(ctl, 1)
     races = {r["title"]: r for r in out["races"]}
     assert set(races) == {"WINTER TRAIL", "Example triathlon 2027"}
-    assert races["WINTER TRAIL"]["form_zone"] in {name for _, name in icu_fitness.FORM_ZONES}
+    assert races["WINTER TRAIL"]["form_zone"] in {name for _, name in fitness_model.FORM_ZONES}
     assert races["WINTER TRAIL"]["ctl"] == by_day["2026-12-20"]["ctl"]
 
 

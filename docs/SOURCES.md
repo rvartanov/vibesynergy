@@ -440,16 +440,14 @@ References: [CalDAV RFC 4791](https://www.rfc-editor.org/rfc/rfc4791),
 [icalendar](https://icalendar.readthedocs.io/en/latest/how-to/usage.html),
 [recurrence handling](https://recurring-ical-events.readthedocs.io/en/latest/user-guide/examples.html).
 
-## intervals.icu (`intervals_icu`, read-only)
+## intervals.icu (`intervals_icu`)
 
-Calendar events, the workout library, activities and wellness. Events are cached in
-`icu_event` (migration 0032). The workout library, activities and wellness stay in the raw
-archive (activities and wellness one payload per month). VibeSynergy does not build a workout
-model from them. `wellness` (since a year back on the first sync, the last 14 days
-again on each sync) carries intervals.icu's own fitness (`ctl`), fatigue (`atl`),
-`rampRate` and day load (`ctlLoad`); `query/icu_fitness.py` reads it, with each activity's
-`icu_training_load` and zone times (`icu_hr_zone_times`, `icu_zone_times`,
-`pace_zone_times`), so the Training page and `vibesynergy_training_load` match intervals.icu.
+intervals.icu is where VibeSynergy puts the active plan, so its workouts reach Zwift and the
+other services connected there. Read: calendar events (cached in `icu_event`, migration 0032),
+the workout library, and activities for the RPE and Feel recorded there (raw archive, one
+payload per month). Fitness, fatigue, form, load and time in zones are VibeSynergy's own
+(`query/fitness_model.py`, `query/own_load.py`); intervals.icu's are not read, and its
+`wellness` dataset is no longer synced (since 11-11-2026).
 Writes (plan events, check-in wellness, RPE/Feel, descriptions) are described under
 `query/icu_plan.py`, `query/icu_wellness.py` and `query/activity_effort.py`.
 

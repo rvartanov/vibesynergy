@@ -268,7 +268,7 @@ def test_trimp_load_from_heart_rate(runtime) -> None:
     unify.rebuild(runtime.engine)
     athlete = {"max_hr": 180, "resting_hr": 50, "sex": "male"}
     out = training.training_load(
-        runtime.engine, Window(date(2026, 3, 3), date(2026, 3, 3)), athlete=athlete
+        runtime.engine, Window(date(2026, 3, 3), date(2026, 3, 3)), athlete=athlete, load="trimp"
     )
     assert out["load"] == "trimp" and out["rows"][0][1] == pytest.approx(72.9, abs=0.1)
     assert out["hr_profile"]["max_from"] == "config"

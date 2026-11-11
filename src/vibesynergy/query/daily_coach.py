@@ -379,9 +379,10 @@ def _capture(
         reader,
         Window(day - timedelta(days=34), day),
         include_coaching=False,
-        load="intervals",
+        load="vibesynergy",
         athlete=rt.settings.athlete,
         raw=getattr(rt, "raw", None),
+        parquet=getattr(rt, "parquet", None),
     )
     if profile is None:
         profile = coach.snapshot(reader, raw=rt.raw)

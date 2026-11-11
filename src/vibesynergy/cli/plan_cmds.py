@@ -189,33 +189,23 @@ def plan_garmin(
     typer.echo(", ".join(prefs.load(rt.settings.data_dir).get("garmin_delivery") or []) or "off")
 
 
-@load_app.command("compare")
-def load_compare(
-    days: Annotated[int, typer.Option(help="how many days back")] = 365,
-    streams: Annotated[
-        bool, typer.Option("--streams", help="heart-rate load from the stream vs the average")
-    ] = False,
+@load_app.command("show")
+def load_show(
+    days: Annotated[int, typer.Option(help="how many days back")] = 14,
     config: ConfigOpt = None,
 ) -> None:
-    """Own load per activity against intervals.icu's, per sport (median and P90 error)."""
+    """VibeSynergy's load per activity and how it was counted (power, pace or heart rate)."""
     import datetime as _dt
 
     from vibesynergy.core.timeutil import Window
-    from vibesynergy.query import own_load
+    from vibesynergy.query import training
 
     rt = _runtime(config)
     end = _dt.date.today()
-    window = Window(end - _dt.timedelta(days=days), end)
-    if streams:
-        for sport, row in own_load.compare_streams(rt.engine, rt.raw, rt.parquet, window).items():
-            typer.echo(
-                f"{sport}: n={row['n']} average {row['avg_median_pct']}% "
-                f"(p90 {row['avg_p90_pct']}%) stream {row['stream_median_pct']}% "
-                f"(p90 {row['stream_p90_pct']}%)"
-            )
-        return
-    for sport, row in own_load.compare_archive(rt.engine, rt.raw, window).items():
-        typer.echo(f"{sport}: n={row['n']} median {row['median_pct']}% p90 {row['p90_pct']}%")
+    window = Window(end - _dt.timedelta(days=days - 1), end)
+    items = training.activity_loads(rt.engine, window, rt.settings.athlete, parquet=rt.parquet)
+    for item in sorted(items, key=lambda x: (x["date"], x["id"])):
+        typer.echo(f"{item['date']} {item['family']:6} {item['load']:6.1f} {item['method']}")
 
 
 @kb_app.command("seed-prompts")

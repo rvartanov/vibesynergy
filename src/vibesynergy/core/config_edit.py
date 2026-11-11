@@ -28,7 +28,6 @@ USER_KEYS = (
     "max_hr",
     "resting_hr",
     "birth_date",
-    "load_source",
 )
 SOURCE_KEYS = ("enabled", "datasets", "calendars", "garmin_target_calendar", "mirror_enabled")
 PORTAL_KEYS = ("tile_cache", "tile_max_age_days")

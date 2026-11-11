@@ -1336,3 +1336,16 @@ auth_attempt = Table(
     Column("ok", Boolean, nullable=False),
     Index("ix_auth_attempt_key_at", "key", "at"),
 )
+
+# VibeSynergy's own training load per activity (query.own_load), computed once from the
+# heart-rate stream, power or pace. ``inputs`` fingerprints what it was computed from (the
+# stream, the thresholds); a different fingerprint means it is computed again.
+activity_load = Table(
+    "activity_load",
+    metadata,
+    Column("group_id", String, primary_key=True),
+    Column("inputs", String, nullable=False),
+    Column("method", String, nullable=False),
+    Column("load", Float, nullable=False),
+    Column("computed_at", UTCDateTime, nullable=False),
+)

@@ -539,9 +539,9 @@ def test_resync_rejects_bad_input(portal) -> None:
 def test_training_page(with_activities) -> None:
     _, client = with_activities
     data = client.get("/api/training", params={"period": "all"}).json()["data"]
-    # intervals.icu's model by default; without its data every day is labelled computed.
-    assert data["load"]["load"] == "intervals" and data["load"]["columns"][0] == "date"
-    assert {row[7] for row in data["load"]["rows"]} == {"computed"}
+    # VibeSynergy's own model is the default; every day says so.
+    assert data["load"]["load"] == "vibesynergy" and data["load"]["columns"][0] == "date"
+    assert {row[7] for row in data["load"]["rows"]} == {"vibesynergy"}
     assert data["load"]["source"] == "vibesynergy"
     trimp = client.get("/api/training", params={"period": "all", "load": "trimp"}).json()
     assert trimp["data"]["load"]["load"] == "trimp"
