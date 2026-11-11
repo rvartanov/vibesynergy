@@ -13,6 +13,7 @@ it unless you connect a service yourself.
 - The AI coach: [docs/AI_HARNESS.md](docs/AI_HARNESS.md), [docs/COACH_RUNNER.md](docs/COACH_RUNNER.md)
 - Running it as a service: [deploy/README.md](deploy/README.md)
 - Map of the code: [docs/OVERVIEW.md](docs/OVERVIEW.md)
+- Reporting a bug or asking for a feature: [docs/REPORTING.md](docs/REPORTING.md)
 
 Status: alpha (0.0.1). Expect changes between versions.
 
