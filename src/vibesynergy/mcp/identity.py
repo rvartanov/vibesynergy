@@ -12,8 +12,6 @@ LOCAL_CLIENTS = frozenset({"athlete", "portal", "user", "stdio"})
 
 # The AI coach's author on rows written before per-app identities. New rows never get it.
 AI_COACH_AUTHOR = "ai_coach"
-# Legacy alias kept only for reading old rows; the stored rows and audit log stay as written.
-_LEGACY_COACH_AUTHORS = frozenset({"sherpa"})
 
 _CLIENT: ContextVar[str] = ContextVar("mcp_client", default="shared")
 _AUTHOR: ContextVar[str] = ContextVar("mcp_author", default="user")
@@ -42,9 +40,7 @@ def author_for_client(client: str) -> str:
 
 
 def read_author(author: str | None) -> str | None:
-    """The author as readers see it: the legacy coach name reads as ``ai_coach``."""
-    if author in _LEGACY_COACH_AUTHORS:
-        return AI_COACH_AUTHOR
+    """The author as readers see it."""
     return author
 
 

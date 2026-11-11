@@ -31,9 +31,8 @@ from vibesynergy.store.raw import RawRecord
 from vibesynergy.store.schema import audit_log, coach_decision_log, icu_event, raw_item
 
 Keep = Literal["garmin", "plan"]
-# Values from before the rename, still accepted on input: "coach" meant Garmin Coach and
-# the old coach name meant the intervals.icu plan.
-_LEGACY_KEEP: dict[str, Keep] = {"coach": "garmin", "sherpa": "plan"}
+# A value from before the rename, still accepted on input: "coach" meant Garmin Coach.
+_LEGACY_KEEP: dict[str, Keep] = {"coach": "garmin"}
 # Actor on the revertable before/after snapshot rows. The MCP call itself is a separate
 # ``actor="mcp"`` row; ``author`` and ``client_id`` say which coach app made the change.
 PLAN_ACTOR = "plan"

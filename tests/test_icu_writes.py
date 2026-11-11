@@ -382,7 +382,7 @@ def test_resolve_duplicate_deletes_for_garmin_and_marks_for_plan(runtime) -> Non
     assert "flag" not in coach
 
 
-@pytest.mark.parametrize(("legacy", "kept"), [("sherpa", "plan"), ("coach", "garmin")])
+@pytest.mark.parametrize(("legacy", "kept"), [("coach", "garmin")])
 def test_resolve_duplicate_still_takes_the_old_keep_values(runtime, legacy, kept) -> None:
     version = _seed(runtime)
     _garmin(runtime)

@@ -248,7 +248,7 @@ def test_secret_path_mcp_is_404_and_oauth_pat_endpoint_still_works(runtime) -> N
         portal = TestClient(create_portal_app(rt), base_url=HOST)
         data = portal.get("/api/mcp_clients").json()["data"]
         assert "legacy" not in data and "path_clients" not in data
-        for gone in ("/api/mcp/legacy", "/api/mcp/sherpa-token"):
+        for gone in ("/api/mcp/legacy",):
             assert portal.post(gone, json={"enabled": True}, headers=WRITE).status_code in {
                 404,
                 405,

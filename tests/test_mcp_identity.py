@@ -31,8 +31,8 @@ def test_author_for_client_names_the_app() -> None:
     }
 
 
-def test_legacy_coach_author_reads_as_the_ai_coach() -> None:
-    assert read_author("sherpa") == AI_COACH_AUTHOR == "ai_coach"
+def test_authors_read_as_written() -> None:
+    assert read_author(AI_COACH_AUTHOR) == "ai_coach"
     assert read_author("client:oa-1") == "client:oa-1"
     assert read_author("user") == "user"
     assert read_author(None) is None

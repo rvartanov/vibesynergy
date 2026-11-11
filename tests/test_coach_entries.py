@@ -120,8 +120,8 @@ def test_mcp_coach_write_tool(runtime):
     assert data["meta"]["model_id"] == "claude-sonnet-5-5"
 
 
-def test_daily_coaching_reads_a_legacy_coach_morning(runtime):
-    """Rows from before the rename keep author "sherpa"; readers see ai_coach."""
+def test_daily_coaching_reads_an_ai_coach_morning(runtime):
+    """Rows by the AI coach read back with their author."""
     from vibesynergy.query import daily_coach
 
     coach_workouts.coach_write(
@@ -131,7 +131,7 @@ def test_daily_coaching_reads_a_legacy_coach_morning(runtime):
         caveat="Geen tempo.",
         idempotency_key="daily-read-1",
         for_date=date(2026, 10, 11),
-        author="sherpa",
+        author="ai_coach",
         meta={"model_id": "claude-sonnet-5-5", "context_version": "ctx-1"},
     )
     out = daily_coach.read(runtime, date(2026, 10, 11))
@@ -464,7 +464,7 @@ def test_portal_coach_feed_without_quick_reply(runtime):
         summary="Train zoals gepland.",
         idempotency_key="feed-1",
         for_date=date(2026, 10, 11),
-        author="sherpa",
+        author="ai_coach",
     )
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     headers = {"x-vibesynergy": "portal"}
@@ -473,7 +473,3 @@ def test_portal_coach_feed_without_quick_reply(runtime):
     entry = listed.json()["data"]["entries"][0]
     assert entry["author"] == "ai_coach"
     assert entry["advice_text"].startswith("Train")
-    # The Agree / Too hard / Pain quick replies are gone.
-    gone = client.post("/api/coach/sherpa-quick-reply", json={"reply": "agree"}, headers=headers)
-    assert gone.status_code in (404, 405)
-    assert client.get("/api/coach/sherpa-feed", headers=headers).status_code == 404

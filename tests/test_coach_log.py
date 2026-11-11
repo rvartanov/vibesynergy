@@ -40,9 +40,7 @@ def test_methods_groups_prompts_method_and_evidence_and_hides_retired(runtime) -
     _article(runtime, slug="swim-data-quality", topic="swim", rules=[], sources=[])
     # The athlete's plan article counts as method by its slug, whatever the plan is called.
     _article(runtime, slug="example-2027-plan", topic="example-2027", rules=[], sources=[])
-    _article(
-        runtime, slug="sherpa-loop", topic="sherpa-loop", status="retired", rules=[], sources=[]
-    )
+    _article(runtime, slug="old-loop", topic="old-loop", status="retired", rules=[], sources=[])
     coach_prompts.seed(runtime.engine)
 
     groups = knowledge.methods_index(runtime.engine)["groups"]
@@ -55,9 +53,9 @@ def test_methods_groups_prompts_method_and_evidence_and_hides_retired(runtime) -
     }
 
     index = knowledge.portal_index(runtime.engine)
-    assert "sherpa-loop" not in {a["slug"] for a in index["articles"]}
+    assert "old-loop" not in {a["slug"] for a in index["articles"]}
     assert index["archived"] == 1
-    assert [a["slug"] for a in knowledge.archived_articles(runtime.engine)] == ["sherpa-loop"]
+    assert [a["slug"] for a in knowledge.archived_articles(runtime.engine)] == ["old-loop"]
 
 
 def test_edit_article_and_rule_save_versions_and_refuse_a_stale_base(runtime) -> None:

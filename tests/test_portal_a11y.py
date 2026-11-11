@@ -426,8 +426,8 @@ def populate(rt: Runtime) -> dict:
         summary=ADVICE,
         idempotency_key="a11y-morning",
         for_date=today,
-        # The old coach's author on a row from before the rename: shown as the AI coach.
-        author="sherpa",
+        # A row by the AI coach: shown as the AI coach.
+        author="ai_coach",
         meta={"policy_version": 0},
         # The verdict per session: every decision once, so axe checks each chip.
         sessions=[
@@ -867,11 +867,11 @@ def _states(browser, base: str, axe: str, findings: list[dict]) -> None:
     if "konden niet worden bijgewerkt" not in text and "couldn't be updated" not in text:
         findings.append({"where": "sync error", "missing": "actionable sync failure"})
     _agent_link_axe(page, base, findings)
-    # A row from before the rename names the old coach; the feed shows the AI coach.
+    # The feed names the AI coach.
     _open(page, base, "#/coach")
     page.locator(".coach-entry").first.wait_for(timeout=8000)
     feed = page.locator("[data-coach-feed]").inner_text()
-    if "AI-coach" not in feed or "sherpa" in feed.lower():
+    if "AI-coach" not in feed:
         findings.append({"where": "coach feed author", "text": feed[:400]})
     context.close()
 
