@@ -376,6 +376,8 @@ function changesFor(section) {
       user: {
         timezone: field("timezone").value.trim(),
         units: field("units").value,
+        temperature: field("temperature").value,
+        wind: field("wind").value,
         load_source: field("load_source").value,
       },
     };

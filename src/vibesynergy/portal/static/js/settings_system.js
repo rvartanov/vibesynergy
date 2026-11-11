@@ -58,6 +58,8 @@ export function regionHtml(s) {
     <div class="settings-grid">
       <label>${t("Time zone")} ${select("timezone", zones.map((zone) => [zone, zone]), s.user.timezone)}</label>
       <label>${t("Units")} ${select("units", [["metric", t("Metric (km, kg)")], ["imperial", t("Imperial (mi, lb)")]], s.user.units)}</label>
+      <label>${t("Temperature")} ${select("temperature", [["c", t("Celsius (°C)")], ["f", t("Fahrenheit (°F)")]], s.user.temperature || "c")}</label>
+      <label>${t("Wind")} ${select("wind", [["kmh", "km/h"], ["ms", "m/s"], ["kn", t("Knots (kn)")], ["bft", t("Beaufort (Bft)")]], s.user.wind || "kmh")}</label>
       <label>${t("Training load from")} ${select("load_source", [["intervals", "intervals.icu"], ["vibesynergy", t("VibeSynergy's own calculation")]], s.user.load_source || "intervals")}</label>
     </div>
     <p class="sub">${t("Sex, heart rates and thresholds are under Training.")} <a href="#/zones">${t("Zones & thresholds")}</a>

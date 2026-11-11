@@ -19,7 +19,17 @@ import tomlkit
 
 from vibesynergy.core.config import RETIRED_KEYS, ConfigError, Settings, load_settings
 
-USER_KEYS = ("timezone", "units", "sex", "max_hr", "resting_hr", "birth_date", "load_source")
+USER_KEYS = (
+    "timezone",
+    "units",
+    "temperature",
+    "wind",
+    "sex",
+    "max_hr",
+    "resting_hr",
+    "birth_date",
+    "load_source",
+)
 SOURCE_KEYS = ("enabled", "datasets", "calendars", "garmin_target_calendar", "mirror_enabled")
 PORTAL_KEYS = ("tile_cache", "tile_max_age_days")
 ALERT_KEYS = ("enabled", "email_to")

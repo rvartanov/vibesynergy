@@ -10,6 +10,7 @@ import { N, t } from "../i18n.js";
 import { sportIcon, sportKey, sportLabel } from "../symbols.js";
 import { complianceChip } from "../compliance.js";
 import { workoutHtml } from "../workout_text.js";
+import { setWeatherUnits, temperatureRange, windText } from "../weather_units.js";
 
 const STATUS = {
   done: ["success", N("Done")],
@@ -124,15 +125,24 @@ function wellnessHtml(w) {
   return `<dl class="sched-facts sched-wellness">${list(tiles)}</dl>${more.length ? `<details class="collapsible"><summary>${esc(t("More about the day"))}</summary><dl class="sched-facts">${list(more)}</dl></details>` : ""}`;
 }
 
-function weatherHtml(w) {
+// Where the forecast is for: the place chosen in Settings, or where you last trained outside.
+function forecastPlace(location) {
+  if (location?.kind === "chosen" && location.name) return location.name.split(",")[0];
+  if (location?.kind === "last_outdoor") return t("where you last trained outside");
+  return "";
+}
+
+function weatherHtml(w, location) {
   if (!w) return "";
   // A forecast: only for today and the days after it.
-  const temp = isNum(w.temp_min_c) && isNum(w.temp_max_c) ? `${number(w.temp_min_c)}–${number(w.temp_max_c)} °C` : "";
-  const wind = isNum(w.wind_ms) ? t("wind {n} m/s", { n: number(w.wind_ms) }) : "";
+  const temp = isNum(w.temp_min_c) && isNum(w.temp_max_c) ? temperatureRange(w.temp_min_c, w.temp_max_c) : "";
+  const wind = isNum(w.wind_ms) ? t("wind {speed}", { speed: windText(w.wind_ms) }) : "";
   const rain = w.rain_mm ? t("{n} mm rain", { n: number(w.rain_mm, 1) }) : "";
   const flags = (w.flags || []).map((f) => `<span class="chip warning">${esc(t(f))}</span>`).join(" ");
   const text = [w.summary ? t(w.summary) : "", temp, wind, rain].filter(Boolean).join(" · ");
-  return text ? `<p class="sched-weather"><span class="sub">${esc(t("Weather"))}</span> ${esc(text)} ${flags}</p>` : "";
+  const where = forecastPlace(location);
+  const label = where ? t("Weather in {place}", { place: where }) : t("Weather");
+  return text ? `<p class="sched-weather"><span class="sub">${esc(label)}</span> ${esc(text)} ${flags}</p>` : "";
 }
 
 function statsLine(x) {
@@ -202,7 +212,7 @@ function dayPanelHtml(day, { data, weather, canEdit = false }) {
     <div class="sched-panel-head"><h2 id="sched-day-title">${esc(longDate(day.date))}</h2>
       <a href="#/dashboard/${day.date}">${esc(t("Open the day"))}</a></div>
     ${wellnessHtml(day.wellness)}
-    ${day.date >= data.today ? weatherHtml((weather?.days || []).find((w) => w.date === day.date)) : ""}
+    ${day.date >= data.today ? weatherHtml((weather?.days || []).find((w) => w.date === day.date), weather?.location) : ""}
     ${races}
     ${done.length ? `<h3>${esc(t("Done"))}</h3><ul class="plain sched-list">${done.join("")}</ul>` : ""}
     ${planned.length ? `<h3>${esc(t("Planned"))}</h3><ul class="plain sched-list">${planned.join("")}</ul>` : ""}
@@ -222,12 +232,14 @@ async function fillActivityWeather(view, date) {
   for (const slot of slots) {
     if (!slot.isConnected) continue;
     const hit = found.find((x) => x.id === slot.dataset.weatherFor);
-    slot.textContent = hit ? `${t("Weather")}: ${hit.line}` : "";
+    const label = hit?.place ? t("Weather in {place}", { place: hit.place }) : t("Weather");
+    slot.textContent = hit ? `${label}: ${hit.line}` : "";
   }
 }
 
 export async function render(view, { query, meta, stale }) {
   const today = meta?.data?.today || isoDay(new Date());
+  setWeatherUnits(meta?.data?.weather_units);
   const mode = VIEWS.some(([id]) => id === query.get("view")) ? query.get("view") : "month";
   const anchor = /^\d{4}-\d{2}-\d{2}$/.test(query.get("date") || "") ? query.get("date") : today;
   const { start, end } = rangeFor(mode, anchor);

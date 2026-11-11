@@ -81,7 +81,9 @@ knowledge base waits for your approval. See [docs/AI_HARNESS.md](docs/AI_HARNESS
 ## Dates and times
 
 Dates are shown day-month-year (`d-m-yyyy`), clock times on 24 hours, in the time zone from
-`[user] timezone`. The portal is in Dutch or English.
+`[user] timezone`. The portal is in Dutch or English. Weather and temperatures in °C or °F,
+wind in km/h, m/s, knots or Beaufort: Settings → System (`[user] temperature`, `[user] wind`).
+AI apps always get SI values (°C, m/s) over MCP.
 
 ## Development
 

@@ -14,6 +14,7 @@ import re
 
 from sqlalchemy import select
 
+from vibesynergy.core import weather_units
 from vibesynergy.core.config import ConfigError
 from vibesynergy.query import activity_effort, views
 from vibesynergy.store.schema import activity, activity_unified
@@ -468,7 +469,7 @@ def strava_fields(rt, activity_id: str) -> dict:
     }
 
 
-def strava_stats_lines(fields: dict, language: str = "nl") -> list[str]:
+def strava_stats_lines(fields: dict, language: str = "nl", *, temperature: str = "c") -> list[str]:
     """One line per available Strava field, in a fixed order; missing data -> no line."""
     tr = LABELS[language]
     effort = EFFORT_LABELS[language]
@@ -483,7 +484,7 @@ def strava_stats_lines(fields: dict, language: str = "nl") -> list[str]:
     if (v := fields.get("work_kj")) is not None and 0 < v <= 50_000:
         add("work", f"{_deg(v)} kJ")
     if (v := fields.get("temp_avg")) is not None and -60 <= v <= 60:
-        add("temperature", f"{tr['average']} {_deg(v)}°C")
+        add("temperature", f"{tr['average']} {weather_units.temperature(v, temperature)}")
     if (v := fields.get("icu_feel")) is not None and round(v) in effort["feel"]:
         add("feel", effort["feel"][round(v)])
     if (v := fields.get("icu_rpe")) is not None and round(v) in effort["rpe"]:
@@ -506,7 +507,7 @@ def clean(fields: dict) -> dict:
     return {k: v for k, v in out.items() if v is not None}
 
 
-def stats_lines(fields: dict, language: str = "nl") -> list[str]:
+def stats_lines(fields: dict, language: str = "nl", *, temperature: str = "c") -> list[str]:
     """One line per available field, in the fixed order; missing data -> no line."""
     tr = LABELS[language]
     lines = []
@@ -527,13 +528,15 @@ def stats_lines(fields: dict, language: str = "nl") -> list[str]:
         add("stamina", f"{_deg(start)} -> {_deg(end)}")
     low, high, avg = fields.get("temp_min"), fields.get("temp_max"), fields.get("temp_avg")
     if low is not None and high is not None and low <= high:
-        sep = " \u2013 " if low < 0 or high < 0 else "-"
-        text = f"{_deg(low)}{sep}{_deg(high)}°C"
+        lo, hi = weather_units.degrees(low, temperature), weather_units.degrees(high, temperature)
+        sep = " \u2013 " if lo < 0 or hi < 0 else "-"
+        scale = "°F" if temperature == "f" else "°C"
+        text = f"{lo}{sep}{hi}{scale}"
         if avg is not None:
-            text += f" ({tr['average']} {_deg(avg)}°C)"
+            text += f" ({tr['average']} {weather_units.temperature(avg, temperature)})"
         add("temperature", text)
     elif avg is not None:
-        add("temperature", f"{tr['average']} {_deg(avg)}°C")
+        add("temperature", f"{tr['average']} {weather_units.temperature(avg, temperature)}")
     # Garmin keeps both on 0-100; shown as intervals.icu does (feel label, RPE n/10 + label).
     effort = EFFORT_LABELS[language]
     if (v := fields.get("feel")) is not None and 0 <= v <= 100:
@@ -582,26 +585,31 @@ def weather_line(
     wind_point: str | None = None,
     wind_degrees: float | None = None,
     language: str = "nl",
+    *,
+    temperature: str = "c",
+    wind: str = "kmh",
 ) -> str | None:
-    """'☁️ Bewolkt, 11°C, 5 km/h W'; parts without data are left out."""
+    """'☁️ Bewolkt, 11°C, 5 km/h W' (or °F, m/s, kn, Bft); parts without data are left out."""
     found = _condition(condition, language)
     temp_c, wind_kmh = number(temp_c), number(wind_kmh)
     parts = []
     if found:
         parts.append(found[1])
     if temp_c is not None and -60 <= temp_c <= 60:
-        parts.append(f"{_deg(temp_c)}°C")
+        parts.append(weather_units.temperature(temp_c, temperature))
     if wind_kmh is not None and 0 <= wind_kmh <= 300:
-        wind = f"{_deg(wind_kmh)} km/h"
+        text = weather_units.wind(wind_kmh / 3.6, wind)
         if direction := _compass(wind_point, number(wind_degrees), language):
-            wind += f" {direction}"
-        parts.append(wind)
+            text += f" {direction}"
+        parts.append(text)
     if not parts or (found is None and len(parts) < 2):
         return None
     return f"{found[0] if found else '🌡️'} {', '.join(parts)}"
 
 
-def garmin_weather(weather: dict | None, language: str = "nl") -> str | None:
+def garmin_weather(
+    weather: dict | None, language: str = "nl", *, temperature: str = "c", wind: str = "kmh"
+) -> str | None:
     """Garmin's activity weather (°F, mph) as one line."""
     if not isinstance(weather, dict):
         return None
@@ -614,6 +622,8 @@ def garmin_weather(weather: dict | None, language: str = "nl") -> str | None:
         weather.get("windDirectionCompassPoint"),
         weather.get("windDirection"),
         language,
+        temperature=temperature,
+        wind=wind,
     )
 
 

@@ -35,11 +35,12 @@ def preview(rt, activity_id: str, *, language: str = "en") -> dict:
     }
     # Only whitelisted Garmin numbers, formatted deterministically; never freeform text.
     fields = publication_format.garmin_fields(rt, activity_id)
-    stats = publication_format.stats_lines(fields, language)
+    scale = rt.settings.temperature
+    stats = publication_format.stats_lines(fields, language, temperature=scale)
     source = "garmin"
     if not stats and not publication_format.has_garmin(rt, activity_id):
         fields = publication_format.strava_fields(rt, activity_id)
-        stats = publication_format.strava_stats_lines(fields, language)
+        stats = publication_format.strava_stats_lines(fields, language, temperature=scale)
         source = "strava"
     if not stats:
         return {**result, "reason": "no_public_statistics"}
