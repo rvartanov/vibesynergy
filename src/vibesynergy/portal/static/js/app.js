@@ -625,7 +625,7 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
-  label(".bug-report", t("Report a bug"));
+  label(".bug-report", t("Report a bug (opens GitHub)"));
   const quickTitle = document.querySelector("#quick-title");
   if (quickTitle) quickTitle.textContent = t("Quick add");
   const quickClose = document.querySelector("[data-quick-close]");

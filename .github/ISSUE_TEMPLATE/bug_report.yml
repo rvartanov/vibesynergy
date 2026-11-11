@@ -1,0 +1,91 @@
+name: Bug report
+description: Something in VibeSynergy doesn't work as it should.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The fields marked * are needed to look at it; a report without
+        them gets the label `needs-info` and waits for you. See
+        [how to report](https://github.com/rvartanov/vibesynergy/blob/main/docs/REPORTING.md).
+        **This page is public**: leave out health values, names, addresses, tokens and links.
+        Dutch is fine too.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, in a sentence or two. The exact error text if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      description: From opening the page or running the command. "It happens every time" or "once" helps too.
+      placeholder: |
+        1. Open Planning
+        2. Pick next week
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The bug button fills this in. Otherwise `vibesynergy version`, or the footer of the portal.
+      placeholder: 0.0.1a1 · cd25eae
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - Container (Docker, Podman, Docker Desktop)
+        - uv tool install
+        - From source (a git checkout)
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Computer and browser
+      description: The bug button fills in the browser. Add the operating system, e.g. macOS 15, Windows 11, Ubuntu 24.04.
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: Filled in by the bug button, e.g. `#/planning`.
+  - type: textarea
+    id: errors
+    attributes:
+      label: Errors the page showed
+      description: Filled in by the bug button when the page showed an error or a request failed.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or log (optional)
+      description: |
+        Drop a screenshot here, or paste the last lines of the log:
+        `docker compose logs --tail 50 vibesynergy` or `journalctl --user -u vibesynergy -n 50`.
+        Check them for personal data first.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I left out personal data (health values, names, addresses, tokens).
+          required: true
+        - label: I looked for an existing issue about this.
+          required: true

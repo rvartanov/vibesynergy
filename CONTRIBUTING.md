@@ -59,3 +59,8 @@ Group's usability heuristics and WCAG 2.2 AA, with design tokens from
 `portal/static/css/design-tokens.css` (see `docs/design/README.md`). Before merging, run an
 axe check and a keyboard-only pass. A UI pull request lists the guidelines it applied and
 any deviation with its reason.
+
+## Bugs and ideas
+
+Report them through the issue forms (bug report, feature request). What they need, and what
+happens next: [docs/REPORTING.md](docs/REPORTING.md).

@@ -10,7 +10,6 @@ import { caldavSettings } from "../calendar_settings.js";
 import { garminTargetSettings } from "../calendar_target.js";
 import { menuEditor } from "../nav.js";
 import { bindAutosave, reportSaveError } from "../settings_autosave.js";
-import { mountBugSettings } from "../bug_settings.js";
 import { field, saveRow, select } from "../settings_pieces.js";
 import { syncTabHtml } from "../settings_sync.js";
 import { appearanceHtml, bindPortalHosts, configurationHtml, regionHtml } from "../settings_system.js";
@@ -210,7 +209,6 @@ function draw(view, ctx, flash = "") {
       ${appearanceHtml(prefs)}
       <details class="card collapsible settings-more"><summary>${t("Change the menu")}</summary><section data-menu></section></details>
       ${scheduleHtml(s)}
-      <details class="card collapsible settings-more" data-bug-details><summary>${t("Bug reports")}</summary><section data-bugs><p class="sub">${t("Loading…")}</p></section></details>
       <details class="card collapsible settings-more" data-best-source-details><summary>${t("Best source per measurement")}</summary><section data-best-source></section></details>
       <section class="card settings-section" data-section="dropfolder">
         <h2>${t("Drop folder")}</h2>
@@ -726,8 +724,6 @@ function bind(view, ctx) {
   bindAlertGroups(view, ctx);
   bindPortalHosts(view, ctx, draw);
   mountAbout(view.querySelector("[data-about-host]"), { open: ctx.query?.get?.("section") === "about" });
-  const bugDetails = view.querySelector("[data-bug-details]");
-  bugDetails?.addEventListener("toggle", () => bugDetails.open && mountBugSettings(bugDetails.querySelector("[data-bugs]")), { once: true });
   mountAccount(view.querySelector("[data-account-host]"));
   mountPush(view.querySelector("[data-push]"));
 }
