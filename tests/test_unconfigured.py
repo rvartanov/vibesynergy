@@ -98,13 +98,15 @@ def test_job_alert_is_plain_and_deduplicated_for_24_hours(runtime):
     record = lambda subject, body, channel: sent.append(body)  # noqa: E731
     try:
         alerts.check(rt, send=record)  # first check
-        msg = "ValueError: Select at least one calendar (Settings → Calendar) and a window"
+        msg = (
+            "ValueError: Select at least one calendar (Settings → Sources → Calendar) and a window"
+        )
         fail_job(rt, f"JobError: calendar: {msg}")
         alerts.check(rt, send=record)
         recent = alerts.for_portal(rt.settings)["recent"]
         assert len(recent) == 1
         text = recent[0]["text"]
-        assert "calendar" in text and "Settings → Calendar" in text
+        assert "calendar" in text and "Settings → Sources → Calendar" in text
         assert "Error" not in text and "Traceback" not in text
 
         fail_job(rt, f"JobError: calendar: {msg}")  # the same problem again, hours later

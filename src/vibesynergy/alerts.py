@@ -109,17 +109,20 @@ def _job_alert(job: dict[str, Any], tr: i18n.Translator) -> Alert:
         )
     )
     if calendar and login:
-        text = tr("Your calendar couldn't be read. Sign in again in Settings → Calendar.")
+        text = tr("Your calendar couldn't be read. Sign in again in Settings → Sources → Calendar.")
     elif calendar and network:
         text = tr("Your calendar couldn't be read. Try again later.")
     elif calendar:
-        text = tr("Your calendar couldn't be read. Check Settings → Calendar or try again later.")
+        text = tr(
+            "Your calendar couldn't be read. "
+            "Check Settings → Sources → Calendar or try again later."
+        )
     elif login:
-        text = tr("Your data couldn't be updated. Sign in again in Settings → Data sources.")
+        text = tr("Your data couldn't be updated. Sign in again in Settings → Sources.")
     elif network:
         text = tr("Your data couldn't be updated. Try again later.")
     else:
-        text = tr("Your data couldn't be updated. Check Data → Sources or try again later.")
+        text = tr("Your data couldn't be updated. Check Settings → Sources or try again later.")
     normalized = re.sub(r"\d+", "#", error.lower())
     signature = f"{payload.get('source')}|{dataset}|{normalized}"
     source = payload.get("source") or "unknown"
@@ -394,7 +397,7 @@ def _expiring_tokens(rt: Any) -> list[Alert]:
         name = row.display_name or row.name
         when = format_user_datetime(row.expires_at)
         text = tr(
-            "{name} expires on {when}. Make a new token in Settings → Coach apps.",
+            "{name} expires on {when}. Make a new token in Settings → Sharing → Coach apps.",
             name=name,
             when=when,
         )
@@ -763,7 +766,9 @@ def for_portal(settings: Any) -> dict[str, list[dict[str, Any]]]:
         if e.get("kind") != "job" or "detail" in e
         else {
             **e,
-            "text": tr("Your data couldn't be updated. Check Data → Sources or try again later."),
+            "text": tr(
+                "Your data couldn't be updated. Check Settings → Sources or try again later."
+            ),
             "detail": e.get("text", ""),
         }
         for e in recent

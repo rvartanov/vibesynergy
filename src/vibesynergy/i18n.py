@@ -91,7 +91,7 @@ COOKIE = "vibesynergy-language"
 
 
 def request_language(request: Any) -> str:
-    """Cookie from Settings → Appearance first, then ``Accept-Language``, then English."""
+    """Cookie from Settings → System first, then ``Accept-Language``, then English."""
     cookie = ""
     accept = None
     if request is not None:
@@ -107,7 +107,7 @@ def request_language(request: Any) -> str:
 
 
 def for_settings(settings: Any) -> Translator:
-    """The language chosen in the portal (Settings -> Appearance), for alerts; English when
+    """The language chosen in the portal (Settings → System), for alerts; English when
     it follows the browser, which the server can't know."""
     from vibesynergy.portal import prefs
 

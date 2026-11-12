@@ -479,7 +479,7 @@ def register(kit: ToolKit) -> None:
             raise ToolError(
                 "public_insight ends up in the public Strava/Garmin description, and this app "
                 "isn't allowed to publish. Write the entry without public_insight, or ask the "
-                "athlete to allow publishing for this app (Settings → Coach apps)."
+                "athlete to allow publishing for this app (Settings → Sharing → Coach apps)."
             )
         day = _date(for_date)
         meta = coach_workouts.write_meta(

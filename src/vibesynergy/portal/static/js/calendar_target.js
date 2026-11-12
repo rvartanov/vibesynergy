@@ -1,4 +1,5 @@
-// Shared Garmin target selector for Settings → Calendar and Data → Sources.
+// Garmin target selector: the calendar Garmin workouts are copied onto
+// (Settings → Sync between sources).
 import { get, post } from "./api.js";
 import { esc, userDate } from "./format.js";
 import { t } from "./i18n.js";

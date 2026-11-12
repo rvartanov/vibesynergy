@@ -1,6 +1,6 @@
 """Filling history ("the filler"): a source's past, fetched by VibeSynergy itself.
 
-Two ways, one list of runs (table ``history_fill``, shown on Data & sync):
+Two ways, one list of runs (table ``history_fill``, shown on Settings → Sources → Status):
 
 - **API**: month by month, oldest first, through the job queue at backfill priority, so the
   regular syncs and webhooks go first. Each month is one job; progress is saved after it, so

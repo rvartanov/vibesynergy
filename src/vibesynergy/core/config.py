@@ -127,7 +127,7 @@ def load_settings(config_path: Path | None = None) -> Settings:
                 _RETIRED_SOURCES_WARNED.add((name, retired))
                 log.warning(
                     "[%s] %s is ignored; that source has been removed (calendars use caldav, "
-                    "set up in the portal under Settings → Calendar)",
+                    "set up in the portal under Settings → Sources → Calendar)",
                     name,
                     retired,
                 )

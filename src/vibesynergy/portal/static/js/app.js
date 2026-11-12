@@ -485,7 +485,7 @@ applyPalette(storedPalette());
 window.addEventListener("vibesynergy-theme", render);
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
 
-// Pages that show data reload by themselves while open (Settings -> Appearance; default
+// Pages that show data reload by themselves while open (Settings → System; default
 // every 5 minutes), unless the page is hidden or you are typing in it. Pages with forms
 // never do.
 const RELOADS = new Set(["dashboard", "activities", "activity", "planning", "sleep", "body", "metrics", "data", "history"]);

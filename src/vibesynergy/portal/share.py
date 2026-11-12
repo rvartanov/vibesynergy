@@ -2,9 +2,10 @@
 access, served by the public app under ``/vibesynergy/share/<code>/``.
 
 Each link has a title (who it is for), the pages it shows, whether it may change anything
-(e.g. re-sync on Data & sync), an optional expiry, and a use counter. Only a SHA-256 of the
-code is stored, so neither the database nor a backup can hand out a working link; the link is
-shown once, when it is made. Settings is never shareable: it controls access itself.
+(e.g. re-sync on Settings → Sources → Status), an optional expiry, and a use counter. Only a
+SHA-256 of the code is stored, so neither the database nor a backup can hand out a working
+link; the link is shown once, when it is made. Settings is never shareable: it controls access
+itself.
 """
 
 from __future__ import annotations

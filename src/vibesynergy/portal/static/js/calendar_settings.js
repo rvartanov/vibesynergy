@@ -1,4 +1,4 @@
-// Settings → Calendar: connect an iCal / CalDAV account (any provider), pick calendars,
+// Settings → Sources → Calendar: connect an iCal / CalDAV account (any provider), pick calendars,
 // disconnect. Passwords, tokens and Google client secrets are write-only: the server only
 // answers with flags. Each step moves focus to its heading; errors are announced and linked
 // to the fields with aria-describedby. All texts go through t() (NL + EN).
