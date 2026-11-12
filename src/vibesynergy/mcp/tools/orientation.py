@@ -472,8 +472,15 @@ def register(kit: ToolKit) -> None:
         300 characters, one paragraph, no [ ] /* */. Never put health, diary, injury or
         other private details in it. The newest entry with public_insight for an activity
         wins; "" withdraws the line. Published blocks are updated within minutes when
-        automatic publication is on.
+        automatic publication is on. Because this line becomes public, it needs the
+        ``publish`` permission; without it, write the entry without public_insight.
         """
+        if public_insight and public_insight.strip() and "publish" not in current_scopes():
+            raise ToolError(
+                "public_insight ends up in the public Strava/Garmin description, and this app "
+                "isn't allowed to publish. Write the entry without public_insight, or ask the "
+                "athlete to allow publishing for this app (Settings → Coach apps)."
+            )
         day = _date(for_date)
         meta = coach_workouts.write_meta(
             rt,

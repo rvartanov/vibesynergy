@@ -29,6 +29,15 @@ MAX_CHARS = 300
 MARKER = re.compile(r"^\s*public_insight\b")
 # Brackets and comment tokens could look like the block's own markers.
 _FORBIDDEN = re.compile(r"[\[\]]|/\*|\*/")
+# Words that mean private health, diary or injury content in a public line (INS-2).
+PRIVATE = re.compile(
+    r"\b(hrv|readiness|slaap|sleep|rusthartslag|resting heart|rustpols|gewicht|weight|"
+    r"bloeddruk|blood pressure|blessure|injur\w*|pijn|pain|ziek\w*|sick\w*|ill(ness)?|"
+    r"dagboek|diary|check-?in)\b",
+    re.IGNORECASE,
+)
+# A public line is about the session; it never carries a link.
+_LINK = re.compile(r"https?://|www\.", re.IGNORECASE)
 # Entries written this long before the activity day cannot be about it.
 _EARLIEST = timedelta(days=1)
 
@@ -44,6 +53,8 @@ def normalise(text: str | None) -> str | None:
     line = " ".join(text.split())
     if not line or len(line) > MAX_CHARS or _FORBIDDEN.search(line):
         return None
+    if PRIVATE.search(line) or _LINK.search(line):
+        return None
     return line
 
 
@@ -58,6 +69,13 @@ def validate(text: str) -> str:
         raise InsightError(f"public_insight must be at most {MAX_CHARS} characters")
     if _FORBIDDEN.search(line):
         raise InsightError("public_insight must not contain [, ], /* or */")
+    if PRIVATE.search(line):
+        raise InsightError(
+            "public_insight mentions private health, diary or injury details (INS-2). "
+            "Rewrite it about the session only, or leave the insight out."
+        )
+    if _LINK.search(line):
+        raise InsightError("public_insight must not contain a link")
     return line
 
 

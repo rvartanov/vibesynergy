@@ -105,10 +105,49 @@ def test_a_failed_migration_is_reported_and_keeps_the_backup(
         code = 1 if args[1:3] == ["db", "upgrade"] else 0
         return subprocess.CompletedProcess(args, code, "boom\n", "")
 
-    monkeypatch.setattr(updater, "_run", run)
+    seen = []
+
+    def run_and_note(args, timeout=30):
+        seen.append(args)
+        return run(args, timeout)
+
+    monkeypatch.setattr(updater, "_run", run_and_note)
     record = updater.run(runtime.settings, restart=True, say=lambda text: None)
     assert record["result"] == "failed" and not record["migrated"]
     assert Path(record["backup"]).exists()
+    # The version that ran before is installed again, and the service is left alone.
+    assert record["rolled_back"] is True
+    assert seen[-1] == [
+        "/bin/uv",
+        "tool",
+        "install",
+        "--force",
+        f"git+https://github.com/o/r@{OLD}",
+    ]
+    assert not any("restart" in args for args in seen)
+
+
+def test_a_half_applied_migration_is_undone_from_the_backup(tmp_path) -> None:
+    import sqlite3
+
+    live, backups = tmp_path / "live.sqlite", tmp_path / "backups"
+    with sqlite3.connect(live) as conn:
+        conn.execute("create table alembic_version (version_num text)")
+        conn.execute("insert into alembic_version values ('r1')")
+        conn.execute("create table note (id integer primary key, text text)")
+        conn.execute("insert into note (text) values ('kept')")
+    backup = updater.backup_database(live, backups)
+    assert not updater.restore_after_failed_migration(backup, live)  # nothing changed
+    with sqlite3.connect(live) as conn:  # a migration that stopped after its first step
+        conn.execute("alter table note add column half text")
+        conn.execute("create table leftover (id integer)")
+    assert updater.restore_after_failed_migration(backup, live)
+    with sqlite3.connect(live) as conn:
+        tables = {row[0] for row in conn.execute("select name from sqlite_master")}
+        assert "leftover" not in tables
+        assert conn.execute("select text from note").fetchall() == [("kept",)]
+        assert [row[1] for row in conn.execute("pragma table_info(note)")] == ["id", "text"]
+    assert not updater.restore_after_failed_migration(None, live)
 
 
 def test_only_a_tool_install_updates_itself(monkeypatch, runtime, tmp_path) -> None:

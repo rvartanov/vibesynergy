@@ -674,7 +674,11 @@ def serve(
             },
         )
         rt.scheduler = scheduler
-        threads.append(threading.Thread(target=scheduler.run, args=(stop,)))
+        scheduler_thread = threading.Thread(target=scheduler.run, args=(stop,), name="scheduler")
+        from vibesynergy.sync import lanes as _lanes
+
+        _lanes.register("scheduler", scheduler_thread)
+        threads.append(scheduler_thread)
     if portal and portal_enabled(rt.settings):
         if portal_port(rt.settings) == port:
             _fail("[portal] port must differ from the service port (the Funnel forwards that).")
@@ -690,7 +694,13 @@ def serve(
         )
         # Not the main thread, so uvicorn leaves signal handling to the main server; the
         # thread is a daemon and ends with the process.
-        threads.append(threading.Thread(target=portal_server.run, name="portal"))
+        # On /health too: when the port is taken uvicorn ends this thread only, and the
+        # service would otherwise look healthy without a portal.
+        portal_thread = threading.Thread(target=portal_server.run, name="portal")
+        from vibesynergy.sync import lanes as _lanes
+
+        _lanes.register("portal", portal_thread)
+        threads.append(portal_thread)
         console.print(f"Portal on http://127.0.0.1:{portal_port(rt.settings)}")
     for thread in threads:
         thread.daemon = True
@@ -1071,14 +1081,24 @@ def db_upgrade(
     config: ConfigOpt = None,
 ) -> None:
     """Apply pending schema migrations."""
+    from vibesynergy import updater
+
     rt = _runtime(config, require_schema=False)
     current = db.current_revision(rt.engine)
+    saved = None
     if backup and current is not None and current != db.head_revision():
-        from vibesynergy import updater
-
         saved = updater.backup_database(rt.settings.db_path, rt.settings.data_dir / "backups")
         console.print(f"Database backed up to {saved}")
-    rt.migrate()
+    try:
+        rt.migrate()
+    except Exception as exc:
+        # With a backup from a moment ago, go back to it: a half-applied migration cannot
+        # be run again, and every retry would otherwise back up the broken state.
+        rt.engine.dispose()
+        if updater.restore_after_failed_migration(saved, rt.settings.db_path):
+            console.print("The database is back as it was before the migration.")
+        console.print(f"[red]Migration failed:[/] {type(exc).__name__}: {exc}")
+        raise typer.Exit(1) from exc
     console.print(f"schema at {db.current_revision(rt.engine)}")
 
 

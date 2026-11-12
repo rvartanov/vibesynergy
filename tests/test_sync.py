@@ -172,3 +172,22 @@ def test_mapping_failure_is_not_hidden_by_rate_limit() -> None:
             ]
         )
     assert failure.value.retry_at is None
+
+
+def test_a_window_further_on_does_not_hide_the_days_in_between(runtime) -> None:
+    from datetime import timedelta
+
+    from sqlalchemy import update
+
+    from vibesynergy.store.schema import dataset_state
+
+    today = today_in("Europe/Amsterdam")
+    runtime.sync.sync("demo", ["daily"])
+    behind = today - timedelta(days=20)
+    with runtime.engine.begin() as conn:  # as after three weeks without a sync
+        conn.execute(update(dataset_state).values(synced_until=behind))
+    runtime.sync.sync("demo", ["daily"], Window(today, today))  # e.g. a webhook for today
+    assert runtime.sync.state("demo", "daily")["synced_until"] == behind
+    # A window that joins what was covered moves it on, as before.
+    runtime.sync.sync("demo", ["daily"], Window(behind + timedelta(days=1), today))
+    assert runtime.sync.state("demo", "daily")["synced_until"] == today

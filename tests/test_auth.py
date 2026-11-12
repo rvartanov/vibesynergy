@@ -50,7 +50,11 @@ def test_a_link_works_once_and_only_while_fresh(runtime, acc):
     assert auth.use_token(runtime.engine, token, "login") is None  # spent
     old = auth.issue_token(runtime.engine, acc["id"], "login", auth.LINK_TTL)
     new = auth.issue_token(runtime.engine, acc["id"], "login", auth.LINK_TTL)
-    assert auth.use_token(runtime.engine, old, "login") is None  # a newer link replaces it
+    # An earlier link stays good: asking for another one must not cancel it.
+    assert auth.use_token(runtime.engine, old, "login") == acc["id"]
+    code = auth.issue_token(runtime.engine, acc["id"], "mfa_mail", auth.CODE_TTL)
+    auth.issue_token(runtime.engine, acc["id"], "mfa_mail", auth.CODE_TTL)
+    assert auth.use_token(runtime.engine, code, "mfa_mail") is None  # a newer code replaces it
     with runtime.engine.begin() as conn:
         conn.execute(update(auth_token).values(expires_at=auth.utc_now() - timedelta(seconds=1)))
     assert auth.use_token(runtime.engine, new, "login") is None  # expired

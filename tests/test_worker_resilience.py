@@ -109,3 +109,11 @@ def test_sync_deadline_helper() -> None:
 
     with pytest.raises(SyncTimeout):
         _check_sync_deadline(time.monotonic() - 1)
+
+
+def test_health_says_how_long_the_oldest_job_has_run(runtime) -> None:
+    client = TestClient(create_app(runtime))
+    assert client.get("/vibesynergy/health").json()["oldest_running_s"] is None
+    runtime.jobs.enqueue("sync", {})
+    runtime.jobs.claim("worker")
+    assert client.get("/vibesynergy/health").json()["oldest_running_s"] >= 0

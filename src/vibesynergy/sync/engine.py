@@ -13,7 +13,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Engine, func, select, update
+from sqlalchemy import Engine, case, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert
 
 from vibesynergy.core.config import RETIRED_SOURCES, Settings
@@ -50,6 +50,7 @@ class DatasetResult:
     normalise_errors: int = 0
     error: str | None = None
     retry_at: datetime | None = None  # set when the error was a rate limit
+    stop_source: bool = False  # the source refuses us (rate limit, login): don't ask for more
     raw_ids: list[str] = field(default_factory=list)
 
 
@@ -103,6 +104,13 @@ class SyncEngine:
             for spec in specs:
                 _check_sync_deadline(deadline)
                 results.append(self.sync_dataset(source, spec, window, deadline=deadline))
+                if results[-1].stop_source:
+                    # Every further dataset would be one more refused call, which only
+                    # lengthens a rate-limit block. The job is retried as a whole later.
+                    log.warning(
+                        "%s: stopped after %s (%s)", source_id, spec.name, results[-1].error
+                    )
+                    break
         except BaseException:
             # Stopped halfway (the time limit, a shutdown): what was already stored still
             # has to reach the unified tables, or it stays invisible until a later change.
@@ -346,13 +354,27 @@ class SyncEngine:
             update_set["synced_from"] = _least(
                 dataset_state.c.synced_from, stmt.excluded.synced_from
             )
-            update_set["synced_until"] = _greatest(
-                dataset_state.c.synced_until, stmt.excluded.synced_until
+            # ...and only forward when the window joins what was covered. A window further
+            # on (a webhook for today after a week without syncing) must not hide the days
+            # in between: the next plain sync starts from synced_until and fetches them.
+            joins = or_(
+                dataset_state.c.synced_until.is_(None),
+                stmt.excluded.synced_from <= func.date(dataset_state.c.synced_until, "+1 day"),
+            )
+            update_set["synced_until"] = case(
+                (joins, _greatest(dataset_state.c.synced_until, stmt.excluded.synced_until)),
+                else_=dataset_state.c.synced_until,
             )
         with self._engine.begin() as conn:
             conn.execute(
                 stmt.on_conflict_do_update(index_elements=["source", "dataset"], set_=update_set)
             )
+
+
+# Errors from a source's own client library, by class name (they are optional imports).
+_RATE_LIMIT_ERRORS = frozenset({"GarminConnectTooManyRequestsError"})
+_LOGIN_ERRORS = frozenset({"GarminConnectAuthenticationError"})
+RATE_LIMIT_PAUSE = timedelta(hours=1)
 
 
 def _least(current, new):
@@ -367,3 +389,10 @@ def _failed(result: DatasetResult, exc: Exception) -> None:
     result.error = f"{type(exc).__name__}: {exc}"
     if isinstance(exc, RateLimited):
         result.retry_at = exc.retry_at
+    name = type(exc).__name__
+    if name in _RATE_LIMIT_ERRORS:
+        # Garmin does not say when the block ends; asking again soon only extends it.
+        result.retry_at = utc_now() + RATE_LIMIT_PAUSE
+        result.stop_source = True
+    elif name in _LOGIN_ERRORS:
+        result.stop_source = True

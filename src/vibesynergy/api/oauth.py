@@ -313,6 +313,13 @@ class DenyOutcome:
     redirect_uri: str
 
 
+PORTAL_KEY = "portal"
+# Registration is open (RFC 7591). Apps nobody approved are kept this long and this many.
+UNAPPROVED_CLIENT_TTL = timedelta(hours=24)
+MAX_UNAPPROVED_CLIENTS = 50
+MAX_PENDING_REQUESTS = 200
+
+
 class PassphraseLimiter:
     """Wrong-passphrase counter per key (an app's client id, or ``portal``), with a ceiling.
 
@@ -349,19 +356,24 @@ class PassphraseLimiter:
             if not entries:
                 del self._by_key[key]
 
-    def locked(self, key: str) -> bool:
+    def locked(self, key: str, *, trusted: bool = False) -> bool:
+        """``trusted`` (the portal, an app the athlete approved before) is held to its own
+        count only: strangers registering apps and burning attempts reach the ceiling, and
+        that must not keep the athlete from approving their own apps."""
         self._prune()
-        if len(self._all) >= self.ceiling:
+        if not (trusted or key == PORTAL_KEY) and len(self._all) >= self.ceiling:
             return True
         return len(self._by_key.get(key, ())) >= self.per_key
 
-    def fail(self, key: str) -> int:
+    def fail(self, key: str, *, trusted: bool = False) -> int:
         """Record a wrong passphrase; returns the attempts this key has left."""
         now = self._clock()
         self._by_key.setdefault(key, deque()).append(now)
         self._all.append(now)
         self._prune()
         left = self.per_key - len(self._by_key.get(key, ()))
+        if trusted or key == PORTAL_KEY:
+            return max(0, left)
         return max(0, min(left, self.ceiling - len(self._all)))
 
 
@@ -397,6 +409,22 @@ class VibeSynergyOAuthProvider:
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         with self.engine.begin() as conn:
+            # Anyone can register; what was never approved does not pile up.
+            never = oauth_client.c.approved_at.is_(None)
+            conn.execute(
+                oauth_client.delete().where(
+                    never, oauth_client.c.created_at < utc_now() - UNAPPROVED_CLIENT_TTL
+                )
+            )
+            newest = (
+                select(oauth_client.c.client_id)
+                .where(never)
+                .order_by(oauth_client.c.created_at.desc())
+                .limit(MAX_UNAPPROVED_CLIENTS - 1)
+            )
+            conn.execute(
+                oauth_client.delete().where(never, oauth_client.c.client_id.not_in(newest))
+            )
             conn.execute(
                 oauth_client.insert().values(
                     client_id=client_info.client_id,
@@ -428,6 +456,8 @@ class VibeSynergyOAuthProvider:
                 "no passphrase set on the server yet; run `vibesynergy mcp set-passphrase`",
             )
         self._expire_pending()
+        while len(self._pending) >= MAX_PENDING_REQUESTS:
+            self._pending.pop(next(iter(self._pending)))  # the oldest; dicts keep order
         request_id = secrets.token_urlsafe(24)
         self._pending[request_id] = (time.monotonic(), client.client_id or "", params)
         return f"{self.issuer}/approve?request={request_id}"
@@ -439,7 +469,16 @@ class VibeSynergyOAuthProvider:
 
     def locked(self, client_id: str) -> bool:
         """Too many wrong passphrases for this app, or for all apps together."""
-        return self.limiter.locked(client_id)
+        return self.limiter.locked(client_id, trusted=self._approved_before(client_id))
+
+    def _approved_before(self, client_id: str) -> bool:
+        with self.engine.connect() as conn:
+            return (
+                conn.execute(
+                    select(oauth_client.c.approved_at).where(oauth_client.c.client_id == client_id)
+                ).scalar()
+                is not None
+            )
 
     def approved_outcome(self, request_id: str) -> ApproveOutcome | None:
         """Return a still-valid approval for ``request_id``, or None if unknown/expired."""
@@ -468,7 +507,7 @@ class VibeSynergyOAuthProvider:
             self._audit("oauth.locked", {"request": "approve", "client_id": client_id})
             return ApproveOutcome("locked")
         if not check_passphrase(self.store, passphrase):
-            left = self.limiter.fail(client_id)
+            left = self.limiter.fail(client_id, trusted=self._approved_before(client_id))
             self._audit("oauth.denied", {"client_id": client_id, "reason": "wrong passphrase"})
             return ApproveOutcome("wrong_passphrase", attempts_left=left)
         requested = expand_scopes(params.scopes or DEFAULT_SCOPES)

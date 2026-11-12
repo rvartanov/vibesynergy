@@ -766,3 +766,26 @@ def test_a_stationary_session_counts_its_whole_time() -> None:
     assert moving_seconds("yoga", 600.0, 3600.0) == 3600.0
     assert moving_seconds("running", 2600.0, 2700.0) == 2600.0  # stops do not count
     assert moving_seconds("strength_training", 655.0, None) == 655.0
+
+
+def test_a_rate_limit_stops_the_whole_garmin_sync_for_an_hour(garmin) -> None:
+    from datetime import timedelta
+
+    from garminconnect import GarminConnectTooManyRequestsError
+
+    from vibesynergy.core.timeutil import utc_now
+
+    rt, fake = garmin
+    calls = []
+
+    def limited(*_args):
+        calls.append(1)
+        raise GarminConnectTooManyRequestsError("slow down")
+
+    fake.get_devices = lambda: [{"deviceId": "111"}]
+    fake.get_device_solar_data = limited
+    results = rt.sync.sync("garmin", ["device_solar", "device_solar"], Window(DAY, DAY))
+    assert len(results) == 1 and len(calls) == 1  # the second dataset was not asked for
+    assert results[0].stop_source
+    wait = results[0].retry_at - utc_now()
+    assert timedelta(minutes=50) < wait <= timedelta(hours=1)

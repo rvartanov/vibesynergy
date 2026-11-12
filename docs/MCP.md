@@ -42,7 +42,9 @@ everything the MCP can answer, the portal can show and vice versa.
   decides what may go public: no health, diary, injury, sleep or other private details. At
   most 300 characters, one paragraph, no `[`, `]`, `/*` or `*/`; anything else is refused. Per activity the newest
   entry (by `at`) that sets `public_insight` wins; `""` withdraws the line. Entries without
-  `public_insight` never reach a public text. Accepted earlier convention: `details` starting
+  `public_insight` never reach a public text. Setting `public_insight` needs the `publish`
+  permission, because the line becomes public; it is refused when it names health, diary or
+  injury details or holds a link. Accepted earlier convention: `details` starting
   with `public_insight` and every activity in `evidence_refs` being that one activity; then
   the summary (first line) is the insight. With automatic publication on, an activity already
   published in the last two days gets the new line within about five minutes through the

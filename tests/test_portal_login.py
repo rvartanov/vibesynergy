@@ -152,3 +152,29 @@ def test_second_factor_by_app_and_by_mail(runtime, portal, mail):
 
 def test_writes_still_need_the_portal_header(runtime, portal):
     assert portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}).status_code == 403
+
+
+def test_a_login_link_still_comes_when_the_password_is_locked(runtime, portal, mail):
+    # Someone guessing passwords must not close the one way back in.
+    acc = auth.create_account(runtime.engine, EMAIL)
+    auth.set_password(runtime.engine, acc["id"], GOOD)
+    for _ in range(auth.MAX_FAILURES_EMAIL):
+        portal.post("/auth/login", json={"email": EMAIL, "password": "wrong-wrong"}, headers=WRITE)
+    portal.post("/auth/link", json={"email": EMAIL}, headers=WRITE)
+    assert len(mail) == 1
+    link = _token_from(mail[0][2], "link")
+    assert portal.post("/auth/link/use", json={"token": link}, headers=WRITE).status_code == 200
+
+
+def test_link_and_reset_mails_are_limited(runtime, portal, mail):
+    auth.create_account(runtime.engine, EMAIL)
+    for _ in range(auth.MAX_MAILS_CLIENT + 3):
+        reply = portal.post("/auth/link", json={"email": EMAIL}, headers=WRITE)
+        assert reply.json() == {"sent": True}  # the same answer, sent or not
+    assert len(mail) == auth.MAX_MAILS_CLIENT
+    # Every link that was sent still works: a later request does not cancel an earlier one.
+    first = _token_from(mail[0][2], "link")
+    assert portal.post("/auth/link/use", json={"token": first}, headers=WRITE).status_code == 200
+    for _ in range(auth.MAX_MAILS_CLIENT + 3):
+        portal.post("/auth/reset", json={"email": EMAIL}, headers=WRITE)
+    assert len(mail) == 2 * auth.MAX_MAILS_CLIENT + 1  # + the "new login" notice

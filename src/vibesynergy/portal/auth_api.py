@@ -263,7 +263,7 @@ def build_auth_router(rt) -> APIRouter:
         if (
             acc
             and acc["email"] == body.email.strip().lower()
-            and not auth.locked(engine, body.email, client)
+            and auth.mail_allowed(engine, "link", client)
         ):
             token = auth.issue_token(engine, acc["id"], "login", auth.LINK_TTL)
             _send(
@@ -274,7 +274,6 @@ def build_auth_router(rt) -> APIRouter:
                 url=f"{_base_url(rt, request)}/login#link={token}",
             )
             audit("auth.link.sent", request)
-        auth.note_attempt(engine, body.email, client, True)
         return {"sent": True}  # the same answer for any address
 
     @router.post("/auth/link/use")
@@ -295,7 +294,7 @@ def build_auth_router(rt) -> APIRouter:
         if (
             acc
             and acc["email"] == body.email.strip().lower()
-            and not auth.locked(engine, body.email, _client(request))
+            and auth.mail_allowed(engine, "reset", _client(request))
         ):
             token = auth.issue_token(engine, acc["id"], "reset", auth.LINK_TTL)
             _send(

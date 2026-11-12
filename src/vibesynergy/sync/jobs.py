@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Engine, delete, func, select, update
@@ -166,6 +166,18 @@ class JobQueue:
                     )
                 ).rowcount
         return recovered
+
+    def oldest_running_seconds(self) -> int | None:
+        """How long the longest-running job has been at it; None when nothing runs."""
+        with self._engine.connect() as conn:
+            started = conn.execute(
+                select(func.min(job.c.started_at)).where(job.c.status == "running")
+            ).scalar()
+        if started is None:
+            return None
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=UTC)
+        return max(0, int((utc_now() - started).total_seconds()))
 
     def counts(self) -> dict[str, int]:
         with self._engine.connect() as conn:

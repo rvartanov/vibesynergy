@@ -16,9 +16,10 @@ from sqlalchemy import Engine, func, select
 from vibesynergy.store.schema import kb_article, kb_rule, kb_source
 
 PROTOCOL_DOC = "docs/COACH_PROTOCOL.md"
-# Enough for the whole coach loop; diary.write and sync are optional extras.
+# Enough for the whole coach loop; diary.write and sync are optional extras, and publish is
+# only needed to set the public insight line of an activity.
 COACH_SCOPES_NEEDED: tuple[str, ...] = ("read", "coach.write", "plan.propose", "plan.write")
-COACH_SCOPES_OPTIONAL: tuple[str, ...] = ("diary.write", "sync")
+COACH_SCOPES_OPTIONAL: tuple[str, ...] = ("diary.write", "sync", "publish")
 START_HERE: tuple[str, ...] = (
     "vibesynergy_coach_handbook",
     "vibesynergy_sync_status",
