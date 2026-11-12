@@ -7,7 +7,7 @@ import { speedText } from "./sport_units.js";
 
 // Best running efforts ----------------------------------------------------------------------
 
-export const BEST_PERIODS = [
+const BEST_PERIODS = [
   ["last_90d", N("Last 90 days")],
   ["last_365d", N("Last 12 months")],
   ["this_year", N("This year")],
@@ -15,7 +15,7 @@ export const BEST_PERIODS = [
 ];
 const BEST_NAMES = { 400: "400 m", 1000: "1 km", 1609.34: N("Mile"), 5000: "5 km", 10000: "10 km", 21097.5: N("Half marathon") };
 
-export const BEST_SPORTS = [
+const BEST_SPORTS = [
   ["run", N("Running")],
   ["bike", N("Cycling")],
   ["swim", N("Swimming")],

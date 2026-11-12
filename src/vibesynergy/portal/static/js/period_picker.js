@@ -31,8 +31,6 @@ const FORWARD_PRESET_ROWS = [
   ["custom", N("Custom range")],
 ];
 
-export const BASE_PRESETS = BACKWARD_PRESET_ROWS;
-
 const LEGACY_NAMED = new Set([
   "today",
   "yesterday",

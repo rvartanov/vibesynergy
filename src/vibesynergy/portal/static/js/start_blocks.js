@@ -139,7 +139,7 @@ function itemHtml(item, linkActivities) {
 }
 
 // Best efforts: the block lives in bests_block.js (also used by Fitness).
-export { BEST_PERIODS, BEST_SPORTS, mountBests } from "./bests_block.js";
+export { mountBests } from "./bests_block.js";
 
 // Arranging the blocks ----------------------------------------------------------------------
 

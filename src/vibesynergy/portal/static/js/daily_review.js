@@ -53,7 +53,6 @@ export const DAILY_REQUESTABLE = new Set([
   "interrupted",
   "paused",
 ]);
-export const DAILY_IN_FLIGHT = new Set(["pending", "running", "generated", "waiting_inputs"]);
 
 export function hasSavedAdvice(entry) {
   return Boolean(entry?.advice);
