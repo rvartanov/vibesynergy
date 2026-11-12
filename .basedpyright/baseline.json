@@ -214,14 +214,6 @@
                     "endColumn": 50,
                     "lineCount": 1
                 }
-            },
-            {
-                "code": "reportArgumentType",
-                "range": {
-                    "startColumn": 60,
-                    "endColumn": 89,
-                    "lineCount": 1
-                }
             }
         ],
         "./src/vibesynergy/query/agent_events.py": [

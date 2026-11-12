@@ -154,7 +154,8 @@ def test_pairing_compliance_effort_and_extras(runtime) -> None:
         runtime.engine, Window(date(2026, 11, 2), date(2026, 11, 8)), [ride["actual"]["id"]]
     )
     assert ride["actual"]["load"] == own.get(ride["actual"]["id"]) != 70
-    assert (ride["rpe"], ride["feel"]) == (4, 2)
+    # RPE and Feel are not read from intervals.icu (12-11-2026): this ride has none.
+    assert (ride["rpe"], ride["feel"]) == (None, None)
     coached = sessions["Groepstraining geven, zelf Z1 60'"]
     assert coached["status"] == "done"
     assert coached["actual"]["coaching"] is True

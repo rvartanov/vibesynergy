@@ -232,7 +232,7 @@ def register(kit: PortalKit) -> None:
 
     @router.post("/activity-effort")
     def activity_effort_save(request: ActivityEffortRequest) -> dict[str, Any]:
-        """Save RPE (1-10) and/or Feel (1-5, 1 = Strong) when no platform has a value."""
+        """Save RPE (1-10) and/or Feel (1-5, 1 = Strong); your entry wins over Garmin's."""
         return envelope(
             activity_effort.set_effort(
                 engine,

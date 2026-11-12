@@ -1,27 +1,21 @@
-"""RPE and Feel per activity: read from Garmin and intervals.icu, entered in VibeSynergy.
+"""RPE and Feel per activity: what Garmin recorded, or what you enter in VibeSynergy.
 
-Scales follow intervals.icu, which Garmin also feeds:
+Scales (the usual ones, as Garmin's watch asks them):
 
-- RPE 1-10 (``icu_rpe``). Garmin stores ``directWorkoutRpe`` as 10-100, so 30 is RPE 3.
-- Feel 1-5 (``feel``), where 1 is Strong and 5 is Weak. Garmin stores ``directWorkoutFeel``
-  as 0-100 the other way round (100 very strong, 0 very weak), so Feel = 5 - garmin / 25,
-  clamped to 1-5. Checked against the athlete's activities that Garmin copied to intervals.icu.
+- RPE 1-10. Garmin stores ``directWorkoutRpe`` as 10-100, so 30 is RPE 3.
+- Feel 1-5, where 1 is Strong and 5 is Weak. Garmin stores ``directWorkoutFeel`` as 0-100
+  the other way round (100 very strong, 0 very weak), so Feel = 5 - garmin / 25, clamped to
+  1-5.
 
-A value recorded on a platform is shown with its source and never replaced. VibeSynergy only
-keeps a value when no platform has one, then copies it to intervals.icu
-(``PUT /api/v1/activity/{id}`` with ``icu_rpe`` and ``feel`` only). Before writing, the
-activity is read again: a field that intervals.icu already holds with another value is left
-alone and reported as a conflict. Garmin is not written: the ``garminconnect`` client has no
-call for these fields.
-
-intervals.icu activities are not normalised into VibeSynergy's activity tables; they stay in
-the raw archive (one payload per month), which is parsed here and cached by content hash.
+Your entry in VibeSynergy is always possible and wins over Garmin's (Garmin's stays visible
+as the other value). Nothing is read from or written to intervals.icu for these (12-11-2026).
+intervals.icu activities in the raw archive are still read for one thing: which plan workout
+intervals.icu paired an activity with, and its compliance (``icu_for_groups``).
 """
 
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -32,9 +26,7 @@ from vibesynergy.core.timeutil import utc_now
 from vibesynergy.store.schema import (
     activity,
     activity_effort,
-    activity_link,
     activity_unified,
-    audit_log,
     raw_item,
 )
 
@@ -60,7 +52,6 @@ RPE_LABELS = {
 }
 FEEL_LABELS = {1: "Strong", 2: "Good", 3: "Normal", 4: "Poor", 5: "Weak"}
 FIELDS = ("rpe", "feel")
-ICU_FIELD = {"rpe": "icu_rpe", "feel": "feel"}
 # A start within this many seconds counts as the same session when no id links them.
 MATCH_SECONDS = 120
 
@@ -89,15 +80,6 @@ def garmin_feel(value: Any) -> int | None:
     if number is None or number < 0:
         return None
     return max(1, min(5, round(5 - number / 25)))
-
-
-def _icu_value(field: str, value: Any) -> int | None:
-    number = _number(value)
-    if number is None:
-        return None
-    number = round(number)
-    top = 10 if field == "rpe" else 5
-    return number if 1 <= number <= top else None
 
 
 def _number(value: Any) -> float | None:
@@ -143,8 +125,6 @@ def _icu_month(raw, row) -> list[dict[str, Any]]:
                 "external_id": str(item.get("external_id") or "") or None,
                 "strava_id": str(item.get("strava_id") or "") or None,
                 "start": start,
-                "rpe": _icu_value("rpe", item.get("icu_rpe")),
-                "feel": _icu_value("feel", item.get("feel")),
                 # How the session went against the plan workout intervals.icu paired it with.
                 "paired_event_id": str(item.get("paired_event_id") or "") or None,
                 "compliance": _number(item.get("compliance")),
@@ -304,9 +284,7 @@ def for_groups(engine: Engine, raw, groups: list[dict[str, Any]]) -> dict[str, d
     keys = [key for group in groups for key in group.get("sources") or []]
     garmin = _garmin_values(engine, keys)
     own = _own_rows(engine, keys)
-    days = {_as_date(group.get("local_date")) for group in groups} - {None}
-    icu = _icu_activities(engine, raw, days)  # type: ignore[arg-type]
-    return {group["group_id"]: _effort(group, garmin, own, icu) for group in groups}
+    return {group["group_id"]: _effort(group, garmin, own) for group in groups}
 
 
 def icu_for_groups(engine: Engine, raw, groups: list[dict[str, Any]]) -> dict[str, dict]:
@@ -329,74 +307,33 @@ def _as_date(value: Any) -> date | None:
         return None
 
 
-def _effort(group, garmin, own, icu) -> dict[str, Any]:
+def _effort(group, garmin, own) -> dict[str, Any]:
     sources = group.get("sources") or []
     garmin_row = next((garmin[key] for key in sources if key in garmin), None)
     own_row = next((own[key] for key in sources if key in own), None)
-    icu_row = _match_icu(group, icu)
     out: dict[str, Any] = {}
     for field in FIELDS:
         values = []
-        if garmin_row and garmin_row[field] is not None:
-            values.append({"source": GARMIN, "value": garmin_row[field]})
         if own_row and own_row.get(field) is not None:
             values.append({"source": VIBESYNERGY, "value": own_row[field]})
-        if icu_row and icu_row[field] is not None:
-            values.append({"source": ICU, "value": icu_row[field]})
-        shown = _choose(values)
+        if garmin_row and garmin_row[field] is not None:
+            values.append({"source": GARMIN, "value": garmin_row[field]})
+        # Your own entry wins; else what the watch recorded.
+        shown = values[0] if values else None
         out[field] = {
             "value": shown["value"] if shown else None,
             "source": shown["source"] if shown else None,
             "label": _label(field, shown["value"]) if shown else None,
-            # Entering is offered only while no platform has a value of its own.
-            "editable": not any(
-                v["source"] != VIBESYNERGY and not _echo(v, values) for v in values
-            ),
+            "editable": True,
             "others": [v for v in values if shown and v is not shown],
         }
-    out["intervals_icu"] = _icu_status(own_row, icu_row)
     return out
-
-
-def _choose(values: list[dict[str, Any]]) -> dict[str, Any] | None:
-    # Garmin is what the watch recorded. A VibeSynergy entry wins over intervals.icu, which
-    # usually just holds the copy VibeSynergy sent.
-    order = {GARMIN: 0, VIBESYNERGY: 1, ICU: 2}
-    return min(values, key=lambda v: order[v["source"]]) if values else None
-
-
-def _echo(value: dict[str, Any], values: list[dict[str, Any]]) -> bool:
-    """An intervals.icu value equal to the VibeSynergy entry is the copy VibeSynergy sent."""
-    if value["source"] != ICU:
-        return False
-    return any(v["source"] == VIBESYNERGY and v["value"] == value["value"] for v in values)
 
 
 def _label(field: str, value: int | None) -> str | None:
     if value is None:
         return None
     return (RPE_LABELS if field == "rpe" else FEEL_LABELS).get(value)
-
-
-def _icu_status(own_row, icu_row) -> dict[str, Any] | None:
-    if own_row is None or (own_row.get("rpe") is None and own_row.get("feel") is None):
-        return None
-    if not own_row.get("icu_pushed_at") and not _configured():
-        return None  # intervals.icu is not connected: nothing is copied
-    error = own_row.get("icu_error")
-    if error == "pending":
-        state = "pending"
-    elif error and error.startswith("conflict"):
-        state = "conflict"
-    elif error == "not_found":
-        state = "waiting"
-    elif error:
-        state = "failed"
-    elif own_row.get("icu_pushed_at"):
-        state = "sent"
-    else:
-        state = "pending"
-    return {"state": state, "activity_id": own_row.get("icu_activity_id")}
 
 
 def compact(full: dict[str, Any]) -> dict[str, Any]:
@@ -461,13 +398,11 @@ def set_effort(
     rpe: int | None = None,
     feel: int | None = None,
     fields: set[str] | None = None,
-    push: bool = True,
 ) -> dict[str, Any]:
-    """Save RPE and/or Feel for one activity, then copy it to intervals.icu in the background.
+    """Save RPE and/or Feel for one activity; your entry wins over Garmin's.
 
     ``fields`` names which of rpe/feel to change (default: the ones passed as not None), so
-    ``None`` in a named field clears VibeSynergy's entry. A field a platform already holds is
-    refused: VibeSynergy shows that value instead of replacing it.
+    ``None`` in a named field clears VibeSynergy's entry (Garmin's shows again).
     """
     from vibesynergy.query import views
 
@@ -478,11 +413,6 @@ def set_effort(
         raise EffortError("nothing to save: pass rpe and/or feel")
     values = {"rpe": validate("rpe", rpe), "feel": validate("feel", feel)}
     group = _group(engine, views.resolve_activity(engine, activity_id))
-    current = for_groups(engine, raw, [group])[group["group_id"]]
-    for field in chosen:
-        if not current[field]["editable"]:
-            source = current[field]["source"]
-            raise EffortError(f"{field} is already recorded on {source}; it is not replaced")
     # Keep one row per activity: reuse the member the entry was first saved under.
     saved = _own_rows(engine, group["sources"])
     key = next(iter(saved), group["sources"][0])
@@ -497,166 +427,9 @@ def set_effort(
                 rpe=update.get("rpe"),
                 feel=update.get("feel"),
                 updated_at=now,
-                icu_error="pending",
             )
             .on_conflict_do_update(
-                index_elements=["source_ref"],
-                set_={**update, "updated_at": now, "icu_error": "pending"},
+                index_elements=["source_ref"], set_={**update, "updated_at": now}
             )
         )
-    if push:
-        schedule_push(engine, raw, key)
     return for_groups(engine, raw, [group])[group["group_id"]]
-
-
-# intervals.icu push ----------------------------------------------------------------------
-
-
-def _configured() -> bool:
-    from vibesynergy.sources.intervals_icu.client import account_label
-
-    return account_label() is not None
-
-
-def schedule_push(engine: Engine, raw, source_ref: str) -> None:
-    if not _configured():
-        log.info("RPE/Feel saved; intervals.icu not set up, nothing sent")
-        return
-    threading.Thread(
-        target=lambda: _push_quietly(engine, raw, source_ref),
-        name="icu-activity-effort",
-        daemon=True,
-    ).start()
-
-
-def _push_quietly(engine: Engine, raw, source_ref: str, client=None) -> bool:
-    try:
-        return push(engine, raw, source_ref, client)
-    except Exception as exc:
-        log.warning("RPE/Feel saved; intervals.icu copy failed: %s", type(exc).__name__)
-        _mark(engine, source_ref, error=f"{type(exc).__name__}: {exc}"[:300])
-        return False
-
-
-def push(engine: Engine, raw, source_ref: str, client=None) -> bool:
-    """Copy VibeSynergy's RPE/Feel for one activity to intervals.icu. True when something was sent.
-
-    Reads the activity first and sends only fields that are empty there, or still hold what
-    VibeSynergy sent last time. Any other value on intervals.icu is kept and reported as a
-    conflict.
-    """
-    from vibesynergy.mcp.identity import current_author
-    from vibesynergy.sources.intervals_icu.client import IntervalsIcuClient
-
-    own = _own_rows(engine, [source_ref]).get(source_ref)
-    if own is None:
-        return False
-    with engine.connect() as conn:
-        group_id = conn.execute(
-            select(activity_link.c.group_id).where(
-                activity_link.c.source == source_ref.split(":", 1)[0],
-                activity_link.c.source_id == source_ref.split(":", 1)[1],
-            )
-        ).scalar()
-    if group_id is None:
-        _mark(engine, source_ref, error="not_found")
-        return False
-    group = _group(engine, group_id)
-    match = _match_icu(group, _icu_activities(engine, raw, {_as_date(group["local_date"])}))
-    if match is None:
-        _mark(engine, source_ref, error="not_found")
-        return False
-    client = client or IntervalsIcuClient.from_env()
-    remote = client.get_activity(match["id"])
-    sent_before = own.get("icu_sent") or {}
-    body: dict[str, int] = {}
-    conflicts = []
-    before: dict[str, Any] = {}
-    for field in FIELDS:
-        mine = own.get(field)
-        if mine is None:
-            continue
-        name = ICU_FIELD[field]
-        there = _icu_value(field, remote.get(name))
-        if there == mine:
-            continue
-        if there is None or there == sent_before.get(name):
-            body[name] = mine
-            before[name] = remote.get(name)
-        else:
-            conflicts.append(field)
-    if body:
-        client.update_activity(match["id"], body)
-        with engine.begin() as conn:
-            conn.execute(
-                audit_log.insert().values(
-                    at=utc_now(),
-                    actor="vibesynergy",
-                    action="icu.activity_effort",
-                    detail={
-                        "activity": source_ref,
-                        "icu_activity_id": match["id"],
-                        "before": before,
-                        "after": body,
-                    },
-                    author=current_author(),
-                    scope="diary.write",
-                    target=match["id"][:200],
-                    outcome="ok",
-                )
-            )
-    _mark(
-        engine,
-        source_ref,
-        error=("conflict:" + ",".join(conflicts)) if conflicts else None,
-        activity_id=match["id"],
-        sent={**sent_before, **body},
-        pushed=True,
-    )
-    return bool(body)
-
-
-def retry_pending(engine: Engine, raw, client=None) -> int:
-    """After an intervals.icu sync: send entries that are pending, failed or waited for the
-    activity to appear there. Conflicts stay until the value is changed again."""
-    with engine.connect() as conn:
-        refs = [
-            row.source_ref
-            for row in conn.execute(
-                select(activity_effort.c.source_ref, activity_effort.c.icu_error).where(
-                    activity_effort.c.icu_error.is_not(None)
-                )
-            )
-            if not str(row.icu_error).startswith("conflict")
-        ]
-    if not refs or (client is None and not _configured()):
-        return 0
-    sent = 0
-    for ref in refs:
-        if _push_quietly(engine, raw, ref, client):
-            sent += 1
-    return sent
-
-
-def _mark(
-    engine: Engine,
-    source_ref: str,
-    *,
-    error: str | None,
-    activity_id: str | None = None,
-    sent: dict | None = None,
-    pushed: bool = False,
-) -> None:
-    values: dict[str, Any] = {"icu_error": error}
-    if activity_id:
-        values["icu_activity_id"] = activity_id
-    if sent is not None:
-        values["icu_sent"] = sent
-    if pushed:
-        values["icu_pushed_at"] = utc_now()
-    with engine.begin() as conn:
-        conn.execute(
-            activity_effort.update()
-            .where(activity_effort.c.source_ref == source_ref)
-            .values(**values)
-        )
