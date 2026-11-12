@@ -647,9 +647,11 @@ function planHtml(sessions, outside, shared) {
   const plan = rows
     ? `<h3>${t("Planned")}</h3><ul class="trends">${rows}</ul>`
     : `<p class="sub">${t("Nothing planned for this day.")}</p>`;
-  const others = (outside || []).map((item) => `<li>${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))} <span class="chip info">${t("Garmin only")}</span></li>`).join("");
+  const others = (outside || []).map((item) => `<li>${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join("");
+  // Garmin workouts that intervals.icu (the plan) does not have: say where they are, why
+  // they are apart and what to do about it.
   const extra = others
-    ? `<h3>${t("Not in your plan")}</h3><p class="sub">${t("On your Garmin calendar, but not in the plan. It does not count as planned.")}</p><ul class="trends">${others}</ul>`
+    ? `<h3>${t("Only on your Garmin calendar")}</h3><p class="sub">${t("Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.")}</p><ul class="trends">${others}</ul>`
     : "";
   return `${plan}${extra}`;
 }

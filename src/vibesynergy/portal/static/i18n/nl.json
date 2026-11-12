@@ -2439,7 +2439,6 @@
  "Metric (km, kg)": "Metrisch (km, kg)",
  "Imperial (mi, lb)": "Imperiaal (mi, lb)",
  "Training plan": "Trainingsplan",
- "Garmin only": "Alleen op Garmin",
  "Load week": "Laadweek",
  "Recovery week": "Herstelweek",
  "Race week": "Raceweek",
@@ -2450,7 +2449,6 @@
  "No plan in intervals.icu yet.": "Er staat nog geen plan in intervals.icu.",
  "Notes for the week": "Notities voor de week",
  "Nothing planned in the next 9 days.": "Niets gepland in de komende 9 dagen.",
- "Not in your plan": "Niet in je plan",
  "Phases": "Fases",
  "Read-only. The plan is changed in intervals.icu or through your coach.": "Alleen lezen. Het plan pas je aan in intervals.icu of via je coach.",
  "this week": "deze week",
@@ -2467,7 +2465,6 @@
  "Your notes, how you feel, and what hurts, day by day. Add a note with dates and tags, or mark pain on the body map.": "Je notities, hoe je je voelt en wat pijn doet, dag voor dag. Voeg een notitie toe met datums en labels, of geef pijn aan op het lichaam.",
  "Planned": "Gepland",
  "Nothing planned for this day.": "Niets gepland voor deze dag.",
- "On your Garmin calendar, but not in the plan. It does not count as planned.": "Staat op je Garmin-kalender, maar niet in je plan. Telt niet als gepland.",
  "Days this week": "Dagen van deze week",
  "The day in numbers": "De dag in cijfers",
  "set in intervals.icu": "ingesteld in intervals.icu",
@@ -3548,5 +3545,7 @@
  "Three steps and VibeSynergy works for you.": "Drie stappen en VibeSynergy werkt voor je.",
  "Check for updates": "Controleer op updates",
  "Checking…": "Controleren…",
- "Could not check: {error}": "Controleren lukte niet: {error}"
+ "Could not check: {error}": "Controleren lukte niet: {error}",
+ "Only on your Garmin calendar": "Alleen in je Garmin-agenda",
+ "Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.": "Je plan komt uit intervals.icu. De trainingen hieronder staan wel in je Garmin-agenda, maar niet in intervals.icu. Daarom tellen ze niet mee bij gepland tegenover gedaan. Hoort er een bij je plan, zet hem dan in intervals.icu."
 }

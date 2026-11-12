@@ -232,7 +232,7 @@ the tokens; `js/symbols.js` gives pages translated sport chips and icons.
 
 | Use | Markup | Signals |
 |---|---|---|
-| Status chip (done, changed, missed, not in plan, differs, Garmin only, A race) | `.chip` plus a tone: `success` (or `good`), `warning`, `danger` (or `critical`), `info`, `planned`, `race`, `recovery`, `advice` | Tone colour, the tone's icon, the word |
+| Status chip (done, changed, missed, not in plan, differs, A race) | `.chip` plus a tone: `success` (or `good`), `warning`, `danger` (or `critical`), `info`, `planned`, `race`, `recovery`, `advice` | Tone colour, the tone's icon, the word |
 | Notice (ok, warning, error, info) | `.notice` plus the same tones (`error` = `danger`); plain `.notice` is neutral | Tone border and icon, the message text in `--ink` |
 | Sport | `data-sport` (swim, bike, run, strength, mobility, brick, walk, other) on the row or card; `sportChip()`, `withSportIcon()` or `sportIcon()` from `symbols.js` | Sport colour (border, bar, icon), the sport's icon, the sport name |
 | Races and appointments | `ds-icon-list` with `ds-icon-item--race` / `--planned` | Type icon and colour, the text |
