@@ -933,8 +933,8 @@ def _dashboard_copy(page, base: str, language: str, findings: list[dict]) -> str
 def _zone_contract(browser, base: str, seeded: dict, findings: list[dict]) -> None:
     """Zone colours, labels and configured-boundary messaging on Activity and Training."""
     missing_copy = {
-        "en": ("Zones not configured", "Check sources"),
-        "nl": ("Zones niet ingesteld", "Controleer bronnen"),
+        "en": ("Zones not configured", "Set your zones"),
+        "nl": ("Zones niet ingesteld", "Stel je zones in"),
     }
     for language, theme in (("en", "light"), ("nl", "dark")):
         context = _context(browser, "void 0;", language, theme, 1280, 800)
