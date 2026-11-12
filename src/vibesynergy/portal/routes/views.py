@@ -134,7 +134,10 @@ def register(kit: PortalKit) -> None:
             parquet=rt.parquet,
         )
         # Are the coming days on the Garmin? The dashboard's warnings link here.
-        data["horizon"] = horizon.for_runtime(rt, today())
+        # Only with a plan and a connected Garmin: without either there is nothing to check.
+        guard = horizon.for_runtime(rt, today())
+        on_garmin = bool(guard and guard.get("has_plan") and rt.registry.source_enabled("garmin"))
+        data["horizon"] = guard if on_garmin else None
         from vibesynergy.query import plan_model
 
         data["plan_source"] = plan_model.source(engine)  # who leads the plan

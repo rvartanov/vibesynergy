@@ -15,7 +15,8 @@ Two more checks:
   hour that is still not on Garmin is ``outdated`` (the delivery job runs every few minutes).
 - fill: the coach keeps the plan filled up to the last day of the window. Single rest
   days are normal, so the plan is ``behind`` when the last planned workout is two or more
-  days before the window's end.
+  days before the window's end. Without a plan (nothing planned in the last four weeks or
+  ahead) nothing is behind: ``has_plan`` is false and the pages say "no plan" instead.
 """
 
 from __future__ import annotations
@@ -80,7 +81,8 @@ def status(
         ):
             duplicates.append(entry)
     outdated = _outdated(engine, today, end, vibesynergy_sports, now or utc_now())
-    fill = _fill(engine, today, end)
+    has_plan = bool(checked) or _has_plan(engine, today)
+    fill = _fill(engine, today, end) if has_plan else {"planned_through": None, "behind": False}
     level = "ok" if not (missing or duplicates or outdated or fill["behind"]) else "warn"
     return {
         "level": level,
@@ -91,6 +93,7 @@ def status(
         "duplicates": duplicates,
         "outdated": outdated,
         "fill": fill,
+        "has_plan": has_plan,
         "not_in_plan": [
             {"date": str(i.get("date")), "title": i.get("title")}
             for i in calendar.get("not_in_plan") or []
@@ -179,6 +182,23 @@ def _fill(engine: Any, today: date, end: date) -> dict[str, Any]:
         last = date.fromisoformat(last)
     behind = last is None or (end - last).days >= 2
     return {"planned_through": last.isoformat() if last else None, "behind": behind}
+
+
+# Nothing planned this long back, and nothing ahead: there is no plan to fall behind on.
+PLAN_MEMORY = timedelta(days=28)
+
+
+def _has_plan(engine: Any, today: date) -> bool:
+    """Is there a plan at all: a workout planned in the last four weeks or ahead?"""
+    if engine is None:
+        return False
+    with engine.connect() as conn:
+        found = conn.execute(
+            select(icu_event.c.id)
+            .where(icu_event.c.category == "WORKOUT", icu_event.c.date >= today - PLAN_MEMORY)
+            .limit(1)
+        ).first()
+    return found is not None
 
 
 def for_runtime(rt: Any, day: date) -> dict[str, Any] | None:

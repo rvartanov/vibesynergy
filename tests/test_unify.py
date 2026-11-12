@@ -365,3 +365,24 @@ def test_outdoor_rides_still_need_a_matching_distance_and_runs_never_merge_into_
     )
     unify.rebuild(runtime.engine)
     assert len(_rows(runtime, activity_unified)) == 4
+
+
+def test_average_speed_is_derived_when_no_source_recorded_one(runtime) -> None:
+    """A GPX or TCX file has distance and time but no average speed: pace or speed is
+    distance over moving (else elapsed) time. A recorded speed is kept."""
+    _put(runtime, "files", _act("f1", sport="running", distance_m=10000.0, elapsed_s=3000.0))
+    _put(
+        runtime,
+        "files",
+        _act("f2", start=T + timedelta(hours=5), elapsed_s=4000.0, moving_s=3000.0),
+    )
+    _put(runtime, "garmin", _act("g1", start=T + timedelta(hours=10), avg_speed=9.0))
+    _put(
+        runtime,
+        "files",
+        _act("f3", start=T + timedelta(hours=15), sport="strength_training", distance_m=None),
+    )
+    unify.rebuild(runtime.engine)
+    speed = {r["group_id"]: r["avg_speed"] for r in _rows(runtime, activity_unified)}
+    assert speed == {"files:f1": 3.333, "files:f2": 10.0, "garmin:g1": 9.0, "files:f3": None}
+    assert unify.derived_speed(0, 100) is None and unify.derived_speed(100, None) is None

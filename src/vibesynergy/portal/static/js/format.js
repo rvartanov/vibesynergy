@@ -89,9 +89,18 @@ export function value(v, unit) {
 // laps and splits keep them); weekday/month names follow UI language.
 export const USER_TZ_DEFAULT = "Europe/Amsterdam";
 
+// A missing or malformed day gives an invalid Date, never an exception: one absent date must
+// not take a whole page down. The date texts below then show MISSING_DAY.
+export const MISSING_DAY = "—";
+
 export function parseDay(iso) {
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y, m, d] = String(iso ?? "").slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return new Date(Number.NaN);
   return new Date(Date.UTC(y, m - 1, d));
+}
+
+function validDay(iso) {
+  return !Number.isNaN(parseDay(iso).getTime());
 }
 
 export function isoDay(date) {
@@ -100,6 +109,7 @@ export function isoDay(date) {
 
 export function addDays(iso, days) {
   const date = parseDay(iso);
+  if (Number.isNaN(date.getTime())) return "";
   date.setUTCDate(date.getUTCDate() + days);
   return isoDay(date);
 }
@@ -154,6 +164,7 @@ export function userDateTimeFromLocal(localDateIso, localTimeHhMm) {
 
 // "2026-09-25" -> "Friday 25 September 2026" (EN) / "vrijdag 25 september 2026" (NL)
 export function longDate(iso) {
+  if (!validDay(iso)) return MISSING_DAY;
   const d = parseDay(iso);
   const weekdayName = d.toLocaleDateString(locale(), { weekday: "long", timeZone: "UTC" });
   const monthName = d.toLocaleDateString(locale(), { month: "long", timeZone: "UTC" });
@@ -162,10 +173,12 @@ export function longDate(iso) {
 }
 
 export function monthName(iso, width = "long") {
+  if (!validDay(iso)) return MISSING_DAY;
   return parseDay(iso).toLocaleDateString(locale(), { month: width, timeZone: "UTC" });
 }
 
 export function monthYear(iso, width = "short") {
+  if (!validDay(iso)) return MISSING_DAY;
   return parseDay(iso).toLocaleDateString(locale(), { month: width, year: "numeric", timeZone: "UTC" });
 }
 
@@ -175,10 +188,12 @@ export function shortDate(iso) {
 }
 
 export function weekday(iso) {
+  if (!validDay(iso)) return MISSING_DAY;
   return parseDay(iso).toLocaleDateString(locale(), { weekday: "short", timeZone: "UTC" });
 }
 
 export function dayMonth(iso) {
+  if (!validDay(iso)) return MISSING_DAY;
   const d = parseDay(iso);
   const monthName = d.toLocaleDateString(locale(), { month: "short", timeZone: "UTC" });
   const day = Number(String(iso).slice(8, 10));

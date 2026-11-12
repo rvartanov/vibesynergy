@@ -117,7 +117,7 @@ function draw(view, data, results, stale, profile) {
     ${fitnessHeadHtml("", t("Your plan and workouts use these values. Update them after a test or race."))}
     <p class="notice info" data-zones-status role="status" aria-live="polite"${results.length ? "" : " hidden"}>${resultsText(results)}</p>
     ${proposalsCard(data.proposals || [])}
-    ${data.intervals && !data.intervals.ok ? `<p class="notice warning">${esc(t("intervals.icu could not be reached; its values are missing below."))}</p>` : ""}
+    ${data.intervals && data.intervals.connected !== false && !data.intervals.ok ? `<p class="notice warning">${esc(t("intervals.icu could not be reached; its values are missing below."))}</p>` : ""}
     <div class="zones-grid">${(data.sports || []).map((sport) => sportCard(sport, data, { open: open.has(sport.sport) })).join("")}</div>
     <div data-athlete-profile-slot></div>
     ${generalCard(data)}`;

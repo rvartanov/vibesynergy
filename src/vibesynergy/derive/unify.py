@@ -380,12 +380,22 @@ def _same_session(a: dict, b: dict) -> bool:
     return not (ma and mb and abs(ma - mb) > max(100.0, 0.05 * max(ma, mb)))
 
 
+def derived_speed(distance_m: float | None, seconds: float | None) -> float | None:
+    """Average speed (m/s) from distance over moving (else elapsed) time, when no source
+    recorded one. None when either is missing or not positive."""
+    if not distance_m or not seconds or distance_m <= 0 or seconds <= 0:
+        return None
+    return round(distance_m / seconds, 3)
+
+
 def _unified(primary: str, members: list[dict], garmin_fit: dict[str, str], now) -> dict:
     row = {field: None for field in _FIELDS}
     for member in members:  # primary first; others only fill gaps
         for field in _FIELDS:
             if row[field] is None and member[field] is not None:
                 row[field] = member[field]
+    if row["avg_speed"] is None:  # a GPX or TCX file records no average speed
+        row["avg_speed"] = derived_speed(row["distance_m"], row["moving_s"] or row["elapsed_s"])
     strava = next((m for m in members if m["source"] in _STRAVA and m["name"]), None)
     others = [m["name"] for m in members if m["source"] not in _STRAVA and m["name"]]
     if strava and (not others or strava["name"] not in others):

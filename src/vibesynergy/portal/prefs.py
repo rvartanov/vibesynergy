@@ -205,6 +205,10 @@ VALIDATORS = {
     "dashboard_hidden": lambda value: _ids(value, "dashboard_hidden"),
     # Blocks folded to their heading, remembered per user.
     "dashboard_collapsed": lambda value: _ids(value, "dashboard_collapsed"),
+    # Blocks kept on the start page even while they have no data (otherwise left out).
+    "dashboard_pinned": lambda value: _ids(value, "dashboard_pinned"),
+    # The "Get started" guide on the start page was put away.
+    "setup_guide_dismissed": lambda value: _bool(value, "setup_guide_dismissed"),
     "best_runs_period": lambda value: _one_of(value, "best_runs_period", BEST_RUN_PERIODS),
     "best_sport": lambda value: _one_of(value, "best_sport", BEST_SPORTS),
     "language": lambda value: _one_of(value, "language", ("auto", "en", "nl")),

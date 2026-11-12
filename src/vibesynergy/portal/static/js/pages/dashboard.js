@@ -13,10 +13,11 @@ import { mountQuickLog } from "../quicklog.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
 import { mountCalendar } from "./calendar.js";
-import { dayJournalHtml, mountDayDetails } from "./day.js";
+import { dayJournalHtml, emptyDayBlocks, mountDayDetails } from "./day.js";
 import { mountDiary } from "./diary.js";
-import { bindCollapse, mountArrange, mountBests, mountBody, mountUpcoming } from "../start_blocks.js";
+import { bindCollapse, bodyEmpty, mountArrange, mountBests, mountBody, mountUpcoming } from "../start_blocks.js";
 import { arrangedBlocks } from "../start_layout.js";
+import { bindSetupGuide, setupGuideHtml } from "../setup_guide.js";
 import { weatherHtml } from "../weather_day.js";
 import { setWeatherUnits } from "../weather_units.js";
 
@@ -78,11 +79,16 @@ export async function render(view, { args, query, meta, stale }) {
   const showCalendar = can("calendar");
   const timelinePromise = showMeasured ? get("day", { date }) : null; // slower: drawn when it arrives
   timelinePromise?.catch(() => {}); // reported where it is drawn
-  const [boardReply, dayReply, prefs] = await Promise.all([
+  const [boardReply, dayReply, prefs, bodySummary, setup] = await Promise.all([
     showBoard ? get("dashboard") : null,
     showDay ? get("today", { date }) : null,
     // Block order and hidden blocks; a shared view has no prefs and gets the defaults.
     share ? {} : get("prefs").then((reply) => reply.data || {}, () => ({})),
+    // Known before the page is drawn, so an empty Body block never flashes by. When it
+    // fails the block is drawn and reports it.
+    showMeasured ? get("body-summary", { date }).then((reply) => reply.data, () => null) : null,
+    // The "Get started" guide: only for the owner, on today's page.
+    !share && isToday ? get("setup").then((reply) => reply.data, () => null) : null,
   ]);
   if (stale()) return;
   document.title = `${isToday ? t("Today") : longDate(date)} · VibeSynergy`;
@@ -90,14 +96,21 @@ export async function render(view, { args, query, meta, stale }) {
   const zone = (boardReply || dayReply)?.meta?.timezone;
   const viewState = captureViewState(view);
 
+  // On a phone the guide waits behind its heading, so today's advice stays on the first
+  // screen; when the guide is all there is (nothing connected yet), it is open.
+  const narrow = window.matchMedia?.("(max-width: 600px)").matches;
+  const guide = setupGuideHtml(setup, { open: !narrow || Boolean(d.onboarding) });
   if (d.onboarding) {
+    // Nothing connected and nothing measured yet: the guide is the page. Put away, the one
+    // step that makes the page work stays.
     view.innerHTML = `
       <div class="page-head"><h1>${t("Today")}</h1></div>
-      <section class="card" aria-labelledby="dash-connect-title">
+      ${guide || `<section class="card" aria-labelledby="dash-connect-title">
         <h2 id="dash-connect-title">${t("Connect Garmin")}</h2>
         <p>${t("Connect Garmin to see what to do today.")}</p>
         <p><a class="btn primary" href="#/settings/data/sources">${t("Connect Garmin")}</a></p>
-      </section>`;
+      </section>`}`;
+    bindSetupGuide(view, () => !stale() && render(view, { args, query, meta, stale }));
     return;
   }
 
@@ -178,12 +191,29 @@ export async function render(view, { args, query, meta, stale }) {
       </details>
     </section>`;
   }
-  const blocks = arrangedBlocks(prefs, Object.keys(html));
-  const shownIds = new Set(blocks.filter((block) => !block.hidden).map((block) => block.id));
+  // Blocks with nothing to show are left out and named in one line below. What another
+  // shown block already has is not repeated as a key number, so that is settled first.
+  const hiddenIds = new Set(Array.isArray(prefs.dashboard_hidden) ? prefs.dashboard_hidden : []);
+  const shownMetrics = [
+    ...(html.recovery && !hiddenIds.has("recovery") ? RECOVERY_ROWS.map(([metric]) => metric) : []),
+    ...(html.body && !hiddenIds.has("body") ? ["body.weight"] : []),
+  ];
+  const empty = [];
+  if (showMeasured && dayReply) {
+    empty.push(...emptyDayBlocks(dayReply, meta.data.metrics, shownMetrics));
+    if (bodyEmpty(bodySummary, dayReply.data.day.body_measurements || [])) empty.push("body");
+    // The timeline loads later. Without a night and without numbers there is rarely one:
+    // it then stays out of sight until it turns out to have something.
+    if (empty.includes("numbers") && empty.includes("sleep")) empty.push("timeline");
+  }
+  const blocks = arrangedBlocks(prefs, Object.keys(html), empty);
+  const shownIds = new Set(blocks.filter((block) => !block.hidden && !block.noData).map((block) => block.id));
   const canArrange = !share;
   view.innerHTML = `
     ${headerHtml(d, zone, { date, today, showBoard })}
+    ${narrow ? "" : guide}
     <div class="dash-blocks" data-dash-blocks>${layoutHtml(blocks, html)}</div>
+    <p class="sub dash-nodata" data-dash-nodata hidden></p>
     ${canArrange ? `<div class="dash-arrange-foot">
       <button class="btn" type="button" data-arrange-toggle aria-controls="dash-arrange" aria-expanded="${arrangeOpen}">${t("Arrange the start page")}</button>
       <section class="card dash-arrange" id="dash-arrange" aria-labelledby="dash-arrange-title"${arrangeOpen ? "" : " hidden"}></section>
@@ -197,7 +227,16 @@ export async function render(view, { args, query, meta, stale }) {
     });
   }
   bindCollapse(view.querySelector("[data-dash-blocks]"), prefs, { canSave: canArrange });
-  if (canArrange) bindArrange(view, { blocks, prefs, ctx: { args, query, meta, stale } });
+  const noData = { share, sourceConnected: setup ? setup.steps.source : true };
+  paintNoData(view, blocks, noData);
+  if (narrow && guide) {
+    // On a phone the advice and the check-in keep the first screen; the guide follows them.
+    const anchor = view.querySelector('[data-block="checkin"]') || view.querySelector('[data-block="advice"]');
+    if (anchor) anchor.insertAdjacentHTML("afterend", guide);
+    else view.querySelector("[data-dash-blocks]")?.insertAdjacentHTML("beforebegin", guide);
+  }
+  bindSetupGuide(view);
+  const remountArrange = canArrange ? bindArrange(view, { blocks, prefs, empty, noData, ctx: { args, query, meta, stale } }) : null;
   const checkin = view.querySelector("[data-dash-checkin]");
   if (checkin) mountQuickLog(checkin, meta, stale, { variant: "dashboard" });
   bindComplaints(view, { args, query, meta, stale });
@@ -242,16 +281,23 @@ export async function render(view, { args, query, meta, stale }) {
     other: view.querySelector("[data-day-other]"),
   };
   if (dayReply && Object.values(hosts).some(Boolean)) {
-    // What another shown block already has is not repeated as a key number.
-    const shown = [
-      ...(shownIds.has("recovery") ? RECOVERY_ROWS.map(([metric]) => metric) : []),
-      ...(shownIds.has("body") ? ["body.weight"] : []),
-    ];
     work.push(
-      mountDayDetails(hosts, { date, today, meta, stale, reply: dayReply, timelinePromise, shown }).then(() => {
+      mountDayDetails(hosts, { date, today, meta, stale, reply: dayReply, timelinePromise, shown: shownMetrics }).then((result) => {
         const summary = view.querySelector("[data-other-summary]");
         const names = [...view.querySelectorAll("[data-day-other] .domains > .card > h3")].map((h) => h.textContent.trim());
         if (summary && names.length) summary.textContent = t("{n} groups: {names}", { n: names.length, names: names.join(", ") });
+        // The timeline is now known: show it when it has something, leave it out when not.
+        const timeline = blocks.find((block) => block.id === "timeline");
+        const el = view.querySelector('.dash-block[data-block="timeline"]');
+        if (!timeline || !el || stale() || result?.timelineEmpty == null) return;
+        const pinned = (prefs.dashboard_pinned || []).includes("timeline");
+        const was = Boolean(timeline.noData);
+        timeline.noData = result.timelineEmpty && !pinned;
+        el.hidden = timeline.noData;
+        result.draw?.();
+        paintNoData(view, blocks, noData);
+        // The arrange panel lists the block as it now is; left alone while you are in it.
+        if (was !== timeline.noData && !view.querySelector("#dash-arrange")?.contains(document.activeElement)) remountArrange?.();
       }),
     );
   }
@@ -265,6 +311,7 @@ export async function render(view, { args, query, meta, stale }) {
       measurements: dayReply?.data.day.body_measurements || [],
       timezone: dayReply?.meta.timezone,
       share: meta.data.share,
+      summary: bodySummary,
     }));
   }
   const upcoming = view.querySelector("[data-upcoming]");
@@ -331,8 +378,11 @@ function layoutHtml(blocks, html) {
     flow = "";
   };
   for (const block of blocks) {
-    if (block.hidden) continue;
-    const piece = `<div class="dash-block" data-block="${esc(block.id)}">${html[block.id]}</div>`;
+    // Left out for lack of data: not drawn. The timeline is only known once it has loaded,
+    // so it is drawn out of sight and shown when it has something.
+    const waiting = block.noData && block.id === "timeline";
+    if (block.hidden || (block.noData && !waiting)) continue;
+    const piece = `<div class="dash-block" data-block="${esc(block.id)}"${waiting ? " hidden" : ""}>${html[block.id]}</div>`;
     if (block.wide) {
       close();
       out += piece;
@@ -344,6 +394,17 @@ function layoutHtml(blocks, html) {
   return out || `<p class="empty">${t("Every block is hidden. Choose Arrange the start page to show them again.")}</p>`;
 }
 
+// One line for the blocks that are left out because they have nothing to show yet.
+function paintNoData(view, blocks, { share, sourceConnected }) {
+  const line = view.querySelector("[data-dash-nodata]");
+  if (!line) return;
+  const names = blocks.filter((block) => block.noData && !block.hidden).map((block) => t(block.short || block.label));
+  line.hidden = !names.length;
+  if (!names.length) return;
+  const link = share ? "" : ` <a href="#/settings/data/sources">${esc(sourceConnected ? t("Check your sources") : t("Connect a source"))}</a>`;
+  line.innerHTML = `${esc(t("Not shown, no data yet: {names}.", { names: names.join(", ") }))}${link}`;
+}
+
 // Put the blocks already on the page in a new order, without loading anything again.
 function relayout(container, blocks) {
   const byId = Object.fromEntries([...container.querySelectorAll("[data-block]")].map((el) => [el.dataset.block, el]));
@@ -352,6 +413,7 @@ function relayout(container, blocks) {
   for (const block of blocks) {
     const el = byId[block.id];
     if (block.hidden || !el) continue;
+    el.hidden = Boolean(block.noData); // left out for lack of data (the timeline waits here)
     if (block.wide) {
       flow = null;
       fragment.append(el);
@@ -368,19 +430,28 @@ function relayout(container, blocks) {
   if (!container.children.length) container.innerHTML = `<p class="empty">${t("Every block is hidden. Choose Arrange the start page to show them again.")}</p>`;
 }
 
-function bindArrange(view, { blocks, prefs, ctx }) {
+function bindArrange(view, { blocks, prefs, empty, noData, ctx }) {
   const panel = view.querySelector("#dash-arrange");
   const toggle = view.querySelector("[data-arrange-toggle]");
   const container = view.querySelector("[data-dash-blocks]");
-  if (!panel || !toggle) return;
+  if (!panel || !toggle) return null;
   const available = blocks.map((block) => block.id);
-  mountArrange(panel, {
+  // The editor sits in a host of its own, so it can be set up again when the page learns
+  // more about a block (the timeline turns out to be empty, or not) after it was drawn.
+  const mount = () => {
+    const host = document.createElement("div");
+    panel.replaceChildren(host);
+    mountArrange(host, {
     blocks,
     prefs,
-    onChange: (next) => {
-      const arranged = arrangedBlocks(next, available);
-      const missing = arranged.some((block) => !block.hidden && !container.querySelector(`[data-block="${block.id}"]`));
-      if (missing) {
+    onChange: (next, change) => {
+      // The timeline's state is what the page found out after loading, not the first guess.
+      const known = blocks.find((block) => block.id === "timeline");
+      const emptyNow = [...empty.filter((id) => id !== "timeline"), ...(known?.noData ? ["timeline"] : [])];
+      const arranged = arrangedBlocks(next, available, emptyNow);
+      const missing = arranged.some((block) => !block.hidden && !block.noData && !container.querySelector(`[data-block="${block.id}"]`));
+      // Pinning or letting go of an empty block changes what is drawn: draw the page again.
+      if (missing || "dashboard_pinned" in (change?.changes || {})) {
         // A block shown again has to load: draw the page again, focus back where it was.
         const active = document.activeElement;
         pendingFocus = active?.dataset?.show ? `#dash-arrange input[data-show="${active.dataset.show}"]` : "#dash-arrange [data-arrange-reset]";
@@ -388,8 +459,11 @@ function bindArrange(view, { blocks, prefs, ctx }) {
         return;
       }
       relayout(container, arranged);
+      paintNoData(view, arranged, noData);
     },
-  });
+    });
+  };
+  mount();
   toggle.addEventListener("click", () => {
     arrangeOpen = panel.hidden;
     panel.hidden = !arrangeOpen;
@@ -403,6 +477,7 @@ function bindArrange(view, { blocks, prefs, ctx }) {
     toggle.setAttribute("aria-expanded", "false");
     toggle.focus();
   });
+  return mount;
 }
 
 function bindRefresh(view, ctx) {
@@ -684,11 +759,10 @@ function recoveryHtml(recovery, load) {
     return `<tr><th scope="row"><a href="#/metrics?m=${encodeURIComponent(metric)}">${t(label)}</a></th>
       <td><span class="chip ${meaning.tone}">${esc(meaning.text)}</span></td></tr>`;
   }).join("");
-  // Training load as meaning, not a number: the figures are on Planning & progress.
+  // Training load as meaning, not a number: the figures are on Planning & progress, which
+  // the week card next to this one links to (one link in the top of the page, not two).
   const formText = !failed(load) && isNum(load?.tsb) ? FORM_MEANING[load.form] : null;
-  const form = formText
-    ? `<p class="sub">${esc(t(formText))} <a href="#/planning">${t("Planning & progress")}</a></p>`
-    : "";
+  const form = formText ? `<p class="sub">${esc(t(formText))}</p>` : "";
   const body = rows
     ? `<div class="table-wrap"><table aria-label="${esc(t("Recovery"))}"><tbody>${rows}</tbody></table></div>`
     : `<div class="empty">${t("No recovery data today yet.")}</div>`;

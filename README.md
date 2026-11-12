@@ -36,7 +36,8 @@ In short:
 
 Open the link, choose a password, and optionally a second step (a code by mail or an
 authenticator app). To look around without any account: `vibesynergy init --demo` and
-`vibesynergy sync demo` (synthetic data).
+`vibesynergy sync demo` (synthetic runs and rides with heart rate, pace and a route, plus
+sleep, HRV and weight).
 Updating: `vibesynergy update` or **Update now** in Settings → System (container:
 `docker compose pull && docker compose up -d`).
 

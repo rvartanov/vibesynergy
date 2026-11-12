@@ -228,7 +228,7 @@ def _best_source_keyboard(browser, findings: list[dict]) -> None:
     page.keyboard.press("Enter")
     if not _poll(page, f"() => !document.querySelector({row!r} + ' [data-bs-reset]')"):
         findings.append({"where": "best source reset", "missing": "reset applied"})
-    elif page.evaluate("() => document.activeElement?.tagName") != "H4":
+    elif page.evaluate("() => document.activeElement?.tagName") != "H3":
         findings.append({"where": "best source reset", "focus": "not on the metric heading"})
     context.close()
 

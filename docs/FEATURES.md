@@ -23,7 +23,11 @@ Status: alpha (0.0.1). The portal is in Dutch and English.
   bring (checked hourly) and has **Update now** (asks your password). On the command line
   `vibesynergy update` (`--check`). Each update backs up the database first and logs what it
   did. A container updates by pulling the new image.
-- **Demo data** to look around without accounts: `vibesynergy init --demo`.
+- **Demo data** to look around without accounts: `vibesynergy init --demo`, then
+  `vibesynergy sync demo`: three months of synthetic runs and rides with streams and a route,
+  sleep, HRV, resting heart rate, steps and weight.
+- **Get started**: a card on the start page with the three setup steps (a source, your zones,
+  your coach), what is done and a link each; it can be put away.
 - **Backups**: `vibesynergy db backup` (online, safe while running).
 - **Reaching it from other devices**: behind HTTPS (a reverse proxy or Tailscale), with the
   name in `[portal] hosts`. The portal itself only listens on the computer it runs on.
@@ -43,7 +47,8 @@ Details: [SOURCES.md](SOURCES.md).
   workout an activity was paired with. Not read: fitness, load, zones, RPE/Feel.
 - **CalDAV calendars** (e.g. iCloud): events on the calendar; optionally a copy of Garmin
   workouts in a chosen calendar.
-- **Files**: FIT, GPX and TCX, by upload, by a drop folder or by import.
+- **Files**: FIT, GPX and TCX, by upload, by a drop folder or by import
+  (`vibesynergy import files <folder>`).
 - **One activity per session** across all sources (Garmin, Strava, files, trainer apps such as
   MyWhoosh and Zwift), with the best source per measurement (`Settings → System → Best source
   per measurement`).
@@ -57,6 +62,8 @@ Details: [SOURCES.md](SOURCES.md).
 - **Today** (`#/dashboard`): advice for today, the plan and what was done, check-in and
   complaints, recovery and the week, what's coming up, key numbers, last night, body and
   measurements, the timeline, best efforts and the diary. Blocks can be reordered and hidden.
+  A block or key number without data takes no space; one line at the bottom names what is
+  left out. A block you tick under "Arrange the start page" stays even while it is empty.
 - **Any day** (`#/dashboard/<date>`): past days with what happened; days ahead with what is
   planned and the weather forecast.
 - **Quick add** and **Search** (`/`) over activities, notes, coach messages, the knowledge
@@ -65,7 +72,8 @@ Details: [SOURCES.md](SOURCES.md).
 
 ## Training
 
-- **Activities**: one row per session, filters in the address, totals for the selection.
+- **Activities**: one row per session (sport icon, name, time, distance, pace or speed),
+  filters in the address, totals for the selection.
 - **Activity page**: summary, route map, aligned stream charts (a marker follows the route),
   laps, time in zones, the copy from each source, the training load and how it was counted,
   RPE and Feel, gear, purpose, notes, the published description.
@@ -89,7 +97,8 @@ Details: [SOURCES.md](SOURCES.md).
 - **Zones & thresholds**: FTP, LTHR, max heart rate, threshold pace and CSS per sport, their
   zones, the history of each value, what Garmin and intervals.icu hold, the coach's
   proposals. A change saves at once; Garmin and intervals.icu only change when you tick them.
-- **Calendar** (`#/schedule`): month or week grid, sessions in their sport's colour, the day
+- **Calendar** (`#/schedule`): month or week grid, sessions in their sport's colour with
+  their title (week: also time and distance; on a phone the week is a list of days), the day
   with recovery, weather (°C/°F, wind in km/h, m/s, knots or Beaufort, and where) and the
   plan.
 - **Planning & progress**: the week against the plan per sport and per workout, plan against
@@ -163,7 +172,8 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 ## Help and feedback
 
-- **Bug button** on every page: opens GitHub's bug form with the version, page, error and
-  browser filled in; you send it from your own account.
+- **Report a bug** in the footer of every page and under Settings → System: opens GitHub's
+  bug form with the version, page, error and browser filled in; you send it from your own
+  account.
 - **Bug report and feature request forms** with the information that's needed:
   [REPORTING.md](REPORTING.md). Security problems privately via GitHub.

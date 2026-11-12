@@ -25,7 +25,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   [docs/REPORTING.md](docs/REPORTING.md) ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 - This changelog and [docs/FEATURES.md](docs/FEATURES.md), kept current with every change.
 
+- **Get started** on the start page: three steps (connect a source, set your zones, set up
+  your coach) with what is done and a link each; put it away when you no longer need it
+  ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Demo data now has runs and rides with heart rate, pace, cadence, elevation and a route, and
+  nights with sleep stages, HRV and weight, so Activities, the calendar, Fitness and Best
+  efforts show something when you try VibeSynergy without an account ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- `vibesynergy import files` also takes GPX and TCX files (and zips of them), like the upload
+  and the drop folder ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Calendar: the week view shows each session's title, time and distance; the month view
+  shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+
 ### Changed
+- Start page: blocks and key numbers without data take no space; they are named in one
+  line at the bottom with a link to Sources. A block you tick under "Arrange the start page"
+  stays even while it is empty. A new layout starts with advice, check-in, this week,
+  recovery and coming up; your own arrangement is kept ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Header: one row on a phone. The theme (system, light, dark) is chosen under Settings →
+  System, and "Report a bug" is in the footer and under Settings → System. On a phone
+  Quick add sits in the header instead of floating over the page, where it covered values
+  in a table ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Activities: one line per session with the sport as an icon before the name; pace or speed
+  is shown for imported GPX and TCX files too (from distance and time) ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Zones & thresholds: the sport you train most comes first, and the cards line up ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- The main action of a card stands out: connecting a source, making a draft plan, adding a
+  coach link ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Coach: without a coach the Advice tab says so once, with the way to set one up ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - An AI app needs the **publish** permission to set the public insight line of an activity;
   with only "write messages" it writes the assessment without that line. Allow it under
   Settings → Coach apps for the app that writes your insights. The line is also refused when
@@ -42,6 +67,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Planning & progress no longer fails to load without a plan; it says how to get one. "Are
+  your workouts on your watch?" only shows with a plan and a connected Garmin ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Zones & thresholds no longer says intervals.icu could not be reached when it was never
+  connected ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Calendar: a week whose load cannot be counted shows a dash instead of "Load 0" ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+- Activity page: "Zones not configured" links to Fitness → Zones ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - An update whose database migration fails puts the database and the previous version back
   by itself, and the running service is left as it was; in a container a failed migration
   restores the backup made just before ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).

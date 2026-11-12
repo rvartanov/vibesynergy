@@ -7,13 +7,31 @@ import {
   blockOrder,
   moveBlock,
   moveVisible,
+  leftOut,
   orderChange,
   toggleHidden,
+  togglePinned,
 } from "../src/vibesynergy/portal/static/js/start_layout.js";
 
 test("no saved order gives the default, advice and check-in first", () => {
   assert.deepEqual(blockOrder(undefined), DEFAULT_ORDER);
   assert.deepEqual(DEFAULT_ORDER.slice(0, 2), ["advice", "checkin"]);
+  // Then the week, how you are and what is coming, before the rest.
+  assert.deepEqual(DEFAULT_ORDER.slice(2, 5), ["week", "recovery", "upcoming"]);
+});
+
+test("blocks without data are left out unless they are pinned; a saved order still wins", () => {
+  const empty = ["sleep", "body", "timeline", "advice"];
+  // Only blocks that may be left out are: the advice stays, empty or not.
+  assert.deepEqual([...leftOut({}, empty)], ["sleep", "body", "timeline"]);
+  assert.deepEqual([...leftOut({ dashboard_pinned: ["body"] }, empty)], ["sleep", "timeline"]);
+  const saved = { dashboard_order: ["sleep", ...DEFAULT_ORDER.filter((id) => id !== "sleep")], dashboard_pinned: ["timeline"] };
+  const blocks = arrangedBlocks(saved, DEFAULT_ORDER, empty);
+  assert.equal(blocks[0].id, "sleep");
+  assert.deepEqual(blocks.filter((b) => b.noData).map((b) => b.id), ["sleep", "body"]);
+  assert.equal(arrangedBlocks({}, DEFAULT_ORDER).some((b) => b.noData), false);
+  assert.deepEqual(togglePinned(["timeline"], "body", true), ["body", "timeline"]);
+  assert.deepEqual(togglePinned(["timeline", "body"], "timeline", false), ["body"]);
 });
 
 test("saved order wins; unknown and repeated ids are dropped; new blocks keep their place", () => {

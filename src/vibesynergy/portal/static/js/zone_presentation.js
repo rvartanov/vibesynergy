@@ -133,5 +133,5 @@ export function zoneLegend(scale, { kind, sport, title, unit } = {}) {
 }
 
 export function zoneMissing(metricLabel) {
-  return `<p class="zone-missing"><strong>${esc(t("Zones not configured"))}</strong> ${esc(t("The chart still shows {metric}.", { metric: metricLabel }))} <a href="#/settings/data/sources">${esc(t("Check sources"))}</a></p>`;
+  return `<p class="zone-missing"><strong>${esc(t("Zones not configured"))}</strong> ${esc(t("The chart still shows {metric}.", { metric: metricLabel }))} <a href="#/zones">${esc(t("Set your zones"))}</a></p>`;
 }

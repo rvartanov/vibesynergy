@@ -68,7 +68,7 @@ export function garminConnect(src) {
       <label>${t("Garmin email")} <input class="btn" name="garmin_email" type="email" autocomplete="username"></label>
       <label>${t("Garmin password")} <input class="btn" name="garmin_password" type="password" autocomplete="current-password"></label>
     </div>
-    <p><button class="btn" type="button" data-connect-garmin>${t(connected ? N("Sign in to Garmin") : N("Connect Garmin"))}</button></p>
+    <p><button class="btn${connected ? "" : " primary"}" type="button" data-connect-garmin>${t(connected ? N("Sign in to Garmin") : N("Connect Garmin"))}</button></p>
     <div data-garmin-mfa hidden><label>${t("Sign-in code")} <input class="btn" name="garmin_code" inputmode="numeric" autocomplete="one-time-code"></label>
       <button class="btn" type="button" data-submit-mfa>${t("Continue sign-in")}</button></div>`;
   return `<div data-source-connect>
@@ -118,7 +118,7 @@ export function stravaConnect(src) {
       <label>${t("Strava app ID")} <input class="btn" name="client_id" inputmode="numeric" autocomplete="off"></label>
       <label>${t("Strava app secret")} <input class="btn" name="client_secret" type="password" autocomplete="off"></label>
     </div>`}
-    <p><button class="btn" type="button" data-connect-strava>${t(connected ? N("Sign in to Strava") : N("Connect Strava"))}</button></p>`;
+    <p><button class="btn${connected ? "" : " primary"}" type="button" data-connect-strava>${t(connected ? N("Sign in to Strava") : N("Connect Strava"))}</button></p>`;
   return `<div data-source-connect>
     ${signInBlock(src, form)}
     ${connected ? `<p><button class="btn" type="button" data-disconnect="strava">${t("Disconnect Strava")}</button></p>` : ""}

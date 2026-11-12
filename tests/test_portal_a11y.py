@@ -229,7 +229,9 @@ def populate(rt: Runtime) -> dict:
     """Synthetic athlete week. No real health data."""
     tz = ZoneInfo(rt.settings.timezone)
     today = today_in(rt.settings.timezone)
-    rt.sync.sync("demo", window=Window(today - timedelta(days=20), today))
+    # Steps and resting heart rate from the demo source; the week's activities are the
+    # ones built below, not the demo's own runs and rides.
+    rt.sync.sync("demo", ["daily", "profile"], Window(today - timedelta(days=20), today))
     run_start = _local(today, 7, 30, tz)
     ride_start = _local(today - timedelta(days=2), 18, 0, tz)
     offset = int(run_start.astimezone(tz).utcoffset().total_seconds())
@@ -933,8 +935,8 @@ def _dashboard_copy(page, base: str, language: str, findings: list[dict]) -> str
 def _zone_contract(browser, base: str, seeded: dict, findings: list[dict]) -> None:
     """Zone colours, labels and configured-boundary messaging on Activity and Training."""
     missing_copy = {
-        "en": ("Zones not configured", "Check sources"),
-        "nl": ("Zones niet ingesteld", "Controleer bronnen"),
+        "en": ("Zones not configured", "Set your zones"),
+        "nl": ("Zones niet ingesteld", "Stel je zones in"),
     }
     for language, theme in (("en", "light"), ("nl", "dark")):
         context = _context(browser, "void 0;", language, theme, 1280, 800)
@@ -1052,9 +1054,9 @@ def _zone_contract(browser, base: str, seeded: dict, findings: list[dict]) -> No
         title, sources_label = missing_copy[language]
         if unzoned["count"] < 1 or title not in unzoned["text"]:
             findings.append({"where": f"zone unzoned pace {language} {theme}", "unzoned": unzoned})
-        if not any(href and "settings/data/sources" in href for href in unzoned["links"]):
+        if not any(href == "#/zones" for href in unzoned["links"]):
             findings.append(
-                {"where": f"zone unzoned sources link {language} {theme}", "unzoned": unzoned}
+                {"where": f"zone unzoned zones link {language} {theme}", "unzoned": unzoned}
             )
         if sources_label not in unzoned["text"]:
             findings.append(

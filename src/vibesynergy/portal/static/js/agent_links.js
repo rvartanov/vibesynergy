@@ -130,7 +130,7 @@ function addHtml(data) {
     <p class="sub" id="agent-add-secret-help">${esc(secretHelp("claude_routine"))}</p>
     <div class="settings-save">
       <button class="btn" type="button" data-agent-generate hidden>${esc(t("Make a secret"))}</button>
-      <button class="btn" type="button" data-agent-create>${esc(t("Add link"))}</button>
+      <button class="btn primary" type="button" data-agent-create>${esc(t("Add link"))}</button>
     </div>
     <p class="sub" role="status" aria-live="polite" data-agent-add-status></p>
   </details>`;

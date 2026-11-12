@@ -1,4 +1,4 @@
-// Report a bug: the bug button opens GitHub's bug report form in a new tab, in your own GitHub
+// Report a bug: the button (in the footer, and under Settings → System) opens GitHub's bug report form in a new tab, in your own GitHub
 // account, with what the page knows filled in (version, page, the error it shows, the API
 // calls that failed lately, browser). You add what happened and send it there; nothing is
 // sent from this server. What a report needs: docs/REPORTING.md.
@@ -9,9 +9,12 @@ const MAX_URL = 7000; // GitHub refuses very long addresses; the details are cut
 let target = "https://github.com/rvartanov/vibesynergy/issues/new";
 let version = "";
 
-export function bindBugReport(button) {
-  if (!button) return;
-  // Ready before the click: opening the tab must happen in the click itself (popup blockers).
+let prepared = false;
+
+// Ready before the click: opening the tab must happen in the click itself (popup blockers).
+function prepare() {
+  if (prepared) return;
+  prepared = true;
   get("bugs")
     .then((reply) => {
       target = reply.data.new_issue_url || target;
@@ -23,6 +26,11 @@ export function bindBugReport(button) {
       version = [info.version, info.commit].filter(Boolean).join(" · ");
     })
     .catch(() => {});
+}
+
+export function bindBugReport(button) {
+  if (!button) return;
+  prepare();
   button.addEventListener("click", () => window.open(issueUrl(), "_blank", "noopener"));
 }
 

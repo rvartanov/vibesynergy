@@ -52,7 +52,7 @@ export async function archiveImport(el, { stale, source }) {
     ${how?.steps ? `<p class="sub">${esc(t(how.steps))}</p>` : ""}
     <p class="sub">${t("Upload the zip as you received it; don't unpack it. If the upload stops, choose the same file again and it continues.")}</p>
     <div class="archive-import-actions">
-      <button class="btn primary" type="button" data-choose>${t(kind.choose)}</button>
+      <button class="btn" type="button" data-choose>${t(kind.choose)}</button>
       <button class="btn" type="button" data-stop hidden>${t("Stop importing")}</button>
       <input type="file" accept=".zip,.ZIP" hidden aria-label="${esc(t(kind.choose))}">
     </div>

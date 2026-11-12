@@ -1,5 +1,7 @@
 // Training → Calendar: a compact month or week grid, each session a bar in its sport's
-// colour (solid when done, dashed when still planned), and below it the day you pick:
+// colour (solid when done, dashed when still planned) with its title where there is room
+// (the week view: title, time and distance; the month view from 900px wide: a short title),
+// and below it the day you pick:
 // recovery, the weather, what you did and what is planned. Arrow keys move the selected day
 // (← → a day, ↑ ↓ a week); the day stays in the address so a reload keeps it. Weather comes
 // from Garmin or Open-Meteo, not intervals.icu: per outdoor session at its start and hour,
@@ -46,21 +48,35 @@ function km(m) {
   return isNum(m) && m > 0 ? `${number(m / 1000, 1)} km` : "";
 }
 
-// One bar per session: planned sessions that were done count as done.
+// One entry per session: planned sessions that were done count as done. Each has what the
+// cell can write next to its bar: a title, the time and the distance.
 function bars(day, races) {
-  const out = races.filter((r) => r.date === day.date).map(() => ({ state: "race", sport: "other" }));
+  const out = races.filter((r) => r.date === day.date).map((r) => ({ state: "race", sport: "other", title: r.title || t("Race") }));
   for (const p of day.planned) {
     const state = p.status === "done" || p.status === "changed" ? "done" : p.status === "missed" ? "missed" : "planned";
-    out.push({ state, sport: sportKey(p.sport) });
+    const did = (p.done || [])[0];
+    out.push({ state, sport: sportKey(p.sport), title: p.title || did?.name || sportLabel(p.sport), seconds: did?.moving_s ?? p.planned_s, distance: did?.distance_m ?? p.distance_m });
   }
-  for (const d of day.done) out.push({ state: "done", sport: sportKey(d.sport) });
+  for (const d of day.done) out.push({ state: "done", sport: sportKey(d.sport), title: d.name || sportLabel(d.sport), seconds: d.moving_s, distance: d.distance_m });
   return out;
+}
+
+const STATE_WORD = { done: N("done"), planned: N("planned"), missed: N("missed"), race: N("race") };
+
+// A session in a cell: its bar and, where the view has room (the week, and the month on a
+// wide screen; see .sched-item in design.css), its title, time and distance. The full
+// title is in the tooltip and in the cell's name.
+function itemHtml(b) {
+  const time = isNum(b.seconds) && b.seconds > 0 ? hoursMinutes(b.seconds) : "";
+  const dist = km(b.distance);
+  const tip = [b.title, time, dist, t(STATE_WORD[b.state])].filter(Boolean).join(" · ");
+  return `<span class="sched-item" data-sport="${esc(b.sport)}" data-state="${b.state}" title="${esc(tip)}"><span class="sched-bar" data-sport="${esc(b.sport)}" data-state="${b.state}"></span><span class="sched-title">${esc(b.title)}</span>${time || dist ? `<span class="sched-meta">${esc(time)}${time && dist ? `<span class="sched-dist"> · ${esc(dist)}</span>` : esc(dist)}</span>` : ""}</span>`;
 }
 
 function cellHtml(day, { today, month, selected, races }) {
   const items = bars(day, races);
   const outside = month && day.date.slice(0, 7) !== month;
-  const shown = items.slice(0, MAX_BARS).map((b) => `<span class="sched-bar" data-sport="${esc(b.sport)}" data-state="${b.state}"></span>`).join("");
+  const shown = items.slice(0, MAX_BARS).map(itemHtml).join("");
   const more = items.length > MAX_BARS ? `<span class="sched-more">+${items.length - MAX_BARS}</span>` : "";
   const done = items.filter((b) => b.state === "done").length;
   const planned = items.filter((b) => b.state === "planned").length;
@@ -69,10 +85,11 @@ function cellHtml(day, { today, month, selected, races }) {
     done ? t("{n} done", { n: done }) : "",
     planned ? t("{n} planned", { n: planned }) : "",
     items.some((b) => b.state === "race") ? t("race") : "",
+    ...items.map((b) => b.title),
   ].filter(Boolean).join(", ");
   const cls = ["sched-cell", day.date === today ? "is-today" : "", outside ? "is-outside" : ""].filter(Boolean).join(" ");
   return `<button type="button" class="${cls}" data-day="${day.date}" aria-pressed="${day.date === selected}" aria-label="${esc(label)}" tabindex="${day.date === selected ? 0 : -1}"${day.date === today ? ' aria-current="date"' : ""}>
-    <span class="sched-num">${esc(String(Number(day.date.slice(8))))}</span>
+    <span class="sched-num"><span class="sched-wd">${esc(weekday(day.date))} </span>${esc(String(Number(day.date.slice(8))))}</span>
     <span class="sched-bars">${shown}${more}</span></button>`;
 }
 
@@ -85,7 +102,8 @@ function weekSummaryHtml(start, data) {
   const goal = target || planned;
   const facts = [
     [t("Time"), hoursMinutes(s?.time_s || 0) + (goal ? ` / ${hoursMinutes(goal)}` : "")],
-    [t("Load"), number(s?.load || 0)],
+    // Unknown load (no power, pace or heart rate to count it from) is a dash, never a zero.
+    [t("Load"), isNum(s?.load) ? number(s.load) : "—"],
     [t("Activities"), number(s?.count || 0)],
   ];
   // Per discipline: done, and what is planned or the week's target.
@@ -245,7 +263,7 @@ export async function render(view, { query, meta, stale }) {
       <span class="sched-views">${VIEWS.map(([id, label]) => `<a class="btn" href="${href(anchor, id)}"${id === mode ? ' aria-current="page"' : ""}>${esc(t(label))}</a>`).join("")}</span>
     </nav>
     <div class="sched-grid-wrap">
-      <div class="sched-grid sched-head" aria-hidden="true">${data.days.slice(0, 7).map((d) => `<span>${esc(weekday(d.date))}</span>`).join("")}</div>
+      <div class="sched-grid sched-head${mode === "week" ? " is-week" : ""}" aria-hidden="true">${data.days.slice(0, 7).map((d) => `<span>${esc(weekday(d.date))}</span>`).join("")}</div>
       <div class="sched-grid${mode === "week" ? " is-week" : ""}" role="group" aria-label="${esc(title)}">${cells}</div>
       <p class="sub sched-legend"><span class="sched-bar" data-state="done" data-sport="run"></span> ${esc(t("done"))} <span class="sched-bar" data-state="planned" data-sport="run"></span> ${esc(t("planned"))} <span class="sched-bar" data-state="missed" data-sport="run"></span> ${esc(t("missed"))}</p>
     </div>
@@ -294,7 +312,9 @@ export async function render(view, { query, meta, stale }) {
     }
   });
   view.querySelector(".sched-grid[role=group]").addEventListener("keydown", (event) => {
-    const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 7, ArrowUp: -7 }[event.key];
+    // The week is a list of days on a narrow screen: up and down then move one day.
+    const column = mode === "week" && window.matchMedia("(max-width: 899px)").matches;
+    const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: column ? 1 : 7, ArrowUp: column ? -1 : -7 }[event.key];
     if (!move) return;
     const i = buttons.findIndex((b) => b.dataset.day === selected);
     const target = buttons[i + move];

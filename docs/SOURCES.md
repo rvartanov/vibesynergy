@@ -8,6 +8,31 @@ How each source collects, what it stores and what is mapped into the canonical t
 Everything a source returns is kept in the raw archive, mapped or not. Adding a mapper later
 and running `vibesynergy normalise <source>` fills the canonical tables from history.
 
+## Demo (`demo`)
+
+Synthetic data to try VibeSynergy without an account: `vibesynergy init --demo` (or
+`[sources.demo] enabled = true`), then `vibesynergy sync demo`. A first sync fills 90 days;
+`vibesynergy backfill demo --start 2026-01-01` gives more. Everything is made up and
+deterministic: a date always gives the same values, so syncing again changes nothing.
+
+| Dataset | What it holds |
+|---|---|
+| `daily` | Steps, resting heart rate, last night's sleep (duration, deep, light, REM, awake, score, stages), overnight HRV with its baseline, and a weigh-in every few days |
+| `activities` | A running and cycling week: intervals on Tuesday, an easy run on Wednesday, a tempo run on Thursday, a ride on most Saturdays and a long run on Sunday; now and then a session is skipped |
+| `profile` | A snapshot, not mapped |
+
+Each activity has a summary (time, distance, average and maximum heart rate, average
+speed, climb, calories, and power on the bike), laps (per kilometre on foot, per five on
+the bike) and a stream of one sample per ten seconds: heart rate, speed, cadence,
+elevation, distance, position and, on the bike, power. A raw item is about 20 kB. The
+position is a loop drawn around one made-up point in open polder land; it follows no real
+road and no real person. Activities go through the normal mapper and unify path
+(`activity`, `activity_lap`, a stream file per activity, `activity_unified`), so the
+activity page, the calendar, Fitness and Best efforts work as with a real source. A session
+or a night that has not ended yet is not there yet; the next sync has it.
+
+Demo data does not count as "a source connected" in the Get started guide.
+
 ## Garmin (`garmin`, `garmin_export`)
 
 ### Setup
@@ -21,7 +46,7 @@ writing is available; a live activity write is still verified separately.
 vibesynergy sync garmin              # incremental: last 7 days re-fetched (Garmin revises them)
 vibesynergy backfill garmin --start 2015-01-01          # history, month by month, resumable
 vibesynergy import garmin-export ~/Downloads/<export>.zip
-vibesynergy import files ~/old-fit-files/               # FIT files, zips of FIT files
+vibesynergy import files ~/old-files/                   # FIT, GPX and TCX files, zips of them
 ```
 
 The tokens are encrypted server-side. A failed login is not retried for 15 minutes, so one sync cannot hammer
@@ -106,8 +131,10 @@ confirmed at the first real sync.
   from the API, the export and a folder shares one stream file. When the same monitoring
   file arrives from both `garmin` and `garmin_export`, two wellness files exist; the query
   layer (phase 3) deduplicates on `(ts, metric)`.
-- **Activities from files:** files imported with `vibesynergy import files` get an `activity`
-  row keyed by `fit_id`, because they have no API summary. Linking these to the same
+- **Activities from files:** files imported with `vibesynergy import files` (FIT, GPX and
+  TCX, the same kinds as the upload and the drop folder) get an `activity`
+  row keyed by `fit_id`, because they have no API summary. A GPX or TCX file records no
+  average speed; it is derived from distance over time. Linking these to the same
   activity from other sources is phase 2 (dedup).
 
 ### Account export (`garmin_export`)

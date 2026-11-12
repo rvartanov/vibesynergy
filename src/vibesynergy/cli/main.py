@@ -553,14 +553,17 @@ def import_strava_export(
 
 @import_app.command("files")
 def import_files(
-    path: Annotated[Path, typer.Argument(exists=True, help="A FIT file, zip or directory.")],
+    path: Annotated[
+        Path, typer.Argument(exists=True, help="A FIT, GPX or TCX file, a zip or a directory.")
+    ],
     config: ConfigOpt = None,
 ) -> None:
-    """Import FIT files (e.g. from old head units); files already archived are skipped."""
+    """Import FIT, GPX and TCX files (e.g. from old head units or another app); files
+    already archived are skipped."""
     from vibesynergy import imports
 
     rt = _runtime(config)
-    if _print_results([imports.import_files(rt, path, progress=_say)]):
+    if _print_results(imports.import_files(rt, path, progress=_say)):
         raise typer.Exit(1)
 
 

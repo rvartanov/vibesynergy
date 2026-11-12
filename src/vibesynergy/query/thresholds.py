@@ -374,6 +374,16 @@ def icu_settings_live() -> list[dict[str, Any]]:
     return value
 
 
+def icu_connected() -> bool:
+    """Is intervals.icu set up (a key under Settings → Sources, or the legacy environment)?"""
+    from vibesynergy.sources.intervals_icu import credentials
+
+    try:
+        return credentials.load() is not None
+    except Exception:  # an unreadable store: let the read itself report it
+        return True
+
+
 def forget_icu_cache() -> None:
     with _ICU_LOCK:
         _ICU_CACHE.update(at=0.0, value=None)
@@ -573,6 +583,27 @@ def _highest_hr(engine: Engine, sport: str, today: date) -> dict[str, Any] | Non
     }
 
 
+def _volume(engine: Engine, today: date) -> dict[str, float]:
+    """Training time per sport over the last year, in seconds."""
+    sport_of = {name: sport for sport, names in ACTIVITY_SPORTS.items() for name in names}
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                activity_unified.c.sport,
+                func.sum(func.coalesce(activity_unified.c.moving_s, activity_unified.c.elapsed_s)),
+            )
+            .where(
+                activity_unified.c.sport.in_(list(sport_of)),
+                activity_unified.c.local_date >= today - timedelta(days=365),
+            )
+            .group_by(activity_unified.c.sport)
+        ).all()
+    out: dict[str, float] = {}
+    for name, seconds in rows:
+        out[sport_of[name]] = out.get(sport_of[name], 0.0) + float(seconds or 0.0)
+    return out
+
+
 def measured(engine: Engine, today: date) -> dict[str, Any]:
     return {
         "resting_hr": _mean_daily(engine, "hr.resting", today, 60),
@@ -644,9 +675,13 @@ def overview(
     pushes = _pushes(engine)
     garmin = garmin_values(engine)
     icu: dict[str, dict[str, Any]] = {}
-    icu_state: dict[str, Any] = {"ok": False, "error": None}
+    # ``connected``: intervals.icu is set up at all. Never connected is not an error: the
+    # page then says nothing; only a failed read of a connected account is a warning.
+    icu_state: dict[str, Any] = {"ok": False, "error": None, "connected": True}
     fetch = icu_settings or icu_settings_live  # looked up now, so tests can replace it
-    if fetch is not None:
+    if icu_settings is None and not icu_connected():
+        icu_state["connected"] = False
+    else:
         try:
             icu = icu_values(fetch())
             icu_state["ok"] = True
@@ -686,6 +721,11 @@ def overview(
                 "vo2max": None,
             }
         )
+    # Most-used sport first (training time in the last year); equal volumes keep SPORTS order.
+    volume = _volume(engine, today)
+    for item in sports:
+        item["volume_s"] = volume.get(item["sport"], 0.0)
+    sports.sort(key=lambda item: -item["volume_s"])
     refs = measured(engine, today)
     for item in sports:
         if item["sport"] == "run":

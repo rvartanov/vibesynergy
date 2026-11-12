@@ -9,7 +9,7 @@ import { addDays, dayMonth, esc, isNum, metricLabel, number, shortDate, sportNam
 import { N, t } from "./i18n.js";
 import { withSportIcon } from "./symbols.js";
 import { measurementsHtml } from "./pages/day.js";
-import { DEFAULT_ORDER, moveVisible, orderChange, toggleHidden } from "./start_layout.js";
+import { DEFAULT_ORDER, moveVisible, orderChange, toggleHidden, togglePinned } from "./start_layout.js";
 
 // Body and measurements --------------------------------------------------------------------
 
@@ -19,11 +19,20 @@ const TREND = {
   stable: N("Stable over the last month."),
 };
 
-/** Fill the Body and measurements block for `date`; `measurements` are that day's readings. */
-export async function mountBody(host, { date, today, meta, stale, measurements = [], timezone, share }) {
-  let data;
+/** Whether the Body block has nothing to show: no weight, composition or blood pressure in
+ * the summary and nothing measured on the day itself. */
+export function bodyEmpty(summary, measurements = []) {
+  if (!summary) return false; // not known: draw the block, it reports what went wrong
+  const bp = summary.blood_pressure;
+  return !measurements.length && !summary.weight && !summary.composition?.length && !(bp && (bp.systolic || bp.diastolic));
+}
+
+/** Fill the Body and measurements block for `date`; `measurements` are that day's readings.
+ * `summary` is the body-summary reply's data when the page already has it. */
+export async function mountBody(host, { date, today, meta, stale, measurements = [], timezone, share, summary = null }) {
+  let data = summary;
   try {
-    data = (await get("body-summary", { date })).data;
+    if (!data) data = (await get("body-summary", { date })).data;
   } catch (error) {
     if (!stale() && host.isConnected) host.innerHTML = `<p class="notice error" role="alert">${esc(t("This part could not load"))}: ${esc(error.message)}</p>`;
     return;
@@ -138,21 +147,25 @@ export { BEST_PERIODS, BEST_SPORTS, mountBests } from "./bests_block.js";
  * The editor for the start page's blocks: a checkbox per block to show or hide it, and Move
  * up / Move down buttons (no dragging needed), plus a reset. Each change saves at once to the
  * portal prefs; `onChange(prefs, change)` then lays out the page. `blocks` is what
- * arrangedBlocks() returned for this view.
+ * arrangedBlocks() returned for this view. A block without data (`noData`) is left out of
+ * the page and unticked here; ticking it pins it, so it stays even while it is empty.
  */
 export function mountArrange(host, { blocks, prefs, onChange }) {
   let current = { ...prefs };
   let list = blocks.map((block) => ({ ...block }));
-  const visible = () => list.map((block) => block.id);
+  // What a block moves past: the blocks that are on the page. A block left out for lack of
+  // data is skipped, so a move always changes what you see (it can still be moved itself).
+  const visible = (id) => list.filter((block) => !block.noData || block.id === id).map((block) => block.id);
+  const edge = (id, step) => visible(id)[visible(id).indexOf(id) + step] === undefined;
   const draw = (focus) => {
     host.innerHTML = `
       <h2 id="dash-arrange-title">${t("Arrange the start page")}</h2>
       <p class="sub">${t("Choose which blocks show and in what order. Saved at once, the same on every device.")}</p>
-      <ol class="menu-editor dash-arrange-list">${list.map((block, index) => `<li><div class="menu-row">
-        <label class="check"><input type="checkbox" data-show="${esc(block.id)}"${block.hidden ? "" : " checked"}> ${esc(t(block.label))}</label>
+      <ol class="menu-editor dash-arrange-list">${list.map((block) => `<li><div class="menu-row">
+        <label class="check"><input type="checkbox" data-show="${esc(block.id)}"${block.hidden || block.noData ? "" : " checked"}> ${esc(t(block.label))}${block.noData && !block.hidden ? ` <span class="sub">(${esc(t("no data yet"))})</span>` : ""}</label>
         <span class="menu-move">
-          <button class="btn small" type="button" data-move="-1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} up", { name: t(block.label) }))}"${index === 0 ? " disabled" : ""}>↑</button>
-          <button class="btn small" type="button" data-move="1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} down", { name: t(block.label) }))}"${index === list.length - 1 ? " disabled" : ""}>↓</button>
+          <button class="btn small" type="button" data-move="-1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} up", { name: t(block.label) }))}"${edge(block.id, -1) ? " disabled" : ""}>↑</button>
+          <button class="btn small" type="button" data-move="1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} down", { name: t(block.label) }))}"${edge(block.id, 1) ? " disabled" : ""}>↓</button>
         </span></div></li>`).join("")}</ol>
       <div class="save-row"><button class="btn" type="button" data-arrange-reset>${t("Back to the default layout")}</button>
         <span class="sub" data-arrange-status role="status" aria-live="polite"></span></div>`;
@@ -182,18 +195,22 @@ export function mountArrange(host, { blocks, prefs, onChange }) {
       list = list
         .map((block) => ({ ...block, hidden: false }))
         .sort((a, b) => DEFAULT_ORDER.indexOf(a.id) - DEFAULT_ORDER.indexOf(b.id));
-      save({ dashboard_order: null, dashboard_hidden: null }, t("Back to the default layout."), { selector: "[data-arrange-reset]" });
+      save({ dashboard_order: null, dashboard_hidden: null, dashboard_pinned: null }, t("Back to the default layout."), { selector: "[data-arrange-reset]" });
       return;
     }
     const button = event.target.closest("button[data-move]");
     if (!button || button.disabled) return;
     const { id } = button.dataset;
     const step = Number(button.dataset.move);
-    const order = moveVisible(current.dashboard_order, visible(), id, step);
+    const shown = visible(id);
+    const other = shown[shown.indexOf(id) + step];
+    if (other === undefined) return;
+    const order = moveVisible(current.dashboard_order, shown, id, step);
     const at = list.findIndex((block) => block.id === id);
-    [list[at], list[at + step]] = [list[at + step], list[at]];
-    const block = list[at + step];
-    const where = t("{name}: place {n} of {total}", { name: t(block.label), n: number(at + step + 1), total: number(list.length) });
+    const to = list.findIndex((block) => block.id === other);
+    [list[at], list[to]] = [list[to], list[at]];
+    const block = list[to];
+    const where = t("{name}: place {n} of {total}", { name: t(block.label), n: number(to + 1), total: number(list.length) });
     save({ dashboard_order: orderChange(order) }, where, {
       selector: `button[data-move="${step}"][data-id="${id}"]`,
       fallback: `button[data-move="${-step}"][data-id="${id}"]`,
@@ -204,11 +221,16 @@ export function mountArrange(host, { blocks, prefs, onChange }) {
     if (!box) return;
     const id = box.dataset.show;
     const block = list.find((item) => item.id === id);
-    block.hidden = !box.checked;
+    // A block left out for lack of data is unticked: ticking it pins it, so it shows
+    // although it is empty. Any other block is simply shown or hidden.
+    const pin = Boolean(block.noData) && box.checked;
     const hidden = toggleHidden(current.dashboard_hidden, id, box.checked);
+    const pinned = pin ? togglePinned(current.dashboard_pinned, id, true) : null;
+    block.hidden = !box.checked;
+    if (pin) block.noData = false;
     const name = t(block.label);
     save(
-      { dashboard_hidden: hidden.length ? hidden : null },
+      { dashboard_hidden: hidden.length ? hidden : null, ...(pinned ? { dashboard_pinned: pinned } : {}) },
       box.checked ? t("{name} is shown.", { name }) : t("{name} is hidden.", { name }),
       { selector: `input[data-show="${id}"]` },
     );

@@ -146,11 +146,55 @@ const SUBPAGES = {
     args[0] ? renderSection(view, stale, "", "", fillReport(args[0]), t("Report")) : render(view, { stale }),
 };
 
+// Whether there is no coach at all: none set up (the "Get started" state) and no message
+// from one. When either cannot be read, the page shows its usual sections.
+async function coachMissing() {
+  try {
+    const [setup, feed] = await Promise.all([
+      get("setup", {}, { timeoutMs: COACH_TIMEOUT_MS }),
+      get("coach/feed", {}, { timeoutMs: COACH_TIMEOUT_MS }),
+    ]);
+    return setup.data?.steps?.coach === false && !(feed.data?.entries || []).length;
+  } catch {
+    return false;
+  }
+}
+
+// A safety warning stands on its own: it is shown with or without a coach.
+async function safetyLines() {
+  try {
+    const { data } = await get("daily-coaching", {}, { timeoutMs: COACH_TIMEOUT_MS });
+    const lines = ["morning", "evening"]
+      .map((kind) => (data[kind]?.display?.mode === "safety" ? data[kind].display.safety_text : ""))
+      .filter(Boolean);
+    return [...new Set(lines)];
+  } catch {
+    return [];
+  }
+}
+
 export async function render(view, { args = [], query, meta, stale }) {
   const share = meta?.data?.share || null;
   const sub = SUBPAGES[args[0]];
   if (sub) return sub(view, { args: args.slice(1), query, stale, share });
   document.title = `${t("Coach")} · VibeSynergy`;
+  // No coach set up and nothing from one yet: say that once, with the way to set it up,
+  // instead of "no advice" in every section. A shared view never asks (settings are the owner's).
+  if (!share && (await coachMissing())) {
+    if (stale()) return;
+    const safety = await safetyLines();
+    if (stale()) return;
+    view.innerHTML = `<div class="page-head"><h1>${t("Coach")}</h1></div>
+      ${coachTabsHtml("")}
+      ${safety.map((line) => `<p class="notice warning">${esc(line)}</p>`).join("")}
+      <section class="card empty-state" aria-labelledby="coach-empty-title">
+        <h2 id="coach-empty-title">${esc(t("No coach set up yet"))}</h2>
+        <p>${esc(t("Your AI coach gives advice every morning and evening and reviews your week. Set it up once and its advice shows here."))}</p>
+        <p class="actions"><a class="btn primary" href="#/coach/settings">${esc(t("Set up your coach"))}</a></p>
+      </section>`;
+    return;
+  }
+  if (stale()) return;
   view.innerHTML = `<div class="page-head"><h1>${t("Coach")}</h1></div>
     ${coachTabsHtml("")}
     <section class="card coach-section" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">${t("Messages from your coach")}</h2>

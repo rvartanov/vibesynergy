@@ -4,24 +4,29 @@
 import { N } from "./i18n.js";
 
 // Default order: advice and the check-in first (on a phone they must be on the first screen),
-// then how you are, the week and what is coming, then the day's numbers, then the diary.
+// then the week, how you are and what is coming, then what you noted, the day's numbers and
+// the diary. A saved order (prefs.dashboard_order) wins over this.
 // wide: spans the page; the others share the width two by two on a large screen.
 export const BLOCKS = [
   { id: "advice", label: N("Advice and plan"), wide: true },
   { id: "checkin", label: N("Check-in") },
+  { id: "week", label: N("This week") },
+  { id: "recovery", label: N("Recovery") },
+  { id: "upcoming", label: N("Coming up and calendar"), wide: true },
   { id: "complaints", label: N("Complaints") },
   { id: "noted", label: N("Diary notes of the day") },
-  { id: "recovery", label: N("Recovery") },
-  { id: "week", label: N("This week") },
-  { id: "upcoming", label: N("Coming up and calendar"), wide: true },
   { id: "numbers", label: N("Key numbers"), wide: true },
   { id: "sleep", label: N("Last night") },
-  { id: "body", label: N("Body and measurements") },
+  { id: "body", label: N("Body and measurements"), short: N("Body") },
   { id: "timeline", label: N("Timeline"), wide: true },
   { id: "bests", label: N("Best efforts") },
   { id: "other", label: N("Other measurements"), wide: true },
   { id: "diary", label: N("Diary") },
 ];
+
+// Blocks that are left out while they have nothing to show, and named in one line at the
+// bottom instead. A block the athlete pinned (prefs.dashboard_pinned) stays, empty or not.
+export const HIDE_WHEN_EMPTY = ["numbers", "sleep", "body", "timeline", "other"];
 
 export const DEFAULT_ORDER = BLOCKS.map((block) => block.id);
 const KNOWN = new Set(DEFAULT_ORDER);
@@ -43,14 +48,33 @@ export function blockOrder(saved) {
   return order;
 }
 
-/** [{...block, hidden}] in order, for the blocks this view can show (`available` ids). */
-export function arrangedBlocks(prefs = {}, available = DEFAULT_ORDER) {
+/**
+ * [{...block, hidden, noData}] in order, for the blocks this view can show (`available` ids).
+ * `empty` lists blocks that have nothing to show now: unless pinned they are `noData` (not
+ * drawn, named in the "not shown" line).
+ */
+export function arrangedBlocks(prefs = {}, available = DEFAULT_ORDER, empty = []) {
   const can = new Set(available);
   const hidden = new Set(Array.isArray(prefs.dashboard_hidden) ? prefs.dashboard_hidden : []);
+  const left = leftOut(prefs, empty);
   const byId = Object.fromEntries(BLOCKS.map((block) => [block.id, block]));
   return blockOrder(prefs.dashboard_order)
     .filter((id) => can.has(id))
-    .map((id) => ({ ...byId[id], hidden: hidden.has(id) }));
+    .map((id) => ({ ...byId[id], hidden: hidden.has(id), noData: left.has(id) }));
+}
+
+/** The empty blocks that are left out: those that may be, and that are not pinned. */
+export function leftOut(prefs = {}, empty = []) {
+  const pinned = new Set(Array.isArray(prefs.dashboard_pinned) ? prefs.dashboard_pinned : []);
+  return new Set([...empty].filter((id) => HIDE_WHEN_EMPTY.includes(id) && !pinned.has(id)));
+}
+
+/** The pinned list with `id` pinned or not. */
+export function togglePinned(pinned, id, pin) {
+  const set = new Set(Array.isArray(pinned) ? pinned : []);
+  if (pin) set.add(id);
+  else set.delete(id);
+  return DEFAULT_ORDER.filter((known) => set.has(known));
 }
 
 /** The full order with `id` moved one place up (-1) or down (+1); unchanged at an edge. */
