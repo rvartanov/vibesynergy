@@ -73,8 +73,20 @@ def test_intensity_distribution_three_zone_share_is_hr_only(runtime) -> None:
         )
     unify.rebuild(runtime.engine)
     window = Window(date(2020, 1, 1), date(2030, 1, 1))
-    hr = intensity_distribution(runtime.engine, window, basis="hr")
-    pace = intensity_distribution(runtime.engine, window, basis="pace")
+    # The zones come from VibeSynergy's own count (zone_times), not Garmin's stored ones.
+    from vibesynergy.query import zone_times
+
+    counted = {
+        "hr": {"garmin:hr-only": {1: 400.0, 2: 300.0, 3: 200.0, 4: 80.0, 5: 20.0}},
+        "pace": {"garmin:hr-only": {1: 400.0, 2: 600.0, 3: 210.0}},
+    }
+    original = zone_times.for_window
+    zone_times.for_window = lambda engine, parquet, window, kind, athlete=None: counted[kind]
+    try:
+        hr = intensity_distribution(runtime.engine, window, basis="hr")
+        pace = intensity_distribution(runtime.engine, window, basis="pace")
+    finally:
+        zone_times.for_window = original
     assert "three_zone_share" in hr
     assert sum(hr["total_seconds_by_zone"].values()) > 0
     assert sum(pace["total_seconds_by_zone"].values()) > 0

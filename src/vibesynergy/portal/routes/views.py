@@ -243,7 +243,12 @@ def register(kit: PortalKit) -> None:
         granularity = "week" if len(span) <= 400 else "month"
         zone_kinds = {
             kind: views.intensity_distribution(
-                engine, span, basis=kind, include_coaching=include_coaching, raw=rt.raw
+                engine,
+                span,
+                basis=kind,
+                include_coaching=include_coaching,
+                parquet=rt.parquet,
+                athlete=settings.athlete,
             )
             for kind in ("hr", "power", "pace")
         }

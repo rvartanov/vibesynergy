@@ -1179,10 +1179,13 @@ def intensity_distribution(
     basis: str = "hr",
     include_coaching: bool = True,
     raw=None,
+    parquet=None,
+    athlete: dict | None = None,
 ) -> dict:
-    """Time per zone over the period, per week and in total. Heart rate, power and pace
-    each keep their own zone count, from the first source copy that has zone times
-    (Garmin, measured with the zones VibeSynergy keeps there). ``raw`` is not used. For five heart
+    """Time per zone over the period, per week and in total, as VibeSynergy counts it from
+    each activity's stream with the zones of that day (``zone_times``; without ``parquet``
+    only what was counted before). Heart rate has five zones, power and pace seven. ``raw``
+    is not used. For five heart
     rate zones the zones are also folded into three (1-2 low, 3 moderate, 4-5 high) with
     the polarisation index of Treff et al. (2019): log10(low/moderate x high x 100) on
     fractions. Power and pace are not folded."""
@@ -1203,7 +1206,6 @@ def intensity_distribution(
     total: dict[int, float] = {}
     coaching_total: dict[int, float] = {}
     counted = 0
-    by_source = {"other": 0}
 
     def add(g: dict, zones) -> None:
         week = str(qs.bucket(date.fromisoformat(str(g["local_date"])[:10]), "week"))
@@ -1214,34 +1216,27 @@ def intensity_distribution(
             if g["kind"] == "coaching":
                 coaching_total[zone] = coaching_total.get(zone, 0.0) + seconds
 
-    with engine.connect() as conn:
-        for g in groups:
-            if g["kind"] == "coaching" and not include_coaching:
-                continue
-            for key in g["sources"] or []:  # the first copy that has zone times
-                source, source_id = key.split(":", 1)
-                zones = conn.execute(
-                    select(activity_zone_time.c.zone, activity_zone_time.c.seconds).where(
-                        activity_zone_time.c.source == source,
-                        activity_zone_time.c.activity_source_id == source_id,
-                        activity_zone_time.c.kind == basis,
-                    )
-                ).all()
-                if zones:
-                    counted += 1
-                    by_source["other"] += 1
-                    add(g, zones)
-                    break
+    from vibesynergy.query import zone_times
+
+    counted_zones = zone_times.for_window(engine, parquet, window, basis, athlete)
+    for g in groups:
+        if g["kind"] == "coaching" and not include_coaching:
+            continue
+        zones = counted_zones.get(g["group_id"])
+        if zones:
+            counted += 1
+            add(g, sorted(zones.items()))
     result: dict[str, Any] = {
         "basis": basis,
         "activities_with_zones": counted,
-        "activities_by_zone_source": by_source,
+        "zone_source": "vibesynergy",
         "total_seconds_by_zone": dict(sorted(total.items())),
         "coaching_seconds_by_zone": dict(sorted(coaching_total.items())),
         "weekly_seconds_by_zone": {w: dict(sorted(z.items())) for w, z in sorted(weekly.items())},
     }
     all_time = sum(total.values())
-    # The fold into three only reads five zones (intervals.icu can be set up with more).
+    # The fold into three reads the five heart-rate zones: 1-2 below, 3 around and 4-5 above
+    # the thresholds.
     if basis == "hr" and all_time and max(total) <= 5:
         low = (total.get(1, 0) + total.get(2, 0)) / all_time
         moderate = total.get(3, 0) / all_time
