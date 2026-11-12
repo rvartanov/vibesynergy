@@ -1127,12 +1127,10 @@ def _store_threshold(engine, metric: str, value: float, unit: str) -> None:
 
 
 def portal_url(settings) -> str | None:
-    """The portal's tailnet address: the machine's name from the public address, on the
-    portal port (tailscale serve publishes that port on the tailnet only)."""
-    if not settings.public_url:
-        return None
-    host = urlsplit(settings.public_url).hostname
-    return f"https://{host}:{settings.portal.get('port', 8447)}" if host else None
+    """The portal's address: your own domain when one is set, else the tailnet address."""
+    from vibesynergy.portal.hosts import portal_address
+
+    return portal_address(settings)
 
 
 # Settings tab that holds each config field the running service only reads at start, so
