@@ -77,8 +77,8 @@ def defaults(engine: Any, today: date) -> dict[str, Any]:
     loading = [
         float(m.group(1).replace(",", "."))
         for w in overview["weeks"]
-        if "laadweek" in (w.get("title") or "")
-        for m in [_HOURS.search(w.get("title") or "")]
+        if w.get("kind") == "load"
+        for m in [_HOURS.search(w.get("hours_label") or "")]
         if m
     ]
     model = plan_model.summary(engine) or {}
