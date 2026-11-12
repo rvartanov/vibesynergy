@@ -326,14 +326,7 @@ def set_checkin(engine: Engine, when: date, **scores: Any) -> dict[str, Any]:
             .values(subject_id=SUBJECT, date=when, **values)
             .on_conflict_do_update(index_elements=["subject_id", "date"], set_=values)
         )
-    saved = checkins(engine, Window(when, when))[0]
-    try:
-        from vibesynergy.query.icu_wellness import schedule_checkin_wellness
-
-        schedule_checkin_wellness(engine, when)
-    except Exception:
-        log.warning("check-in was saved; intervals.icu wellness was not scheduled")
-    return saved
+    return checkins(engine, Window(when, when))[0]
 
 
 def checkins(engine: Engine, window: Window) -> list[dict[str, Any]]:

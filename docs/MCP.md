@@ -147,15 +147,12 @@ everything the MCP can answer, the portal can show and vice versa.
 - Activities: `vibesynergy_activities`, `vibesynergy_activity`, `vibesynergy_activity_streams`,
   `vibesynergy_bests` (power curve)
 - RPE and Feel: `vibesynergy_activity` has `effort` with `rpe` (1-10) and `feel` (1-5,
-  1 = Strong … 5 = Weak), each with `value`, `label`, `source` (`garmin`, `intervals_icu`
-  or `vibesynergy`), `editable` and `others` (a different value elsewhere), plus
-  `intervals_icu.state` for a VibeSynergy entry (`pending`, `sent`, `waiting`, `conflict`,
-  `failed`). `vibesynergy_activities` and `vibesynergy_day` rows carry the short form
+  1 = Strong … 5 = Weak), each with `value`, `label`, `source` (`vibesynergy`, which wins,
+  or `garmin`), `editable` (always true) and `others` (Garmin's value under your own). `vibesynergy_activities` and `vibesynergy_day` rows carry the short form
   (`rpe`, `rpe_source`, `feel`, `feel_source`). `vibesynergy_activity_set_effort`
-  (`diary.write`) saves what the athlete said; it is refused for a field a platform already
-  has. Garmin's 10-100 effort and 0-100 feel are converted to these scales. A VibeSynergy
-  entry is copied to intervals.icu (`PUT /activity/{id}`, `icu_rpe` and `feel` only) after
-  reading the activity; a different value there is kept. Garmin is not written.
+  (`diary.write`) saves what the athlete said; it wins over Garmin's value. Garmin's 10-100
+  effort and 0-100 feel are converted to these scales. Nothing is written to intervals.icu or
+  Garmin.
 - Training: `vibesynergy_training_load`, `vibesynergy_volume`, `vibesynergy_fitness`,
   `vibesynergy_intensity_distribution`
 - Personal model runs: `vibesynergy_model_run_write` (`coach.write`) stores parameters
@@ -1077,4 +1074,4 @@ intervals.icu activities taken from Strava are skipped (it may not change them).
 publish/unpublish results carry `icu`. An activity with only a Strava copy is
 published automatically 30 minutes after it ended when no Garmin copy came; the same block
 (same label) then carries what Strava has (Relative Effort, work in kJ, temperature, and
-RPE/feel from intervals.icu or VibeSynergy when there are any).
+RPE/feel from VibeSynergy or Garmin when there are any).
