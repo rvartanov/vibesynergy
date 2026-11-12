@@ -264,15 +264,29 @@ def register(kit: ToolKit) -> None:
         return envelope(data, span=span)
 
     @tool(READ, "read")
+    def vibesynergy_race_predictions() -> dict[str, Any]:
+        """Predicted race times for 5 km, 10 km, 10 miles, half marathon, marathon and 50 km
+        (seconds, pace in s/km), each with ``certainty`` (high/medium/low: how far it
+        extrapolates and how old its evidence is), ``from`` (the evidence: one hour at the
+        confirmed threshold pace, or a recent effort from the run streams), ``change_s``
+        against six weeks ago (same kind of evidence only) and Garmin's own prediction where
+        it has one. Riegel's formula, 1.06 up to the half marathon and 1.08 beyond; the
+        fastest prediction counts. Training efforts are slower than races: say so when the
+        evidence is an effort."""
+        from vibesynergy.query import race_predictions
+
+        return envelope(race_predictions.race_predictions(engine, rt.parquet, today()))
+
+    @tool(READ, "read")
     def vibesynergy_projection() -> dict[str, Any]:
-        """A projection, not a measurement: fitness, fatigue and form (CTL/ATL/TSB and
-        intervals.icu's form zone) per day from today to the last upcoming race if the
-        plan is done as written, through intervals.icu's model from today's values, and
-        the projected values on each race day. Planned load per day: the intervals.icu
-        workout's load; a workout without one gets its planned time at the recent load per
-        hour; a week with only a weekly target gets that target spread over its remaining
-        days. ``basis`` counts each kind and ``assumptions`` names them; say so when you
-        quote it. Changes as soon as the plan changes."""
+        """A projection, not a measurement: fitness, fatigue and form (CTL/ATL/TSB and the
+        form zone) per day from today to the last upcoming race if the plan is done as
+        written, through VibeSynergy's model from today's values, and the projected values
+        on each race day. Planned load per session: from its steps and their intensity; a
+        session without steps gets its planned time at the athlete's own recent load per
+        hour for that kind of session; a week with only a weekly target gets that target
+        spread over its remaining days. ``basis`` counts each kind and ``assumptions`` names
+        them; say so when you quote it. Changes as soon as the plan changes."""
         data = planning.projection(
             engine, rt.raw, today(), athlete=settings.athlete, parquet=rt.parquet
         )
