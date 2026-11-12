@@ -43,7 +43,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   recovery and coming up; your own arrangement is kept ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - Header: one row on a phone. The theme (system, light, dark) is chosen under Settings →
   System, and "Report a bug" is in the footer and under Settings → System. On a phone
-  Quick add is a bar along the bottom instead of a button floating over the page ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
+  Quick add sits in the header instead of floating over the page, where it covered values
+  in a table ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - Activities: one line per session with the sport as an icon before the name; pace or speed
   is shown for imported GPX and TCX files too (from distance and time) ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - Zones & thresholds: the sport you train most comes first, and the cards line up ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).

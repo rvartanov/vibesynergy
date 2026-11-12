@@ -153,16 +153,19 @@ export { BEST_PERIODS, BEST_SPORTS, mountBests } from "./bests_block.js";
 export function mountArrange(host, { blocks, prefs, onChange }) {
   let current = { ...prefs };
   let list = blocks.map((block) => ({ ...block }));
-  const visible = () => list.map((block) => block.id);
+  // What a block moves past: the blocks that are on the page. A block left out for lack of
+  // data is skipped, so a move always changes what you see (it can still be moved itself).
+  const visible = (id) => list.filter((block) => !block.noData || block.id === id).map((block) => block.id);
+  const edge = (id, step) => visible(id)[visible(id).indexOf(id) + step] === undefined;
   const draw = (focus) => {
     host.innerHTML = `
       <h2 id="dash-arrange-title">${t("Arrange the start page")}</h2>
       <p class="sub">${t("Choose which blocks show and in what order. Saved at once, the same on every device.")}</p>
-      <ol class="menu-editor dash-arrange-list">${list.map((block, index) => `<li><div class="menu-row">
+      <ol class="menu-editor dash-arrange-list">${list.map((block) => `<li><div class="menu-row">
         <label class="check"><input type="checkbox" data-show="${esc(block.id)}"${block.hidden || block.noData ? "" : " checked"}> ${esc(t(block.label))}${block.noData && !block.hidden ? ` <span class="sub">(${esc(t("no data yet"))})</span>` : ""}</label>
         <span class="menu-move">
-          <button class="btn small" type="button" data-move="-1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} up", { name: t(block.label) }))}"${index === 0 ? " disabled" : ""}>↑</button>
-          <button class="btn small" type="button" data-move="1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} down", { name: t(block.label) }))}"${index === list.length - 1 ? " disabled" : ""}>↓</button>
+          <button class="btn small" type="button" data-move="-1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} up", { name: t(block.label) }))}"${edge(block.id, -1) ? " disabled" : ""}>↑</button>
+          <button class="btn small" type="button" data-move="1" data-id="${esc(block.id)}" aria-label="${esc(t("Move {name} down", { name: t(block.label) }))}"${edge(block.id, 1) ? " disabled" : ""}>↓</button>
         </span></div></li>`).join("")}</ol>
       <div class="save-row"><button class="btn" type="button" data-arrange-reset>${t("Back to the default layout")}</button>
         <span class="sub" data-arrange-status role="status" aria-live="polite"></span></div>`;
@@ -199,11 +202,15 @@ export function mountArrange(host, { blocks, prefs, onChange }) {
     if (!button || button.disabled) return;
     const { id } = button.dataset;
     const step = Number(button.dataset.move);
-    const order = moveVisible(current.dashboard_order, visible(), id, step);
+    const shown = visible(id);
+    const other = shown[shown.indexOf(id) + step];
+    if (other === undefined) return;
+    const order = moveVisible(current.dashboard_order, shown, id, step);
     const at = list.findIndex((block) => block.id === id);
-    [list[at], list[at + step]] = [list[at + step], list[at]];
-    const block = list[at + step];
-    const where = t("{name}: place {n} of {total}", { name: t(block.label), n: number(at + step + 1), total: number(list.length) });
+    const to = list.findIndex((block) => block.id === other);
+    [list[at], list[to]] = [list[to], list[at]];
+    const block = list[to];
+    const where = t("{name}: place {n} of {total}", { name: t(block.label), n: number(to + 1), total: number(list.length) });
     save({ dashboard_order: orderChange(order) }, where, {
       selector: `button[data-move="${step}"][data-id="${id}"]`,
       fallback: `button[data-move="${-step}"][data-id="${id}"]`,

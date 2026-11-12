@@ -834,7 +834,7 @@ textarea.btn { font: inherit; resize: vertical; }
 .bs-list, .bs-order, .bs-single { list-style: none; margin: 0; padding: 0; }
 .bs-metric { border-top: 1px solid var(--line); padding: calc(var(--space) * 1.5) 0; }
 .bs-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space); }
-.bs-head h4 { margin: 0; font-size: 1rem; }
+.bs-head h3 { margin: 0; font-size: 1rem; line-height: inherit; }
 .bs-source { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space); padding: calc(var(--space) / 2) 0; }
 .bs-rank { min-width: 1.5em; font-variant-numeric: tabular-nums; font-weight: 600; }
 .bs-name { display: flex; flex-direction: column; flex: 1 1 12em; }

@@ -12,8 +12,9 @@ const STEPS = [
   ["coach", N("Set up your coach"), N("An AI coach reads your data and gives advice every day."), "#/coach/settings"],
 ];
 
-/** The card, or "" when there is nothing to do: setup is complete, put away or unknown. */
-export function setupGuideHtml(setup) {
+/** The card, or "" when there is nothing to do: setup is complete, put away or unknown.
+ * `open`: whether the steps show at once or wait behind the card's heading. */
+export function setupGuideHtml(setup, { open = true } = {}) {
   if (!setup || setup.complete || setup.dismissed) return "";
   const done = STEPS.filter(([id]) => setup.steps[id]).length;
   const next = STEPS.find(([id]) => !setup.steps[id])?.[0];
@@ -26,14 +27,16 @@ export function setupGuideHtml(setup) {
       <a class="btn${id === next ? " primary" : ""}" href="${href}" aria-label="${esc(ok ? t("Open: {step}", { step: t(title) }) : t(title))}">${esc(ok ? t("Open") : t("Set up"))}</a>
     </li>`;
   }).join("");
+  // A disclosure: open on a wide screen, closed on a phone, where today's advice has to stay
+  // on the first screen; the summary still says how far you are.
   return `<section class="card setup-guide" data-setup-guide aria-labelledby="setup-guide-title">
-    <div class="setup-guide-head">
-      <div><h2 id="setup-guide-title">${esc(t("Get started"))}</h2>
-        <p class="sub">${esc(t("Three steps and VibeSynergy works for you. {done} of {total} done.", { done, total: STEPS.length }))}</p></div>
-      <button class="btn" type="button" data-setup-dismiss>${esc(t("Hide this guide"))}</button>
-    </div>
-    <ol class="setup-steps">${rows}</ol>
-    <p class="sub" data-setup-status role="status" aria-live="polite"></p>
+    <details class="collapsible"${open ? " open" : ""}>
+      <summary><h2 id="setup-guide-title">${esc(t("Get started"))}</h2> <span class="sub">${esc(t("{done} of {total} done", { done, total: STEPS.length }))}</span></summary>
+      <p class="sub">${esc(t("Three steps and VibeSynergy works for you."))}</p>
+      <ol class="setup-steps">${rows}</ol>
+      <div class="setup-guide-foot"><button class="btn" type="button" data-setup-dismiss>${esc(t("Hide this guide"))}</button>
+        <span class="sub" data-setup-status role="status" aria-live="polite"></span></div>
+    </details>
   </section>`;
 }
 

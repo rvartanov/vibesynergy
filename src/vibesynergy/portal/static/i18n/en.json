@@ -3541,9 +3541,9 @@
  "Open: {step}": "Open: {step}",
  "Set up": "Set up",
  "Get started": "Get started",
- "Three steps and VibeSynergy works for you. {done} of {total} done.": "Three steps and VibeSynergy works for you. {done} of {total} done.",
  "Hide this guide": "Hide this guide",
  "No coach set up yet": "No coach set up yet",
  "Your AI coach gives advice every morning and evening and reviews your week. Set it up once and its advice shows here.": "Your AI coach gives advice every morning and evening and reviews your week. Set it up once and its advice shows here.",
- "Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server.": "Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server."
+ "Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server.": "Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server.",
+ "Three steps and VibeSynergy works for you.": "Three steps and VibeSynergy works for you."
 }

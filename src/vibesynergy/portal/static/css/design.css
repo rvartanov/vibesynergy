@@ -306,22 +306,19 @@ a.week-day:hover { background: var(--wash); }
 .dash-block[data-collapsed] h2 ~ :has(.dash-keep-line) :not(.dash-keep-line, .dash-keep-line *, :has(.dash-keep-line)) { display: none; }
 @media (prefers-reduced-motion: reduce) { .dash-collapse::after { transition: none; } }
 .dash-block-plain .tiles { margin-top: 0; }
-/* Get started: three steps with their state; the first one still to do is the main action. */
-.setup-guide { margin: 0 0 var(--space-4); border-left: 4px solid var(--action); }
-.setup-guide-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
-.setup-guide-head h2 { margin: 0; }
-.setup-steps { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+/* Get started: three steps with their state; the first one still to do is the main action.
+   A disclosure, closed on a phone (the page decides), so it costs one line there. */
+.setup-guide { margin: 0 0 var(--space-4); border-left: 4px solid var(--action); padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.setup-guide summary h2 { margin: 0; }
+.setup-steps { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .setup-step { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; border-top: 1px solid var(--line); }
 .setup-step .chip { justify-self: start; }
 .setup-step-text { display: grid; min-width: 0; }
 .setup-step .btn { min-width: 6rem; }
-/* On a phone the guide stays short, so today's advice is still on the first screen: the
-   state sits above the step's name and the explanation is left out. */
+.setup-guide-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--line); }
 @media (max-width: 600px) {
   .setup-step { grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-3); }
   .setup-step .chip { grid-column: 1 / -1; }
-  .setup-step-text .sub { display: none; }
-  .setup-guide-head .sub { margin: 0; }
 }
 /* Blocks left out because they have nothing to show yet, in one line. */
 .dash-nodata { margin: var(--space-4) 0 0; }
@@ -491,7 +488,7 @@ a.week-day:hover { background: var(--wash); }
    and a long name wraps beside the chip. */
 table.activities td { vertical-align: middle; }
 .activities .act-name { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.activities .act-name > a { min-width: 0; overflow-wrap: anywhere; }
+.activities .act-name > a { min-width: 0; overflow-wrap: break-word; }
 .ds-sport--icon { flex: none; padding: 1px 6px; gap: 0; }
 .activities .act-time { margin-left: var(--space-1); white-space: nowrap; }
 .activities td.date { white-space: nowrap; }
@@ -499,6 +496,8 @@ table.activities td { vertical-align: middle; }
   table.activities { font-size: var(--type-secondary); }
   .activities .act-time { display: block; margin-left: 0; }
   .activities .act-name { gap: var(--space-1); }
+  /* The bare sport icon, without its pill: every column has to fit next to it. */
+  .activities .ds-sport--icon { padding: 0; border: 0; background: none; }
 }
 .plan-session[data-sport] { border-left: 4px solid var(--sport-edge); padding-left: var(--space-3); }
 /* A list line that starts with a sport icon needs no bullet as well. */
@@ -591,38 +590,22 @@ table.activities td { vertical-align: middle; }
 .foot-link { font: inherit; color: var(--action); background: none; border: 0; min-height: var(--control); padding: 0 var(--space-3); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius); }
 .foot-link:hover { background: var(--subtle); }
 
-/* Quick add: in the header on a wide screen, a round button within thumb reach on a phone */
+/* Quick add: a button in the header on every screen; it opens the quick log in a dialog. */
 .quick-add { font: inherit; }
 .quick-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); padding: var(--space-3); }
 .quick-dialog::backdrop { background: rgb(0 0 0 / 40%); }
 .quick-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
 .quick-head h2 { margin: 0; }
-.quick-add-label { display: none; }
-/* On a phone the + is docked as a bar along the bottom edge, within thumb reach. It used to
-   float over the page and covered values in the last column of a table. The page keeps
-   room for it below the footer, and for the home indicator (safe area). */
-@media (max-width: 720px) {
-  body:has(.top .quick-add) { padding-bottom: calc(var(--control) + var(--space-1) + env(safe-area-inset-bottom, 0px)); }
-  html:has(.top .quick-add) { scroll-padding-bottom: calc(var(--control) + var(--space-4) + env(safe-area-inset-bottom, 0px)); }
-  .top .quick-add {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-    display: flex; align-items: center; justify-content: center; gap: var(--space-2);
-    width: 100%; height: calc(var(--control) + var(--space-1) + env(safe-area-inset-bottom, 0px));
-    padding: 0 max(var(--space-4), env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(var(--space-4), env(safe-area-inset-left, 0px));
-    border: 0; border-top: 1px solid var(--line); border-radius: 0;
-    background: var(--surface); color: var(--ink); font-weight: 600;
-  }
-  .top .quick-add:hover { background: var(--subtle); }
-  .top .quick-add:focus-visible { outline-offset: -3px; }
-  .quick-add-label { display: inline; }
-}
-/* The header is one row on a phone: tighter gaps, and the name gives way to the mark alone
-   on the narrowest screens (the link keeps its name for screen readers). */
+/* On a phone Quick add stays in the header, next to Search, Waiting for you and Settings: it
+   used to float over the page as a round button and covered values in the last column of a
+   table. Nothing floats over the content now. The header is one row: tighter gaps, and the
+   name gives way to the mark alone where five 44px buttons leave no room for it (the link
+   keeps its name for screen readers). */
 @media (max-width: 600px) {
-  .top { flex-wrap: wrap; gap: 6px; padding-left: 12px; padding-right: 12px; }
+  .top { flex-wrap: wrap; gap: 6px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
   .brand { min-width: 0; }
 }
-@media (max-width: 350px) {
+@media (max-width: 440px) {
   .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 

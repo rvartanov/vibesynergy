@@ -143,13 +143,17 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
             assert checkin["y"] >= today_bottom, (checkin, today)
             assert checkin["y"] + 48 <= first_screen, (checkin, first_screen)
             # One long start page in the default block order: the day's cards,
-            # then coming up and the calendar, the day in numbers and the diary.
+            # then coming up and the calendar, and the diary.
             tops = page.evaluate(
-                """() => ['.dash-today', '.dash-checkin', '.dash-recovery', '.dash-week',
-                    '#calendar', '#day-details-title', '#diary'].map(
+                """() => ['.dash-today', '.dash-checkin', '.dash-week', '.dash-recovery',
+                    '#calendar', '#diary'].map(
                     (sel) => document.querySelector(sel)?.getBoundingClientRect().top ?? null)"""
             )
             assert None not in tops and tops == sorted(tops), tops
+            # Blocks with nothing to show take no space: one line names them instead.
+            left_out = page.locator("[data-dash-nodata]")
+            if page.locator("#day-details-title").count() == 0:
+                assert left_out.is_visible() and "Key numbers" in left_out.inner_text()
             today_text = page.locator(".dash-today").inner_text()
             assert "Easy run" in today_text
             assert RUN_NAME in today_text

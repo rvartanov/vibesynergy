@@ -49,7 +49,7 @@ export async function bestSourceSettings(el, { stale, catalogue = {} }) {
     const id = domId(m.metric);
     return `<li class="bs-metric" data-metric="${esc(m.metric)}">
       <div class="bs-head">
-        <h4 id="${id}" tabindex="-1">${esc(label)}</h4>
+        <h3 id="${id}" tabindex="-1">${esc(label)}</h3>
         <span class="chip">${esc(m.custom ? t("Your order") : t("Default"))}</span>
         <span class="sub">${esc(nowText(m))}</span>
       </div>
@@ -128,7 +128,7 @@ export async function bestSourceSettings(el, { stale, catalogue = {} }) {
     const metric = item.dataset.metric;
     const m = data.metrics.find((row) => row.metric === metric);
     if (button.hasAttribute("data-bs-reset")) {
-      await save(metric, null, (again) => again.querySelector("h4").focus());
+      await save(metric, null, (again) => again.querySelector("h3").focus());
       return;
     }
     const source = button.dataset.source;

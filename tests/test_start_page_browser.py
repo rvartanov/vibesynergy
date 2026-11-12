@@ -173,23 +173,39 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
                 default[before - 2]
             )
 
-            # Hide the timeline with Space, then show it again.
+            # Hide Best efforts with Space, then show it again.
+            page.focus("input[data-show='bests']")
+            page.keyboard.press("Space")
+            _wait(lambda: "bests" not in _blocks(page), "best efforts hidden")
+            assert prefs.load(rt.settings.data_dir)["dashboard_hidden"] == ["bests"]
+            page.keyboard.press("Space")
+            _wait(lambda: "bests" in _blocks(page), "best efforts shown again")
+            _wait(
+                lambda: page.evaluate("() => document.activeElement?.dataset?.show") == "bests",
+                "focus back on the best efforts checkbox",
+            )
+
+            # The timeline has nothing to show: it is left out, named in one line and
+            # unticked here. Ticking it pins it, so it stays although it is empty.
+            assert not page.locator("[data-block='timeline']").is_visible()
+            assert "Timeline" in page.locator("[data-dash-nodata]").inner_text()
+            assert not page.is_checked("input[data-show='timeline']")
             page.focus("input[data-show='timeline']")
             page.keyboard.press("Space")
-            _wait(lambda: "timeline" not in _blocks(page), "timeline hidden")
-            assert prefs.load(rt.settings.data_dir)["dashboard_hidden"] == ["timeline"]
-            page.keyboard.press("Space")
-            _wait(lambda: "timeline" in _blocks(page), "timeline shown again")
+            _wait(lambda: page.locator("[data-block='timeline']").is_visible(), "timeline pinned")
+            assert prefs.load(rt.settings.data_dir)["dashboard_pinned"] == ["timeline"]
             _wait(
                 lambda: page.evaluate("() => document.activeElement?.dataset?.show") == "timeline",
                 "focus back on the timeline checkbox",
             )
+            assert "Timeline" not in page.locator("[data-dash-nodata]").inner_text()
 
             # Reset to the default layout.
             page.focus("[data-arrange-reset]")
             page.keyboard.press("Enter")
             _wait(lambda: _blocks(page) == default, "default order")
             assert "dashboard_order" not in prefs.load(rt.settings.data_dir)
+            assert "dashboard_pinned" not in prefs.load(rt.settings.data_dir)
 
             # Folded, the advice keeps its one line; unfold it again.
             page.click("[data-collapse='advice']")
@@ -209,16 +225,16 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
                 "advice unfolded",
             )
 
-            # Fold the timeline with the keyboard: the heading stays, the rest goes,
+            # Fold Coming up with the keyboard: the heading stays, the rest goes,
             # and it is remembered.
-            page.focus("[data-collapse='timeline']")
+            page.focus("[data-collapse='upcoming']")
             page.keyboard.press("Enter")
             _wait(
-                lambda: prefs.load(rt.settings.data_dir).get("dashboard_collapsed") == ["timeline"],
+                lambda: prefs.load(rt.settings.data_dir).get("dashboard_collapsed") == ["upcoming"],
                 "fold saved",
             )
-            assert page.get_attribute("[data-collapse='timeline']", "aria-expanded") == "false"
-            assert not page.locator("[data-block='timeline'] [data-timeline]").is_visible()
+            assert page.get_attribute("[data-collapse='upcoming']", "aria-expanded") == "false"
+            assert not page.locator("[data-block='upcoming'] [data-calendar-details]").is_visible()
 
             # Choose the best-runs period; it is saved and shown.
             page.select_option("[data-bests-period]", "all")
@@ -235,7 +251,7 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
             page.locator("[data-block='body'] .dash-body-weight").wait_for(timeout=20000)
             assert "Lichaam en metingen" in page.locator("[data-block='body']").inner_text()
             assert page.eval_on_selector("[data-bests-period]", "el => el.value") == "all"
-            assert page.get_attribute("[data-collapse='timeline']", "aria-expanded") == "false"
+            assert page.get_attribute("[data-collapse='upcoming']", "aria-expanded") == "false"
             page.click("[data-arrange-toggle]")
             violations = _axe(page)
             assert not violations, violations

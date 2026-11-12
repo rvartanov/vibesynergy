@@ -623,8 +623,6 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
-  const quickLabel = header.querySelector(".quick-add-label");
-  if (quickLabel) quickLabel.textContent = t("Quick add");
   const bug = document.querySelector(".foot .bug-report");
   if (bug) {
     bug.textContent = t("Report a bug");

@@ -96,7 +96,10 @@ export async function render(view, { args, query, meta, stale }) {
   const zone = (boardReply || dayReply)?.meta?.timezone;
   const viewState = captureViewState(view);
 
-  const guide = setupGuideHtml(setup);
+  // On a phone the guide waits behind its heading, so today's advice stays on the first
+  // screen; when the guide is all there is (nothing connected yet), it is open.
+  const narrow = window.matchMedia?.("(max-width: 600px)").matches;
+  const guide = setupGuideHtml(setup, { open: !narrow || Boolean(d.onboarding) });
   if (d.onboarding) {
     // Nothing connected and nothing measured yet: the guide is the page. Put away, the one
     // step that makes the page work stays.
@@ -227,7 +230,7 @@ export async function render(view, { args, query, meta, stale }) {
   const noData = { share, sourceConnected: setup ? setup.steps.source : true };
   paintNoData(view, blocks, noData);
   bindSetupGuide(view);
-  if (canArrange) bindArrange(view, { blocks, prefs, empty, noData, ctx: { args, query, meta, stale } });
+  const remountArrange = canArrange ? bindArrange(view, { blocks, prefs, empty, noData, ctx: { args, query, meta, stale } }) : null;
   const checkin = view.querySelector("[data-dash-checkin]");
   if (checkin) mountQuickLog(checkin, meta, stale, { variant: "dashboard" });
   bindComplaints(view, { args, query, meta, stale });
@@ -282,10 +285,13 @@ export async function render(view, { args, query, meta, stale }) {
         const el = view.querySelector('.dash-block[data-block="timeline"]');
         if (!timeline || !el || stale() || result?.timelineEmpty == null) return;
         const pinned = (prefs.dashboard_pinned || []).includes("timeline");
+        const was = Boolean(timeline.noData);
         timeline.noData = result.timelineEmpty && !pinned;
         el.hidden = timeline.noData;
         result.draw?.();
         paintNoData(view, blocks, noData);
+        // The arrange panel lists the block as it now is; left alone while you are in it.
+        if (was !== timeline.noData && !view.querySelector("#dash-arrange")?.contains(document.activeElement)) remountArrange?.();
       }),
     );
   }
@@ -422,9 +428,14 @@ function bindArrange(view, { blocks, prefs, empty, noData, ctx }) {
   const panel = view.querySelector("#dash-arrange");
   const toggle = view.querySelector("[data-arrange-toggle]");
   const container = view.querySelector("[data-dash-blocks]");
-  if (!panel || !toggle) return;
+  if (!panel || !toggle) return null;
   const available = blocks.map((block) => block.id);
-  mountArrange(panel, {
+  // The editor sits in a host of its own, so it can be set up again when the page learns
+  // more about a block (the timeline turns out to be empty, or not) after it was drawn.
+  const mount = () => {
+    const host = document.createElement("div");
+    panel.replaceChildren(host);
+    mountArrange(host, {
     blocks,
     prefs,
     onChange: (next, change) => {
@@ -444,7 +455,9 @@ function bindArrange(view, { blocks, prefs, empty, noData, ctx }) {
       relayout(container, arranged);
       paintNoData(view, arranged, noData);
     },
-  });
+    });
+  };
+  mount();
   toggle.addEventListener("click", () => {
     arrangeOpen = panel.hidden;
     panel.hidden = !arrangeOpen;
@@ -458,6 +471,7 @@ function bindArrange(view, { blocks, prefs, empty, noData, ctx }) {
     toggle.setAttribute("aria-expanded", "false");
     toggle.focus();
   });
+  return mount;
 }
 
 function bindRefresh(view, ctx) {
