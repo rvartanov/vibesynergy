@@ -358,10 +358,8 @@ def revert(
     after = detail.get("after")
     who = author or current_author()
     if action == "icu.wellness":
-        from vibesynergy.query.icu_wellness import restore_wellness
-
-        return restore_wellness(
-            engine, client, detail, reason=reason, author=who, audit_id=audit_id
+        raise IcuWriteError(
+            "Check-ins are no longer copied to intervals.icu, so that copy can't be undone here."
         )
     if action == "icu.mark":
         return _clear_mark(engine, detail, reason, who, audit_id)

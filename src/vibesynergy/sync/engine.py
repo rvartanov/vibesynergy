@@ -103,18 +103,6 @@ class SyncEngine:
             results.append(self.sync_dataset(source, spec, window, deadline=deadline))
         if source_id == "intervals_icu":
             try:
-                from vibesynergy.query.icu_wellness import retry_pending
-
-                retry_pending(self._engine, self._settings)
-            except Exception:
-                log.exception("intervals.icu check-in retry failed")
-            try:
-                from vibesynergy.query import activity_effort
-
-                activity_effort.retry_pending(self._engine, self._raw)
-            except Exception:
-                log.exception("intervals.icu RPE/Feel retry failed")
-            try:
                 from vibesynergy.core.timeutil import today_in
                 from vibesynergy.query import icu_notes
 

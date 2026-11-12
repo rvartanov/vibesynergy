@@ -1,7 +1,6 @@
 // RPE and Feel for one completed activity, on the start page and the activity page.
-// Scales and labels are intervals.icu's: RPE 1-10, Feel 1 (Strong) to 5 (Weak). A value
-// recorded on Garmin or intervals.icu is shown as is (its source only as a tooltip);
-// otherwise you pick one and it saves at once (the server copies it to intervals.icu).
+// RPE 1-10 and Feel 1 (Strong) to 5 (Weak). Garmin's value shows until you choose your own,
+// which saves at once and wins; choosing the empty option brings Garmin's back.
 import { post } from "./api.js";
 import { esc, sourceName } from "./format.js";
 import { N, t } from "./i18n.js";
@@ -29,7 +28,7 @@ function label(field, value) {
   return t(names[value - 1] || "");
 }
 
-// The intervals.icu word for an RPE (1-10) or Feel (1-5) value, in the UI language.
+// The word for an RPE (1-10) or Feel (1-5) value, in the UI language.
 export function effortLabel(field, value) {
   return label(field, value);
 }
@@ -44,15 +43,18 @@ function fieldHtml(key, field, name, names, entry) {
     return `<div class="effort-field"><span class="effort-name">${esc(t(name))}</span>
       <span title="${esc(sourceText(entry.source))}"><b>${esc(String(entry.value))}</b> · ${esc(label(field, entry.value))}</span></div>`;
   }
+  const own = entry.source === "vibesynergy" ? entry.value : null;
+  const garmin = entry.source === "garmin" ? entry.value : (entry.others || []).find((o) => o.source === "garmin")?.value;
   const options = names
     .map((text, index) => {
       const value = index + 1;
-      return `<option value="${value}"${entry.value === value ? " selected" : ""}>${value} · ${esc(t(text))}</option>`;
+      return `<option value="${value}"${own === value ? " selected" : ""}>${value} · ${esc(t(text))}</option>`;
     })
     .join("");
+  const empty = garmin != null ? t("Garmin: {value} · {label}", { value: garmin, label: label(field, garmin) }) : t("Not filled in");
   return `<div class="effort-field"><label class="effort-name" for="${esc(id)}">${esc(t(name))}</label>
     <select class="btn" id="${esc(id)}" data-effort-field="${field}">
-      <option value="">${esc(t("Not filled in"))}</option>${options}
+      <option value=""${own == null ? " selected" : ""}>${esc(empty)}</option>${options}
     </select></div>`;
 }
 

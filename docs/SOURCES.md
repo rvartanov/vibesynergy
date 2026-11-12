@@ -444,11 +444,11 @@ References: [CalDAV RFC 4791](https://www.rfc-editor.org/rfc/rfc4791),
 
 intervals.icu is where VibeSynergy puts the active plan, so its workouts reach Zwift and the
 other services connected there. Read: calendar events (cached in `icu_event`, migration 0032),
-the workout library, and activities for the RPE and Feel recorded there (raw archive, one
-payload per month). Fitness, fatigue, form, load and time in zones are VibeSynergy's own
+the workout library, and activities for which plan workout intervals.icu paired them with
+and its compliance (raw archive, one payload per month). Fitness, fatigue, form, load and time in zones are VibeSynergy's own
 (`query/fitness_model.py`, `query/own_load.py`); intervals.icu's are not read, and its
 `wellness` dataset is no longer synced (since 11-11-2026).
-Writes (plan events, check-in wellness, RPE/Feel, descriptions) are described under
+Writes (plan events, descriptions, opt-in private notes) are described under
 `query/icu_plan.py`, `query/icu_wellness.py` and `query/activity_effort.py`.
 
 The API key and athlete id are entered on the intervals.icu card under Settings → Sources
@@ -487,25 +487,13 @@ workout on the same date and sport stays, linked as one pair flagged `dubbel`.
 `vibesynergy_icu_resolve_duplicate` deletes the plan event when `keep` is `garmin`, or marks
 the Coach session for the athlete when `keep` is `plan`. Garmin Coach is not deleted from here.
 
-A saved morning check-in is also written to intervals.icu wellness for that date
-(`PUT /athlete/{id}/wellness/{date}`), unless
-`[sources.intervals_icu] checkin_wellness = false`. Only mood, soreness, fatigue,
-stress, motivation and sleepQuality are sent, on intervals.icu's 1-4 scale, where
-1 is good and 4 is bad for every one of those fields. Soreness and stress compress
-directly. Mood, motivation and sleep quality are reversed, because a high VibeSynergy
-score is a good day. An empty field is cleared with -1. hrv, restingHR, sleepSecs
-and sleepScore are never sent. The
-check-in is saved even when intervals.icu does not accept the write; the next sync
-tries again. The audit log keeps the previous and new values, and
-`vibesynergy_icu_revert` puts the previous values back. VibeSynergy's check-in has no
-fatigue score, so fatigue is left out.
+Morning check-ins stay in VibeSynergy: they are not written to intervals.icu (since
+12-11-2026). RPE and Feel are not read from or written to intervals.icu either (see below).
 
-**RPE and Feel.** Activities' `icu_rpe` (1-10) and `feel` (1 Strong … 5 Weak) are read
-from the raw `activities` archive and shown with their source. A value entered in VibeSynergy
-(only when Garmin and intervals.icu have none) is written with `PUT /activity/{id}`
-(`icu_rpe`, `feel` only) after reading the activity; a different value there is kept.
-Garmin's `directWorkoutRpe` (10-100) and `directWorkoutFeel` (0-100, 100 very strong) are
-converted to the same scales. Garmin is not written: `garminconnect` has no call for them.
+**RPE and Feel.** From Garmin (`directWorkoutRpe` 10-100 and `directWorkoutFeel` 0-100, 100
+very strong, converted to RPE 1-10 and Feel 1 Strong … 5 Weak) or entered in VibeSynergy,
+which is always possible and wins over Garmin's value (that stays visible as the other one).
+Garmin is not written: `garminconnect` has no call for them.
 
 **Private notes (opt-in, off by default).** intervals.icu has no private activity note:
 the description and activity chat follow the activity's visibility. Wellness `comments` can

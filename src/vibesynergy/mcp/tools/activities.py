@@ -78,9 +78,9 @@ def register(kit: ToolKit) -> None:
         id: str, rpe: int | None = None, feel: int | None = None
     ) -> dict[str, Any]:
         """Save how an activity went, as the user said it: rpe 1-10 (1 Nothing at all … 10
-        Max effort) and/or feel 1-5 (1 Strong, 2 Good, 3 Normal, 4 Poor, 5 Weak). Refused
-        for a field Garmin or intervals.icu already has; VibeSynergy then copies it to
-        intervals.icu without replacing a value there."""
+        Max effort) and/or feel 1-5 (1 Strong, 2 Good, 3 Normal, 4 Poor, 5 Weak). The
+        user's entry wins over what Garmin recorded (that stays visible as the other
+        value); nothing is written to intervals.icu."""
         from vibesynergy.query import activity_effort
 
         return diary_changed(activity_effort.set_effort(engine, rt.raw, id, rpe=rpe, feel=feel))

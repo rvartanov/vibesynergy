@@ -3503,5 +3503,6 @@
  "Your coach reads these choices before giving advice and when planning your weeks in intervals.icu. Changes apply at once.": "Your coach reads these choices before giving advice and when planning your weeks in intervals.icu. Changes apply at once.",
  "Races in your intervals.icu plan always reach your coach. Here you choose what else counts: Garmin goals, Garmin events and races you add yourself. Changes save as you edit.": "Races in your intervals.icu plan always reach your coach. Here you choose what else counts: Garmin goals, Garmin events and races you add yourself. Changes save as you edit.",
  "VibeSynergy puts these workouts on your Garmin calendar itself, with a symbol in the name. Strength and pilates always come from VibeSynergy. Indoor rides keep going to Zwift through intervals.icu.": "VibeSynergy puts these workouts on your Garmin calendar itself, with a symbol in the name. Strength and pilates always come from VibeSynergy. Indoor rides keep going to Zwift through intervals.icu.",
- "Activities on intervals.icu, for the RPE and Feel set there": "Activities on intervals.icu, for the RPE and Feel set there"
+ "Activities on intervals.icu, for the RPE and Feel set there": "Activities on intervals.icu, for the RPE and Feel set there",
+ "Garmin: {value} · {label}": "Garmin: {value} · {label}"
 }

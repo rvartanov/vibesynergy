@@ -33,6 +33,13 @@ from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import activity_effort, evidence, publication_format, views
 from vibesynergy.store.schema import activity_unified, audit_log, publication_ledger
 
+
+def _configured() -> bool:
+    from vibesynergy.sources.intervals_icu.client import account_label
+
+    return account_label() is not None
+
+
 log = logging.getLogger(__name__)
 
 SOURCE = "intervals_icu"
@@ -50,7 +57,7 @@ def enabled(rt) -> bool:
     from vibesynergy.core.config import load_settings
 
     pub = load_settings(rt.settings.config_path).publication
-    return bool(pub.get("icu_description_enabled", True)) and activity_effort._configured()
+    return bool(pub.get("icu_description_enabled", True)) and _configured()
 
 
 def _client(client=None):
@@ -264,7 +271,7 @@ def remove(rt, activity_id: str, *, client=None) -> dict[str, Any]:
                 select(publication_ledger.c.source_id).where(publication_ledger.c.source == SOURCE)
             )
         }
-    if not written or (client is None and not activity_effort._configured()):
+    if not written or (client is None and not _configured()):
         return {"state": "not_published"}
     client_ = _client(client)
     found = match(rt, group, client_)
