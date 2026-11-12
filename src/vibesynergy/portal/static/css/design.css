@@ -598,14 +598,20 @@ table.activities td { vertical-align: middle; }
 .quick-head h2 { margin: 0; }
 /* On a phone Quick add stays in the header, next to Search, Waiting for you and Settings: it
    used to float over the page as a round button and covered values in the last column of a
-   table. Nothing floats over the content now. The header is one row: tighter gaps, and the
-   name gives way to the mark alone where five 44px buttons leave no room for it (the link
-   keeps its name for screen readers). */
+   table. Nothing floats over the content now. The header is one row. The name stays next
+   to the mark: on a narrow phone it is set smaller and the gaps tighten, and only below
+   370px, where five 44px buttons leave no room, the mark stands alone (the link keeps its
+   name for screen readers). */
 @media (max-width: 600px) {
   .top { flex-wrap: wrap; gap: 6px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
   .brand { min-width: 0; }
 }
 @media (max-width: 440px) {
+  .top { gap: 2px; }
+  .brand { font-size: 14px; gap: 6px; }
+  .brand-name { white-space: nowrap; }
+}
+@media (max-width: 369px) {
   .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
