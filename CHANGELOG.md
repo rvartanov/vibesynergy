@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Check for updates** on Settings → System → About this version asks GitHub now instead of
+  waiting for the hourly check, and shows when it last looked
+  ([#22](https://github.com/rvartanov/vibesynergy/pull/22)).
 - Race predictions for 5 km, 10 km, 10 miles, half marathon, marathon and 50 km on
   Fitness → Form, from your threshold pace and recent runs, with how certain each is, the
   change against six weeks ago and Garmin's prediction next to it; also over MCP
@@ -67,6 +70,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Settings → System on a phone: a long line in the update log wraps instead of making the
+  whole page wider than the screen, and the weather choice shows each option on one row
+  ([#22](https://github.com/rvartanov/vibesynergy/pull/22)).
 - The name VibeSynergy is back next to the logo on phones; only screens narrower than 370px
   show the logo alone ([#21](https://github.com/rvartanov/vibesynergy/pull/21)).
 - Planning & progress no longer fails to load without a plan; it says how to get one. "Are

@@ -3545,5 +3545,8 @@
  "No coach set up yet": "Nog geen coach ingesteld",
  "Your AI coach gives advice every morning and evening and reviews your week. Set it up once and its advice shows here.": "Je AI-coach geeft elke ochtend en avond advies en bespreekt je week. Stel hem één keer in en het advies staat hier.",
  "Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server.": "Opent het meldformulier op GitHub in een nieuw tabblad, met deze versie en de pagina waar je bent al ingevuld. Vanaf deze server wordt niets verstuurd.",
- "Three steps and VibeSynergy works for you.": "Drie stappen en VibeSynergy werkt voor je."
+ "Three steps and VibeSynergy works for you.": "Drie stappen en VibeSynergy werkt voor je.",
+ "Check for updates": "Controleer op updates",
+ "Checking…": "Controleren…",
+ "Could not check: {error}": "Controleren lukte niet: {error}"
 }

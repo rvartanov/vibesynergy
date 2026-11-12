@@ -73,6 +73,9 @@ def test_updates_counts_commits_and_lists_pr_titles(monkeypatch) -> None:
     assert out["titles"] == ["Plan model: tables", "Garmin: swim"]
     calls.clear()
     assert about.updates(now=10_100.0) is out and calls == []  # cached
+    assert about.updates(now=10_010.0, fresh=True) is out and calls == []  # asked seconds ago
+    fresh = about.updates(now=10_100.0, fresh=True)  # Check for updates: asks again
+    assert fresh is not out and fresh["behind"] == 5 and "fetch" in calls
 
 
 def test_update_now_starts_the_unit_only_when_it_may(runtime, monkeypatch) -> None:
