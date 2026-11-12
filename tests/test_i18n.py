@@ -155,6 +155,77 @@ def test_server_sentences_have_a_dutch_translation() -> None:
     assert not missing, f"add to static/i18n/nl.json: {json.dumps(missing, indent=1)}"
 
 
+# t(`sport: ${name}`): a key built on the page; its fixed parts decide which keys it can reach.
+TEMPLATE_CALL = re.compile(r"\b[tN]\(\s*`((?:[^`\\]|\\.)*\$\{(?:[^`\\]|\\.)*)`")
+
+
+def _source_literals() -> tuple[set[str], str]:
+    """Every string literal in the server code, and the portal's own JS and HTML as text."""
+    import ast
+
+    src = STATIC.parents[2]
+    literals: set[str] = set()
+    for path in sorted(src.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                literals.add(node.value)
+    pages = [*sorted((STATIC / "js").rglob("*.js")), *sorted(STATIC.glob("*.html"))]
+    pages.append(STATIC / "sw.js")
+    return literals, "\n".join(path.read_text() for path in pages)
+
+
+def _quoted(key: str) -> tuple[str, str, str]:
+    """The key as it would be written in JavaScript: "…", '…' or `…`."""
+    body = json.dumps(key, ensure_ascii=False)[1:-1]
+    plain = body.replace('\\"', '"')
+    return (
+        f'"{body}"',
+        "'" + plain.replace("'", "\\'") + "'",
+        "`" + plain.replace("`", "\\`") + "`",
+    )
+
+
+def unused_keys(keys: list[str]) -> list[str]:
+    """Catalogue keys that no page and no server code can ask for.
+
+    Used means: a collector in this file yields it (t()/N() and tr() calls, metric labels,
+    diary choices, the server's fixed texts, the sign-in pages, the icon labels), a page
+    builds it (t(`sport: ${name}`)), or it is a string literal somewhere in the server code
+    or the portal's JS/HTML, which covers texts the server sends and a page shows with
+    t(value).
+    """
+    from vibesynergy import alerts, history
+    from vibesynergy.api import oauth
+
+    literals, pages = _source_literals()
+    used = set(texts()) | literals | set(oauth.UI_STRINGS)  # literals include every tr("…")
+    used |= {m.label for m in catalog.KNOWN.values() if m.label}
+    words = [*journal.SUGGESTED_TAGS, *journal.BODY_PARTS, *journal.SIDES, *journal.KINDS]
+    used |= {w.replace("_", " ") for w in [*words, *journal.STATUSES, *journal.TIMINGS]}
+    used |= {journal.NOT_A_DIAGNOSIS, *(e["steps"] for e in history.EXPORTS.values())}
+    used |= {*history.ARCHIVES.values(), *(label for label, _ in alerts.KINDS.values())}
+    built = [
+        re.compile(".+".join(re.escape(part) for part in re.split(r"\$\{[^}]*\}", raw)))
+        for raw in TEMPLATE_CALL.findall(pages)
+    ]
+    return [
+        key
+        for key in keys
+        if key not in used
+        and not any(pattern.fullmatch(key) for pattern in built)
+        and not any(form in pages for form in _quoted(key))
+    ]
+
+
+def test_every_catalogue_key_is_used() -> None:
+    """A text that no page or server code asks for any more leaves both catalogues."""
+    unused = unused_keys(list(english()))
+    assert not unused, (
+        f"remove from static/i18n/en.json and nl.json ({len(unused)} unused): "
+        f"{json.dumps(unused, indent=1, ensure_ascii=False)}"
+    )
+
+
 def test_the_server_writes_dutch_when_asked() -> None:
     from vibesynergy.i18n import ENGLISH, translator
 
@@ -248,12 +319,12 @@ if (resolveLanguage(storedLanguage(), 'en') !== 'nl') throw new Error('resolve s
 if (resolveLanguage(null, 'nl') !== 'nl') throw new Error('resolve prefs');
 if (resolveLanguage(null, 'auto', 'en') !== 'en') throw new Error('resolve auto');
 await setLanguage(storedLanguage());
-if (language() !== 'nl' || t('Appearance') !== 'Weergave' || t('Settings') !== 'Instellingen') {
+if (language() !== 'nl' || t('Language') !== 'Taal' || t('Settings') !== 'Instellingen') {
   throw new Error('dutch');
 }
 persistLanguage('en');
 await setLanguage(storedLanguage());
-if (language() !== 'en' || t('Appearance') !== 'Appearance') throw new Error('english');
+if (language() !== 'en' || t('Language') !== 'Language') throw new Error('english');
 process.stdout.write('ok\n');
 """
     result = subprocess.run(

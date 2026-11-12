@@ -8,13 +8,13 @@ const NETWORK = /network|connect|timeout|timed out|unreachable|temporar|\b50[023
 export function syncAdvice(source, error) {
   const calendar = source === "caldav";
   if (calendar) {
-    if (LOGIN.test(error || "")) return t("Your calendar couldn't be read. Sign in again in Settings → Calendar.");
+    if (LOGIN.test(error || "")) return t("Your calendar couldn't be read. Sign in again in Settings → Sources → Calendar.");
     if (NETWORK.test(error || "")) return t("Your calendar couldn't be read. Try again later.");
-    return t("Your calendar couldn't be read. Check Settings → Calendar or try again later.");
+    return t("Your calendar couldn't be read. Check Settings → Sources → Calendar or try again later.");
   }
-  if (LOGIN.test(error || "")) return t("Your data couldn't be updated. Sign in again in Settings → Data sources.");
+  if (LOGIN.test(error || "")) return t("Your data couldn't be updated. Sign in again in Settings → Sources.");
   if (NETWORK.test(error || "")) return t("Your data couldn't be updated. Try again later.");
-  return t("Your data couldn't be updated. Check Data → Sources or try again later.");
+  return t("Your data couldn't be updated. Check Settings → Sources or try again later.");
 }
 
 export function syncDetails(error) {

@@ -63,13 +63,21 @@ def register(kit: PortalKit) -> None:
         language = lang if lang in ("nl", "en") else "nl"
         return envelope({"places": activity_weather.places(q, language)})
 
+    def _own_plan_leads() -> None:
+        """Sessions change here only in VibeSynergy's own plan; say which case it is not."""
+        from vibesynergy.query import plan_model
+
+        if plan_model.current_plan_id(engine) is None:
+            raise ValueError("There is no plan yet.")
+        if plan_model.source(engine) != "vibesynergy":
+            raise ValueError("intervals.icu leads the plan: change it there")
+
     @router.post("/plan/session/move")
     def plan_session_move(request: PlanSessionChange) -> dict[str, Any]:
         """Move a planned session from the calendar while VibeSynergy leads."""
         from vibesynergy.query import plan_model
 
-        if plan_model.source(engine) != "vibesynergy":
-            raise ValueError("intervals.icu leads the plan: change it there")
+        _own_plan_leads()
         if not request.date:
             raise ValueError("date is required")
         out = plan_model.move_session(
@@ -87,8 +95,7 @@ def register(kit: PortalKit) -> None:
         """Take a planned session out of the plan from the calendar."""
         from vibesynergy.query import plan_model
 
-        if plan_model.source(engine) != "vibesynergy":
-            raise ValueError("intervals.icu leads the plan: change it there")
+        _own_plan_leads()
         out = plan_model.skip_session(
             engine, session_id=request.session_id, reason="skipped in the calendar", author="portal"
         )

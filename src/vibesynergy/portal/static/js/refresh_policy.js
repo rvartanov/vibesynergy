@@ -1,6 +1,6 @@
 /** Whether an open data page should reload now.
 
-`refreshMin` is the Appearance setting in minutes. 0 means automatic reload is off,
+`refreshMin` is the Page refresh setting (Settings → System) in minutes. 0 means automatic reload is off,
 including across midnight. The page checks about every `pollMs`. Reloading one check
 before the setting keeps the wait inside that setting instead of one check past it.
 A calendar-day change reloads at once while automatic reload is on. A hidden document

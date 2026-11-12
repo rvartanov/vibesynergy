@@ -330,8 +330,9 @@ def register(kit: PortalKit) -> None:
 
     @router.get("/data")
     def data_page() -> dict[str, Any]:
-        """Data & sync: sources, every dataset's sync state, problems, the job queue and
-        the raw archive per dataset (as `vibesynergy status` and vibesynergy_sync_status)."""
+        """Settings → Sources → Status: sources, every dataset's sync state, problems, the job
+        queue and the raw archive per dataset (as `vibesynergy status` and
+        vibesynergy_sync_status)."""
         status = views.sync_status(engine)
         enabled = set(rt.registry.enabled_ids())
         sources = [

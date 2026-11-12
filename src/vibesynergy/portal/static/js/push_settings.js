@@ -1,4 +1,4 @@
-// Settings → Notifications: alerts as push notifications on this device. The browser
+// Settings → Alerts: alerts as push notifications on this device. The browser
 // asks for permission only after a tap. On an iPhone this works once VibeSynergy is on the
 // home screen (iOS 16.4 or later). Which alerts go to push is chosen per kind below.
 import { get, post } from "./api.js";

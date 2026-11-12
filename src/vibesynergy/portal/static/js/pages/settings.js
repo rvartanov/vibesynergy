@@ -218,7 +218,7 @@ function draw(view, ctx, flash = "") {
       <details class="card collapsible settings-more" data-best-source-details><summary>${t("Best source per measurement")}</summary><section data-best-source></section></details>
       <section class="card settings-section" data-section="dropfolder">
         <h2>${t("Drop folder")}</h2>
-        <p class="sub">${t("Activity files (FIT, GPX, TCX, zip) put in this folder on this server are imported every few minutes, then moved to imported/ (or failed/ with the reason). Uploads on Data → History land here too.")}</p>
+        <p class="sub">${t("Activity files (FIT, GPX, TCX, zip) put in this folder on this server are imported every few minutes, then moved to imported/ (or failed/ with the reason). Uploads on Settings → Sources → History land here too.")}</p>
         <div class="settings-grid">${field(t("Folder on this server"), "dir", s.dropfolder.dir, `placeholder="${esc(s.dropfolder.effective)}"`)}</div>
         <p class="sub">${t("Now")}: <code>${esc(s.dropfolder.effective)}</code></p>
         ${saveRow()}

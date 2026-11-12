@@ -250,8 +250,9 @@ def register(kit: ToolKit) -> None:
         """Plan against done per Monday-to-Sunday week and per training phase, the
         same numbers as the Planning & progress page. Per week: goal_s per sport
         (the plan's weekly target time, else the planned workouts; basis says which),
-        done_s, done_pct, planned and done load (intervals.icu's), counts of done /
-        changed / missed / extra workouts, sessions_done_pct (done of the planned workouts
+        done_s, done_pct, planned_load (intervals.icu's estimate of the planned workouts) and
+        done_load (VibeSynergy's own load of the activities), counts of done / changed /
+        missed / extra workouts, sessions_done_pct (done of the planned workouts
         whose day passed) and compliance_avg (intervals.icu's compliance of the paired
         ones). start/end are dates (their Mondays count); default the ``weeks`` weeks
         ending with this one (at most 52). Per-workout detail of one week: vibesynergy_week."""

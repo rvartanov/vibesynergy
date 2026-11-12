@@ -116,7 +116,7 @@ html { scroll-padding-top: 8rem; }
 [data-chat-form] button { justify-self: start; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-/* Settings → Calendar (iCal / CalDAV): form fields, show/hide password, calendar choices. */
+/* Settings → Sources → Calendar (iCal / CalDAV): form fields, show/hide password, calendar choices. */
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field label, .cal-list legend { font-size: 14px; color: var(--ink); }
 .field input, .field select { width: 100%; min-width: 0; }

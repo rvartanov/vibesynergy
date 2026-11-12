@@ -387,7 +387,7 @@ select:disabled { opacity: 0.5; }
 .legend.key i.faint { opacity: 0.35; }
 .legend.key i.compare { background: var(--muted); }
 
-/* Data & sync --------------------------------------------------------------------------- */
+/* Settings → Sources → Status --------------------------------------------------------------------------- */
 
 section.card, section.grid { margin-top: 12px; }
 .page-head + .flash + section, .page-head + section { margin-top: 0; }
@@ -660,7 +660,7 @@ textarea.btn { font: inherit; resize: vertical; }
 
 .publication-description { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; padding: 12px; background: var(--surface); border: 1px solid var(--grid); border-radius: var(--radius); }
 
-/* History on Data & sync: fill runs with a progress bar. */
+/* History on Settings → Sources → Status: fill runs with a progress bar. */
 .fills { list-style: none; margin: 0 0 8px; padding: 0; }
 .fills .fill { padding: 10px 0; border-top: 1px solid var(--grid); }
 .fills .fill:first-child { border-top: 0; padding-top: 0; }

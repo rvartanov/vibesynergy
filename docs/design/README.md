@@ -214,7 +214,7 @@ disclosures and unsaved values.
 | Status notice | Icon + text + action; success/warning/error/neutral are independent of zone colours |
 | Source card | Connection and dataset freshness independently; local failure does not mark every source offline |
 | Destructive/action review | Exact object, ownership, outcome, cancellation and read-back status |
-| Settings navigation | Page links with `aria-current="page"`, including Data → Sources, Sync and History. Wraps on a narrow screen |
+| Settings navigation | Page links with `aria-current="page"`, including Sources with its Connections, Status and History. Wraps on a narrow screen |
 | Coach conversation | Plain assessment first, evidence in a disclosure, chat log with a pending status, reading width `--measure` |
 | Route status | After navigation, announce the page title. Do not mark the whole main region as a live region |
 

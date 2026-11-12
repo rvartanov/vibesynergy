@@ -1,4 +1,4 @@
-"""Settings → Calendar: sign in to an iCal / CalDAV account, choose calendars, disconnect.
+"""Settings → Sources → Calendar: sign in to an iCal / CalDAV account, choose calendars, disconnect.
 
 Everything is write-only for secrets: the page gets ``connected``/``password_set``/
 ``client_set`` flags, never a password, token or client secret. Errors carry a ``code`` the

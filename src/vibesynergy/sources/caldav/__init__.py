@@ -1,7 +1,7 @@
 """Opt-in read-only ingestion of explicitly selected iCal / CalDAV calendars (any provider).
 
-Setup happens in the portal (Settings → Calendar): sign-in, calendar discovery and selection
-are verified server-side and the credentials are kept encrypted in the secret store.
+Setup happens in the portal (Settings → Sources → Calendar): sign-in, calendar discovery and
+selection are verified server-side and the credentials are kept encrypted in the secret store.
 """
 
 from datetime import datetime, timedelta
@@ -18,7 +18,7 @@ from vibesynergy.sources.caldav.client import IncrementalSnapshotInvalid, calend
 class CalDAVSource(Source):
     id = "caldav"
     name = "iCal / CalDAV calendar"
-    live_config = True  # Settings → Calendar enables it and picks calendars while running
+    live_config = True  # Settings → Sources → Calendar enables it and picks calendars while running
 
     def __init__(self, ctx):
         super().__init__(ctx)
@@ -52,7 +52,7 @@ class CalDAVSource(Source):
         # Built per sync, so a new sign-in applies without restarting the service.
         stored = self.ctx.secrets.get(account.ACCOUNT) or {}
         if not stored or (stored.get("kind") != "oauth" and not stored.get("password")):
-            raise ValueError("CalDAV account missing; sign in under Settings → Calendar")
+            raise ValueError("CalDAV account missing; sign in under Settings → Sources → Calendar")
         from vibesynergy.sources.http_timeout import http_timeout_seconds, requests_timeout_pair
 
         timeout = requests_timeout_pair(http_timeout_seconds(self.ctx.settings, self.id))
@@ -69,7 +69,9 @@ class CalDAVSource(Source):
     def fetch(self, dataset, window):
         selected = self.selected()
         if not selected or window is None:
-            raise ValueError("Select at least one calendar (Settings → Calendar) and a window")
+            raise ValueError(
+                "Select at least one calendar (Settings → Sources → Calendar) and a window"
+            )
         snapshots = []
         stored = self.ctx.secrets.get(account.ACCOUNT) or {}
         identity = digest(
@@ -137,6 +139,6 @@ class CalDAVSource(Source):
 
     def authenticate(self):
         raise ValueError(
-            "iCal / CalDAV calendars are set up in the portal: Settings → Calendar. "
+            "iCal / CalDAV calendars are set up in the portal: Settings → Sources → Calendar. "
             "Nothing is entered in the shell."
         )

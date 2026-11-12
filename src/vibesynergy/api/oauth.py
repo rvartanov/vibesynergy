@@ -6,7 +6,8 @@ How an AI app (Claude, ChatGPT, …) gets access:
    ``WWW-Authenticate`` header pointing at the protected-resource metadata.
 2. It registers itself (dynamic client registration) and sends the user's browser to
    ``/vibesynergy/authorize``. VibeSynergy shows a page naming the app and each permission in
-   plain words. The owner types the passphrase (set in Settings → Coach apps) and approves.
+   plain words. The owner types the passphrase (set in Settings → Sharing → Coach apps) and
+   approves.
 3. The app exchanges the one-time code (with PKCE) for an access token (1 hour) and a
    refresh token (90 days, replaced on every use). Each app's access can be revoked with
    ``vibesynergy mcp revoke <client id>``.

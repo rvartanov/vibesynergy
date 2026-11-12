@@ -409,7 +409,7 @@ def backfill(
         bool,
         typer.Option(
             help="Let the service fill it (resumes after restarts, waits out rate limits; "
-            "progress on Data & sync) instead of running here."
+            "progress on Settings → Sources → Status) instead of running here."
         ),
     ] = False,
     config: ConfigOpt = None,
@@ -442,7 +442,8 @@ def backfill(
             _fail(str(exc))
         console.print(
             f"Filling {source} from {fill['start']} to {fill['end']} ({fill['total']} months) "
-            "in the background; follow it on Data & sync or with `vibesynergy status`."
+            "in the background; follow it on Settings → Sources → Status or with "
+            "`vibesynergy status`."
         )
         return
     try:
@@ -470,7 +471,7 @@ def auth(source: str, config: ConfigOpt = None) -> None:
     """Log in to a source; only tokens are stored (under the config directory)."""
     if source == "caldav":
         # Integration setup goes through the portal, never the shell: nothing is prompted.
-        _fail("iCal / CalDAV calendars are set up in the portal: Settings → Calendar.")
+        _fail("iCal / CalDAV calendars are set up in the portal: Settings → Sources → Calendar.")
     rt = _runtime(config, require_schema=False)
     try:
         rt.registry.get(source, require_enabled=False).authenticate()
@@ -516,7 +517,7 @@ def _offer_history(rt: Runtime, source: str) -> None:
         )
         console.print(
             f"Started (run {fill['id']}); the service fetches it month by month. "
-            "Follow it on Data & sync, or change the period there."
+            "Follow it on Settings → Sources → Status, or change the period there."
         )
 
 
@@ -664,7 +665,7 @@ def serve(
                 publication_mirror.JOB: lambda: publication_mirror.due(rt),
                 # Garmin → Strava: new activities, when Settings → Sync switched it on.
                 publication_auto.JOB: lambda: publication_auto.due(rt),
-                # Garmin → CalDAV mirror. Off until Settings → Calendar turns it on.
+                # Garmin → CalDAV mirror. Off until Settings → Sync between sources turns it on.
                 calendar_mirror.JOB: lambda: calendar_mirror.due(rt),
                 # Strength and pilates with exercise steps to Garmin.
                 garmin_strength.JOB: lambda: garmin_strength.due(rt),
@@ -759,7 +760,8 @@ def mcp(
         print(f"{base}/vibesynergy/mcp")
         if not SecretStore(rt.settings.secrets_dir, "mcp").get("passphrase"):
             console.print(
-                "[yellow]No passphrase yet. Set it in the portal: Settings → Coach apps.[/]"
+                "[yellow]No passphrase yet. Set it in the portal: "
+                "Settings → Sharing → Coach apps.[/]"
             )
         return
     from vibesynergy.mcp.identity import reset_connection, set_connection
@@ -855,7 +857,7 @@ def mcp_token_create(
     ] = None,
     config: ConfigOpt = None,
 ) -> None:
-    """Create a personal access token. Prefer Settings → Coach apps. Printed once."""
+    """Create a personal access token. Prefer Settings → Sharing → Coach apps. Printed once."""
     from vibesynergy.api import oauth
 
     rt = _runtime(config)
@@ -866,7 +868,7 @@ def mcp_token_create(
     except IntegrityError:
         _fail("name already used")
     console.print(
-        "Connect a coach in the portal: Settings → Coach apps. "
+        "Connect a coach in the portal: Settings → Sharing → Coach apps. "
         f"This token expires in {days} days. It is shown once:"
     )
     print(token)

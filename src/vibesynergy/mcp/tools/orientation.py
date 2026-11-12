@@ -172,6 +172,8 @@ def register(kit: ToolKit) -> None:
         week note and week targets in step (COACH-5)."""
         from vibesynergy.query import plan_model
 
+        if plan_model.current_plan_id(engine) is None:
+            raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
         if plan_model.source(engine) != "vibesynergy":
             raise ToolError(
                 "intervals.icu still leads the plan: use vibesynergy_icu_create_event or "
@@ -197,6 +199,8 @@ def register(kit: ToolKit) -> None:
     def _vibesynergy_leads() -> None:
         from vibesynergy.query import plan_model
 
+        if plan_model.current_plan_id(engine) is None:
+            raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
         if plan_model.source(engine) != "vibesynergy":
             raise ToolError(
                 "intervals.icu still leads the plan: change the week note or target there "
@@ -479,7 +483,7 @@ def register(kit: ToolKit) -> None:
             raise ToolError(
                 "public_insight ends up in the public Strava/Garmin description, and this app "
                 "isn't allowed to publish. Write the entry without public_insight, or ask the "
-                "athlete to allow publishing for this app (Settings → Coach apps)."
+                "athlete to allow publishing for this app (Settings → Sharing → Coach apps)."
             )
         day = _date(for_date)
         meta = coach_workouts.write_meta(

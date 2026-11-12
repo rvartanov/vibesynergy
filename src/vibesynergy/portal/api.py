@@ -139,8 +139,8 @@ class RacePriorityRequest(BaseModel):
 
 MAX_EXPLORER_METRICS = 6
 
-# Data & sync: the coverage map's rows, and job priorities. Webhooks use 10 and scheduled
-# syncs 0; a long re-sync runs below both, so it never holds up the regular updates.
+# Settings → Sources → Status: the coverage map's rows, and job priorities. Webhooks use 10 and
+# scheduled syncs 0; a long re-sync runs below both, so it never holds up the regular updates.
 COVERAGE_METRICS = [
     "sleep.score",
     "hrv.night_avg",

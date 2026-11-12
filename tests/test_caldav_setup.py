@@ -806,7 +806,7 @@ def test_cli_auth_for_calendars_points_to_the_portal_and_never_prompts(env, monk
     monkeypatch.setattr("builtins.input", refuse)
     monkeypatch.setattr("getpass.getpass", refuse)
     result = CliRunner().invoke(cli, ["auth", name])
-    assert result.exit_code != 0 and "Settings → Calendar" in result.output
+    assert result.exit_code != 0 and "Settings → Sources → Calendar" in result.output
     assert not (env.parent / "secrets").exists()
 
 
@@ -897,7 +897,7 @@ def test_source_syncs_with_the_stored_encrypted_account(runtime, env):
         real.Session = real_session
     assert seen["auth"] == ("u", PASSWORD)
     store.delete(account.ACCOUNT)
-    with pytest.raises(ValueError, match="Settings → Calendar"):
+    with pytest.raises(ValueError, match="Settings → Sources → Calendar"):
         source.client  # noqa: B018
 
 
