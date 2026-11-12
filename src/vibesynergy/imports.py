@@ -214,9 +214,26 @@ def import_strava_export(
     return list(results.values())
 
 
-def import_files(rt: Runtime, path: Path, progress: Progress | None = None) -> DatasetResult:
-    """Import FIT files (and zips of them) from a file or directory tree."""
-    result = DatasetResult("files", "fit", None)
+def _file_kind(content: bytes) -> str | None:
+    """The ``files`` dataset an activity file belongs to, or None when it is no activity file."""
+    if is_fit(content):
+        return "fit"
+    if is_gpx(content):
+        return "gpx"
+    if is_tcx(content):
+        return "tcx"
+    return None
+
+
+def import_files(
+    rt: Runtime, path: Path, progress: Progress | None = None
+) -> list[DatasetResult]:
+    """Import FIT, GPX and TCX files (and zips of them) from a file or directory tree.
+
+    The same kinds the upload and the drop folder take (``import_one``). A file already
+    archived is skipped by its content; a file that cannot be read counts as a map error and
+    the rest still imports. Returns one result per kind that was seen (FIT always)."""
+    results = {ds: DatasetResult("files", ds, None) for ds in ("fit", "gpx", "tcx")}
     started = utc_now()
     candidates = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.is_file())
     for count, file in enumerate(candidates, start=1):
@@ -225,19 +242,22 @@ def import_files(rt: Runtime, path: Path, progress: Progress | None = None) -> D
         else:
             members = iter([(str(file), file.read_bytes())])
         for name, data in members:
-            if not is_fit(data):
+            dataset = _file_kind(data)
+            if dataset is None:
                 continue
             sha256 = hashlib.sha256(data).hexdigest()
             if rt.raw.has_content(sha256):  # same file already archived, e.g. from the export
-                result.skipped += 1
+                results[dataset].skipped += 1
                 continue
             item = FetchedItem(sha256, data, request={"path": name}, immutable=True)
-            rt.sync.ingest("files", "fit", item, result)
+            rt.sync.ingest("files", dataset, item, results[dataset])
         if progress and count % 200 == 0:
             progress(f"{count} files")
-    rt.sync.record_state(result, started)
-    rt.sync.changed([result])
-    return result
+    used = [r for ds, r in results.items() if ds == "fit" or r.fetched or r.skipped]
+    for result in used:
+        rt.sync.record_state(result, started)
+    rt.sync.changed(used)
+    return used
 
 
 def import_one(rt: Runtime, name: str, data: bytes) -> dict[str, int]:
@@ -250,15 +270,7 @@ def import_one(rt: Runtime, name: str, data: bytes) -> dict[str, int]:
     results = {ds: DatasetResult("files", ds, None) for ds in ("fit", "gpx", "tcx")}
     started = utc_now()
     for member, content in members:
-        dataset = (
-            "fit"
-            if is_fit(content)
-            else "gpx"
-            if is_gpx(content)
-            else "tcx"
-            if is_tcx(content)
-            else None
-        )
+        dataset = _file_kind(content)
         if dataset is None:
             counts["ignored"] += 1
             continue

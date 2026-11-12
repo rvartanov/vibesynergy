@@ -122,12 +122,52 @@ def test_folder_import_creates_activities_and_skips_known_files(runtime, tmp_pat
     (folder / "notes.txt").write_text("not a fit file")
     (folder / "bundle.zip").write_bytes(_zip({"a.fit": OLD_RUN}))  # same file again
 
-    result = imports.import_files(runtime, folder)
+    (result,) = imports.import_files(runtime, folder)
+    assert result.dataset == "fit"
     assert (result.fetched, result.skipped, result.normalise_errors) == (1, 2, 0)
     run = _rows(runtime, activity, activity.c.source == "files")[0]
     assert run["sport"] == "running" and run["local_date"] == date(2012, 6, 1)
     assert run["fit_id"] == run["source_id"]
     assert len(_rows(runtime, activity_lap, activity_lap.c.source == "files")) == 1
+
+
+def test_folder_import_takes_gpx_and_tcx_like_the_upload(runtime, tmp_path) -> None:
+    """`vibesynergy import files` takes the same kinds as the upload and the drop folder:
+    FIT, GPX and TCX (and zips of them), skips what is archived and counts per kind."""
+    from test_dropfolder import TCX, gpx
+
+    folder = tmp_path / "mixed"
+    (folder / "sub").mkdir(parents=True)
+    (folder / "run.FIT").write_bytes(OLD_RUN)
+    (folder / "sub" / "morning.gpx").write_bytes(gpx())
+    (folder / "ride.tcx").write_bytes(TCX)
+    (folder / "bundle.zip").write_bytes(_zip({"again.gpx": gpx(), "other.gpx": gpx(points=7)}))
+    (folder / "broken.gpx").write_bytes(
+        b'<?xml version="1.0"?><gpx xmlns="http://www.topografix.com/GPX/1/1"></gpx>'
+    )
+    (folder / "notes.txt").write_text("not an activity file")
+
+    results = {r.dataset: r for r in imports.import_files(runtime, folder)}
+    assert set(results) == {"fit", "gpx", "tcx"}
+    assert (results["fit"].fetched, results["fit"].skipped) == (1, 0)
+    # Three GPX files read (one without points: a map error), the zip's copy is skipped.
+    assert (results["gpx"].fetched, results["gpx"].skipped) == (3, 1)
+    assert results["gpx"].normalise_errors == 1
+    assert (results["tcx"].fetched, results["tcx"].skipped) == (1, 0)
+    sports = sorted(r["sport"] for r in _rows(runtime, activity, activity.c.source == "files"))
+    assert len(sports) == 4  # the FIT run, two GPX runs and the TCX
+
+    # Again: everything is known, nothing is fetched twice.
+    again = {r.dataset: r for r in imports.import_files(runtime, folder)}
+    assert [again[d].fetched for d in ("fit", "gpx", "tcx")] == [0, 0, 0]
+    assert (again["fit"].skipped, again["gpx"].skipped, again["tcx"].skipped) == (1, 4, 1)
+    assert len(_rows(runtime, activity, activity.c.source == "files")) == 4
+
+    # One GPX file on its own, as the README says.
+    single = tmp_path / "single.gpx"
+    single.write_bytes(gpx(points=9))
+    only = {r.dataset: r for r in imports.import_files(runtime, single)}
+    assert only["gpx"].fetched == 1 and only["fit"].fetched == 0
 
 
 def test_walk_zip_descends_nested_archives(tmp_path) -> None:

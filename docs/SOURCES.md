@@ -21,7 +21,7 @@ writing is available; a live activity write is still verified separately.
 vibesynergy sync garmin              # incremental: last 7 days re-fetched (Garmin revises them)
 vibesynergy backfill garmin --start 2015-01-01          # history, month by month, resumable
 vibesynergy import garmin-export ~/Downloads/<export>.zip
-vibesynergy import files ~/old-fit-files/               # FIT files, zips of FIT files
+vibesynergy import files ~/old-files/                   # FIT, GPX and TCX files, zips of them
 ```
 
 The tokens are encrypted server-side. A failed login is not retried for 15 minutes, so one sync cannot hammer
@@ -106,8 +106,10 @@ confirmed at the first real sync.
   from the API, the export and a folder shares one stream file. When the same monitoring
   file arrives from both `garmin` and `garmin_export`, two wellness files exist; the query
   layer (phase 3) deduplicates on `(ts, metric)`.
-- **Activities from files:** files imported with `vibesynergy import files` get an `activity`
-  row keyed by `fit_id`, because they have no API summary. Linking these to the same
+- **Activities from files:** files imported with `vibesynergy import files` (FIT, GPX and
+  TCX, the same kinds as the upload and the drop folder) get an `activity`
+  row keyed by `fit_id`, because they have no API summary. A GPX or TCX file records no
+  average speed; it is derived from distance over time. Linking these to the same
   activity from other sources is phase 2 (dedup).
 
 ### Account export (`garmin_export`)
