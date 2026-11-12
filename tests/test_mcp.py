@@ -379,24 +379,38 @@ def test_icu_events_reads_the_cache(rt) -> None:
         call(rt, "vibesynergy_icu_events", start="2026-03-03", end="2026-03-01")
 
 
-def test_plan_session_set_is_refused_while_intervals_leads(rt) -> None:
-    """the coach writes the model only after the switch; until then intervals.icu."""
-    with pytest.raises(ValueError, match=r"intervals\.icu still leads"):
-        call(
-            rt,
-            "vibesynergy_plan_session_set",
-            reason="test",
-            date="2026-11-18",
-            name="Duurloop",
-            description="- 40m Z2 HR",
-        )
+def test_plan_writes_are_refused_without_a_plan_and_while_intervals_leads(rt) -> None:
+    """the coach writes the model only when there is a plan and VibeSynergy leads it."""
+    from datetime import date as day
+
+    from vibesynergy.query import plan_model
+
+    def refused(why: str) -> None:
+        writes = [
+            (
+                "vibesynergy_plan_session_set",
+                {"date": "2026-11-18", "name": "Duurloop", "description": "- 40m Z2 HR"},
+            ),
+            ("vibesynergy_plan_week_set", {"week": 3, "note": "Rustweek"}),
+            ("vibesynergy_plan_target_set", {"week": 3, "sport": "run", "time_s": 3600}),
+            ("vibesynergy_plan_session_move", {"session_id": "x:1", "date": "2026-11-19"}),
+            ("vibesynergy_plan_session_skip", {"session_id": "x:1"}),
+        ]
+        for name, args in writes:
+            with pytest.raises(ValueError, match=why):
+                call(rt, name, reason="test", **args)
+
+    refused(r"there is no plan yet")
     view = call(rt, "vibesynergy_plan_model")["data"]
     assert view["source"] == "intervals" and view["sessions"] == []
-    with pytest.raises(ValueError, match=r"intervals\.icu still leads"):
-        call(rt, "vibesynergy_plan_week_set", reason="test", week=3, note="Rustweek")
-    with pytest.raises(ValueError, match=r"intervals\.icu still leads"):
-        call(rt, "vibesynergy_plan_target_set", reason="test", week=3, sport="run", time_s=3600)
-    with pytest.raises(ValueError, match=r"intervals\.icu still leads"):
-        call(rt, "vibesynergy_plan_session_move", reason="t", session_id="x:1", date="2026-11-19")
-    with pytest.raises(ValueError, match=r"intervals\.icu still leads"):
-        call(rt, "vibesynergy_plan_session_skip", reason="t", session_id="x:1")
+
+    plan_model.create_plan(
+        rt.engine,
+        name="Test",
+        start=day(2026, 11, 2),
+        end=day(2026, 12, 27),
+        reason="test",
+        author="test",
+    )
+    plan_model.set_source(rt.engine, "intervals")
+    refused(r"intervals\.icu still leads")
