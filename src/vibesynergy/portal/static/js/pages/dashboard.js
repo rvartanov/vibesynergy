@@ -211,7 +211,7 @@ export async function render(view, { args, query, meta, stale }) {
   const canArrange = !share;
   view.innerHTML = `
     ${headerHtml(d, zone, { date, today, showBoard })}
-    ${guide}
+    ${narrow ? "" : guide}
     <div class="dash-blocks" data-dash-blocks>${layoutHtml(blocks, html)}</div>
     <p class="sub dash-nodata" data-dash-nodata hidden></p>
     ${canArrange ? `<div class="dash-arrange-foot">
@@ -229,6 +229,12 @@ export async function render(view, { args, query, meta, stale }) {
   bindCollapse(view.querySelector("[data-dash-blocks]"), prefs, { canSave: canArrange });
   const noData = { share, sourceConnected: setup ? setup.steps.source : true };
   paintNoData(view, blocks, noData);
+  if (narrow && guide) {
+    // On a phone the advice and the check-in keep the first screen; the guide follows them.
+    const anchor = view.querySelector('[data-block="checkin"]') || view.querySelector('[data-block="advice"]');
+    if (anchor) anchor.insertAdjacentHTML("afterend", guide);
+    else view.querySelector("[data-dash-blocks]")?.insertAdjacentHTML("beforebegin", guide);
+  }
   bindSetupGuide(view);
   const remountArrange = canArrange ? bindArrange(view, { blocks, prefs, empty, noData, ctx: { args, query, meta, stale } }) : null;
   const checkin = view.querySelector("[data-dash-checkin]");
