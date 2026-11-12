@@ -390,7 +390,6 @@ def _icu_item(row: dict[str, Any]) -> dict[str, Any]:
     extra: dict[str, Any] = {
         "icu_id": row["id"],
         "external_id": row.get("external_id"),
-        "session_key": row.get("session_key"),
         "brick_part": row.get("brick_part"),
         "icu_type": row.get("type"),
         "description": row.get("description"),

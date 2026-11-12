@@ -2,7 +2,10 @@
 
 > Issue and PR numbers in text written before 30-10-2026 refer to the old tracker (they are marked "old #N" where they were links); the GitHub tracker started fresh then.
 
-Status: design, 2026-09-25. This is the contract between VibeSynergy and any AI client (Claude,
+Status: the design of 2026-09-25, with what is built marked. "Implementation status" below
+and the "As built" lines say what the server offers now; where a tool section still gives
+the design's parameters, the tool's own description and input schema (`tools/list`) decide.
+This is the contract between VibeSynergy and any AI client (Claude,
 ChatGPT, OpenClaw, Hermes, local LLM clients). The portal uses the same query layer, so
 everything the MCP can answer, the portal can show and vice versa.
 
@@ -10,7 +13,7 @@ everything the MCP can answer, the portal can show and vice versa.
 
 ## Implementation status
 
-**Done (phases 3a to 3c, and the diary of phase 6):** read and action tools, 8 prompts and 3 resources, in
+**Done (phases 3a to 3c, and the diary of phase 6):** read and action tools, 8 prompts and 5 resources, in
 `src/vibesynergy/mcp/server.py` over the query layer in `src/vibesynergy/query/`.
 
 - Coach handbook (1-11-2026): `vibesynergy_coach_handbook(include_protocol=true)`
@@ -67,7 +70,8 @@ everything the MCP can answer, the portal can show and vice versa.
 - Workout proposals removed (1-11-2026): `vibesynergy_coach_propose`,
   `vibesynergy_plan_status` and `vibesynergy_plan_withdraw` are gone, with VibeSynergy's own
   propose → approve → Garmin push route. They were never called. The plan is written to
-  intervals.icu (`vibesynergy_icu_*`), which brings it to Garmin. Coach entries
+  intervals.icu (`vibesynergy_icu_*`), which brings it to Garmin, or, when VibeSynergy leads
+  the plan, to its own plan (`vibesynergy_plan_session_set` and the other plan tools in §3.5). Coach entries
   (`vibesynergy_coach_write`, `vibesynergy_coach_log`, `vibesynergy_coach_memory_write` for the coach's own memory items) and `vibesynergy_coach_threshold_propose`
   stay.
 - Zones and thresholds (1-11-2026): `vibesynergy_thresholds` (`read`) returns per sport
@@ -137,15 +141,15 @@ everything the MCP can answer, the portal can show and vice versa.
   rules are in the knowledge base and intervals.icu, races and their A/B/C priority in the
   plan calendar and the intervals.icu RACE_A/B/C category. Older stored documents still
   load; the removed keys are ignored. Drafts are private settings; no planning or
-  external-write capability is granted. See [COACH.md §6.4](COACH.md#64-implemented-foundation-and-remaining-work).
+  external-write capability is granted.
 - Orientation: `vibesynergy_overview`, `vibesynergy_catalog`, `vibesynergy_schema`,
   `vibesynergy_explain`
 - Days and periods: `vibesynergy_day`, `vibesynergy_period`, `vibesynergy_calendar`
 - Series and statistics: `vibesynergy_series`, `vibesynergy_stats`, `vibesynergy_trend`,
   `vibesynergy_compare_periods`, `vibesynergy_correlate`, `vibesynergy_distribution`,
   `vibesynergy_baselines`, `vibesynergy_anomalies`
-- Activity detail includes recorded-input versions and source aliases; see
-  [INTEGRATION_CONTRACTS.md](INTEGRATION_CONTRACTS.md). A version is not an assessment.
+- Activity detail includes recorded-input versions and source aliases. A version is not an
+  assessment.
 - Activities: `vibesynergy_activities`, `vibesynergy_activity`, `vibesynergy_activity_streams`,
   `vibesynergy_bests` (power curve)
 - RPE and Feel: `vibesynergy_activity` has `effort` with `rpe` (1-10) and `feel` (1-5,
@@ -258,9 +262,11 @@ is ignored with a warning at startup. Coaches use OAuth or a personal access tok
 
 Differences from the spec below, for now:
 - Values are SI in every response (no unit conversion); the guide tells the AI to convert.
-- `vibesynergy_sql` uses SQLite, not DuckDB, over the documented tables. Streams are available
-  through `vibesynergy_activity_streams`.
-- Lists use `offset` instead of opaque cursors; there are no result sets or charts yet.
+- `vibesynergy_sql` is SQLite over the documented tables (Power tools, below). Streams are
+  available through `vibesynergy_activity_streams`.
+- Lists use `offset` instead of opaque cursors. Result sets are not built: `rs_…` handles,
+  `input: rs_…`, `result_set`, `save_as_result_set`, `cursor` and `format` in the sections
+  below are the design only.
 - `vibesynergy_training_load` uses VibeSynergy's own load by default (`load="vibesynergy"`,
   the one the portal and the coach use; intervals.icu's fitness is not read). Per activity:
   power (TSS from normalized power and FTP) for rides with power, pace against CSS for swims
@@ -291,7 +297,7 @@ at all still means that same set. The consent page lists each requested scope in
 words (Dutch and English) and stores the checked set. A client that omits a scope at
 registration may request any advertised scope; the consent page is the grant. A new personal
 token starts as `read`, `coach.write`, `diary.write` and `plan.propose` (no `publish`, no
-`sql`), expires in 30, 90 or 365 days, and is created in Settings → Coach apps with the
+`sql`), expires in 30, 90 or 365 days, and is created in Settings → Sharing → Coach apps with the
 coach passphrase: the tailnet alone cannot mint one. Wrong passphrases there and on
 the approve page are limited to 5 per 15 minutes, counted per app (and once for the
 portal), with a ceiling of 50 across all apps, so a stranger's registration cannot
@@ -299,8 +305,12 @@ lock the athlete out. The passphrase is set on that page and is never sent back 
 browser; changing it needs the current one, under the same limit. `publish` and
 `unpublish` and `refresh` are annotated `openWorldHint`; `edit_note` is `destructiveHint`.
 
-**Not yet:** profiles; `vibesynergy_ecg`, `vibesynergy_nutrition`, result sets, charts; argument
-completion. A primary-coach picker and undoing a note or check-in from the activity list
+**Not built:** profiles (`core`/`analysis`/`full`; every client is offered every tool and the
+scopes decide what it may call); the tools `vibesynergy_ecg`, `vibesynergy_nutrition`,
+`vibesynergy_result` (result sets) and `vibesynergy_chart` (charts); the resources
+`vibesynergy://overview`, `vibesynergy://day/{date}`, `vibesynergy://activity/{id}`,
+`vibesynergy://week/{iso_week}` and `vibesynergy://profile` (the tools of the same name give
+that data); resource templates; argument completion (`completion/complete`). A primary-coach picker and undoing a note or check-in from the activity list
 are not part of this scope work.
 
 ## 1. Who calls this and for what
@@ -317,7 +327,7 @@ Consequences for the design:
    Aggregation, statistics, regression, correlation, curves and baselines are computed by
    the server and returned with the method stated.
 2. **Everything is addressable by stable IDs.** Metrics, activities, days, result sets.
-3. **Big results become handles.** A tool can return a *result set* (`rs_…`) with a preview;
+3. **Big results become handles** (design; not built). A tool can return a *result set* (`rs_…`) with a preview;
    other tools accept `rs_…` as input. The AI chains analysis without copying data through
    its context.
 4. **Every answer says what it is.** Units, time zone, sources, method, freshness, and
@@ -369,7 +379,6 @@ bp.*         systolic, diastolic, pulse
 fitness.*    vo2max.run|ride, fitness_age, endurance_score, hill_score, lthr, lt_pace, ftp,
              race_pred.5k|10k|half|marathon
 load.*       ctl, atl, tsb, acwr, weekly_tss, training_status, load_balance.*
-nutrition.*  calories_in, protein, carbs, fat, hydration
 ```
 
 Unknown metric IDs return an error listing the closest matches.
@@ -400,7 +409,7 @@ Unknown metric IDs return an error listing the closest matches.
 | Activity | `act_<ulid>` (unified, cross-source) | `act_01J8…` |
 | Source object | `garmin:123456789`, `strava:98765` | accepted anywhere an activity ID is |
 | Day | `YYYY-MM-DD` | `2026-09-24` |
-| Result set | `rs_<id>` (expires after 24 h, configurable) | `rs_7f3a…` |
+| Result set (not built) | `rs_<id>` (expires after 24 h, configurable) | `rs_7f3a…` |
 | Gear | `gear_<id>` | |
 | Note | `note_<id>` | |
 
@@ -451,7 +460,8 @@ trust when Garmin and Withings disagree about weight, for example.
 ## 3. Tool list
 
 Tools are grouped by namespace. All are **read-only** (`readOnlyHint: true`) except those
-marked with a scope. Server profiles (§6) control which groups a client sees.
+marked with a scope. Profiles (§6) are not built: a client is offered every tool, and its
+scopes decide which calls are allowed.
 
 ### 3.1 Orientation and discovery
 
@@ -626,6 +636,13 @@ Find and summarise work intervals.
 - Returns: matches with similarity score and the key metric deltas; ideal for "am I getting
   faster on this loop".
 
+#### `vibesynergy_activity_set_purpose` *(scope `diary.write`)*
+- Params: `id`, `purpose` (`training`, `recovery`, `leisure`, `coached_by_me`, `race`, or
+  null for automatic).
+- Sets what the session was for. A training you give (`coached_by_me`) stays out of your
+  own load. `vibesynergy_activity_set_coaching(id, is_coaching)` is the same switch for that
+  one case: true = `coached_by_me`, false = `training`, null = automatic from the title.
+
 #### `vibesynergy_bests`
 Records and performance curves.
 - Params: `sport`, `kind` (`power_curve` | `pace_curve` | `hr_curve` | `best_efforts` |
@@ -679,7 +696,7 @@ Planned vs completed training.
   when the window reaches `plan_start` (the first day with a planned session), else
   `garmin`. From `plan_start` on:
   - each planned session is an item with `source` `vibesynergy`, `source_id` and
-    `session_id` the session id (for `vibesynergy_plan_session_move` / `_skip` / `_set`),
+    `session_id` the session id (for the plan writes below),
     `kind` `workout`, `ownership` `vibesynergy_plan`, `in_plan` true, a Garmin-style `sport`
     (the raw type is `extra.icu_type`) and `extra` with `description` (cue and steps),
     `duration_s` and `distance_m` when known, and, while the session has a copy in
@@ -723,6 +740,60 @@ Planned vs completed training.
   listed with `source` `intervals_icu`. Its priority cannot be stored and follows the
   category; `vibesynergy_coach_state` races mark it `editable` false.
 
+#### `vibesynergy_plan_model`
+The training plan as VibeSynergy's own model, and who leads it. Read this before a plan
+write: it says which set of write tools applies.
+- Params: `start`, `end` (dates; default today to +13 days).
+- Returns: `plan_id`, `source` (`intervals` while intervals.icu leads, also when there is no
+  plan yet; `vibesynergy` when VibeSynergy leads), `version` (the plan's current version,
+  null without a plan), `sessions` in the window (`session_id`, `date`, `name`, `sport`,
+  `status`, `description`: cue and steps as intervals.icu text) and the `weeks` the window
+  touches (`week`, `monday`, `phase`, `kind`, `hours`, `note`, and `targets` per `sport`
+  with `time_s`, `distance_m`, `load`).
+- While `source` is `intervals`, write with the `vibesynergy_icu_*` tools. When it is
+  `vibesynergy`, write with the five tools below. The athlete switches with
+  `vibesynergy plan source intervals|vibesynergy`.
+
+The five plan writes share these rules (scope `plan.write`):
+- `reason` is required and is stored with the new plan version, together with the author
+  (the MCP connection).
+- They are refused unless VibeSynergy leads the plan ("intervals.icu still leads the plan",
+  with the `vibesynergy_icu_*` tool to use instead).
+- Every write makes a new plan version and returns its number as `version`. The change
+  reaches intervals.icu (and from there Zwift and Garmin) within minutes through the
+  one-way mirror; a change made in intervals.icu itself is put back.
+- Keep the week's note, targets and sessions in step: change them together.
+
+#### `vibesynergy_plan_session_set` *(scope `plan.write`)*
+Create or change one session.
+- Params: `reason`, `date`, `name`, `description` (intervals.icu step text: the cue first,
+  then the steps; unknown steps are refused), `sport` (optional), `session_id` (the session
+  to change; omit to create one), `slot` (optional, for a new session's id).
+- Returns: `session_id`, `version`.
+
+#### `vibesynergy_plan_session_move` *(scope `plan.write`)*
+Move one planned session to another day.
+- Params: `reason`, `session_id`, `date`.
+- Returns: `session_id`, `date`, `version`.
+
+#### `vibesynergy_plan_session_skip` *(scope `plan.write`)*
+Take one planned session out of the plan. Its intervals.icu copy is removed; the session
+stays in the plan's history.
+- Params: `reason`, `session_id`.
+- Returns: `session_id`, `status` (`skipped`), `version`.
+
+#### `vibesynergy_plan_week_set` *(scope `plan.write`)*
+Change the note of one week (its intent and structure). A week that is not in the plan yet
+is added with its first note.
+- Params: `reason`, `week` (the plan's week number), `note`.
+- Returns: `week`, `version`.
+
+#### `vibesynergy_plan_target_set` *(scope `plan.write`)*
+Set one weekly target for a sport.
+- Params: `reason`, `week`, `sport` (`run`, `ride`, `swim`, …), and any of `time_s`
+  (seconds), `distance_m` (metres), `load`. With none of the three the target is removed.
+- Returns: `week`, `sport`, `version` and the values that were set.
+
 #### `vibesynergy_today`
 One call for "how should I train today?".
 - Params: `date` (optional, default today).
@@ -759,8 +830,9 @@ Plan against done per Monday-to-Sunday week and per training phase, the numbers 
 Planning & progress page shows (`query/planning.py`, built on `week_progress`).
 - Params: `start`, `end` (dates; their Mondays count) or `weeks` (default 12, at most 52,
   ending with this week).
-- Returns: `weeks` (per week `goal_s`, `done_s`, `done_pct`, `planned_load`/`done_load`
-  from intervals.icu, status `counts`, `sessions_done_pct` (done of the planned workouts
+- Returns: `weeks` (per week `goal_s`, `done_s`, `done_pct`, `planned_load` (intervals.icu's estimate
+  of the planned workouts) and `done_load` (VibeSynergy's own load of the activities),
+  status `counts`, `sessions_done_pct` (done of the planned workouts
   whose day passed), `compliance_avg` (intervals.icu's compliance of paired workouts),
   `number`/`phase`/`kind` from the weekly note, and `sports` per sport with `goal_s` and
   `basis` target/planned), `phases` (the same totals per phase) and `totals`.
@@ -813,13 +885,24 @@ Fitness markers over time.
 `start`, `end` (default today to +28 days), `category` (WORKOUT, NOTE, TARGET, RACE_A/B/C),
 `refresh` (fetch intervals.icu first). The intervals.icu plan from VibeSynergy's cache, one row per
 event with `event_id`, `external_id` and `version` (pass it as `expected_version` to
-`vibesynergy_icu_update_event`, `_move_event`, `_delete_event`), plus date, category, sport,
+`vibesynergy_icu_update_event`, `vibesynergy_icu_move_event` and
+`vibesynergy_icu_delete_event`), plus date, category, sport,
 name, description, tags, `for_week`, `targets`, `moving_time_s`, `load` and `fetched_at`.
 Scope `read`. Read this before every plan write.
 
+The intervals.icu writes (scope `plan.write`, each with a `reason`; for the plan while
+intervals.icu leads it): `vibesynergy_icu_create_event` (`category`, `start_date`, `name`,
+optional `sport`, `description`, `external_id`, `end_date`, `for_week`, `tags`, `targets`),
+`vibesynergy_icu_update_event` (`expected_version`, `event_id` or `external_id`, and the
+fields to change), `vibesynergy_icu_move_event` (`expected_version`, `start_date`),
+`vibesynergy_icu_delete_event` (`expected_version`), `vibesynergy_icu_revert` (`audit_id`:
+undoes one plan write from its before snapshot) and `vibesynergy_icu_resolve_duplicate`
+(under `vibesynergy_plan` above). A write is refused when the event has moved on since the
+version that was read.
+
 Strength and pilates sessions carry their Garmin steps in a `[garmin]` block in the
 description (syntax in `query/garmin_strength.py` and the KB article
-`intervals-icu-workout-authoring`). `vibesynergy_icu_create_event` and `_update_event` refuse
+`intervals-icu-workout-authoring`). `vibesynergy_icu_create_event` and `vibesynergy_icu_update_event` refuse
 a block with an exercise outside Garmin's library or a malformed line, before anything
 reaches intervals.icu. VibeSynergy then delivers the session to Garmin itself (below).
 
@@ -871,26 +954,14 @@ Open-Meteo at its start and hour).
 - Returns: readings, morning/evening split, averages, classification per reading
   (guideline category, informational only).
 
-#### `vibesynergy_ecg`
-- Params: period for the list, or `id` for one recording, `max_points`.
-- Returns: recordings with classification (e.g. Withings AFib result) and HR; for one
-  recording a downsampled signal and `portal_url` for the full-resolution viewer.
-
-### 3.8 Nutrition (if logged)
-
-#### `vibesynergy_nutrition`
-- Params: period (default `last_7d`), `detail`.
-- Returns: daily intake (calories, macros, hydration) vs goals and vs expenditure (energy
-  balance), top foods.
-
-### 3.9 Gear, devices, profile, context
+### 3.8 Gear, devices, profile, context
 
 #### `vibesynergy_gear`
-- Params: `id` (optional), `include_retired` (bool).
-- Returns: gear with total distance/time, usage per period, last used, service reminders.
+- Params: none.
+- Returns: bikes and shoes (from Strava) with Strava's total distance, how often they were
+  used and when last, and a warning for running shoes past 600 km.
   Each item has a source-namespaced `ref` (e.g. `strava:g1`); `other_sources` reports Garmin's
-  own gear collection freshness only — not yet merged in (V-C6; see
-  [INTEGRATION_CONTRACTS.md](INTEGRATION_CONTRACTS.md)). `references` cites the raw snapshots
+  own gear collection freshness only; it is not merged in yet. `references` cites the raw snapshots
   (`raw_item_id`, `sha256`). `activity_gear` lists Garmin gear ids used on activities, with
   no distance or model.
 
@@ -903,8 +974,9 @@ Open-Meteo at its start and hour).
   no second catalog.
 
 #### `vibesynergy_profile`
-- Returns: profile (age, sex, height), current and historic zones (HR, power, pace) with
-  validity dates, thresholds, devices with battery/firmware, unit preferences.
+- Returns: current heart-rate and power zones and thresholds per sport, with their history
+  (`valid_from` dates), so old activities can be judged against the zones of the time. The
+  athlete's own details (time zone, units, sex, age) are in `vibesynergy_athlete`.
 
 #### `vibesynergy_athlete` *(scope `read`)*
 - Returns: profile (time zone, units, sex, max and resting heart rate, and `age` in whole
@@ -917,32 +989,24 @@ Open-Meteo at its start and hour).
 - Params: period, `tag`.
 - Returns: your notes/annotations (illness, travel, injury, alcohol, stress, …).
 
-#### `vibesynergy_add_note` *(scope `annotate`)*
-- Params: `date` or `start`/`end`, `text`, `tags[]`.
+#### `vibesynergy_add_note` *(scope `diary.write`)*
+- Params: `text`, `date` (default today), `end` (for a span), `tags[]`, `activity_id` (a
+  note on one activity).
 - Notes feed back into analysis (`group_by: tag:sick`, anomaly context).
 
-### 3.10 Power tools
+### 3.9 Power tools
 
-#### `vibesynergy_sql`
-Read-only SQL (DuckDB dialect) over the documented views.
-- Params: `query`, `limit` (default 200, max 5 000), `format`, `save_as_result_set` (bool).
-- Guardrails: views only, single statement, no file/network functions, 10 s timeout,
-  memory cap. Errors echo the schema hint for the table involved.
-- Returns: columns, rows, row count, `result_set`.
+#### `vibesynergy_sql` *(scope `sql`)*
+Read-only SQL (SQLite dialect) over the tables that `vibesynergy_schema` documents, for
+questions the other tools do not cover.
+- Params: `query` (one `SELECT` statement), `limit` (default 200, at most 5 000 rows).
+- Guardrails: a separate read-only connection; only `SELECT` on the documented tables (no
+  writes, no `ATTACH`, no `PRAGMA`); one statement; 10 s time limit. Per-second streams are
+  not reachable from here (use `vibesynergy_activity_streams`).
+- Returns: `columns`, `rows`, `truncated`; when truncated, `meta.warnings` says to narrow
+  the query or raise `limit`.
 
-#### `vibesynergy_result`
-Work with result sets.
-- Params: `id`, `action` (`preview` | `page` | `describe` | `export`), `cursor`,
-  `format` (`csv` | `parquet` | `json` for export).
-- Returns: rows, stats, or a download link (tailnet portal URL, expiring).
-
-#### `vibesynergy_chart` *(optional, profile `full`)*
-- Params: `input` (`rs_…` or a `vibesynergy_series` spec), `type` (`line` | `bar` | `scatter` |
-  `heatmap` | `pmc` | `curve` | `map`), `title`.
-- Returns: a PNG (MCP image content) for clients that display images, plus the
-  `portal_url` of the interactive version.
-
-### 3.11 Data management
+### 3.10 Data management
 
 #### `vibesynergy_sync_status`
 - Params: `source` (optional).
@@ -958,8 +1022,15 @@ Work with result sets.
 - Params: `domain` or `metrics[]`, period (default `all`).
 - Returns: month-by-month coverage matrix, so an analysis can avoid gaps.
 
-Total: 57 tools (this count drifts from the actual registry; the registry has 90 tools
-since checked in `tests/test_mcp.py`). Each description is written for an LLM: one line of purpose, when to use it,
+#### `vibesynergy_data_quality`
+- Params: `limit` (default 200).
+- Returns: a read-only audit of how Strava and Garmin activities are linked: near-duplicates
+  that are not linked, and groups with two activities from the same source.
+
+The registry has 102 tools (counted in `tests/test_mcp.py`). `tests/test_mcp_docs.py` checks
+that each of them is named in this document and that this document names no
+`vibesynergy_*` tool that does not exist, apart from the removed and not-built ones listed
+under "Implementation status". Each description is written for an LLM: one line of purpose, when to use it,
 when to use a different tool instead.
 
 ---
@@ -968,19 +1039,17 @@ when to use a different tool instead.
 
 | URI | Content |
 |---|---|
-| `vibesynergy://overview` | same as `vibesynergy_overview` |
 | `vibesynergy://metrics` | full metric catalogue |
 | `vibesynergy://schema` | SQL views documentation |
-| `vibesynergy://day/{date}` | day summary (resource template, with completion on dates) |
-| `vibesynergy://activity/{id}` | activity summary |
-| `vibesynergy://week/{iso_week}` | week digest |
-| `vibesynergy://profile` | profile, zones, thresholds |
 | `vibesynergy://coach/handbook` | the coach protocol ([COACH_PROTOCOL.md](COACH_PROTOCOL.md)); `vibesynergy_coach_handbook` adds the live KB index |
 | `vibesynergy://guide` | "how to use VibeSynergy well" for AI clients: tool choice, pitfalls, units |
 | `vibesynergy://athlete/notes` | The athlete's notes for a coach (read-only; `vibesynergy_athlete` returns the same text) |
 
-Argument completion (`completion/complete`) is provided for metric IDs, sports, gear, tags,
-dates with data, and recent activity IDs.
+These five are the resources the server registers. Not built: the design's
+`vibesynergy://overview`, `vibesynergy://day/{date}`, `vibesynergy://activity/{id}`,
+`vibesynergy://week/{iso_week}` and `vibesynergy://profile` (the tools of the same name give
+that data), resource templates, and argument completion (`completion/complete`) for metric
+IDs, sports, gear, tags, dates and activity IDs.
 
 ---
 
@@ -1003,13 +1072,14 @@ Prompts only orchestrate the tools; they add no hidden logic.
 
 ## 6. Profiles, scopes and safety
 
-- **Profiles** (config per client or via a URL parameter): `core` (viewing: overview, day,
+- **Profiles** (not built; every client is offered every tool and the scopes decide what
+  it may call). The design, config per client or via a URL parameter: `core` (viewing: overview, day,
   period, calendar, activities, activity, sleep, recovery, body, training_load, bests,
   sync_status; ~14 tools), `analysis` (core + series, stats, trend, compare, correlate,
   distribution, baselines, anomalies, streams, activity_analyze, intervals, sql, result),
   `full` (everything). Small or local models get `core`; frontier models get `full`.
 - **Scopes** (OAuth, implemented): `read`, `read.expert`, `diary.write`, `coach.write`,
-  `plan.propose`, `sync`, `publish`, `sql`. See the implementation status above. The
+  `plan.propose`, `plan.write`, `sync`, `publish`, `sql`. See the implementation status above. The
   per-domain exclusions in this design (`-location`, `-ecg`, `-menstrual`) are not built.
 - **Annotations**: `readOnlyHint` on read tools; `openWorldHint` on `vibesynergy_refresh`,
   `vibesynergy_activity_publish` and `vibesynergy_activity_unpublish`; `destructiveHint` on
@@ -1023,7 +1093,7 @@ Prompts only orchestrate the tools; they add no hidden logic.
   the tools those scopes allow (`build_server` records each tool's scope in
   `server.vibesynergy_tool_scopes`); `vibesynergy_refresh` and `vibesynergy_sql` are never offered.
   Scope checks and the audit log apply as for any app.
-- **Medical framing**: body/BP/ECG tools include a short "informational, not a diagnosis" note
+- **Medical framing**: the body and blood-pressure tools include a short "informational, not a diagnosis" note
   in `meta.warnings` when classification is returned.
 
 ---
@@ -1047,8 +1117,9 @@ Prompts only orchestrate the tools; they add no hidden logic.
 ## 8. Implementation notes
 
 - Built with the official MCP Python SDK (FastMCP), protocol ≥ 2025-06-18: structured
-  output with `outputSchema`, resource templates, completion, tool annotations, pagination.
-- Transports: stdio (`vibesynergy mcp --stdio`) and streamable HTTP (`/mcp`) with OAuth 2.1
+  output and tool annotations. Resource templates, completion and cursor pagination are not
+  built.
+- Transports: stdio (`vibesynergy mcp`) and streamable HTTP (`/vibesynergy/mcp`) with OAuth 2.1
   (authorization server metadata, dynamic client registration, PKCE).
 - Tool handlers are thin: parse params → call `vibesynergy.query` → shape the envelope. All
   logic lives in the query layer and is unit-tested there; the portal's REST API calls the
@@ -1080,15 +1151,14 @@ replace `display.archive` (evening advice targets the next calendar day) or `dis
 block (English or Dutch) from the activity's Garmin numbers. It does not need a saved
 assessment, publish, modify descriptions, or call a provider. Without those numbers the
 preview is blocked. Private coach, diary, recovery, calendar and goal text is excluded.
-Quote and weather are off in this preview. See
-[preview contract](INTEGRATION_CONTRACTS.md#read-only-annotation-block-preview).
+Quote and weather are off in this preview.
 
 `vibesynergy_activity_publication_preview(id, destination, language="en")` reads the selected
 provider description and returns the exact composed text with `preview_version`.
 `vibesynergy_activity_publish(id, destination, preview_version, language="en")` writes once on
 explicit request and returns `verified` only after provider read-back. Destinations are
 `garmin` and `strava`. A changed preview, unknown marker or uncertain previous write blocks
-publication. See [publication contract](INTEGRATION_CONTRACTS.md#explicit-description-publication).
+publication.
 `vibesynergy_activity_unpublish(id, destination, preview_version, language="en")` removes
 only the checked VibeSynergy section after an explicit call and verifies provider read-back.
 

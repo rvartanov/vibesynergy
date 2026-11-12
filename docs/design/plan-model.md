@@ -1,6 +1,6 @@
 # Plan in VibeSynergy: design
 
-Status: design, 5-11-2026. Part of the grand plan, phase 1. Feeds (Garmin delivery) (horizon guard) (planning page) and (planner).
+Status: built. Steps 1 to 4 of the change-over below are in the code: the pages and the coach read VibeSynergy's own plan since [#26](https://github.com/rvartanov/vibesynergy/pull/26), and `vibesynergy plan source` says who leads. This is the design it was built from (5-11-2026); commands and tool names below are the ones that exist now. Part of the grand plan, phase 1. Feeds (Garmin delivery) (horizon guard) (planning page) and (planner).
 
 ## Goal
 
@@ -50,11 +50,11 @@ New tables (one migration; `store/schema.py` and the revision pin in `tests/test
 
 ## Change-over (the plan stays usable)
 
-1. **Import (shadow, read-only).** A command `vibesynergy plan import --from intervals` builds the model from `icu_event` (sessions with parsed workouts, notes, targets) and the KB plan (phases, week kinds). It writes nothing to intervals.icu. A diff report lists what could not be parsed. The athlete's plan keeps running from intervals.icu as today.
+1. **Import (shadow, read-only).** A command `vibesynergy plan import` (`--prefix <external_id prefix>` on the first import, `--name`, `--dry-run`) builds the model from `icu_event` (sessions with parsed workouts, notes, targets) and the KB plan (phases, week kinds). It writes nothing to intervals.icu. A diff report lists what could not be parsed. The athlete's plan keeps running from intervals.icu as today.
 2. **Shadow compare (≥ 1 week).** After every intervals.icu sync, a job compares the model with `icu_event`. A difference goes to the coach and the horizon guard, not silently into the model. Exit criterion: 7 days without unexplained differences.
-3. **Flip writes.** The coach writes to the model (new MCP tools: `vibesynergy_plan_session_upsert`, `_move`, `_skip`, `vibesynergy_plan_week_update`, all with reason, version and COACH-5 coupling: note, targets and sessions together). A mirror job pushes each change to intervals.icu through the existing `icu_plan` writes, with `plan_link` as the idempotency record. The old `vibesynergy_icu_*` tools stay as a fallback and write through the model.
+3. **Flip writes.** The coach writes to the model (MCP tools: `vibesynergy_plan_session_set`, `vibesynergy_plan_session_move`, `vibesynergy_plan_session_skip`, `vibesynergy_plan_week_set`, `vibesynergy_plan_target_set`, all with reason, version and COACH-5 coupling: note, targets and sessions together). A mirror job pushes each change to intervals.icu through the existing `icu_plan` writes, with `plan_link` as the idempotency record. The old `vibesynergy_icu_*` tools stay as a fallback and write through the model.
    - **Edits made in intervals.icu** (by the athlete) are detected by version and imported as a new plan version with author `intervals.icu`. The coach is told. No conflict UI in this phase: the latest edit wins and the previous version stays in history.
-   - Switch: `[plan] source = "intervals" | "vibesynergy"`. Back to `intervals` = stop the mirror and read `icu_event` again.
+   - Switch: `vibesynergy plan source intervals|vibesynergy` (kept on the plan itself, `plan.status` `shadow`/`leading`; there is no config setting). Back to `intervals` = stop the mirror and read `icu_event` again.
 4. **Flip readers.** `plan.py`, `training_plan.py`, `week_progress`, the coach brief and the planning page read the model. `icu_event` stays as the mirror's cache and for matching activities.
 
 Each step is its own PR with tests. The coach routines and KB (`claude-coach-loop`, `intervals-icu-workout-authoring`, `docs/COACH_PROTOCOL.md`) change in the same PR as the step that changes their tools.
@@ -67,7 +67,7 @@ PDF and Excel of the plan from the model ( acceptance; the Google Sheet fallback
 
 - Round trip: intervals.icu text → workout JSON → intervals.icu text gives the same steps for every workout in the live plan (snapshot of today's 24 workouts and 35 notes as a fixture without personal data).
 - Mirror: a model change becomes exactly one intervals.icu write; a repeat run writes nothing; an intervals.icu edit becomes a version with author `intervals.icu`.
-- Switch back: `source = intervals` restores today's behaviour (the current plan tests pass unchanged).
+- Switch back: `vibesynergy plan source intervals` restores today's behaviour (the current plan tests pass unchanged).
 
 ## Open for the athlete
 
