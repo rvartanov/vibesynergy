@@ -692,3 +692,4 @@ table.activities td { vertical-align: middle; }
 fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0; min-width: 0; }
 .settings-field label.check { display: flex; flex-direction: row; align-items: center; gap: var(--space-2); min-height: var(--control); color: var(--ink); }
 .settings-field label.check input { width: auto; flex: none; margin: 0; }
+.update-check { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

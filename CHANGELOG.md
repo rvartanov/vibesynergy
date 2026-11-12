@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Check for updates** on Settings → System → About this version asks GitHub now instead of
+  waiting for the hourly check, and shows when it last looked
+  ([#22](https://github.com/rvartanov/vibesynergy/pull/22)).
 - Race predictions for 5 km, 10 km, 10 miles, half marathon, marathon and 50 km on
   Fitness → Form, from your threshold pace and recent runs, with how certain each is, the
   change against six weeks ago and Garmin's prediction next to it; also over MCP

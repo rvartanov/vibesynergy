@@ -76,26 +76,30 @@ def build() -> dict[str, Any]:
 _UPDATES: dict[str, Any] = {"at": 0.0, "value": None}
 _UPDATES_LOCK = threading.Lock()
 UPDATES_SECONDS = 3600
+FRESH_SECONDS = 20  # "Check for updates" asks GitHub again, but not more often than this
 
 
-def updates(now: float | None = None) -> dict[str, Any] | None:
-    """How far ``main`` on GitHub is ahead of what runs: count and the PR titles. Cached."""
+def updates(now: float | None = None, *, fresh: bool = False) -> dict[str, Any] | None:
+    """How far ``main`` on GitHub is ahead of what runs: count and the PR titles. Cached for
+    an hour; ``fresh`` (the Check for updates button) asks again. When GitHub can't be
+    reached on a fresh check, the last known answer stays."""
     from vibesynergy import updater
 
     now = time.monotonic() if now is None else now
     with _UPDATES_LOCK:
-        if _UPDATES["value"] is not None and now - _UPDATES["at"] < UPDATES_SECONDS:
+        keep = FRESH_SECONDS if fresh else UPDATES_SECONDS
+        if _UPDATES["value"] is not None and now - _UPDATES["at"] < keep:
             return _UPDATES["value"]
         if updater.installed()["kind"] != "checkout":
             value = updater.check()
             if value is not None:
                 _UPDATES.update(at=now, value=value)
-            return value
+            return value if value is not None else _UPDATES["value"]
         if (
             _git("fetch", "-q", "origin", "main") is None
             and _git("rev-parse", "origin/main") is None
         ):
-            return None
+            return _UPDATES["value"]
         log = _git("log", "--merges", "--format=%b", "HEAD..origin/main") or ""
         titles = [line for line in log.splitlines() if line.strip()]
         commits = _git("rev-list", "--count", "HEAD..origin/main")
@@ -204,15 +208,16 @@ def start_update(rt) -> dict[str, Any]:
     return {"started": UPDATE_UNIT, "behind": news["behind"] if news else None}
 
 
-def about(rt) -> dict[str, Any]:
-    """Everything the footer and Settings → System → About this version show."""
+def about(rt, *, fresh: bool = False) -> dict[str, Any]:
+    """Everything the footer and Settings → System → About this version show. ``fresh``
+    checks GitHub for updates now instead of using the hourly answer."""
     from vibesynergy import updater
     from vibesynergy.query import auth
     from vibesynergy.store import db
 
     started = STARTED_AT.astimezone(UTC)
     account = auth.account(rt.engine)
-    news = updates()
+    news = updates(fresh=fresh)
     unit = update_unit(rt.settings.data_dir)
     return {
         **build(),

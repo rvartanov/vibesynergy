@@ -16,7 +16,14 @@ function row(label, value) {
   return `<tr><th scope="row">${esc(label)}</th><td>${value}</td></tr>`;
 }
 
+// The answer, when it was last checked, and a button to check again now.
 function updatesHtml(u) {
+  return `${updatesState(u)} <span class="update-check"><button class="btn" type="button" data-update-check>${esc(t("Check for updates"))}</button>${
+    u.checked_at ? ` <span class="sub" data-update-checked>${esc(t("Checked {when}", { when: ago(u.checked_at) }))}</span>` : ""
+  }</span>`;
+}
+
+function updatesState(u) {
   if (!u.behind) return esc(t("Up to date"));
   const titles = (u.titles || []).map((x) => `<li>${esc(x)}</li>`).join("");
   const label = u.count_known === false ? t("An update is available") : t("{n} updates available", { n: u.titles?.length || u.behind });
@@ -92,6 +99,22 @@ export async function mountAbout(el, { open = false } = {}) {
 function bindUpdate(el, info) {
   const status = el.querySelector("[data-update-status]");
   if (info.update?.running) waitForNewVersion(el, info.commit, status);
+  const check = el.querySelector("[data-update-check]");
+  check?.addEventListener("click", async () => {
+    check.disabled = true;
+    check.textContent = t("Checking…");
+    try {
+      const { data } = await post("about/check");
+      if (!el.isConnected) return;
+      el.innerHTML = aboutHtml(data, { open: true });
+      bindUpdate(el, data);
+      el.querySelector("[data-update-check]")?.focus();
+    } catch (error) {
+      check.disabled = false;
+      check.textContent = t("Check for updates");
+      if (status) status.textContent = t("Could not check: {error}", { error: t(error.message) });
+    }
+  });
   el.querySelector("[data-update-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.target;

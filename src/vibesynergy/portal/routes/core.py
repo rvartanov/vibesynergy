@@ -57,6 +57,13 @@ def register(kit: PortalKit) -> None:
 
         return envelope(about.about(rt))
 
+    @router.post("/about/check")
+    def check_updates() -> dict[str, Any]:
+        """Ask GitHub now whether a newer version is waiting (the Check for updates button)."""
+        from vibesynergy.query import about
+
+        return envelope(about.about(rt, fresh=True))
+
     @router.get("/meta")
     def meta(request: Request) -> dict[str, Any]:
         """What every page needs once: today's date, units, sources, the metric catalogue;
