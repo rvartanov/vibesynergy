@@ -186,7 +186,8 @@ def test_calendar_moves_and_skips_a_session_once_vibesynergy_leads(runtime) -> N
     planned = [p for d in data["days"] for p in d["planned"]]
     assert planned and planned[0]["session_id"] is None
     body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
-    assert api.post("/api/plan/session/move", json=body, headers=write).status_code == 400
+    refused = api.post("/api/plan/session/move", json=body, headers=write)
+    assert refused.status_code == 400 and "intervals.icu leads the plan" in refused.text
     plan_model.set_source(runtime.engine, "vibesynergy")
     data = api.get("/api/schedule", params=span).json()["data"]
     planned = [p for d in data["days"] for p in d["planned"]]
@@ -271,3 +272,13 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
     ):
         with pytest.raises(ValueError):
             prefs.save(runtime.settings.data_dir, {"weather_location": bad})
+
+
+def test_changing_a_session_without_a_plan_says_there_is_no_plan(runtime) -> None:
+    api = TestClient(create_portal_app(runtime), base_url="http://localhost")
+    write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
+    body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
+    for path in ("/api/plan/session/move", "/api/plan/session/skip"):
+        refused = api.post(path, json=body, headers=write)
+        assert refused.status_code == 400 and "There is no plan yet." in refused.text
+        assert "intervals.icu" not in refused.text
