@@ -388,7 +388,9 @@ a.week-day:hover { background: var(--wash); }
 
 /* Training → Zones & thresholds. */
 .zones-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
-.zones-grid > .card { margin: 0; }
+/* Cards start at the same height: the grid's gap is the spacing, not the card margin. */
+.zones-grid { align-items: start; }
+.zones-grid > .card, .zones-grid > section.card + section.card { margin: 0; }
 .zones-values td, .zones-values th { vertical-align: top; }
 .zones-source { display: block; }
 .zones-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }

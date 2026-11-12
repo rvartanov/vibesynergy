@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 
 import anyio
 import pytest
@@ -153,8 +153,47 @@ def test_overview_survives_intervals_icu_being_down(runtime) -> None:
         raise IntervalsIcuError("timeout")
 
     data = thresholds.overview(runtime.engine, today=TODAY, icu_settings=down)
-    assert data["intervals"] == {"ok": False, "error": "unavailable"}
+    assert data["intervals"] == {"ok": False, "error": "unavailable", "connected": True}
     assert [s["sport"] for s in data["sports"]] == ["bike", "run", "swim"]
+
+
+def test_overview_does_not_warn_when_intervals_icu_was_never_connected(runtime) -> None:
+    """Never connected is no failure: the page must not say it "could not be reached"."""
+    data = thresholds.overview(runtime.engine, today=TODAY)
+    assert data["intervals"] == {"ok": False, "error": None, "connected": False}
+
+
+def test_overview_puts_the_most_used_sport_first(runtime) -> None:
+    from datetime import UTC, datetime
+
+    from vibesynergy.store.schema import activity_unified
+
+    def done(key: str, sport: str, seconds: float, day: date = TODAY) -> dict:
+        return {
+            "group_id": key,
+            "subject_id": 1,
+            "start_utc": datetime(day.year, day.month, day.day, 8, tzinfo=UTC),
+            "local_date": day,
+            "sport": sport,
+            "moving_s": seconds,
+            "primary_source": "files",
+            "sources": [f"files:{key}"],
+            "updated_at": datetime(2026, 1, 1, tzinfo=UTC),
+        }
+
+    with runtime.engine.begin() as conn:
+        conn.execute(
+            activity_unified.insert(),
+            [
+                done("r1", "running", 3600),
+                done("r2", "trail_running", 3600),
+                done("b1", "cycling", 5400),
+                done("s1", "lap_swimming", 99999, TODAY - timedelta(days=500)),  # too long ago
+            ],
+        )
+    data = thresholds.overview(runtime.engine, today=TODAY)
+    assert [s["sport"] for s in data["sports"]] == ["run", "bike", "swim"]
+    assert [s["volume_s"] for s in data["sports"]] == [7200.0, 5400.0, 0.0]
 
 
 # Edits, proposals, history --------------------------------------------------------------------
