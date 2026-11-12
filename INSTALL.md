@@ -112,7 +112,7 @@ another device. See [deploy/README.md](deploy/README.md).
 | Login keeps asking again from another device | You're on plain `http://`: use HTTPS (see above). |
 | `serve` refuses to start: old database | `vibesynergy db upgrade`, then start again. |
 | Port 8447 already in use | Container: change the left side of `127.0.0.1:8447:8447` (and use that port in the login link too). uv: `[portal] port = 8457` in the config. |
-| Something else | The bug button at the top of every page opens a bug report on GitHub. What it needs: [docs/REPORTING.md](docs/REPORTING.md). |
+| Something else | **Report a bug** in the footer of every page (and under Settings → System) opens a bug report on GitHub. What it needs: [docs/REPORTING.md](docs/REPORTING.md). |
 
 ## Removing it
 

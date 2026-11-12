@@ -1,8 +1,8 @@
 # Reporting a bug or asking for a feature
 
 Both go through [GitHub issues](https://github.com/rvartanov/vibesynergy/issues/new/choose).
-You need a (free) GitHub account. In VibeSynergy, the **bug button** at the top of every page
-opens a new bug report with the version, the page, the error and your browser already filled
+You need a (free) GitHub account. In VibeSynergy, **Report a bug** in the footer of every page
+(and under Settings → System) opens a new bug report with the version, the page, the error and your browser already filled
 in.
 
 The issues are **public**. Leave out health values, names, addresses, tokens and private links.

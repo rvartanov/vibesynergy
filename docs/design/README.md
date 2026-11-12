@@ -6,10 +6,10 @@ Status: design contract for later builds, 2026-10-05. Tracked in
 old with zone presentation in
 old. This is a researched design system,
 not a claim of user-tested usability or complete WCAG conformance. Existing data contracts
-and [coach rules](../COACH.md) apply.
+and the coach rules ([COACH_PROTOCOL.md](../COACH_PROTOCOL.md)) apply.
 
 The portal already uses the shared tokens and the route map below. A populated task and
-axe pass is recorded in [VALIDATION.md](VALIDATION.md). What remains on is a
+axe pass has been done. What remains open is a
 screen-reader walkthrough and deployment with live verification. A merged design document
 is not a finished redesign.
 
@@ -18,7 +18,7 @@ Open [the interactive prototype](index.html) through a static HTTP server rooted
 **synthetic examples only**, makes no API calls and changes no VibeSynergy settings. The
 prototype explores overview, activity/zones, health, insight, source status and coach editing.
 Its navigation uses the current Day, Training, Health and Insight groups; source status is
-the Settings → Data specimen. The prototype's display type is larger than production.
+the Settings → Sources specimen. The prototype's display type is larger than production.
 Later builds follow the production tokens in section 4, not the specimen's heading sizes.
 Test light/dark, narrow viewport, keyboard navigation, zone metric selection,
 empty/stale/error states and draft preview/activation.
@@ -75,7 +75,7 @@ Athlete-facing copy also follows the communication rule in `CONTRIBUTING.md`.
 | Controls 44px | Default interactive height is `--control: 44px` | Apple HIG layout: 44×44 pt minimum. This is above WCAG 2.5.8's 24×24 CSS px minimum |
 | Dense targets 24px | Calendar year cells and equivalent inline marks use `--target-min: 24px` inside a labelled group, with text that carries the meaning | WCAG 2.5.8 target size minimum. Spacing in the grid supplies the required separation |
 | Focus and skip | 3px focus ring, skip link, one `h1`, landmarks, reduced motion | WCAG 2.4.1 bypass blocks, 2.4.7 focus visible, 2.3.3 animation from interactions (AAA; honoured here as the platform setting). Apple HIG and Material both respect reduced motion |
-| Sticky header | The header stays put, one row also on a phone: Quick add, Search, Waiting for you and Settings, each with an accessible name and a tooltip (theme and bug report live under Settings → System and in the footer). Nothing floats over the page: on a phone Quick add is in the header too, and the name gives way to the mark below 440px. Focused controls must not sit fully underneath it | WCAG 2.4.11. Scroll padding keeps a focused control clear of the header. A screen-reader pass is still open on |
+| Sticky header | The header stays put, one row also on a phone: Quick add, Search, Waiting for you and Settings, each with an accessible name and a tooltip (theme and bug report live under Settings → System and in the footer). Nothing floats over the page: on a phone Quick add is in the header too, and the name gives way to the mark below 370px. Focused controls must not sit fully underneath it | WCAG 2.4.11. Scroll padding keeps a focused control clear of the header. A screen-reader pass is still open on |
 | One main action | A card or form has at most one `.btn.primary` (filled, `--action` on `--on-action`): the action the card is for. Everything else is a plain `.btn` | NN/g: aesthetic and minimalist design; recognition rather than recall |
 | Nothing to show takes no space | A start-page block or key number without data is left out and named in one line ("Not shown, no data yet: …") with the next step; a block the athlete ticks in the arrange panel stays | NN/g: aesthetic and minimalist design; visibility of system status |
 | Errors | Keep the entered values. Move focus to a linked summary, and repeat the error on the field | GOV.UK error summary. WCAG 3.3.1 error identification. NN/g: help users recover from errors |
@@ -90,7 +90,7 @@ Recorded deviations from a cited source:
 - Material's 48dp touch target is not the VibeSynergy size. Controls use Apple's 44pt target. The calendar year grid uses WCAG's 24px minimum.
 - GOV.UK body text is 19px. VibeSynergy body text is 16px on the system font, which is the production scale in `design.css`.
 - The portal does not import a component library. Controls are native `button`, `a`, `details`, `table` and form elements styled with the shared tokens. There is no build step.
-- Diary body-map dots stay small because the anatomy overlaps. The equivalent full-width location selector is the large target. See `docs/design/VALIDATION.md`.
+- Diary body-map dots stay small because the anatomy overlaps. The equivalent full-width location selector is the large target.
 - A metric chip's remove control is 28×28 CSS px, above the WCAG 2.5.8 minimum of 24px. The chip text names the metric and the button has its own accessible name.
 
 ## 2. Product tasks and decision hierarchy
@@ -138,7 +138,7 @@ as a side effect of a visual change. Moved pages redirect on load and keep their
 | Insight | `#/sql` | Advanced tool, labelled as such. Bounded read-only query and an accessible result table |
 | Training | `#/zones` | Zones & thresholds per sport, plus About you (sex, max and resting heart rate). `#/settings/you` redirects here |
 | Settings | `#/settings/system` | Time zone and units, datasets, schedule, best source per measurement (reorder per metric, saved at once), folders |
-| Settings | `#/settings/appearance` | Language, system/light/dark, navigation and dashboard preferences |
+| Settings | `#/settings/system` | Language, system/light/dark, navigation and dashboard preferences |
 | Settings | `#/settings/ai` | Provider, model, readiness and usage. Separate from the training approach |
 | Settings | `#/settings/alerts` | Channels, recipients, rhythm and a test delivery |
 | Settings | `#/settings/calendar` | Sign-in and calendar choice in the page. Credentials stay on the server |
@@ -328,9 +328,9 @@ What is already in the portal, and what still needs:
 1. Shared tokens, focus, controls, zone presentation and state styles are in
    `design-tokens.css` and `design.css`. Layout and type tokens name the values already shipping.
 2. Shell, Training, activity zones, Today, Health, Insight, Data-under-Settings and the
-   other routes use those roles. Evidence is in `VALIDATION.md`.
+   other routes use those roles.
 3. Still open on a screen-reader walkthrough, deployment, and live verification.
-   The populated axe and keyboard pass is in `VALIDATION.md`.
+   The populated axe and keyboard pass has been done.
 4. Colour themes (VibeSynergy (standard) plus Volt, Stroom and Hartslag
    from RunSynergy. A theme is `data-palette` on `<html>` and only redefines the colour roles
    in `design-tokens.css` (light, explicit dark and system dark each). Light/dark/system stays
@@ -347,7 +347,7 @@ plan calendar): show two labelled checkboxes for
 Garmin goals and Garmin events; all four combinations are valid. Preview the included items,
 provenance, freshness and duplicate/conflict status alongside manual context. Explain that
 switching off excludes items from coaching while keeping the source records. Follow the
-existing draft/preview/activation flow; see [COACH.md §6.5](../COACH.md#65-optional-garmin-goals-and-events-as-coaching-inputs).
+existing draft/preview/activation flow.
 The prototype does not yet implement these new controls.
 
 Assessment/dashboard refresh now preserves explicitly keyed disclosures and focus. Keys include

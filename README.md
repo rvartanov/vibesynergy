@@ -65,7 +65,7 @@ Settings. See [docs/SOURCES.md](docs/SOURCES.md) for each source.
 ## Connect an AI app
 
 Any MCP client (Claude, ChatGPT, a local model, …) connects in the portal under
-**Settings → Coach apps**. Set a passphrase, give the app the MCP address, and approve it on
+**Settings → Sharing → Coach apps**. Set a passphrase, give the app the MCP address, and approve it on
 the consent page. You choose per app what it may do: `read`, `read.expert`, `diary.write`,
 `coach.write`, `plan.propose`, `plan.write`, `sync`, `publish` and `sql`. Writing to your
 plan, publishing and free-form queries stay off unless you turn them on.
