@@ -7,21 +7,30 @@ from sqlalchemy import func, select
 
 from vibesynergy.core.timeutil import Window, today_in
 from vibesynergy.runtime import Runtime
+from vibesynergy.sources.demo import HISTORY_DAYS
 from vibesynergy.store.schema import daily_metric
 
 
 def _metric_rows(rt) -> int:
+    """Steps and resting heart rate: one of each per day. (The demo's nights, HRV and
+    weigh-ins have their own test, test_demo_source.py.)"""
     with rt.engine.connect() as conn:
-        return conn.execute(select(func.count()).select_from(daily_metric)).scalar()
+        return conn.execute(
+            select(func.count())
+            .select_from(daily_metric)
+            .where(daily_metric.c.metric.in_(("daily.steps", "hr.resting")))
+        ).scalar()
 
 
 def test_initial_then_incremental_sync(runtime) -> None:
     results = {r.dataset: r for r in runtime.sync.sync("demo")}
     daily = results["daily"]
     assert daily.error is None
-    assert (daily.fetched, daily.new_versions, daily.records) == (14, 14, 28)
+    assert (daily.fetched, daily.new_versions) == (HISTORY_DAYS, HISTORY_DAYS)
+    assert daily.records > 2 * HISTORY_DAYS  # steps and resting HR, plus the night and HRV
+    assert results["activities"].error is None and results["activities"].fetched > 20
     assert results["profile"].window is None and results["profile"].fetched == 1
-    assert _metric_rows(runtime) == 28
+    assert _metric_rows(runtime) == 2 * HISTORY_DAYS
 
     state = runtime.sync.state("demo", "daily")
     today = today_in("Europe/Amsterdam")

@@ -156,7 +156,7 @@ def test_unknown_source(env) -> None:
 def test_backfill_month_by_month(env) -> None:
     run("init")
     out = run("backfill", "demo", "--start", "2026-01-30", "--end", "2026-03-02")
-    assert "2026-01-30..2026-01-31: 1 ok" in out and "2026-03-01..2026-03-02: 1 ok" in out
+    assert "2026-01-30..2026-01-31: 2 ok" in out and "2026-03-01..2026-03-02: 2 ok" in out
 
 
 def test_import_files_command(env, tmp_path) -> None:
