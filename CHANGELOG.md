@@ -67,6 +67,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- The name VibeSynergy is back next to the logo on phones; only screens narrower than 370px
+  show the logo alone ([#21](https://github.com/rvartanov/vibesynergy/pull/21)).
 - Planning & progress no longer fails to load without a plan; it says how to get one. "Are
   your workouts on your watch?" only shows with a plan and a connected Garmin ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 - Zones & thresholds no longer says intervals.icu could not be reached when it was never
