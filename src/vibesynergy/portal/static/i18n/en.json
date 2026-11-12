@@ -2439,7 +2439,6 @@
  "Metric (km, kg)": "Metric (km, kg)",
  "Imperial (mi, lb)": "Imperial (mi, lb)",
  "Training plan": "Training plan",
- "Garmin only": "Garmin only",
  "Load week": "Load week",
  "Recovery week": "Recovery week",
  "Race week": "Race week",
@@ -2450,7 +2449,6 @@
  "No plan in intervals.icu yet.": "No plan in intervals.icu yet.",
  "Notes for the week": "Notes for the week",
  "Nothing planned in the next 9 days.": "Nothing planned in the next 9 days.",
- "Not in your plan": "Not in your plan",
  "Phases": "Phases",
  "Read-only. The plan is changed in intervals.icu or through your coach.": "Read-only. The plan is changed in intervals.icu or through your coach.",
  "this week": "this week",
@@ -2467,7 +2465,6 @@
  "Your notes, how you feel, and what hurts, day by day. Add a note with dates and tags, or mark pain on the body map.": "Your notes, how you feel, and what hurts, day by day. Add a note with dates and tags, or mark pain on the body map.",
  "Planned": "Planned",
  "Nothing planned for this day.": "Nothing planned for this day.",
- "On your Garmin calendar, but not in the plan. It does not count as planned.": "On your Garmin calendar, but not in the plan. It does not count as planned.",
  "Days this week": "Days this week",
  "The day in numbers": "The day in numbers",
  "set in intervals.icu": "set in intervals.icu",
@@ -3548,5 +3545,7 @@
  "Three steps and VibeSynergy works for you.": "Three steps and VibeSynergy works for you.",
  "Check for updates": "Check for updates",
  "Checking…": "Checking…",
- "Could not check: {error}": "Could not check: {error}"
+ "Could not check: {error}": "Could not check: {error}",
+ "Only on your Garmin calendar": "Only on your Garmin calendar",
+ "Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.": "Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu."
 }

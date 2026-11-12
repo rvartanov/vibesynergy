@@ -364,7 +364,7 @@ function upcomingHtml(upcoming) {
       ${rows.map(sessionHtml).join("")}
     </li>`).join("");
   const others = outside.length
-    ? `<h3>${t("Not in your plan")}</h3><ul class="trends">${outside.map((item) => `<li>${esc(shortDate(item.date))} · ${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))} <span class="chip info">${t("Garmin only")}</span></li>`).join("")}</ul>`
+    ? `<h3>${t("Only on your Garmin calendar")}</h3><p class="sub">${t("Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.")}</p><ul class="trends">${outside.map((item) => `<li>${esc(shortDate(item.date))} · ${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join("")}</ul>`
     : "";
   return `<section class="card" aria-labelledby="plan-next-title">
     <h2 id="plan-next-title">${t("Next 9 days")}</h2>

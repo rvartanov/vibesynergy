@@ -40,6 +40,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- Start page and Planning: Garmin workouts that are not in your intervals.icu plan now stand
+  under "Only on your Garmin calendar", with why they do not count in planned versus done and
+  what to do about it ([#23](https://github.com/rvartanov/vibesynergy/pull/23)).
 - Start page: blocks and key numbers without data take no space; they are named in one
   line at the bottom with a link to Sources. A block you tick under "Arrange the start page"
   stays even while it is empty. A new layout starts with advice, check-in, this week,
