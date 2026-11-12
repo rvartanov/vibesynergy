@@ -243,7 +243,10 @@ def set_password(
 
 
 def issue_token(engine: Engine, account_id: int, purpose: str, ttl: timedelta) -> str:
-    """A new link or code; earlier unused ones for the same purpose stop working."""
+    """A new link or code. An earlier unused code or setup link stops working; earlier login
+    and reset links stay good until they expire, so a stranger asking for a link cannot
+    cancel the one the owner is about to click (how many are sent is bounded, see
+    ``mail_allowed``)."""
     token = (
         "".join(secrets.choice("0123456789") for _ in range(6))
         if purpose == "mfa_mail"
@@ -251,13 +254,12 @@ def issue_token(engine: Engine, account_id: int, purpose: str, ttl: timedelta) -
     )
     now = utc_now()
     with engine.begin() as conn:
-        conn.execute(
-            delete(auth_token).where(
-                auth_token.c.account_id == account_id,
-                auth_token.c.purpose == purpose,
-                auth_token.c.used_at.is_(None),
-            )
-        )
+        stale = [auth_token.c.account_id == account_id, auth_token.c.purpose == purpose]
+        if purpose in ("login", "reset"):
+            stale.append(auth_token.c.expires_at <= now)
+        else:
+            stale.append(auth_token.c.used_at.is_(None))
+        conn.execute(delete(auth_token).where(*stale))
         conn.execute(
             insert(auth_token).values(
                 hash=_hash(token),
@@ -338,6 +340,33 @@ def locked(engine: Engine, email: str, client: str) -> bool:
             failures(f"email:{_norm(email)}") >= MAX_FAILURES_EMAIL
             or failures(f"client:{client}") >= MAX_FAILURES_CLIENT
         )
+
+
+MAX_MAILS_CLIENT = 3
+MAX_MAILS_ALL = 6
+
+
+def mail_allowed(engine: Engine, purpose: str, client: str) -> bool:
+    """May a login or reset link be mailed now? Counts the mail when it may.
+
+    A few per quarter of an hour, per visitor and in total, so nobody can fill the mailbox.
+    Deliberately apart from the wrong-password brake: someone guessing passwords must not
+    be able to close the one way back in.
+    """
+    since = utc_now() - WINDOW
+    keys = {f"mail:{purpose}:{client}": MAX_MAILS_CLIENT, f"mail:{purpose}": MAX_MAILS_ALL}
+    with engine.connect() as conn:
+        for key, most in keys.items():
+            sent = conn.execute(
+                select(func.count())
+                .select_from(auth_attempt)
+                .where(auth_attempt.c.key == key, auth_attempt.c.at >= since)
+            ).scalar_one()
+            if sent >= most:
+                return False
+    for key in keys:
+        _record(engine, key, True)
+    return True
 
 
 def note_attempt(engine: Engine, email: str, client: str, ok: bool) -> None:

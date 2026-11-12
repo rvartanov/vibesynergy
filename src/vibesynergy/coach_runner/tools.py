@@ -13,20 +13,22 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Callable, Iterable
 from typing import Any
 
 import anyio
 
 from vibesynergy.mcp.identity import reset_connection, set_connection
+from vibesynergy.query import publication_insight
 
 log = logging.getLogger(__name__)
 
 CLIENT_ID = "coach-runner"
 LABEL = "AI coach (API)"
 COACH_SCOPES = frozenset({"read", "coach.write", "plan.write"})
-INSIGHT_SCOPES = frozenset({"read", "coach.write"})
+# ``publish`` because the insight run writes the one public line; its tools are limited to
+# INSIGHT_TOOLS, so it cannot publish anything else.
+INSIGHT_SCOPES = frozenset({"read", "coach.write", "publish"})
 # The insight run reads the activity, the plan and the rules; nothing private.
 INSIGHT_TOOLS = frozenset(
     {
@@ -45,14 +47,6 @@ INSIGHT_TOOLS = frozenset(
 # Never offered: fetching from the sources and writes outside the coach's role.
 NEVER = frozenset({"vibesynergy_refresh", "vibesynergy_sql", "vibesynergy_result"})
 MAX_RESULT_CHARS = 100_000
-# Words that mean private health, diary or injury content in a public line (INS-2).
-_PRIVATE = re.compile(
-    r"\b(hrv|readiness|slaap|sleep|rusthartslag|resting heart|rustpols|gewicht|weight|"
-    r"bloeddruk|blood pressure|blessure|injur\w*|pijn|pain|ziek\w*|sick\w*|ill(ness)?|"
-    r"dagboek|diary|check-?in)\b",
-    re.IGNORECASE,
-)
-
 Guard = Callable[[str, dict[str, Any]], str | None]
 
 
@@ -77,7 +71,7 @@ def insight_guard(engine, activity_ids: Iterable[str] | None = None) -> Guard:
         if allowed and _group(engine, str(arguments.get("activity_id") or "")) not in allowed:
             return f"Only these activities belong to this run: {', '.join(sorted(allowed))}."
         line = str(arguments.get("public_insight") or "")
-        if _PRIVATE.search(line):
+        if publication_insight.PRIVATE.search(line):
             return (
                 "public_insight mentions private health, diary or injury details (INS-2). "
                 "Rewrite it about the session only, or leave the insight out."

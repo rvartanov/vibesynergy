@@ -752,3 +752,28 @@ def test_pat_expires(setup) -> None:
             .values(expires_at=utc_now() - timedelta(minutes=1))
         )
     assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 401
+
+
+def test_the_ceiling_does_not_lock_out_the_portal_or_an_approved_app() -> None:
+    limiter = oauth.PassphraseLimiter(per_key=2, ceiling=3, window=10, clock=lambda: 0.0)
+    for stranger in ("s1", "s2", "s3"):
+        limiter.fail(stranger)
+    assert limiter.locked("s4")  # strangers reached the ceiling
+    assert not limiter.locked("portal") and not limiter.locked("mine", trusted=True)
+    assert limiter.fail("mine", trusted=True) == 1  # its own count still applies
+    limiter.fail("mine", trusted=True)
+    assert limiter.locked("mine", trusted=True)
+
+
+def test_apps_nobody_approved_do_not_pile_up(setup, monkeypatch) -> None:
+    from sqlalchemy import func, select
+
+    from vibesynergy.store.schema import oauth_client
+
+    rt, client = setup
+    monkeypatch.setattr(oauth, "MAX_UNAPPROVED_CLIENTS", 3)
+    ids = [_register(client, name=f"App {n}") for n in range(6)]
+    with rt.engine.connect() as conn:
+        kept = set(conn.execute(select(oauth_client.c.client_id)).scalars())
+        assert conn.execute(select(func.count()).select_from(oauth_client)).scalar() == 3
+    assert ids[-1] in kept and ids[0] not in kept

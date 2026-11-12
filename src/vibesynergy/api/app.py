@@ -137,7 +137,13 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
         lane_status = lanes.status()
         ok = lanes.all_alive() if lane_status else True
-        return {"ok": ok, "jobs": rt.jobs.counts(), "lanes": lane_status}
+        return {
+            "ok": ok,
+            "jobs": rt.jobs.counts(),
+            "lanes": lane_status,
+            # A job that has been running for hours points at a stuck source.
+            "oldest_running_s": rt.jobs.oldest_running_seconds(),
+        }
 
     def _oauth_page(body: str) -> str:
         return (

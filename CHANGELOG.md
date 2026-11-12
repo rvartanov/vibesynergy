@@ -26,6 +26,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - This changelog and [docs/FEATURES.md](docs/FEATURES.md), kept current with every change.
 
 ### Changed
+- An AI app needs the **publish** permission to set the public insight line of an activity;
+  with only "write messages" it writes the assessment without that line. Allow it under
+  Settings → Coach apps for the app that writes your insights. The line is also refused when
+  it names health, diary or injury details or holds a link ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
+- Asking for a login or reset link no longer cancels the link sent just before, and these
+  mails are limited to a few per quarter of an hour ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
 - Fitness, fatigue, form and the projection to the races are VibeSynergy's own calculation
   only: per session power, pace or the heart-rate stream with the thresholds of that day;
   planned load from each session's steps. intervals.icu is used only to deliver the plan
@@ -36,6 +42,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- An update whose database migration fails puts the database and the previous version back
+  by itself, and the running service is left as it was; in a container a failed migration
+  restores the backup made just before ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
+- When Garmin refuses with "too many requests" or the login has expired, the sync stops at
+  once and waits an hour instead of asking on ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
+- A sync for one day (a scale measurement, `--start today`) after days without syncing no
+  longer hides the days in between ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
+- Too many wrong passwords no longer stop the login link from being sent; strangers
+  registering apps can no longer keep you from approving your own, and apps nobody approved
+  are removed after a day ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
+- `/health` also watches the portal and the scheduler, and says how long the oldest job has
+  been running ([#19](https://github.com/rvartanov/vibesynergy/pull/19)).
 - Security: the sign-in landing page no longer shows a name from the address as it came
   in; Strava webhook events are only accepted with this install's own subscription id; an
   AI app can no longer rewrite the coach's instructions by itself (it proposes, you approve);

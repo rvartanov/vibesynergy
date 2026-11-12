@@ -15,6 +15,7 @@ How VibeSynergy was installed decides both:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -177,6 +178,49 @@ def backup_database(db_path: Path, folder: Path, prefix: str = "before-update") 
     return target
 
 
+def schema_fingerprint(db_path: Path) -> str:
+    """The database's structure and migration revision as one comparable value."""
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "select type, name, coalesce(sql, '') from sqlite_master order by type, name"
+        ).fetchall()
+        try:
+            revision = conn.execute("select version_num from alembic_version").fetchall()
+        except sqlite3.Error:
+            revision = []
+    finally:
+        conn.close()
+    return hashlib.sha256(repr((rows, revision)).encode()).hexdigest()
+
+
+def restore_database(backup: Path, db_path: Path) -> None:
+    """Put a backup back in place of the database, safely while the service has it open:
+    SQLite's own backup replaces the content in one transaction."""
+    source = sqlite3.connect(f"file:{backup}?mode=ro", uri=True)
+    try:
+        dest = sqlite3.connect(db_path, timeout=60)
+        try:
+            with dest:
+                source.backup(dest)
+        finally:
+            dest.close()
+    finally:
+        source.close()
+
+
+def restore_after_failed_migration(backup: Path | None, db_path: Path) -> bool:
+    """A migration that stops halfway leaves tables changed without the revision moving, and
+    it cannot run again. When the structure differs from the backup made just before, put
+    that backup back. Returns whether it did."""
+    if backup is None or not backup.exists():
+        return False
+    if schema_fingerprint(backup) == schema_fingerprint(db_path):
+        return False
+    restore_database(backup, db_path)
+    return True
+
+
 def _service_active() -> bool:
     out = _run(["systemctl", "--user", "is-active", SERVICE], timeout=10)
     return bool(out and out.stdout.strip() in ("active", "activating", "reloading"))
@@ -212,6 +256,11 @@ def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> 
         migrate = _run([str(command), "db", "upgrade"], timeout=900)
         if migrate is None or migrate.returncode != 0:
             output = (migrate.stdout if migrate else "")[-500:]
+            # Back to where it was: the database as it was before, and the version that ran.
+            # The service was not restarted, so it keeps working on what it had.
+            if restore_after_failed_migration(backup, settings.db_path):
+                note("The database is back as it was before the update")
+            record["rolled_back"] = _reinstall(uv, info, note)
             raise RuntimeError(f"db upgrade failed (the backup is {backup}): {output}")
         record["migrated"] = True
         note("Database up to date")
@@ -234,6 +283,20 @@ def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> 
     finally:
         _write(settings, record, lines)
     return record
+
+
+def _reinstall(uv: str, info: dict[str, Any], note: Callable[[str], None]) -> bool:
+    """Install the commit that ran before the update again."""
+    commit, url = info.get("commit"), info.get("url")
+    if not commit or not url:
+        note("The previous version could not be put back by itself: its commit is unknown.")
+        return False
+    out = _run([uv, "tool", "install", "--force", f"git+{url}@{commit}"], timeout=900)
+    if out is None or out.returncode != 0:
+        note(f"Putting the previous version back failed: {(out.stderr if out else '')[-300:]}")
+        return False
+    note(f"The previous version ({commit[:7]}) is installed again")
+    return True
 
 
 def _new_commit() -> str | None:

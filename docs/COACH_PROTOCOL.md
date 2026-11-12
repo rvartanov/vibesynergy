@@ -134,6 +134,8 @@ Plan writes have no idempotency key: they carry a `reason` and are protected by
 about to use (the plan article sets the scheme, now `lake27:<date>:<slot>` and week notes
 `lake27:week:NN`, tag `lake27`). Found it: update instead of creating.
 
+**Publishing.** Setting `public_insight` needs the `publish` permission (Settings → Coach apps): the line ends up in a public description. Without it, write the assessment without `public_insight`.
+
 **Privacy.** Public text is the `public_insight` (Strava, Garmin and intervals.icu
 descriptions) and anything in a workout's name or description (it reaches Garmin, Zwift and
 the shared calendar). Never put there: HRV, sleep, readiness, resting heart rate, weight,
