@@ -197,11 +197,11 @@ def test_selected_dataset_status_matches_full_status(runtime):
     assert views.sync_status(runtime.engine, datasets=set())["datasets"] == []
 
 
-def test_dashboard_state_keeps_profile_without_an_internal_assessment(runtime):
+def test_current_state_keeps_profile_without_an_internal_assessment(runtime):
     coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
     coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
     put(runtime, "garmin", activity())
-    state = assessments.dashboard_state(runtime)
+    state = assessments.current_state(runtime)
     assert state["freshness"] == "missing"
     assert state["reason"] == "retired"
     assert state["activity_id"] is None
@@ -213,12 +213,12 @@ def test_dashboard_state_keeps_profile_without_an_internal_assessment(runtime):
         runtime.engine, "policy", {"athlete": "masters"}, expected_version=1, reason="test"
     )
     coach.activate(runtime.engine, "policy", expected_version=2, reason="test")
-    changed_profile = assessments.dashboard_state(runtime)
+    changed_profile = assessments.current_state(runtime)
     assert changed_profile["profile"]["policy"]["version"] == 2
     assert changed_profile["reason"] == "retired"
 
 
-def test_dashboard_state_rechecks_date_without_database_write(runtime, monkeypatch):
+def test_current_state_rechecks_date_without_database_write(runtime, monkeypatch):
     coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
     coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
     put(runtime, "garmin", activity())
@@ -228,9 +228,9 @@ def test_dashboard_state_rechecks_date_without_database_write(runtime, monkeypat
         PlannedItem("race", START.date() + timedelta(days=9), "event", is_race=True),
     )
     monkeypatch.setattr(assessments, "today_in", lambda _: START.date())
-    first = assessments.dashboard_state(runtime)
+    first = assessments.current_state(runtime)
     monkeypatch.setattr(assessments, "today_in", lambda _: START.date() + timedelta(days=1))
-    next_day = assessments.dashboard_state(runtime)
+    next_day = assessments.current_state(runtime)
     assert first["input_version"] == next_day["input_version"]
     assert first["next_race"]["days_to_go"] == 9
     assert next_day["next_race"]["days_to_go"] == 8

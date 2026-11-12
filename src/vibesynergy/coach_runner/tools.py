@@ -45,7 +45,7 @@ INSIGHT_TOOLS = frozenset(
     }
 )
 # Never offered: fetching from the sources and writes outside the coach's role.
-NEVER = frozenset({"vibesynergy_refresh", "vibesynergy_sql", "vibesynergy_result"})
+NEVER = frozenset({"vibesynergy_refresh", "vibesynergy_sql"})
 MAX_RESULT_CHARS = 100_000
 Guard = Callable[[str, dict[str, Any]], str | None]
 

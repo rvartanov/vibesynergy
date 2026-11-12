@@ -929,23 +929,6 @@ def unavailable_state(reason: str, activity_id: str | None = None) -> dict:
     }
 
 
-def dashboard_state(rt) -> dict:
-    """Read the current state when backed by evidence; fail closed without breaking Today."""
-    try:
-        result = current_state(rt)
-        if result["freshness"] == "blocked":
-            return unavailable_state("identity_conflict", result["activity_id"])
-        return result
-    except (LookupError, ValueError, OSError) as exc:
-        log.debug("dashboard coaching evidence unavailable: %s", type(exc).__name__)
-        return unavailable_state("missing_evidence")
-    except Exception as exc:
-        # This optional state must never take down the deterministic dashboard. Do not log
-        # record contents or exception messages from private evidence queries.
-        log.warning("dashboard coaching state unavailable: %s", type(exc).__name__)
-        return unavailable_state("query_error")
-
-
 def _profile_versions(documents: dict) -> dict:
     return {
         kind: {"version": document["version"], "fingerprint": document["fingerprint"]}

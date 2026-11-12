@@ -114,42 +114,6 @@ def test_null_soreness_does_not_fire():
         assert "sore" not in floor["rules"]
 
 
-def test_hard_session_with_pain_is_flag_and_names_the_injury():
-    session = {
-        "date": "2026-10-16",
-        "title": "Easy spin",
-        "intensity": "hard",
-        "steps": [{"type": "work", "duration_s": 2400}],
-    }
-    signals = {
-        "today": date(2026, 10, 16),
-        "acwr": 1.0,
-        "daily_safety": {"level": "ok", "rules": []},
-        "recent_races": [],
-        "injuries": [{"latest_pain": 4, "flags": []}],
-    }
-    one = safety_floor.evaluate_session(session, signals)
-    assert one["level"] == "flag"
-    assert "injury_warning" in one["rules"]
-    # The intensity field wins over an easy title.
-    assert one["intensity"] == "hard"
-
-
-def test_long_duurloop_and_hill_words():
-    short = {"title": "Lange duurloop", "duration_s": 45 * 60}
-    long = {"title": "Lange duurloop", "duration_s": 2 * 3600}
-    assert safety_floor.session_is_hard(short) is False
-    assert safety_floor.session_is_hard(long) is True
-    assert safety_floor.session_is_hard({"title": "Chill jog"}) is False
-    assert safety_floor.session_is_hard({"title": "Heuveltraining"}) is True
-    easy = safety_floor.evaluate_session(
-        {"title": "Hill repeats", "intensity": "easy"},
-        {"injuries": [{"latest_pain": 5, "flags": []}]},
-    )
-    assert easy["intensity"] == "easy"
-    assert easy["level"] == "ok"
-
-
 def test_dashboard_and_daily_coaching_return_the_same_level(runtime):
     """Seeded rough patch: soreness 5, sleep just over 6 h, readiness 53, a tempo on the plan."""
     import anyio

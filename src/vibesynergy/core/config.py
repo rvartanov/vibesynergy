@@ -23,7 +23,7 @@ _SECRET_URL_WARNED = False
 # Sources that no longer exist. Old config sections, sync state rows and queued jobs that
 # still name them are ignored rather than reported as problems.
 RETIRED_SOURCES = frozenset({"icloud"})
-_RETIRED_WARNED: set[tuple[str, str]] = set()
+_RETIRED_SOURCES_WARNED: set[tuple[str, str]] = set()  # (config table, source id)
 
 UNITS = ("metric", "imperial")
 DEFAULT_PORTAL_PORT = 8447  # [portal] port when the config does not set one
@@ -53,9 +53,6 @@ class Settings:
     mail: dict[str, Any] = field(default_factory=dict)  # [mail]: smtp_*, imap_*, username
     alerts: dict[str, Any] = field(default_factory=dict)  # [alerts]: enabled, email_to
     dropfolder: dict[str, Any] = field(default_factory=dict)  # [dropfolder]: dir
-    ai: dict[str, Any] = field(
-        default_factory=dict
-    )  # [ai]: provider/model, chat_provider/chat_model, coach_provider/coach_model, local_url
     publication: dict[str, Any] = field(default_factory=dict)
     calendar: dict[str, Any] = field(default_factory=dict)  # [calendar]: lookahead_months
     bugs: dict[str, Any] = field(default_factory=dict)  # [bugs]: repo (owner/name) for new issues
@@ -126,8 +123,8 @@ def load_settings(config_path: Path | None = None) -> Settings:
     for table, name in ((sources, "sources"), (schedule, "schedule")):
         for retired in RETIRED_SOURCES & table.keys():
             table.pop(retired)
-            if (name, retired) not in _RETIRED_WARNED:
-                _RETIRED_WARNED.add((name, retired))
+            if (name, retired) not in _RETIRED_SOURCES_WARNED:
+                _RETIRED_SOURCES_WARNED.add((name, retired))
                 log.warning(
                     "[%s] %s is ignored; that source has been removed (calendars use caldav, "
                     "set up in the portal under Settings → Calendar)",
@@ -165,7 +162,6 @@ def load_settings(config_path: Path | None = None) -> Settings:
         mail=raw.get("mail", {}),
         alerts=_without_retired(dict(raw.get("alerts", {})), "alerts"),
         dropfolder=raw.get("dropfolder", {}),
-        ai=raw.get("ai", {}),
         publication=publication,
         calendar=raw.get("calendar") or {},
         bugs=raw.get("bugs") or {},
@@ -187,7 +183,7 @@ RETIRED_KEYS = {
     # Fitness is VibeSynergy's own calculation only; intervals.icu's is no longer read.
     "user": ("load_source",),
 }
-_RETIRED_WARNED: set[str] = set()
+_RETIRED_KEYS_WARNED: set[str] = set()  # "[section] key"
 
 
 def _without_retired(table: dict[str, Any], section: str) -> dict[str, Any]:
@@ -195,8 +191,8 @@ def _without_retired(table: dict[str, Any], section: str) -> dict[str, Any]:
         if key in table:
             table.pop(key)
             name = f"[{section}] {key}"
-            if name not in _RETIRED_WARNED:
-                _RETIRED_WARNED.add(name)
+            if name not in _RETIRED_KEYS_WARNED:
+                _RETIRED_KEYS_WARNED.add(name)
                 log.warning("%s is ignored; nothing uses it any more", name)
     return table
 
@@ -269,7 +265,6 @@ def _validate(settings: Settings) -> None:
             raise ConfigError(f"[user] {key} must be a heart rate in bpm, got {value!r}")
     if "birth_date" in settings.athlete:
         settings.athlete["birth_date"] = _birth_date(settings.athlete["birth_date"])
-    # Whose training load counts: intervals.icu's model or VibeSynergy's own.
     security = settings.mail.get("smtp_security")
     if security is not None and security not in ("starttls", "ssl", "none"):
         raise ConfigError("[mail] smtp_security must be starttls, ssl or none")

@@ -677,23 +677,6 @@ def test_stats_lines_full_and_invalid_values():
     assert publication_format.stats_lines({}, "nl") == []
 
 
-def test_safety_level_uses_the_fixed_rules_and_fails_closed(runtime, monkeypatch):
-    from vibesynergy.query import daily_coach
-
-    monkeypatch.undo()
-    ready(runtime)
-    day = publication_plugins._local_date(runtime, "garmin:1")
-    assert publication_plugins.safety_level(runtime, day) == "ok"
-    monkeypatch.setattr(daily_coach, "safety", lambda _inputs: {"level": "flag", "rules": ["sick"]})
-    assert publication_plugins.safety_level(runtime, day) == "flag"
-
-    def broken(*_):
-        raise RuntimeError("capture failed")
-
-    monkeypatch.setattr(daily_coach, "_capture", broken)
-    assert publication_plugins.safety_level(runtime, day) == "refuse"
-
-
 def test_new_defaults_are_on_and_config_switches_them_off(runtime):
     ready(runtime)
     item = publication.preview(

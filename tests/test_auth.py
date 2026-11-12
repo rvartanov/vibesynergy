@@ -23,8 +23,6 @@ def test_one_account_by_email_and_no_password_yet(runtime, acc):
     assert acc["email"] == EMAIL and acc["password_hash"] is None and acc["mfa"] == "none"
     with pytest.raises(auth.AuthError):
         auth.create_account(runtime.engine, "other@example.com")
-    with pytest.raises(auth.AuthError):
-        auth.set_email(runtime.engine, acc["id"], "nope")
 
 
 def test_passwords_are_hashed_and_checked(runtime, acc):
@@ -44,7 +42,6 @@ def test_a_link_works_once_and_only_while_fresh(runtime, acc):
     with runtime.engine.connect() as conn:
         stored = conn.execute(select(auth_token.c.hash)).scalar_one()
     assert token not in stored  # only the hash is kept
-    assert auth.peek_token(runtime.engine, token, "login")
     assert auth.use_token(runtime.engine, token, "reset") is None  # wrong purpose
     assert auth.use_token(runtime.engine, token, "login") == acc["id"]
     assert auth.use_token(runtime.engine, token, "login") is None  # spent

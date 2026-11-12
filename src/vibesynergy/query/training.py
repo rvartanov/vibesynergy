@@ -194,7 +194,6 @@ _GARMIN_THRESHOLDS = {
     ("other", "lthr"): ("default", "hr", "threshold"),
     ("other", "max_hr"): ("default", "hr", "max_value"),
 }
-_FAMILY_KEYS = {"ride": "bike", "run": "run", "swim": "swim", "other": "other"}
 
 
 class ThresholdTimeline:
@@ -276,11 +275,6 @@ class ThresholdTimeline:
                 rest_hr=float(self.profile.get("rest_hr") or DEFAULT_REST_HR),
             )
         return self._cache[day]
-
-
-def own_inputs(engine: Engine, athlete: dict[str, Any] | None = None):
-    """The thresholds the own load is computed from, as valid today."""
-    return ThresholdTimeline(engine, athlete).on(date.today())
 
 
 def activity_loads(

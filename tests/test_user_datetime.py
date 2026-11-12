@@ -8,10 +8,7 @@ from vibesynergy.core.user_datetime import (
     DISPLAY_TZ,
     format_user_date,
     format_user_datetime,
-    format_user_long_date,
     format_user_month_year,
-    format_user_short_weekday,
-    format_user_time_from_utc,
 )
 
 
@@ -28,11 +25,6 @@ def test_format_user_datetime_amsterdam_winter() -> None:
 def test_format_user_datetime_amsterdam_summer_dst() -> None:
     instant = datetime(2026, 7, 1, 10, 30, 0, tzinfo=UTC)
     assert format_user_datetime(instant, DISPLAY_TZ) == "1-7-2026 12:30"
-
-
-def test_format_user_time_from_utc_has_no_seconds() -> None:
-    instant = datetime(2026, 3, 29, 0, 30, 5, tzinfo=UTC)
-    assert format_user_time_from_utc(instant, DISPLAY_TZ) == "01:30"
 
 
 def test_format_js_user_display() -> None:
@@ -75,10 +67,5 @@ console.log(JSON.stringify({
 
 
 def test_weekday_and_month_names_follow_language() -> None:
-    day = date(2026, 12, 4)
-    assert format_user_long_date(day, "en") == "Friday 4 December 2026"
-    assert format_user_long_date(day, "nl") == "vrijdag 4 december 2026"
-    assert format_user_short_weekday(day, "en") == "Fri"
-    assert format_user_short_weekday(day, "nl") == "vr"
     assert format_user_month_year(date(2026, 12, 1), "en") == "Dec 2026"
     assert format_user_month_year(date(2026, 12, 1), "nl") == "dec 2026"

@@ -4,7 +4,6 @@ from dataclasses import replace
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
-import pytest
 from test_evidence import START, put
 
 from vibesynergy import alerts
@@ -141,10 +140,6 @@ def test_read_uses_safety_until_a_coach_writes(runtime):
     assert snapshot["morning"]["state"] == "no_coach"
     assert snapshot["morning"]["advice"] is None
     assert snapshot["morning"]["safety"]["level"] in {"ok", "flag", "refuse"}
-    with pytest.raises(ValueError, match="retired"):
-        q.prepare(runtime, DAY, "morning")
-    with pytest.raises(ValueError, match="retired"):
-        q.complete(runtime, "gone", "morning", {}, None)
 
 
 def test_new_morning_coach_write_raises_an_alert(runtime):

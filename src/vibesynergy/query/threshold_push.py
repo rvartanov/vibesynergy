@@ -33,7 +33,6 @@ from vibesynergy.store.schema import audit_log
 
 log = logging.getLogger(__name__)
 
-PLATFORMS = ("garmin", "intervals")
 GARMIN_PROFILE = {"bike": "CYCLING", "run": "RUNNING", "swim": "SWIMMING"}
 # What a platform cannot take, per sport (the page says so instead of offering it).
 UNSUPPORTED = {

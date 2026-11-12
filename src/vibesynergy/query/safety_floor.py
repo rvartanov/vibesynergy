@@ -53,8 +53,6 @@ REFUSE_TAGS = {"fever", "chest_pain", "dizzy", "dizziness"}
 LEVELS = ("ok", "ease", "flag", "refuse")
 _RANK = {level: index for index, level in enumerate(LEVELS)}
 _HILL = re.compile(r"\bhills?\b")
-_LONG_RUN_S = 2 * 3600
-_INTENSITIES = {"easy", "moderate", "hard", "race"}
 
 
 def stricter(current: str, new: str) -> str:
@@ -243,94 +241,7 @@ def title_band(title: str | None) -> str:
     return "normal"
 
 
-def session_intensity(session: dict) -> str:
-    """Intensity field first, then an explicit hard flag, then title and intent words."""
-    raw = str(session.get("intensity") or "").strip().lower()
-    if raw in _INTENSITIES:
-        return raw
-    if session.get("hard") is True:
-        return "hard"
-    text = f"{session.get('title') or ''} {session.get('intent') or ''}".lower()
-    if _hard_text(text) or _long_duurloop(session, text):
-        return "hard"
-    if any(word in text for word in EASY_WORDS):
-        return "easy"
-    return "moderate"
-
-
-def session_is_hard(session: dict) -> bool:
-    return session_intensity(session) in ("hard", "race")
-
-
-def open_pain(signals: dict) -> float | None:
-    if signals.get("open_complaint") is not None:
-        return signals["open_complaint"]
-    if signals.get("pain") is not None:
-        return signals["pain"]
-    pains = [
-        item["latest_pain"]
-        for item in signals.get("injuries") or []
-        if item.get("latest_pain") is not None
-    ]
-    if not pains:
-        return None
-    return max(pains)
-
-
-def evaluate_session(session: dict, signals: dict) -> dict[str, Any]:
-    """Safety for one planned session on the day those signals describe."""
-    intensity = session_intensity(session)
-    rules: list[str] = []
-    level = "ok"
-    day_level = _day_level(signals)
-    if day_level == "refuse":
-        level = "refuse"
-        rules.append("daily_refuse")
-    pain = open_pain(signals)
-    if intensity in ("hard", "race") and pain is not None and pain >= THRESHOLDS["pain_flag"]:
-        rules.append("injury_warning")
-        if level != "refuse":
-            level = "flag"
-    elif intensity in ("hard", "race") and day_level == "flag" and level == "ok":
-        level = "flag"
-        rules.append("hard_on_flag_day")
-    return {
-        "level": level,
-        "rules": sorted(set(rules)),
-        "intensity": intensity,
-        "hard": intensity in ("hard", "race"),
-    }
-
-
-def _day_level(signals: dict) -> str | None:
-    if signals.get("level") in LEVELS:
-        return signals["level"]
-    daily = signals.get("daily_safety")
-    if isinstance(daily, dict) and daily.get("level") in LEVELS:
-        return daily["level"]
-    return None
-
-
 def _hard_text(text: str) -> bool:
     if any(word in text for word in HARD_WORDS):
         return True
     return _HILL.search(text) is not None
-
-
-def _long_duurloop(session: dict, text: str) -> bool:
-    if "lange duurloop" not in text:
-        return False
-    duration = _duration_s(session)
-    return duration is not None and duration >= _LONG_RUN_S
-
-
-def _duration_s(session: dict) -> float | None:
-    if session.get("duration_s"):
-        return float(session["duration_s"])
-    if session.get("moving_s"):
-        return float(session["moving_s"])
-    steps = session.get("steps") or []
-    total = sum(float(step.get("duration_s") or 0) for step in steps)
-    if total:
-        return total
-    return None

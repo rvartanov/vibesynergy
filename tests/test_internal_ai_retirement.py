@@ -35,7 +35,7 @@ model = "anthropic/claude-sonnet"
     with caplog.at_level(logging.WARNING):
         first = load_settings()
         second = load_settings()
-    assert first.ai["provider"] == "openrouter"
+    assert not hasattr(first, "ai")  # the section is read past, not kept
     assert second.portal["legacy_ai"] is True
     assert sum("internal coach has been removed" in rec.message for rec in caplog.records) == 1
 

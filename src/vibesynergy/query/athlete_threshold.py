@@ -5,11 +5,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from sqlalchemy import Engine, desc, select, update
+from sqlalchemy import Engine, select, update
 from sqlalchemy.exc import IntegrityError
 
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.query import session_purpose
 from vibesynergy.store.schema import athlete_threshold
 
 METRICS = frozenset(
@@ -28,8 +27,6 @@ METRICS = frozenset(
 # test: a dedicated test; race: from a race; field: from a training session; manual: the
 # athlete typed it; device_auto: a device estimate; estimate: the coach's estimate.
 METHODS = frozenset({"test", "race", "field", "manual", "device_auto", "estimate"})
-STATUSES = frozenset({"current", "stale", "proposed", "superseded", "dismissed"})
-HR_ZONE_METRICS = frozenset({"max_hr", "lthr"})
 
 
 class ThresholdError(ValueError):
@@ -197,26 +194,6 @@ def confirm_threshold(
     return _row_dict(row)
 
 
-def list_thresholds(
-    engine: Engine,
-    *,
-    sport: str | None = None,
-    metric: str | None = None,
-    status: str | None = None,
-) -> list[dict[str, Any]]:
-    query = select(athlete_threshold).order_by(desc(athlete_threshold.c.id))
-    if sport:
-        query = query.where(athlete_threshold.c.sport == sport.strip().lower())
-    if metric:
-        query = query.where(athlete_threshold.c.metric == _validate_metric(metric))
-    if status:
-        if status not in STATUSES:
-            raise ValueError(f"status must be one of {', '.join(sorted(STATUSES))}")
-        query = query.where(athlete_threshold.c.status == status)
-    with engine.connect() as conn:
-        return [_row_dict(row) for row in conn.execute(query).mappings()]
-
-
 def current_thresholds(engine: Engine) -> dict[str, dict[str, Any]]:
     """Map sport -> metric -> row for status=current only (workout generation entry point)."""
     with engine.connect() as conn:
@@ -232,37 +209,3 @@ def current_thresholds(engine: Engine) -> dict[str, dict[str, Any]]:
 def workout_generation_thresholds(engine: Engine) -> dict[str, dict[str, Any]]:
     """Alias used by coach workout code: never reads proposed or superseded rows."""
     return current_thresholds(engine)
-
-
-def record_activity_field_estimate(
-    engine: Engine,
-    *,
-    sport: str,
-    metric: str,
-    value: float,
-    unit: str,
-    purpose: str | None,
-    method: str = "field",
-    source_device: str | None = None,
-) -> dict[str, Any] | None:
-    """Propose a threshold from an activity only when session purpose allows it."""
-    if not session_purpose.threshold_eligible(purpose):
-        return None
-    return propose_threshold(
-        engine,
-        sport=sport,
-        metric=metric,
-        value=value,
-        unit=unit,
-        method=method,
-        source_device=source_device,
-        history=[{"event": "activity_signal"}],
-    )
-
-
-def hr_metrics_from_row(row: dict[str, Any]) -> dict[str, float]:
-    """Extract HR values from a confirmed threshold row for Garmin zone writes."""
-    metric = row.get("metric")
-    if metric not in HR_ZONE_METRICS:
-        return {}
-    return {metric: float(row["value"])}

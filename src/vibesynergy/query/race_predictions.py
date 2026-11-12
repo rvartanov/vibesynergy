@@ -46,10 +46,6 @@ HALF = 21097.5
 MAX_STRETCH = 4.5
 
 
-def riegel(seconds: float, from_m: float, to_m: float, k: float = RIEGEL) -> float:
-    return seconds * (to_m / from_m) ** k
-
-
 def riegel_split(seconds: float, from_m: float, to_m: float) -> float:
     """Riegel with 1.06 up to the half marathon and 1.08 beyond it (either direction)."""
     lo, hi = sorted((from_m, to_m))

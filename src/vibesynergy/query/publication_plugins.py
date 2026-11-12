@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import requests
 from sqlalchemy import select
@@ -1490,23 +1490,6 @@ def _weather(
     }
 
 
-def safety_level(rt, day: date) -> str:
-    """Strictest fixed safety level for the activity day and today; fails closed."""
-    from vibesynergy.core.timeutil import today_in
-    from vibesynergy.query import daily_coach
-
-    try:
-        levels = set()
-        for target in {day, today_in(rt.settings.timezone)}:
-            with rt.engine.connect() as conn:
-                conn.exec_driver_sql("BEGIN")
-                captured = daily_coach._capture(rt, conn, target, "evening")
-            levels.add(captured["inputs"]["safety"]["level"])
-    except Exception:
-        return "refuse"
-    return "refuse" if "refuse" in levels else "flag" if "flag" in levels else "ok"
-
-
 def collect(
     rt, activity_id: str, *, language: str = "en", weather=None, insight=None, safety=None
 ) -> tuple[dict[str, str], dict]:
@@ -1585,11 +1568,3 @@ def collect(
             states[name]["reused"] = True
             states[name]["provenance"] = old["provenance"]
     return sections, states
-
-
-def _local_date(rt, activity_id: str) -> date:
-    group = views.resolve_activity(rt.engine, activity_id)
-    with rt.engine.connect() as conn:
-        return conn.scalar(
-            select(activity_unified.c.local_date).where(activity_unified.c.group_id == group)
-        )

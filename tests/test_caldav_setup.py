@@ -818,7 +818,7 @@ def test_source_authenticate_does_not_prompt(runtime):
 def test_retired_icloud_section_is_ignored_with_one_warning(tmp_path, caplog, monkeypatch):
     from vibesynergy.core import config
 
-    monkeypatch.setattr(config, "_RETIRED_WARNED", set())
+    monkeypatch.setattr(config, "_RETIRED_SOURCES_WARNED", set())
     path = tmp_path / "config.toml"
     path.write_text("[sources.icloud]\nenabled = false\n[schedule]\nicloud = 20\n")
     with caplog.at_level("WARNING", logger="vibesynergy.core.config"):

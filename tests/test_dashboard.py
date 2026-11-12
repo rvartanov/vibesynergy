@@ -219,7 +219,7 @@ def test_dashboard_coaching_state_degrades_for_unbacked_activity(runtime) -> Non
     data = route(request)["data"]
     assert data["completed"]["totals"]["count"] == 1
     assert "coaching_state" not in data
-    state = assessments.dashboard_state(runtime)
+    state = assessments.current_state(runtime)
     assert state["freshness"] == "missing"
     assert state["reason"] == "retired"
     with runtime.engine.begin() as conn:
@@ -230,7 +230,7 @@ def test_dashboard_coaching_state_degrades_for_unbacked_activity(runtime) -> Non
         )
     corrected = route(request)["data"]
     assert corrected["completed"]["activities"][0]["name"] == "Corrected synthetic workout"
-    assert assessments.dashboard_state(runtime)["reason"] == "retired"
+    assert assessments.current_state(runtime)["reason"] == "retired"
 
 
 def test_dashboard_coaching_state_uses_default_profile(runtime) -> None:
@@ -242,27 +242,9 @@ def test_dashboard_coaching_state_uses_default_profile(runtime) -> None:
     route = next(r.endpoint for r in build_router(runtime).routes if r.path == "/dashboard")
     request = Request({"type": "http", "method": "GET", "path": "/dashboard", "headers": []})
     assert "coaching_state" not in route(request)["data"]
-    state = assessments.dashboard_state(runtime)
+    state = assessments.current_state(runtime)
     assert state["freshness"] == "missing"
     assert state["profile"]["policy"]["version"] == 0
-
-
-def test_dashboard_coaching_state_query_error_is_isolated(runtime, monkeypatch) -> None:
-    from test_evidence import activity, put
-
-    from vibesynergy.query import assessments, coach
-
-    coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
-    coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
-    put(runtime, "garmin", activity())
-
-    def broken(_rt, _activity_id):
-        raise RuntimeError("synthetic query failure")
-
-    monkeypatch.setattr(assessments, "current_state", broken)
-    state = assessments.dashboard_state(runtime)
-    assert state["freshness"] == "unavailable"
-    assert state["reason"] == "query_error"
 
 
 def test_planned_session_follows_the_stored_workout(runtime) -> None:
