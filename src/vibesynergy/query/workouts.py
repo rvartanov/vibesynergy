@@ -712,28 +712,6 @@ def exercise_catalog() -> dict[str, Any]:
     return _load_catalog()[1]
 
 
-def resolve_exercise(category: str, name: str | None = None) -> dict[str, Any]:
-    """One catalog identity for coaching or workout validation.
-
-    ``known`` is true only for an exact category/variant pair in the bundled catalog.
-    An unknown pair is still returned, with a readable label, so a writer can refuse it
-    instead of dropping the step.
-    """
-    identity = _exercise_identity(category, name)
-    text, variant = identity or ("", None)
-    labels, catalog = _load_catalog()
-    label = labels.get((text, variant or "")) if text else None
-    return {
-        "ref": _exercise_ref(text, variant) if text else None,
-        "source": "garmin",
-        "category": text or None,
-        "name": variant,
-        "label": label or (_humanize(variant or text) if text else None),
-        "known": label is not None,
-        "catalog": catalog,
-    }
-
-
 def exercise_references(steps: list[dict]) -> dict[str, Any]:
     """Resolve proposed strength steps against the shared catalog.
 

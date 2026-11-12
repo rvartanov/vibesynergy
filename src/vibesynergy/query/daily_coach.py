@@ -171,20 +171,6 @@ def display_for(rt, review_day: date, kind: str, ready: dict | None) -> dict:
     }
 
 
-def refusal(rt, kind: str) -> dict:
-    """The fixed answer when a refuse rule fires: no model call, no training advice."""
-    out = {
-        "summary": "",
-        "decision": "rest" if kind == "morning" else None,
-        "tomorrow": None,
-        "caveat": None,
-        "question": None,
-        "uncertainties": [],
-        "evidence_sections": ["safety"],
-    }
-    return guard_advice(rt, out, {"level": "refuse"}, kind=kind)
-
-
 SAFE_ADVICE = {
     "en": {
         "flag": "Take it easy or rest today. Skip hard training.",
@@ -564,18 +550,6 @@ def capture(
         if kind in RHYTHM_KINDS:
             return _capture_rhythm(rt, conn, day, kind)
         return _capture(rt, conn, day, kind)
-
-
-def prepare(rt, day: date, kind: str) -> dict:
-    """Internal reviews are not stored. Coach entries are written through the coach feed."""
-    del rt, day
-    raise ValueError(f"internal {kind} reviews are retired")
-
-
-def complete(rt, revision_id: str, kind: str, result: dict, model: dict | None) -> bool:
-    """Internal reviews are not stored."""
-    del rt, revision_id, kind, result, model
-    raise ValueError("internal reviews are retired")
 
 
 def _public(row, *, current: bool) -> dict:

@@ -49,10 +49,8 @@ BASELINE_DAYS = 60
 HRV_LOW_Z = safety_floor.THRESHOLDS["hrv_z"]
 HRV_LOW_STREAK = safety_floor.THRESHOLDS["hrv_low_streak"]
 RHR_UP_BPM = safety_floor.THRESHOLDS["rhr_up_bpm"]
-SHORT_SLEEP_S = safety_floor.THRESHOLDS["short_sleep_s"]
 IRREGULAR_SLEEP_SD_MIN = 60
 ACWR_HIGH = safety_floor.THRESHOLDS["acwr_high"]
-TSB_DEEP = safety_floor.THRESHOLDS["tsb_deep"]
 IDLE_DAYS = 7
 STALE_HOURS = 24
 

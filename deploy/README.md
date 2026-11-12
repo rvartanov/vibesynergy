@@ -63,11 +63,17 @@ curl -s http://127.0.0.1:8448/vibesynergy/health
 The service listens on 127.0.0.1:8448 only. It runs the webhook receivers, the job worker
 and the scheduler.
 
-**Update now** (Settings → System → About this version) starts the user unit
-`vibesynergy-autodeploy.service` (the same unit the switched-off `vibesynergy-autodeploy.timer`
-would start), so the deploy runs outside the service and survives its restart. It asks for
-the coach passphrase, is audited (`portal.update.start`), and is refused while a job runs or
-when there is nothing new. Without that unit the button is not shown.
+**Update now** (Settings → System → About this version) updates a `uv tool` install: it
+starts a transient user unit, `vibesynergy-update` (`systemd-run --user`), that runs
+`vibesynergy update --yes --restart`. That backs up the database, runs
+`uv tool upgrade vibesynergy`, applies the migrations and restarts the service; because it
+runs outside the service it survives that restart. It asks for the coach passphrase, is
+audited (`portal.update.start`), and is refused while an update or a job runs or when there
+is nothing new. A container or a git checkout cannot update itself this way; the page says
+what to do instead (pull the new image; `git pull`, `uv sync`, `vibesynergy db upgrade` and a
+restart). Legacy: a server run from a checkout that has its own
+`vibesynergy-autodeploy.service` user unit (not shipped here) gets the button too, and it
+starts that unit.
 
 Finished jobs stay in the queue. `uv run vibesynergy jobs prune` counts the done and cancelled
 jobs older than 30 days (`--days`, `--dead` to include failed ones); `--apply` removes
@@ -105,7 +111,7 @@ uv run vibesynergy webhooks subscribe strava
 
 ## 6. Connect Claude (or another MCP client)
 
-Open the portal and go to **Settings → Coach apps**. Set the passphrase there (at least 12
+Open the portal and go to **Settings → Sharing → Coach apps**. Set the passphrase there (at least 12
 characters; the page only shows whether one is set). Copy the coach address, which is
 `https://server.your-tailnet.ts.net/vibesynergy/mcp` when the public address is set.
 
@@ -115,7 +121,7 @@ type the passphrase and click Allow. Each app is approved once and keeps access 
 own tokens. Personal tokens (name, permissions, 30/90/365 days) are created on the same
 page and shown once.
 
-- Coach apps → Activity lists what each app did. Revoke there, or with
+- Settings → Sharing → Coach apps → Activity lists what each app did. Revoke there, or with
   `uv run vibesynergy mcp revoke <client id>`.
 - After 5 wrong passphrases in 15 minutes for one app, that app's approvals are blocked
   for the rest of those 15 minutes; other apps are not. Above 50 wrong passphrases
@@ -149,7 +155,8 @@ optional:
 [portal]
 port = 8447          # local port (must differ from the service port 8448)
 enabled = true
-hosts = []           # extra host names to accept besides localhost and the tailnet name
+hosts = []           # extra host names to accept besides localhost and the tailnet name;
+                     # the first one is also the address in mail links and on Settings
 tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # map background (tile server)
 tile_cache = true    # serve map tiles from the server's own cache (see below)
 tile_max_age_days = 30
@@ -196,7 +203,8 @@ a machine nobody else can reach.
 
 ## Bug reports
 
-The bug button at the top of every page opens GitHub's bug report form for
+**Report a bug** in the footer of every page (and under Settings → System) opens GitHub's
+bug report form for
 `rvartanov/vibesynergy` (or `[bugs] repo = "owner/name"`, a fork) in a new tab, with the
 version, the page, the error it showed and the browser filled in. The reporter adds what
 happened and sends it from their own GitHub account; the server sends nothing and keeps no
@@ -204,7 +212,7 @@ GitHub token. What a report or a feature request needs: [docs/REPORTING.md](../d
 
 ## 8. History
 
-Connect your sources (above), then fill in their past on **Data & sync → History**. Per source
+Connect your sources (above), then fill in their past on **Settings → Sources → History**. Per source
 there are two routes, with an estimate and a recommendation:
 
 - **From the account export** (recommended when there's a lot of history): request it once,
@@ -260,7 +268,7 @@ devices that are gone are removed automatically.
 
 ## Coach
 
-Advice comes from a coach connected in the portal (Settings → Coach apps). VibeSynergy does not
+Advice comes from a coach connected in the portal (Settings → Sharing → Coach apps). VibeSynergy does not
 run an internal model. `serve` starts the sync, webhook and archive lanes. There is no
 assessment lane and no `/api/ai/running` check. An old `[ai]` block in config is ignored;
 the service still starts.

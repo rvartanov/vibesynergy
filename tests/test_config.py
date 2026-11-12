@@ -54,7 +54,7 @@ def test_retired_publication_keys_are_ignored_with_one_warning(
 ) -> None:
     from vibesynergy.core import config as config_module
 
-    config_module._RETIRED_WARNED.clear()
+    config_module._RETIRED_KEYS_WARNED.clear()
     path = tmp_path / "config.toml"
     path.write_text(
         '[publication]\ninsight_enabled = false\nlabel_insight = "bad: label"\n'

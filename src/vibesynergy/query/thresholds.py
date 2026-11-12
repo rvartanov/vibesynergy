@@ -966,17 +966,6 @@ def dismiss(engine: Engine, row_id: int) -> dict[str, Any]:
     return _row(confirmed_row(engine, row_id))
 
 
-def count_open(engine: Engine) -> int:
-    with engine.connect() as conn:
-        return int(
-            conn.execute(
-                select(func.count())
-                .select_from(threshold_table)
-                .where(threshold_table.c.status == "proposed")
-            ).scalar_one()
-        )
-
-
 # Drift signals (task 11) ---------------------------------------------------------------
 
 MAX_HR_MARGIN = 2  # bpm above the current max HR before a measured peak counts

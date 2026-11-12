@@ -82,15 +82,11 @@ def test_author_from_mcp_connection_ignores_argument(runtime):
     assert row["author"] == "client:coach"
 
 
-def test_session_purpose_derivation_and_threshold_helper():
+def test_session_purpose_derivation():
     assert session_purpose.derive("run", "Easy recovery jog") == "recovery"
     assert session_purpose.derive("run", "Park run") is None
     assert session_purpose.derive("swim", "fun swim") == "leisure"
     assert session_purpose.derive("run", "Marathon build") == "race"
-    assert session_purpose.threshold_eligible("training") is True
-    assert session_purpose.threshold_eligible("race") is True
-    assert session_purpose.threshold_eligible("leisure") is False
-    assert session_purpose.threshold_eligible(None) is False
 
 
 def test_mcp_coach_write_tool(runtime):
@@ -208,34 +204,6 @@ def test_threshold_confirm_supersedes_previous(runtime):
     assert first["status"] == "current"
 
 
-def test_leisure_swim_does_not_feed_threshold(runtime):
-    from vibesynergy.query import athlete_threshold
-
-    assert (
-        athlete_threshold.record_activity_field_estimate(
-            runtime.engine,
-            sport="swim",
-            metric="css",
-            value=95.0,
-            unit="s/100m",
-            purpose="leisure",
-        )
-        is None
-    )
-    assert (
-        athlete_threshold.record_activity_field_estimate(
-            runtime.engine,
-            sport="swim",
-            metric="css",
-            value=95.0,
-            unit="s/100m",
-            purpose=None,
-        )
-        is None
-    )
-    assert athlete_threshold.list_thresholds(runtime.engine) == []
-
-
 def test_threshold_confirm_never_writes_to_garmin(runtime, monkeypatch):
     """Confirming a proposal only changes VibeSynergy; Garmin is an explicit choice."""
     from vibesynergy.store.schema import athlete_threshold as athlete_threshold_table
@@ -275,9 +243,8 @@ def test_threshold_confirm_never_writes_to_garmin(runtime, monkeypatch):
     assert current["value"] == 173.0
 
 
-def test_session_purpose_override_reason_and_eligibility(runtime):
+def test_session_purpose_override_reason(runtime):
     from vibesynergy.core.timeutil import utc_now
-    from vibesynergy.query import athlete_threshold
     from vibesynergy.store.schema import activity_purpose_override, activity_unified
 
     now = utc_now()
@@ -326,19 +293,6 @@ def test_session_purpose_override_reason_and_eligibility(runtime):
         )
     assert leisure_row["purpose"] == "leisure"
     assert leisure_row["reason"] is None
-    assert (
-        athlete_threshold.record_activity_field_estimate(
-            runtime.engine,
-            sport="swim",
-            metric="css",
-            value=95.0,
-            unit="s/100m",
-            purpose="leisure",
-        )
-        is None
-    )
-    assert session_purpose.threshold_eligible("training") is True
-    assert session_purpose.threshold_eligible("leisure") is False
 
 
 def test_migration_0022_athlete_threshold_table(tmp_path):

@@ -125,8 +125,9 @@ def last_deploy(data_dir: Path) -> dict[str, Any] | None:
     return {key: record.get(key) for key in keep if key in record}
 
 
-# "Update now" ( phase 3) starts the same user unit the (switched-off) autodeploy timer
-# starts; it runs vibesynergy-deploy outside this process, so it survives the restart.
+# "Update now" on a server run from a git checkout starts this user unit (the one the
+# switched-off autodeploy timer starts); it runs vibesynergy-deploy outside this process, so
+# it survives the restart. A ``uv tool`` install uses ``updater.UNIT`` instead.
 UPDATE_UNIT = "vibesynergy-autodeploy.service"
 
 

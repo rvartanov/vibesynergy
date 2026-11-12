@@ -19,9 +19,6 @@ OPEN_PREFIXES = ("/static/", "/auth/")
 OPEN_PATHS = {
     "/login",
     "/sw.js",
-    "/manifest.webmanifest",
-    "/favicon.ico",
-    "/icon.svg",
     "/version",
     "/vibesynergy/version",
 }

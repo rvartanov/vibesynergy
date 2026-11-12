@@ -15,8 +15,9 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
+from vibesynergy.core.config import DEFAULT_PORTAL_PORT
 from vibesynergy.core.timeutil import today_in
-from vibesynergy.portal.settings_api import portal_url
+from vibesynergy.portal.hosts import tailnet_address
 from vibesynergy.query import calendar_context, calendar_mirror, views
 from vibesynergy.runtime import Runtime
 from vibesynergy.sources.caldav import account, google
@@ -59,8 +60,13 @@ class MirrorEnabled(BaseModel):
 
 
 def redirect_uri(settings) -> str:
-    """Where Google sends the browser back: this portal (tailnet address, else localhost)."""
-    base = portal_url(settings) or f"http://localhost:{settings.portal.get('port', 8447)}"
+    """Where Google sends the browser back: this portal (tailnet address, else localhost).
+
+    Always the tailnet address, never a domain from ``[portal] hosts``: this exact URI is
+    registered with the Google OAuth client, and Google refuses a sign-in whose redirect URI
+    differs. Adding a domain later must not move it."""
+    port = settings.portal.get("port", DEFAULT_PORTAL_PORT)
+    base = tailnet_address(settings) or f"http://localhost:{port}"
     return base + CALLBACK_PATH
 
 

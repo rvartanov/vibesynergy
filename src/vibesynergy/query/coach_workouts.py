@@ -363,11 +363,8 @@ def coach_row(row) -> dict[str, Any]:
     return data
 
 
-# Old private names. An open branch (the coach runner) still imports ``_coach_row``;
-# drop these once nothing does.
+# The old private name; ``query/coach_runner.py`` still uses it.
 _coach_row = coach_row
-_coach_entry_freshness = coach_entry_freshness
-_enrich_coach_entry = enrich_coach_entry
 
 
 def coach_feed(rt, *, subject_id: int = 1, limit: int = 80) -> list[dict[str, Any]]:

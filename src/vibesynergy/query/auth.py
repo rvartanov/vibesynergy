@@ -206,18 +206,6 @@ def create_account(engine: Engine, email: str) -> dict[str, Any]:
     return found
 
 
-def set_email(engine: Engine, account_id: int, email: str) -> None:
-    email = _norm(email)
-    if "@" not in email or "." not in email.split("@")[-1]:
-        raise AuthError("Give a valid email address.")
-    with engine.begin() as conn:
-        conn.execute(
-            update(auth_account)
-            .where(auth_account.c.id == account_id)
-            .values(email=email, updated_at=utc_now())
-        )
-
-
 def set_password(
     engine: Engine, account_id: int, password: str, *, keep: str | None = None
 ) -> None:
@@ -293,21 +281,6 @@ def use_token(engine: Engine, token: str, purpose: str) -> int | None:
             .values(used_at=now)
         ).rowcount
         return row["account_id"] if spent else None
-
-
-def peek_token(engine: Engine, token: str, purpose: str) -> bool:
-    """Whether a link is still good, without spending it (to show the set-password form)."""
-    with engine.connect() as conn:
-        row = (
-            conn.execute(
-                select(auth_token.c.expires_at, auth_token.c.used_at).where(
-                    auth_token.c.hash == _hash(token or ""), auth_token.c.purpose == purpose
-                )
-            )
-            .mappings()
-            .first()
-        )
-    return bool(row and row["used_at"] is None and row["expires_at"] > utc_now())
 
 
 # --- brute-force brake ----------------------------------------------------------------------

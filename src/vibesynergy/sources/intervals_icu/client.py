@@ -38,7 +38,6 @@ ATHLETE_ID_ENV = credentials.ATHLETE_ID_ENV
 
 _ATHLETE = re.compile(r"[A-Za-z0-9_-]+")
 # The only activity fields VibeSynergy writes: RPE and Feel (see query/activity_effort.py).
-ACTIVITY_WRITE_FIELDS = frozenset({"icu_rpe", "feel"})
 # The only sport-settings fields VibeSynergy writes (Training → Zones & thresholds).
 SPORT_SETTINGS_WRITE_FIELDS = frozenset({"ftp", "lthr", "max_hr", "hr_zones", "threshold_pace"})
 DESCRIPTION_MAX = 20000
@@ -210,14 +209,6 @@ class IntervalsIcuClient:
     def notes(self, oldest: date, newest: date) -> list[dict[str, Any]]:
         return [event for event in self.events(oldest, newest) if event.get("category") == "NOTE"]
 
-    def weekly_targets(self, oldest: date, newest: date) -> list[dict[str, Any]]:
-        """Weekly targets and weekly notes (``for_week``, or category ``TARGET``)."""
-        return [
-            event
-            for event in self.events(oldest, newest)
-            if event.get("for_week") or event.get("category") == "TARGET"
-        ]
-
     def weather_forecast(self) -> dict[str, Any]:
         """The athlete's weather forecasts (supporter feature): daily and hourly per location."""
         payload = self._request(f"/athlete/{self._athlete_id}/weather-forecast", {})
@@ -308,17 +299,6 @@ class IntervalsIcuClient:
         if not isinstance(payload, dict):
             raise IntervalsIcuError("intervals.icu activity was not an object")
         return payload
-
-    def update_activity(self, activity_id: str, fields: Mapping[str, Any]) -> dict[str, Any]:
-        """Set RPE (``icu_rpe``, 1-10) and/or Feel (``feel``, 1-5) on one activity.
-
-        Only these two fields are accepted, so a partial PUT cannot change anything else.
-        """
-        body = dict(fields)
-        if not body or set(body) - ACTIVITY_WRITE_FIELDS:
-            raise IntervalsIcuError("only icu_rpe and feel are written to an activity")
-        payload = self._send("PUT", f"/activity/{_event_path_id(activity_id)}", body, write=True)
-        return payload if isinstance(payload, dict) else body
 
     def update_activity_description(self, activity_id: str, description: str) -> dict[str, Any]:
         """Set only the activity's description (the athlete's text plus VibeSynergy's published

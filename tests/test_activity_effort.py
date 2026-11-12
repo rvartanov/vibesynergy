@@ -12,7 +12,6 @@ from vibesynergy.sources.intervals_icu.client import (
     API_KEY_ENV,
     ATHLETE_ID_ENV,
     IntervalsIcuClient,
-    IntervalsIcuError,
 )
 from vibesynergy.store.schema import activity
 
@@ -101,16 +100,6 @@ def test_scales() -> None:
         effort.validate("rpe", 11)
     with pytest.raises(effort.EffortError):
         effort.validate("feel", 0)
-
-
-def test_client_writes_only_rpe_and_feel() -> None:
-    api = ActivityApi({"id": "i1"})
-    client = api.client()
-    with pytest.raises(IntervalsIcuError):
-        client.update_activity("i1", {"icu_rpe": 3, "name": "x"})
-    with pytest.raises(IntervalsIcuError):
-        client.update_activity("../athlete", {"feel": 2})
-    assert api.calls == []
 
 
 def test_portal_note_about_an_activity_with_pain_tag(runtime) -> None:

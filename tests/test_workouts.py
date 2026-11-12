@@ -369,14 +369,7 @@ def test_exercise_catalog_fingerprint_is_stable() -> None:
     )
 
 
-def test_resolve_exercise_and_duplicate_steps() -> None:
-    known = workouts.resolve_exercise("BENCH_PRESS", "BARBELL_BENCH_PRESS")
-    assert known["known"] is True
-    assert known["ref"] == "garmin:exercise:BENCH_PRESS/BARBELL_BENCH_PRESS"
-    assert known["catalog"]["fingerprint"] == workouts.exercise_catalog()["fingerprint"]
-    unknown = workouts.resolve_exercise("MADE_UP_CATEGORY", "NOT_A_REAL_ONE")
-    assert unknown["known"] is False and unknown["label"] == "Not a real one"
-    assert workouts.resolve_exercise("")["ref"] is None
+def test_exercise_references_mark_duplicate_and_unknown_steps() -> None:
     resolved = workouts.exercise_references(
         [
             {"category": "BENCH_PRESS", "name": "BARBELL_BENCH_PRESS"},

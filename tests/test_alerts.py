@@ -221,7 +221,7 @@ def test_old_whatsapp_routes_and_config_are_ignored(mail_rt, caplog) -> None:
     path.write_text(
         '[alerts]\nenabled = true\nemail_to = "a@example.com"\nwhatsapp_phone = "+31600000000"\n'
     )
-    config._RETIRED_WARNED.discard("[alerts] whatsapp_phone")
+    config._RETIRED_KEYS_WARNED.discard("[alerts] whatsapp_phone")
     with caplog.at_level("WARNING", logger="vibesynergy.core.config"):
         first = config.load_settings(path)
         config.load_settings(path)

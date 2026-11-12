@@ -8,7 +8,8 @@ CalDAV guide doesn't list scopes; if Google's CalDAV endpoint refuses this scope
 account, the discovery error says so and the broader ``calendar`` scope is the fallback
 (change SCOPE; that fallback is not used by the mirror).
 
-CalDAV requests then use ``Authorization: Bearer`` against GOOGLE_CALDAV. Access tokens are
+CalDAV requests then use ``Authorization: Bearer`` against Google's CalDAV
+address (``discovery.PRESETS["google"]["url"]``). Access tokens are
 refreshed automatically shortly before they expire.
 """
 
@@ -30,7 +31,6 @@ from vibesynergy.sources.http_timeout import DEFAULT_HTTP_TIMEOUT_SECONDS, reque
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
-GOOGLE_CALDAV = "https://apidata.googleusercontent.com/caldav/v2/"
 APP, TOKENS, LOGIN = "google_app", "tokens", "google_login"
 LOGIN_TTL_S = 15 * 60
 REFRESH_MARGIN_S = 60

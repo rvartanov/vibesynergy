@@ -139,7 +139,7 @@ confirmed at the first real sync.
 
 ### Account export (`garmin_export`)
 
-Upload it in Settings → Sources → Garmin → Garmin history (or Settings → Data → History).
+Upload it in Settings → Sources → Garmin → Garmin history (or Settings → Sources → History).
 The upload is resumable in 8 MB chunks, so a multi-GB zip survives a dropped connection; the
 import then runs as a background job with progress (a share of the zip, because most files
 sit in nested zips). The Garmin card refuses a zip that is not the Garmin export. Importing
@@ -344,7 +344,7 @@ jobs are not reported as problems.
 ### Setup (portal only)
 
 Setup never happens in the shell or through environment variables: `vibesynergy auth caldav`
-only says where to go and exits non-zero. In the portal, **Settings → Calendar**:
+only says where to go and exits non-zero. In the portal, **Settings → Sources → iCal / CalDAV calendar**:
 
 1. **Sign in.** Pick the provider (iCloud `https://caldav.icloud.com/`, Fastmail
    `https://caldav.fastmail.com/`, Nextcloud/other with your own HTTPS CalDAV address, or
@@ -364,7 +364,7 @@ only says where to go and exits non-zero. In the portal, **Settings → Calendar
    calendars**, **Sign in again** and **Disconnect** (deletes the stored credentials and the
    selection; already archived items remain).
 
-**Garmin target calendar** is a separate selector in Settings → Calendar and Data → Sources.
+**Garmin target calendar** is a separate selector on the calendar card under Settings → Sources.
 It accepts one of the selected calendar URLs or None and saves immediately as
 `[sources.caldav] garmin_target_calendar`. The Garmin `scheduled_workouts` sync reads this
 target on each fetch and records it with the fetch request. Changing the selected calendars
@@ -396,7 +396,7 @@ The mapper expands recurring events and exceptions over the requested range, inc
 moved/cancelled instances, all-day end-exclusive spans and DST. Floating times use the
 configured timezone. A malformed series or more than 10,000 occurrences per resource fails
 processing rather than silently truncating it. Old context remains available with an error
-in Data & sync. The snapshot preserves resource URLs, UID/recurrence identity, ETags and
+under Settings → Sources → Status. The snapshot preserves resource URLs, UID/recurrence identity, ETags and
 original calendar content in the private raw archive; do not paste these into GitHub.
 
 Intervals default to the recent 30 days plus `[calendar] lookahead_months` ahead
@@ -410,7 +410,7 @@ fail the refresh without replacing the previous archive/context. The existing ra
 is the restart checkpoint; a new sign-in/discovery or a daily reconciliation forces a full
 read. No separate calendar store or scheduler is introduced.
 
-Settings → Calendar also labels each selected collection as appointments, coaching,
+The calendar card under Settings → Sources also labels each selected collection as appointments, coaching,
 planned personal exercise or unclassified. Selection uses the verified collection URL;
 edits save directly and update the shared plan context. The label persists across syncs
 and selection changes. Verified Garmin mirrors keep their own identity; no classification
@@ -460,9 +460,6 @@ inside the 183-day planning window. A pre-upgrade database stays non-writable un
 successful schedule sync records a receipt. Preview projects the post-adoption/recovery
 writes in memory and does not mutate the ledger or provider.
 
-For implementation, synthetic validation and remaining live acceptance, see the
-[review handoff](archive/CALENDAR_REVIEW_HANDOFF.md).
-
 References: [CalDAV RFC 4791](https://www.rfc-editor.org/rfc/rfc4791),
 [icalendar](https://icalendar.readthedocs.io/en/latest/how-to/usage.html),
 [recurrence handling](https://recurring-ical-events.readthedocs.io/en/latest/user-guide/examples.html).
@@ -476,7 +473,7 @@ and its compliance (raw archive, one payload per month). Fitness, fatigue, form,
 (`query/fitness_model.py`, `query/own_load.py`); intervals.icu's are not read, and its
 `wellness` dataset is no longer synced (since 11-11-2026).
 Writes (plan events, descriptions, opt-in private notes) are described under
-`query/icu_plan.py`, `query/icu_wellness.py` and `query/activity_effort.py`.
+`query/icu_plan.py`, `query/icu_notes.py` and `query/activity_effort.py`.
 
 The API key and athlete id are entered on the intervals.icu card under Settings → Sources
 and stored encrypted (`secrets/intervals_icu/api.enc`). The page only sees whether a

@@ -134,7 +134,7 @@ Plan writes have no idempotency key: they carry a `reason` and are protected by
 about to use (the plan article sets the scheme, now `lake27:<date>:<slot>` and week notes
 `lake27:week:NN`, tag `lake27`). Found it: update instead of creating.
 
-**Publishing.** Setting `public_insight` needs the `publish` permission (Settings → Coach apps): the line ends up in a public description. Without it, write the assessment without `public_insight`.
+**Publishing.** Setting `public_insight` needs the `publish` permission (Settings → Sharing → Coach apps): the line ends up in a public description. Without it, write the assessment without `public_insight`.
 
 **Privacy.** Public text is the `public_insight` (Strava, Garmin and intervals.icu
 descriptions) and anything in a workout's name or description (it reaches Garmin, Zwift and
@@ -206,11 +206,11 @@ VibeSynergy tells you something happened; details stay behind MCP ([EVENTS.md](E
 ## 9. Audit
 
 Every MCP call is audited with your client id, scope and outcome; entries and plan writes
-carry your author (`client:<id>`). The athlete sees it under Settings → Coach apps → Activity.
+carry your author (`client:<id>`). The athlete sees it under Settings → Sharing → Coach apps → Activity.
 
 ## 10. Onboarding a new AI coach
 
-1. **Access.** In the portal, Settings → Coach apps: either connect over OAuth at
+1. **Access.** In the portal, Settings → Sharing → Coach apps: either connect over OAuth at
    `<public_url>/vibesynergy/mcp` (dynamic registration; the athlete approves with the passphrase
    and ticks the permissions) or have the athlete create a personal access token. Scopes:
    `read`, `coach.write`, `plan.propose` and `plan.write`; add `diary.write` if you log

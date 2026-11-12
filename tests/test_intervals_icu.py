@@ -93,7 +93,7 @@ def test_brick_parts_share_a_session_and_events_without_an_external_id_are_other
     assert assigned["1009"] == ("other", None, None)
 
 
-def test_client_reads_events_workouts_activities_and_weekly_notes() -> None:
+def test_client_reads_events_workouts_activities_and_notes() -> None:
     calls: list = []
     client = _client(_transport(calls))
     oldest = today_in("Europe/Amsterdam")
@@ -101,7 +101,6 @@ def test_client_reads_events_workouts_activities_and_weekly_notes() -> None:
     events = client.events(oldest, newest)
     workouts = client.workouts()
     activities = client.activities(oldest, newest)
-    weekly = client.weekly_targets(oldest, newest)
     notes = client.notes(oldest, newest)
 
     assert [event["category"] for event in events].count("WORKOUT") == 4
@@ -109,7 +108,6 @@ def test_client_reads_events_workouts_activities_and_weekly_notes() -> None:
     assert races == {"RACE_A", "RACE_B", "RACE_C"}
     assert workouts[0]["description"] == "- 40m Z2"
     assert activities[0]["id"] == "i9001"
-    assert [event["id"] for event in weekly] == [1008]
     assert {event["id"] for event in notes} == {1007, 1008, 1009}
 
     urls = [url for url, _, _ in calls]

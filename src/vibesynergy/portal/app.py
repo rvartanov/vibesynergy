@@ -32,6 +32,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from vibesynergy.core.config import DEFAULT_PORTAL_PORT
 from vibesynergy.portal import share
 from vibesynergy.portal.api import build_router, tile_cache, tile_cache_enabled, tile_url
 from vibesynergy.portal.caldav_api import build_caldav_router
@@ -58,7 +59,7 @@ def asset_version() -> str:
     return digest.hexdigest()[:16]
 
 
-DEFAULT_PORT = 8447
+DEFAULT_PORT = DEFAULT_PORTAL_PORT
 SHARE_TILES_PER_HOUR = 1500  # per share link: plenty for viewing, not for bulk downloads
 WRITE_HEADER = ("x-vibesynergy", "portal")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}

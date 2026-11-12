@@ -12,10 +12,6 @@ WINDS = ("kmh", "ms", "kn", "bft")
 BEAUFORT_MS = (0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7)
 
 
-def default_temperature(units: str) -> str:
-    return "f" if units == "imperial" else "c"
-
-
 def beaufort(ms: float) -> int:
     for force, limit in enumerate(BEAUFORT_MS):
         if ms < limit:

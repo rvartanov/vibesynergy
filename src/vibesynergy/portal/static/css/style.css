@@ -68,7 +68,7 @@ body {
 
 a { color: var(--s1); text-decoration: none; }
 a:hover { text-decoration: underline; }
-.sub a, .assessment-activity-title a { text-decoration: underline; }
+.sub a { text-decoration: underline; }
 
 /* Header and navigation ------------------------------------------------------------------ */
 
@@ -151,18 +151,6 @@ a:hover { text-decoration: underline; }
 .menu-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
 .menu-move { display: inline-flex; gap: 4px; }
 .btn.small { padding: 2px 8px; min-width: 30px; }
-
-.theme {
-  border: 1px solid var(--ring);
-  background: transparent;
-  color: var(--ink-2);
-  border-radius: 8px;
-  width: 34px;
-  height: 34px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
 
 main {
   width: 100%;
@@ -265,9 +253,6 @@ a.tile.link:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
 .tile .context { font-size: 13px; color: var(--ink-2); min-height: 19px; }
 .tile .spark { height: 44px; margin-top: 6px; }
 .tile .none { font-size: 28px; color: var(--muted); }
-
-.delta-good { color: var(--msg-success); }
-.delta-bad { color: var(--msg-danger); }
 
 /* Status chip: colour never alone, always with a symbol and a word. */
 .chip {
@@ -597,24 +582,15 @@ input.btn.wide { width: 100%; }
    the top. */
 .coach-entry, .coach-today, .daily-review { min-width: 0; overflow-wrap: anywhere; }
 .coach-entry header { margin-bottom: 4px; }
-.coach-freshness { margin-left: 6px; font-size: 0.9em; }
 /* Replies to a coach report (coach_replies.js). */
 .coach-replies { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }
 .coach-replies textarea { width: 100%; max-width: var(--measure, 75ch); }
 .coach-reply-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 .coach-reply p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-coach-runner] progress { width: 100%; max-width: 24rem; }
-.coach-freshness[data-fresh="stale"] { color: var(--msg-warning); }
-.coach-freshness[data-fresh="needs_revision"] { color: var(--msg-warning); }
-.coach-freshness[data-fresh="current"] { color: var(--msg-success); }
-
-.dash-freshness { margin: 0 0 4px; }
-.dash-freshness .notice { margin: 0 0 8px; }
 .verdict { border-left: 6px solid var(--msg-success); }
 .verdict.amber { border-left-color: var(--msg-warning-border); }
 .verdict.red { border-left-color: var(--msg-danger); }
-.verdict-head { color: var(--ink-2); margin-top: 4px; }
-.verdict-why { color: var(--ink-2); margin-top: 2px; }
 .verdict h2.verdict-advice { margin: 0; font-size: 18px; font-weight: 650; }
 .attention, .trends { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .attention li { display: flex; gap: 10px; align-items: baseline; }
@@ -675,26 +651,14 @@ a.cal-day:hover { outline: 2px solid var(--ink); }
 /* Analysis ------------------------------------------------------------------------------ */
 
 .analysis { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 12px; align-items: start; }
-.report-buttons { display: grid; gap: 6px; margin-bottom: 10px; }
-.report-buttons .btn { text-align: left; }
-.ask-new, .ask-more { display: grid; gap: 6px; margin: 10px 0; }
 .saved { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 6px; font-size: 13px; }
 .saved li.on a { font-weight: 650; }
 .md h2, .md h3, .md h4 { margin: 14px 0 6px; }
 .md p, .md li { line-height: 1.55; }
-.turn-user { margin: 14px 0 6px; padding: 8px 12px; background: var(--wash); border-radius: 8px; white-space: pre-wrap; }
 textarea.btn { font: inherit; resize: vertical; }
 @media (max-width: 800px) { .analysis { grid-template-columns: 1fr; } }
 
-.ai-roles { display: grid; gap: 4px; margin: 6px 0 10px; }
-.ai-connections { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin: 10px 0; }
 .publication-description { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; padding: 12px; background: var(--surface); border: 1px solid var(--grid); border-radius: var(--radius); }
-.ai-connection { border: 1px solid var(--grid); border-radius: var(--radius); padding: 10px 12px; }
-.ai-connection-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; margin-bottom: 6px; }
-.ai-connection .settings-save { flex-wrap: wrap; margin: 6px 0; }
-.ai-key { display: flex; gap: 8px; margin: 6px 0; }
-.ai-key input { flex: 1; min-width: 0; }
-.login-code { font-family: var(--mono, monospace); font-size: 1.2em; letter-spacing: 0.08em; }
 
 /* History on Data & sync: fill runs with a progress bar. */
 .fills { list-style: none; margin: 0 0 8px; padding: 0; }
@@ -715,13 +679,8 @@ textarea.btn { font: inherit; resize: vertical; }
 .fill-source button.selected { border-color: var(--s1); }
 .fill-open:not(:empty) { margin-top: 12px; border-top: 1px solid var(--grid); padding-top: 10px; }
 
-/* Day: layout switch and the smart layout's highlights ---------------------------------- */
+/* Day: the smart layout's highlights ----------------------------------------------------- */
 
-.segmented { display: inline-flex; gap: 0; margin: -4px 0 12px; }
-.segmented .btn { border-radius: 0; margin-left: -1px; }
-.segmented .btn:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
-.segmented .btn:last-child { border-radius: 0 8px 8px 0; }
-.segmented .btn[aria-pressed="true"] { background: var(--wash); color: var(--ink); font-weight: 600; }
 .highlights { margin-bottom: 12px; }
 
 /* Settings themes ----------------------------------------------------------------------- */
@@ -743,26 +702,9 @@ textarea.btn { font: inherit; resize: vertical; }
 .alert-item.info { border-left-color: var(--s1); }
 .alert-item a { color: var(--ink); }
 
-
-
-.dash-layout { display: grid; gap: 12px; }
-.dash-layout > .card { margin-top: 0; }
-.dash-header h1 { font-size: 18px; line-height: 1.35; }
-.dash-header .page-head { margin-bottom: 4px; }
 .checkin-done { margin: 0; }
-.week-chips { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 10px 0 0; padding: 0; }
 .dash-complaints-list li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 @media (min-width: 900px) {
-  .dash-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "checkin header"
-      "today week"
-      "suggestions recovery"
-      "suggestions complaints";
-    align-items: start;
-  }
-  .dash-header { grid-area: header; }
   .dash-checkin { grid-area: checkin; }
   .dash-today { grid-area: today; }
   .dash-week { grid-area: week; }
@@ -778,14 +720,9 @@ textarea.btn { font: inherit; resize: vertical; }
 .dash-checkin .ql-scale { flex: none; }
 .dash-checkin .ql-actions { margin-top: 4px; }
 .dash-checkin h2, .dash-today h2, .dash-week h2, .dash-recovery h2 { margin-bottom: 6px; }
-.dash-header .sub { margin: 0; }
 .dash-today p, .dash-checkin p { margin: 4px 0; }
 @media (max-width: 600px) {
-  .dash-layout { gap: 8px; }
-  .dash-layout > .card { padding: 8px 12px; }
   .dash-checkin h2, .dash-today h2 { margin-bottom: 4px; }
-  .dash-header .page-head { flex-wrap: nowrap; align-items: center; }
-  .dash-header h1 { flex: 1; min-width: 0; }
 }
 
 /* The two coach documents save independently; keep controls readable on small screens. */
@@ -806,20 +743,7 @@ textarea.btn { font: inherit; resize: vertical; }
 .coach-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(--measure, 75ch); }
 
 .assessment-summary { white-space: pre-line; overflow-wrap: anywhere; }
-
-.assessment-activity { margin: 0 0 12px; }
-.assessment-activity p { margin: 0 0 4px; overflow-wrap: anywhere; }
-.assessment-activity-note { white-space: pre-line; }
-.assessment-activity-note.is-clamped { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.assessment-more { min-height: 44px; min-width: 44px; }
-.assessment-more:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
 [data-archive-import] p a, .history-card p a { text-decoration: underline; }
-
-/* Coach page: past conversations (reopen and continue) */
-.coach-past { margin-top: 16px; }
-.coach-past-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
-.coach-past-list button { width: 100%; min-height: 44px; text-align: left; }
-.coach-past-list button[aria-current="true"] { font-weight: 600; }
 
 .kb-body { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(--measure); margin: 8px 0 12px; }
 .kb-list { list-style: none; padding: 0; margin: 0; }
@@ -827,8 +751,6 @@ textarea.btn { font: inherit; resize: vertical; }
 .kb-list a { display: inline-flex; align-items: center; min-height: var(--control); }
 .kb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .kb-proposal + .kb-proposal { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--subtle); }
-.kb-history { padding-left: 1.2rem; }
-.kb-history li { margin: 12px 0; }
 
 /* Settings → System → Best source per measurement: one row per source, best first. */
 .bs-list, .bs-order, .bs-single { list-style: none; margin: 0; padding: 0; }

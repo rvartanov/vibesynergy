@@ -48,7 +48,7 @@ A short map of the code. Details: [MCP.md](MCP.md) (MCP contract), [EVENTS.md](E
 ## App permissions
 
 Each MCP app (OAuth client or personal access token) has its own scopes, see
-`mcp/scopes.py`. They are managed in the portal under Settings → Coach apps, or:
+`mcp/scopes.py`. They are managed in the portal under Settings → Sharing → Coach apps, or:
 
 ```bash
 vibesynergy mcp clients                                   # OAuth apps

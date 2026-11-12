@@ -9,12 +9,6 @@ from typing import Any
 from vibesynergy.model import Activity, ActivityLap, ActivityZoneTime, Record, Stream
 from vibesynergy.store.raw import RawRecord
 
-_MAPPED = {
-    "id", "name", "sport_type", "start_date", "start_date_local", "utc_offset",
-    "elapsed_time", "moving_time", "distance", "total_elevation_gain",
-    "average_heartrate", "max_heartrate", "average_watts", "weighted_average_watts",
-    "average_speed", "calories", "device_name",
-}  # fmt: skip
 _EXTRA = (
     "type", "external_id", "upload_id", "gear_id", "trainer", "commute", "manual",
     "private", "description", "kilojoules", "suffer_score", "workout_type", "timezone",

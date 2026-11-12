@@ -23,12 +23,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from vibesynergy import alerts, bugs, dropfolder, mailer
 from vibesynergy.api import oauth as mcp_oauth
 from vibesynergy.core import config_edit
-from vibesynergy.core.config import ConfigError, load_settings
+from vibesynergy.core.config import DEFAULT_PORTAL_PORT, ConfigError, load_settings
 from vibesynergy.core.secrets import SecretStore
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.derive.unify import DEFAULT_BEST_SOURCE
 from vibesynergy.portal import prefs, share
-from vibesynergy.portal.hosts import LOCAL_HOSTS, normalize_hostname, validate_portal_address
+from vibesynergy.portal.hosts import (
+    LOCAL_HOSTS,
+    normalize_hostname,
+    portal_address,
+    validate_portal_address,
+)
 from vibesynergy.query import best_source as best_source_q
 from vibesynergy.query import (
     coach,
@@ -465,14 +470,14 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             "portal": {
                 "tile_cache": bool(on_disk.portal.get("tile_cache", True)),
                 "tile_max_age_days": on_disk.portal.get("tile_max_age_days"),
-                "port": on_disk.portal.get("port", 8447),
+                "port": on_disk.portal.get("port", DEFAULT_PORTAL_PORT),
             },
             "read_only": {
                 "mcp_url": f"{on_disk.public_url}/vibesynergy/mcp" if on_disk.public_url else None,
-                "portal_url": portal_url(on_disk),
+                "portal_url": portal_address(on_disk),
                 "data_dir": str(on_disk.data_dir),
                 "public_url": on_disk.public_url,
-                "local_url": f"http://127.0.0.1:{on_disk.portal.get('port', 8447)}",
+                "local_url": f"http://127.0.0.1:{on_disk.portal.get('port', DEFAULT_PORTAL_PORT)}",
             },
             "portal_hosts": [str(h) for h in on_disk.portal.get("hosts", [])],
             "mail": {
@@ -1124,13 +1129,6 @@ def _threshold_summary(engine) -> dict[str, Any]:
 def _store_threshold(engine, metric: str, value: float, unit: str) -> None:
     seconds = float(value) * 60 if unit == "min/km" else float(value)
     thresholds.set_value(engine, sport="run", metric=metric, value=seconds)
-
-
-def portal_url(settings) -> str | None:
-    """The portal's address: your own domain when one is set, else the tailnet address."""
-    from vibesynergy.portal.hosts import portal_address
-
-    return portal_address(settings)
 
 
 # Settings tab that holds each config field the running service only reads at start, so

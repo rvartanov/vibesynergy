@@ -53,7 +53,7 @@ Details: [SOURCES.md](SOURCES.md).
   MyWhoosh and Zwift), with the best source per measurement (`Settings → System → Best source
   per measurement`).
 - **Sync**: on a schedule per source, webhooks where a source offers them, a job queue, re-sync
-  of any period, problems with a retry, a coverage map per month (Settings → Data & sync).
+  of any period, problems with a retry, a coverage map per month (Settings → Sources → Status).
 - **History**: per source an estimate and two ways to fill the past (API month by month, or
   the account export), resumable.
 

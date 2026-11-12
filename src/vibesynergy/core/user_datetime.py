@@ -44,61 +44,9 @@ _MONTH_SHORT = {
     ),
 }
 
-_WEEKDAY = {
-    "en": (
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday",
-    ),
-    "nl": (
-        "maandag",
-        "dinsdag",
-        "woensdag",
-        "donderdag",
-        "vrijdag",
-        "zaterdag",
-        "zondag",
-    ),
-}
-
 _WEEKDAY_SHORT = {
     "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
     "nl": ("ma", "di", "wo", "do", "vr", "za", "zo"),
-}
-
-_MONTH_LONG = {
-    "en": (
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ),
-    "nl": (
-        "januari",
-        "februari",
-        "maart",
-        "april",
-        "mei",
-        "juni",
-        "juli",
-        "augustus",
-        "september",
-        "oktober",
-        "november",
-        "december",
-    ),
 }
 
 
@@ -121,28 +69,9 @@ def format_user_datetime(value: datetime, timezone: str = DISPLAY_TZ) -> str:
     return f"{format_user_date(local.date())} {format_user_time(local)}"
 
 
-def format_user_time_from_utc(value: datetime, timezone: str = DISPLAY_TZ) -> str:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=UTC)
-    return format_user_time(value.astimezone(ZoneInfo(timezone)))
-
-
 def format_user_month_year(value: date, language: str = "en") -> str:
     lang = _lang(language)
     return f"{_MONTH_SHORT[lang][value.month - 1]} {value.year}"
-
-
-def format_user_long_date(value: date, language: str = "en") -> str:
-    lang = _lang(language)
-    return (
-        f"{_WEEKDAY[lang][value.weekday()]} {value.day} "
-        f"{_MONTH_LONG[lang][value.month - 1]} {value.year}"
-    )
-
-
-def format_user_short_weekday(value: date, language: str = "en") -> str:
-    lang = _lang(language)
-    return _WEEKDAY_SHORT[lang][value.weekday()]
 
 
 def format_user_short_day(value: date, language: str = "en") -> str:

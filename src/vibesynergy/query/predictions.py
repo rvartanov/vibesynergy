@@ -123,11 +123,6 @@ def load_for_entry(conn: Connection, entry_id: int) -> list[dict[str, Any]]:
     return [_public_prediction(row) for row in found]
 
 
-def for_entry(engine: Engine, entry_id: int) -> list[dict[str, Any]]:
-    with engine.connect() as conn:
-        return load_for_entry(conn, entry_id)
-
-
 def score_due(engine: Engine, *, now: datetime | None = None) -> int:
     """Fill actual, error and scored_at where the target day is already in daily_unified.
 

@@ -11,8 +11,6 @@ from vibesynergy.store.schema import activity_purpose_override, activity_unified
 
 Purpose = Literal["training", "recovery", "leisure", "coached_by_me", "race"]
 PURPOSES = frozenset({"training", "recovery", "leisure", "coached_by_me", "race"})
-THRESHOLD_ELIGIBLE = frozenset({"training", "race"})
-
 _RACE = re.compile(
     r"\b(race|wedstrijd|ironman|triathlon|championship|kampioenschap)\b"
     r"|"
@@ -28,10 +26,6 @@ _TRAINING = re.compile(
     r"\b(interval|tempo|threshold|vo2|werk|training|fartlek|progression)\b",
     re.IGNORECASE,
 )
-
-
-def threshold_eligible(purpose: str | None) -> bool:
-    return purpose in THRESHOLD_ELIGIBLE
 
 
 def derive(sport: str | None, name: str | None) -> str | None:

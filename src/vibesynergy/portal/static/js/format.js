@@ -155,13 +155,6 @@ export function userDateTime(isoTimestamp, timeZone = USER_TZ_DEFAULT) {
   return `${p.day}-${p.month}-${p.year} ${p.hour}:${p.minute}`;
 }
 
-/** Calendar date + activity-local HH:MM from the API (seconds zero). */
-export function userDateTimeFromLocal(localDateIso, localTimeHhMm) {
-  if (!localDateIso || !localTimeHhMm) return "–";
-  const [h, m] = String(localTimeHhMm).split(":");
-  return `${userDate(localDateIso)} ${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
-}
-
 // "2026-09-25" -> "Friday 25 September 2026" (EN) / "vrijdag 25 september 2026" (NL)
 export function longDate(iso) {
   if (!validDay(iso)) return MISSING_DAY;

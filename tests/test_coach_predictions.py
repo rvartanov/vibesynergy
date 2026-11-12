@@ -72,6 +72,11 @@ def _prediction(**kwargs):
     return row
 
 
+def _for_entry(engine, entry_id: int) -> list[dict]:
+    with engine.connect() as conn:
+        return predictions.load_for_entry(conn, entry_id)
+
+
 def _daily(engine, day: date, metric: str, value: float, *, subject_id: int = 1) -> None:
     with engine.begin() as conn:
         conn.execute(
@@ -221,7 +226,7 @@ def test_score_due_fills_actual_once_from_daily_unified(runtime):
         )
     assert predictions.score_due(runtime.engine) == 0
 
-    row = predictions.for_entry(runtime.engine, saved["id"])[0]
+    row = _for_entry(runtime.engine, saved["id"])[0]
     assert row["actual"] == 3.0
     assert row["error"] == 2.0
     assert row["scored_at"] == when.isoformat()
@@ -241,13 +246,13 @@ def test_later_daily_value_scores_on_the_next_run(runtime):
     )
     _daily(runtime.engine, TARGET, "hrv.night_avg", 3.0)
     assert predictions.score_due(runtime.engine) == 1
-    open_row = predictions.for_entry(runtime.engine, second["id"])[0]
+    open_row = _for_entry(runtime.engine, second["id"])[0]
     assert open_row["actual"] is None and open_row["scored_at"] is None
     _daily(runtime.engine, NEXT_DAY, "hrv.night_avg", 1.0)
     assert predictions.score_due(runtime.engine) == 1
-    scored = predictions.for_entry(runtime.engine, second["id"])[0]
+    scored = _for_entry(runtime.engine, second["id"])[0]
     assert scored["actual"] == 1.0 and scored["error"] == -4.0
-    assert predictions.for_entry(runtime.engine, first["id"])[0]["error"] == 2.0
+    assert _for_entry(runtime.engine, first["id"])[0]["error"] == 2.0
 
 
 def test_read_entries_and_weekly_scores(runtime):
@@ -440,7 +445,7 @@ def test_startup_and_sync_score_predictions(runtime):
     saved = _write(runtime, predictions=[_prediction()])
     _daily(runtime.engine, TARGET, "hrv.night_avg", 3.0)
     cli_main._score_open_predictions(runtime)
-    assert predictions.for_entry(runtime.engine, saved["id"])[0]["actual"] == 3.0
+    assert _for_entry(runtime.engine, saved["id"])[0]["actual"] == 3.0
 
     calls: list[str] = []
     runtime.sync.on_score = lambda: calls.append("scored")
