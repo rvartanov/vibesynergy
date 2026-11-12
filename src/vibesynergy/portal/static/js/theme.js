@@ -1,5 +1,5 @@
-// Theme choice: system / light / dark. Kept on this device (localStorage). The header
-// button and Settings → Appearance write the same key. The colour theme (palette) is a
+// Theme choice: system / light / dark. Kept on this device (localStorage); chosen under
+// Settings → System. The colour theme (palette) is a
 // separate choice: on this device for an instant switch, and in the portal preferences so
 // every device gets it.
 const KEY = "vibesynergy-theme";
@@ -30,11 +30,6 @@ export function persistTheme(theme) {
   }
   applyTheme(value);
   return value;
-}
-
-export function cycleTheme() {
-  const next = THEME_CHOICES[(THEME_CHOICES.indexOf(storedTheme()) + 1) % THEME_CHOICES.length];
-  return persistTheme(next);
 }
 
 const PALETTE_KEY = "vibesynergy-palette";

@@ -20,6 +20,7 @@ import { loadShares } from "../settings_shares.js";
 import { bindCoachApps, coachAppsHtml, logHtml } from "../settings_access.js";
 import { archiveImport } from "../archive_import.js";
 import { mountAbout } from "../about_version.js";
+import { bindBugReport } from "../bugreport.js";
 import { mountAccount } from "../account_settings.js";
 import { bestSourceSettings } from "../best_source_settings.js";
 import { bindIcuConnect } from "../icu_connect.js";
@@ -204,6 +205,11 @@ function draw(view, ctx, flash = "") {
       <details class="card collapsible settings-more" data-mail-details><summary>${t("Mail settings")}</summary>${mailHtml(s.mail)}</details>
       <details class="card collapsible settings-more"><summary>${t("Per kind of alert")}</summary>${routesHtml(s.alerts)}</details>`,
     system: `<div data-about-host></div>
+      <section class="card" aria-labelledby="settings-bug-title">
+        <h2 id="settings-bug-title">${t("Report a bug")}</h2>
+        <p class="sub">${t("Opens the bug report form on GitHub in a new tab, with this version and the page you are on filled in. Nothing is sent from this server.")}</p>
+        <p><button class="btn" type="button" data-bug-report>${t("Report a bug")}</button></p>
+      </section>
       ${regionHtml(s)}
       <section class="card settings-section" data-weather-location aria-labelledby="weather-location-title"><h2 id="weather-location-title">${t("Weather on the calendar")}</h2><p class="sub" role="status" aria-busy="true">${t("Loading…")}</p></section>
       ${appearanceHtml(prefs)}
@@ -725,6 +731,7 @@ function bind(view, ctx) {
   bindAlertGroups(view, ctx);
   bindPortalHosts(view, ctx, draw);
   mountAbout(view.querySelector("[data-about-host]"), { open: ctx.query?.get?.("section") === "about" });
+  bindBugReport(view.querySelector("[data-bug-report]"));
   mountAccount(view.querySelector("[data-account-host]"));
   mountPush(view.querySelector("[data-push]"));
 }

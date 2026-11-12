@@ -6,7 +6,7 @@ import { ago, esc } from "./format.js";
 import { versionLinkHtml } from "./about_version.js";
 import { setLanguage, storedLanguage, t } from "./i18n.js";
 import { REDIRECTS, START_PAGES, bindNav, closeMenus, drawNav, limitTo, loadPrefs, markCurrent } from "./nav.js";
-import { applyPalette, applyTheme, cycleTheme, persistPalette, storedPalette, storedTheme } from "./theme.js";
+import { applyPalette, applyTheme, persistPalette, storedPalette, storedTheme } from "./theme.js";
 const PAGE_LOADERS = {
   dashboard: () => import("./pages/dashboard.js"),
   activities: () => import("./pages/activities.js"),
@@ -147,6 +147,7 @@ function applyShare(link) {
   limitTo([...link.pages, ...link.pages.map((p) => also[p]).filter(Boolean)]);
   drawNav(nav);
   header.querySelectorAll(".gear, .inbox-link").forEach((el) => el.remove()); // settings, inbox
+  document.querySelector(".foot-actions")?.remove(); // reporting a bug is the owner's
   document.querySelector(".brand").setAttribute("href", `#/${also[link.pages[0]] === "dashboard" ? "dashboard" : link.pages[0]}`);
   const banner = document.createElement("div");
   banner.className = "share-banner";
@@ -477,14 +478,10 @@ async function footer() {
   }
 }
 
-// Theme: follow the system unless switched; the choice is remembered on this device
-// (Settings → Appearance, same key as the header button).
+// Theme: follow the system unless switched under Settings → System; the choice is
+// remembered on this device.
 applyTheme(storedTheme());
 applyPalette(storedPalette());
-document.querySelector(".theme").addEventListener("click", () => {
-  cycleTheme();
-  render();
-});
 window.addEventListener("vibesynergy-theme", render);
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
 
@@ -556,7 +553,8 @@ window.addEventListener("pageshow", refreshPage);
 window.addEventListener("online", refreshPage);
 
 window.addEventListener("hashchange", render);
-bindBugReport(header.querySelector(".bug-report"));
+// Report a bug: in the footer of every page (and under Settings → System).
+bindBugReport(document.querySelector(".foot .bug-report"));
 window.vibesynergyStarted = true; // read by boot.js
 loadRefresh();
 bindNav(nav, header);
@@ -625,13 +623,19 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
-  label(".bug-report", t("Report a bug (opens GitHub)"));
+  const quickLabel = header.querySelector(".quick-add-label");
+  if (quickLabel) quickLabel.textContent = t("Quick add");
+  const bug = document.querySelector(".foot .bug-report");
+  if (bug) {
+    bug.textContent = t("Report a bug");
+    bug.setAttribute("aria-label", t("Report a bug (opens GitHub)"));
+    bug.setAttribute("title", t("Report a bug (opens GitHub)"));
+  }
   const quickTitle = document.querySelector("#quick-title");
   if (quickTitle) quickTitle.textContent = t("Quick add");
   const quickClose = document.querySelector("[data-quick-close]");
   if (quickClose) quickClose.textContent = t("Close");
   label(".menu-toggle", t("Menu"));
-  label(".theme", t("Theme: system / light / dark"));
   nav.setAttribute("aria-label", t("Pages"));
 }
 
