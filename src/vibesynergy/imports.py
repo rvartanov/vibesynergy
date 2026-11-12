@@ -225,9 +225,7 @@ def _file_kind(content: bytes) -> str | None:
     return None
 
 
-def import_files(
-    rt: Runtime, path: Path, progress: Progress | None = None
-) -> list[DatasetResult]:
+def import_files(rt: Runtime, path: Path, progress: Progress | None = None) -> list[DatasetResult]:
     """Import FIT, GPX and TCX files (and zips of them) from a file or directory tree.
 
     The same kinds the upload and the drop folder take (``import_one``). A file already

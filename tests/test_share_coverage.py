@@ -84,6 +84,7 @@ OWNER_ONLY = {
     ("POST", "/knowledge/proposal"),
     ("POST", "/knowledge/seed-prompts"),
     ("POST", "/gear"),  # gear settings are the owner's
+    ("GET", "/setup"),  # the "Get started" guide is the owner's; a shared view never asks
 }
 # Diary reads and writes count under the Diary page, also where another page shows them.
 DIARY = {

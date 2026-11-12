@@ -73,22 +73,47 @@ function tileLink(tile, share) {
  * /today reply the page already has. Body and blood pressure have their own block
  * (start_blocks.js), so they are left out of the other measurements.
  */
-export async function mountDayDetails(hosts, { date, today, meta, stale, reply, timelinePromise, shown = [] }) {
+// What the day's numbers hold, worked out once for the blocks and for knowing which are empty.
+function dayParts(reply, catalogue, shown) {
   const { data } = reply;
-  const tz = reply.meta.timezone;
-  const catalogue = meta.data.metrics;
   const days = dateRange(reply.meta.period.start, reply.meta.period.end);
   const trend = byMetric(data.trend, days);
   const values = Object.fromEntries(Object.keys(trend).map((m) => [m, trend[m][trend[m].length - 1][1]]));
   const hasAny = Object.values(values).some(isNum) || data.day.sleep || data.day.activities.length;
   // Sleep has its own block; training time is in "Plan and done".
   const skip = new Set([...shown, "sleep.score", "sleep.duration", "activity.duration"]);
-  const tiles = TILES.filter((tile) => !skip.has(tile.metric));
-  for (const tile of tiles) skip.add(tile.metric);
+  // A tile with nothing today and nothing in the last 14 days takes no space.
+  const tiles = TILES.filter((tile) => !skip.has(tile.metric)).filter(
+    (tile) => isNum(values[tile.metric]) || (trend[tile.metric] || []).some(([, v]) => isNum(v)),
+  );
+  for (const tile of TILES) skip.add(tile.metric);
+  const domains = domainsHtml(data.day, catalogue, skip, OWN_BLOCK_DOMAINS);
+  return { trend, values, hasAny, tiles, domains };
+}
+
+/**
+ * The day blocks that have nothing to show (ids from start_layout.js): key numbers without a
+ * value in the last 14 days, a night without sleep, no other measurements. The timeline is
+ * only known once it has loaded (mountDayDetails says so).
+ */
+export function emptyDayBlocks(reply, catalogue, shown = []) {
+  const parts = dayParts(reply, catalogue, shown);
+  return [
+    ...(parts.tiles.length ? [] : ["numbers"]),
+    ...(reply.data.day.sleep ? [] : ["sleep"]),
+    ...(parts.domains ? [] : ["other"]),
+  ];
+}
+
+export async function mountDayDetails(hosts, { date, today, meta, stale, reply, timelinePromise, shown = [] }) {
+  const { data } = reply;
+  const tz = reply.meta.timezone;
+  const catalogue = meta.data.metrics;
+  const { trend, values, hasAny, tiles, domains } = dayParts(reply, catalogue, shown);
   if (hosts.numbers) {
     hosts.numbers.innerHTML = `
       ${hasAny ? "" : `<div class="notice info">${date === today ? t("Nothing recorded for this day yet. It shows up after your watch or scale syncs.") : t("Nothing recorded for this day.")}</div>`}
-      <div class="grid tiles">${tiles.map((tile) => tileHtml(tile, values, data.baselines, catalogue, trend[tile.metric], tileLink(tile, meta.data.share))).join("")}</div>`;
+      ${tiles.length ? `<div class="grid tiles">${tiles.map((tile) => tileHtml(tile, values, data.baselines, catalogue, trend[tile.metric], tileLink(tile, meta.data.share))).join("")}</div>` : hasAny ? `<div class="empty">${t("No key numbers in the last 14 days.")}</div>` : ""}`;
     for (const tile of tiles) {
       const el = hosts.numbers.querySelector(`[data-spark="${tile.metric}"]`);
       const points = trend[tile.metric];
@@ -99,25 +124,31 @@ export async function mountDayDetails(hosts, { date, today, meta, stale, reply, 
   }
   if (hosts.sleep) hosts.sleep.innerHTML = sleepHtml(data.day.sleep, tz);
   if (hosts.other) {
-    const domains = domainsHtml(data.day, catalogue, skip, OWN_BLOCK_DOMAINS);
     hosts.other.innerHTML = domains
       ? `<div class="grid domains">${domains}</div>`
       : `<div class="card empty">${t("No other measurements for this day.")}</div>`;
   }
+  // Resolves to whether the timeline is empty (null: not shown, or it could not load).
   const holder = hosts.timeline;
-  if (!holder) return;
+  if (!holder) return { timelineEmpty: null };
   holder.innerHTML = `<div class="loading" role="status">${t("Loading the timeline…")}</div>`;
   try {
     const full = (await timelinePromise).data;
-    if (stale() || !holder.isConnected) return;
+    if (stale() || !holder.isConnected) return { timelineEmpty: null };
     if (full.timeline.rows.length || full.timeline.sleep_stages.length) {
-      holder.innerHTML = `<div class="timeline" role="img" aria-label="${esc(t("Sleep stages, heart rate, stress and Body Battery through the day"))}"></div>`;
-      timeline(holder.firstElementChild, full.timeline);
-    } else {
-      holder.innerHTML = `<div class="empty">${t("No all-day samples for this date.")}</div>`;
+      // The block may still be out of sight (left out until there is data): the caller
+      // shows it and then calls draw(), so the chart is sized on a visible element.
+      const draw = () => {
+        holder.innerHTML = `<div class="timeline" role="img" aria-label="${esc(t("Sleep stages, heart rate, stress and Body Battery through the day"))}"></div>`;
+        timeline(holder.firstElementChild, full.timeline);
+      };
+      return { timelineEmpty: false, draw };
     }
+    holder.innerHTML = `<div class="empty">${t("No all-day samples for this date.")}</div>`;
+    return { timelineEmpty: true };
   } catch (error) {
     if (!stale()) holder.innerHTML = `<div class="notice error" role="alert">${esc(t("Could not load the timeline: {error}", { error: error.message }))}</div>`;
+    return { timelineEmpty: null };
   }
 }
 
@@ -154,9 +185,10 @@ function tileHtml(tile, todayValues, baselines, catalogue, points, href) {
     context = baselineHtml(baselines[tile.metric], unit, catalogue[tile.metric]?.higher_is_better);
   } else if (!isNum(v)) {
     const last = [...points].reverse().find(([, x]) => isNum(x));
+    // A tile without anything in the last 14 days is not drawn at all (dayParts).
     context = last
       ? `<span class="muted">${esc(t("Last {value} on {date}", { value: value(last[1], unit), date: shortDate(last[0]) }))}</span>`
-      : `<span class="muted">${t("Nothing in the last 14 days")}</span>`;
+      : "";
   }
   const label = t(tile.label);
   const inner = `

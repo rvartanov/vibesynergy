@@ -834,6 +834,14 @@ def build_settings_router(rt: Runtime) -> APIRouter:
         except IntervalsIcuError:
             return {"data": {"connected": False, "private": False}}
 
+    @router.get("/setup")
+    def setup_guide_state() -> dict[str, Any]:
+        """The "Get started" guide: which setup steps are done, and whether it was put away."""
+        from vibesynergy.query import setup_guide
+
+        dismissed = bool(prefs.load(settings.data_dir).get("setup_guide_dismissed"))
+        return {"data": {**setup_guide.state(rt), "dismissed": dismissed}}
+
     @router.get("/prefs")
     def get_prefs() -> dict[str, Any]:
         return {"data": prefs.load(settings.data_dir)}
