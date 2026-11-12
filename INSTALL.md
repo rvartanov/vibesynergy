@@ -93,7 +93,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
   first start).
 - **Your own data**: Settings → Sources: Garmin, Withings, Strava, intervals.icu, calendars, or
   an account export. See [docs/SOURCES.md](docs/SOURCES.md).
-- **An AI app**: Settings → Coach apps. See [docs/MCP.md](docs/MCP.md).
+- **An AI app**: Settings → Sharing → Coach apps. See [docs/MCP.md](docs/MCP.md).
 
 ## Reaching it from other devices
 

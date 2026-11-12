@@ -232,7 +232,7 @@ encrypted server-side; a read-only grant is insufficient for publication.
 The API is for **new** activities only (webhook first, then a sync from the last one with a
 two-day overlap, never further back than 30 days); `vibesynergy backfill strava` and the History
 runs refuse older periods. The past comes from the account archive below, which you upload
-under Data → Sources → Strava. Slowly changing datasets (profile, gear, routes, clubs) are
+under Settings → Sources → Strava. Slowly changing datasets (profile, gear, routes, clubs) are
 fetched at most once a day (profile every 6 hours) and an activity is only fetched again when
 its summary changed, so the daily budget stays for new activities. When Strava asks us to
 wait, Sources says so in plain words.
@@ -266,7 +266,7 @@ The zip arrives by email; import it as is:
 vibesynergy import strava-export ~/Downloads/export_<id>.zip
 ```
 
-or upload it on Data → Sources → Strava: resumable (it is ~2 GB), with "Importing: 1,240 of
+or upload it on Settings → Sources → Strava: resumable (it is ~2 GB), with "Importing: 1,240 of
 7,300" while the server works. Activities already here (same Strava id, or the same start
 time and distance as a Garmin recording) are recognised; importing twice is harmless.
 
