@@ -209,10 +209,11 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
         monday = r.local_date - timedelta(days=r.local_date.weekday())
         per_week[monday.isoformat()] += seconds
         week = summary.setdefault(
-            monday.isoformat(), {"time_s": 0.0, "load": 0.0, "count": 0, "sports": {}}
+            monday.isoformat(), {"time_s": 0.0, "load": None, "count": 0, "sports": {}}
         )
         week["time_s"] += seconds
-        week["load"] += r.training_load or 0
+        if r.training_load is not None:  # unknown stays unknown: never a zero
+            week["load"] = (week["load"] or 0.0) + r.training_load
         week["count"] += 1
         fam = plan_q.family(r.sport) or "other"
         sport = week["sports"].setdefault(fam, {"time_s": 0.0, "distance_m": 0.0})
@@ -312,7 +313,7 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
             k: {
                 **v,
                 "time_s": round(v["time_s"]),
-                "load": round(v["load"]),
+                "load": None if v["load"] is None else round(v["load"]),
                 "sports": {
                     f: {"time_s": round(x["time_s"]), "distance_m": round(x["distance_m"])}
                     for f, x in v["sports"].items()

@@ -408,6 +408,7 @@ def map_activity(raw: RawRecord) -> Iterable[Record]:
         before = dists[first - 1] if first else 0.0
         seconds = (i - first + 1) * step
         part = hrs[first : i + 1]
+        watts = (samples.get("power") or [])[first : i + 1]
         yield ActivityLap(
             source_id,
             lap_index,
@@ -417,6 +418,7 @@ def map_activity(raw: RawRecord) -> Iterable[Record]:
             distance_m=round(dists[i] - before, 1),
             avg_hr=round(sum(part) / len(part), 1),
             max_hr=max(part),
+            avg_power=round(sum(watts) / len(watts), 1) if watts else None,
             avg_speed=round((dists[i] - before) / seconds, 3),
         )
         first, lap_index = i + 1, lap_index + 1

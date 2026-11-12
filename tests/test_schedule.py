@@ -63,6 +63,8 @@ def test_day_has_wellness_and_session_stats_and_week_summary(runtime) -> None:
     week = out["week_summary"]["2026-11-02"]
     assert week["count"] == 1 and week["time_s"] == 1341
     assert list(week["sports"]) == ["swim"]
+    # No session of the week has a known load: unknown, never a zero.
+    assert week["load"] is None
 
 
 def test_weather_endpoint_is_empty_without_an_outdoor_session(runtime, monkeypatch) -> None:

@@ -24,7 +24,7 @@ export function icuConnectHtml(src) {
       <label>${t("API key")} <input class="btn" name="icu_key" type="password" autocomplete="off" maxlength="200" placeholder="${esc(connected ? t("saved") : "")}" aria-describedby="icu-key-note"></label>
     </div>
     <p class="sub" id="icu-key-note">${esc(note)}</p>
-    <p><button class="btn" type="button" data-save-icu>${t(connected && !legacy ? N("Save intervals.icu") : N("Connect intervals.icu"))}</button></p>
+    <p><button class="btn${connected && !legacy ? "" : " primary"}" type="button" data-save-icu>${t(connected && !legacy ? N("Save intervals.icu") : N("Connect intervals.icu"))}</button></p>
     </details>
     ${connected && !legacy ? `<p><button class="btn" type="button" data-disconnect="intervals_icu">${t("Disconnect intervals.icu")}</button></p>` : ""}
     <p class="sub" role="status" data-connect-status></p>

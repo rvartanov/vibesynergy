@@ -645,6 +645,32 @@ table.activities td { vertical-align: middle; }
 .sched-bar[data-state="race"] { background: var(--msg-race-border); }
 .sched-legend .sched-bar { display: inline-block; width: 24px; vertical-align: middle; margin-left: var(--space-2); }
 .sched-more { font-size: 11px; color: var(--muted); }
+/* A session in a cell. Bars only by default (the month on a narrow screen). */
+.sched-item { display: grid; gap: 1px; min-width: 0; }
+.sched-title, .sched-meta, .sched-wd { display: none; }
+.sched-title { font-size: 12px; line-height: 1.3; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sched-meta { font-size: 12px; line-height: 1.3; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Week view: title and time in every cell, the distance too where there is room. */
+.sched-grid.is-week .sched-title, .sched-grid.is-week .sched-meta { display: block; }
+.sched-grid.is-week .sched-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.sched-grid.is-week .sched-item { margin-bottom: 2px; }
+/* Month view from 900px: a short title under each bar. */
+@media (min-width: 900px) {
+  .sched-title { display: block; }
+  .sched-cell { min-height: 84px; }
+  .sched-grid.is-week .sched-cell { min-height: 120px; }
+}
+/* Week view on a narrow screen: the days below each other, so a title can be read. */
+@media (max-width: 899px) {
+  .sched-grid.is-week { grid-template-columns: minmax(0, 1fr); }
+  .sched-grid.sched-head.is-week { display: none; }
+  .sched-grid.is-week .sched-cell { flex-direction: row; align-items: flex-start; gap: var(--space-3); min-height: var(--control); padding: var(--space-2); }
+  .sched-grid.is-week .sched-cell[aria-pressed="true"] { padding: calc(var(--space-2) - 1px); }
+  .sched-grid.is-week .sched-num { flex: none; width: 3.5rem; text-transform: capitalize; }
+  .sched-grid.is-week .sched-wd { display: inline; }
+  .sched-grid.is-week .sched-bars { flex: 1; min-width: 0; }
+  .sched-grid.is-week .sched-title { -webkit-line-clamp: 1; }
+}
 .sched-summary, .sched-panel { margin-top: var(--space-3); }
 .sched-summary h2, .sched-panel h2 { margin: 0 0 var(--space-2); font-size: 1rem; }
 .sched-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-2); }

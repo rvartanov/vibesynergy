@@ -130,3 +130,24 @@ def test_old_daily_items_without_sleep_still_map(runtime) -> None:
     )
     records = list(demo.map_daily(runtime.raw.load(stored.id)))
     assert [r.metric for r in records] == ["daily.steps", "hr.resting"]
+
+
+def test_the_activity_page_gets_a_track_laps_and_streams(runtime) -> None:
+    """What the activity page draws from: the summary, the laps and the stream channels
+    for the charts and the map."""
+    from fastapi.testclient import TestClient
+
+    from vibesynergy.portal.app import create_portal_app
+
+    runtime.sync.sync("demo", ["activities"], WINDOW)
+    client = TestClient(create_portal_app(runtime), base_url="http://127.0.0.1:8447")
+    listed = client.get("/api/activities", params={"period": "all"}).json()["data"]
+    assert listed["totals"]["count"] >= 6
+    ride = next(a for a in listed["activities"] if a["sport"] == "cycling")
+    page = client.get("/api/activity", params={"id": ride["sources"][0]}).json()["data"]
+    assert page["activity"]["avg_speed"] and page["activity"]["avg_power"]
+    assert len(page["laps"]) >= 5
+    streams = page["streams"]
+    assert {"hr", "speed", "cadence", "alt", "lat", "lon", "power"} <= set(streams["channels"])
+    assert streams["rows"] > 300
+    assert page["laps"][0]["avg_power"] and page["laps"][0]["avg_speed"]
