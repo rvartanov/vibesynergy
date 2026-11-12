@@ -91,6 +91,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Messages that send you to Settings name the page as it is called now: Settings → Sources
+  (and its Calendar, Status and History parts), Settings → Sharing → Coach apps, Settings →
+  System. They no longer point to "Settings → Calendar", "Data → Sources" or "Data & sync",
+  which are gone ([#27](https://github.com/rvartanov/vibesynergy/pull/27)).
+- Moving or skipping a planned session when there is no plan says so, instead of saying that
+  intervals.icu leads the plan ([#27](https://github.com/rvartanov/vibesynergy/pull/27)).
+- The MCP documentation ([docs/MCP.md](docs/MCP.md)) describes what the server offers: the
+  plan tools (`vibesynergy_plan_model` and the five plan writes) are in it, `vibesynergy_sql`
+  is described as it works (SQLite, `query` and `limit`), and tools, resources, profiles and
+  argument completion that were never built are marked as not built
+  ([#27](https://github.com/rvartanov/vibesynergy/pull/27)).
 - Signing in to Google Calendar works again with a domain of your own in `[portal] hosts`:
   the address Google sends you back to is the tailnet address again, the one registered at
   Google, and no longer moves when a domain is added
