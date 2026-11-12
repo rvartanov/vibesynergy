@@ -64,3 +64,20 @@ any deviation with its reason.
 
 Report them through the issue forms (bug report, feature request). What they need, and what
 happens next: [docs/REPORTING.md](docs/REPORTING.md).
+
+## Features and changelog
+
+[docs/FEATURES.md](docs/FEATURES.md) lists everything VibeSynergy does; [CHANGELOG.md](CHANGELOG.md)
+says what changed. Both are part of the change itself, in the same pull request:
+
+- **Changelog**: anything a user or an AI app notices gets one line under `## Unreleased`, in
+  `Added`, `Changed`, `Fixed` or `Removed`, written for the user (what it does for them, not
+  which file changed), with the pull request number.
+- **Features**: a feature that is added, changed or removed is updated in FEATURES.md, in its
+  area.
+- **Internal only** (refactor, tests, CI, docs for developers): add the label `no-changelog`.
+- **A release**: rename `Unreleased` to the version and date, bump `version` in
+  `pyproject.toml` (and `uv.lock`), tag `v<version>`; the container workflow publishes it.
+
+CI fails a pull request that changes `src/`, `Dockerfile` or `deploy/` without touching
+CHANGELOG.md, unless it has the `no-changelog` label.

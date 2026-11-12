@@ -2,6 +2,13 @@
 
 <!-- What changed and why? -->
 
+## Changelog and features
+
+<!-- Add a line to CHANGELOG.md under "Unreleased" (Added / Changed / Fixed / Removed) for
+anything a user or an AI app notices, and update docs/FEATURES.md when a feature is added,
+changed or removed. Internal-only change (refactor, tests, CI)? Say so here and add the label
+`no-changelog`; CI checks this. -->
+
 ## Checks
 
 <!-- List the checks actually run. For docs-only changes, include link validation and `git diff --check`. -->
