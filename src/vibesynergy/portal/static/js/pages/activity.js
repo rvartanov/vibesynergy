@@ -20,7 +20,7 @@ import {
 } from "../format.js";
 import { N, t } from "../i18n.js";
 import { bindNoteForm, noteFormHtml } from "../quicklog.js";
-import { distanceText, sportFamily, speedChannel, speedLabel, speedText } from "../sport_units.js";
+import { averageSpeed, distanceText, sportFamily, speedChannel, speedLabel, speedText } from "../sport_units.js";
 import { withSportIcon, tagChip } from "../symbols.js";
 import {
   zoneAt,
@@ -244,7 +244,7 @@ function factsHtml(a) {
     [t("Distance"), a.distance_m ? distanceText(a.sport, a.distance_m) : null],
     [t("Moving time"), a.moving_s ? hoursMinutes(a.moving_s) : null],
     [t("Elapsed time"), a.elapsed_s ? clock(a.elapsed_s) : null],
-    [speedLabel(a.sport, true), a.distance_m && isNum(a.avg_speed) ? speedText(a.sport, a.avg_speed) : null],
+    [speedLabel(a.sport, true), a.distance_m && averageSpeed(a) ? speedText(a.sport, averageSpeed(a)) : null],
     [t("Average HR"), isNum(a.avg_hr) ? `${Math.round(a.avg_hr)} bpm` : null],
     [t("Max HR"), isNum(a.max_hr) ? `${Math.round(a.max_hr)} bpm` : null],
     [t("Average power"), isNum(a.avg_power) ? `${Math.round(a.avg_power)} W` : null],

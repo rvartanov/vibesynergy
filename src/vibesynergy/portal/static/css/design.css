@@ -466,7 +466,18 @@ a.week-day:hover { background: var(--wash); }
 .zone[data-sport] .ztrack span { background: var(--sport-edge); }
 .zones-sport { border-top: 4px solid var(--sport-edge, var(--line)); }
 .zones-sport > h2 .sport-icon .ds-i { width: 20px; height: 20px; }
-.activities .ds-sport { margin-top: 2px; }
+/* Activities: one line per row. The sport is an icon chip before the name (its name is in
+   the chip's title and for screen readers); on a phone the start time goes under the date
+   and a long name wraps beside the chip. */
+table.activities td { vertical-align: middle; }
+.activities .act-name { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.activities .act-name > a { min-width: 0; overflow-wrap: anywhere; }
+.ds-sport--icon { flex: none; padding: 1px 6px; gap: 0; }
+.activities .act-time { margin-left: var(--space-1); white-space: nowrap; }
+.activities td.date { white-space: nowrap; }
+@media (max-width: 600px) {
+  .activities .act-time { display: block; margin-left: 0; }
+}
 .plan-session[data-sport] { border-left: 4px solid var(--sport-edge); padding-left: var(--space-3); }
 /* A list line that starts with a sport icon needs no bullet as well. */
 .trends li:has(> [data-sport]:first-child) { padding-left: 0; }

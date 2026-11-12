@@ -23,7 +23,7 @@ import {
   saveStored,
   writePeriodQuery,
 } from "../period_picker.js";
-import { distanceText, speedText } from "../sport_units.js";
+import { averageSpeed, distanceText, speedText } from "../sport_units.js";
 import { sportChip } from "../symbols.js";
 
 const STORAGE = "vibesynergy.period.activities";
@@ -165,13 +165,15 @@ function rowsHtml(activities, tz) {
       const holder = a.parts?.length
         ? ` <button class="btn small" type="button" aria-expanded="false" data-parts-for="${esc(a.group_id)}">${esc(t("{n} parts", { n: a.parts.length }))}</button>`
         : "";
+      const sportText = a.parts?.length ? t("Multisport") : sportName(a.sport);
+      const speed = a.distance_m ? averageSpeed(a) : null;
       const rowAttrs = a.part_of ? ` class="is-part" data-part-of="${esc(a.part_of)}" hidden` : a.parts?.length ? ' class="is-multisport"' : "";
       return `<tr${rowAttrs}>
-        <td class="date"><span class="wide">${esc(weekday(a.local_date))} </span>${esc(shortDate(a.local_date))}<div class="sub">${esc(timeOfDay(a.start_utc, tz))}</div></td>
-        <td>${a.part_of ? '<span class="part-mark" aria-hidden="true">↳ </span>' : ""}<a href="#/activity/${encodeURIComponent(id)}">${esc(a.name || sportName(a.sport))}</a>${holder}<div>${sportChip(a.sport, a.parts?.length ? t("Multisport") : sportName(a.sport))}</div></td>
+        <td class="date"><span class="wide">${esc(weekday(a.local_date))} </span>${esc(shortDate(a.local_date))} <span class="sub act-time">${esc(timeOfDay(a.start_utc, tz))}</span></td>
+        <td><span class="act-name">${a.part_of ? '<span class="part-mark" aria-hidden="true">↳ </span>' : ""}${sportChip(a.sport, sportText, { hideName: true })}<a href="#/activity/${encodeURIComponent(id)}">${esc(a.name || sportName(a.sport))}</a>${holder}</span></td>
         <td class="num">${esc(hoursMinutes(a.moving_s ?? a.elapsed_s))}</td>
         <td class="num">${a.distance_m ? esc(distanceText(a.sport, a.distance_m)) : "–"}</td>
-        <td class="num wide">${a.distance_m && isNum(a.avg_speed) ? esc(speedText(a.sport, a.avg_speed)) : "–"}</td>
+        <td class="num wide">${speed ? esc(speedText(a.sport, speed)) : "–"}</td>
         <td class="num wide">${a.sport_units?.power ? esc(`${a.sport_units.power}${a.sport_units.power_per_kg ? ` · ${a.sport_units.power_per_kg}` : ""}`) : "–"}</td>
         <td class="num wide">${isNum(a.avg_hr) ? `${Math.round(a.avg_hr)}` : "–"}</td>
         <td class="num wide">${isNum(a.ascent_m) && a.ascent_m > 0 ? `${number(a.ascent_m)} m` : "–"}</td>

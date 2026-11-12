@@ -34,8 +34,9 @@ export function sportIcon(type, size = 16) {
 export function sportChip(type, text, { hideName = false } = {}) {
   const key = SPORTS[type] ? type : sportKey(type);
   const name = esc(text || sportLabel(key));
-  const label = hideName ? `<span class="visually-hidden">${name}</span>` : name;
-  return `<span class="ds-sport ds-sport--${key}">${sportIcon(key)}${label}</span>`;
+  // Icon only: the name is still there for screen readers, and as a tooltip.
+  if (hideName) return `<span class="ds-sport ds-sport--${key} ds-sport--icon" title="${name}">${sportIcon(key)}<span class="visually-hidden">${name}</span></span>`;
+  return `<span class="ds-sport ds-sport--${key}">${sportIcon(key)}${name}</span>`;
 }
 
 // The sport's icon in its colour before a text that names the sport or the workout

@@ -35,6 +35,14 @@ export function speedText(sport, speed) {
   return `${clock(metres / speed)}${unit}`;
 }
 
+// An activity's average speed (m/s): the recorded one, else distance over moving (or
+// elapsed) time, as the server derives it for imported GPX and TCX files.
+export function averageSpeed(activity) {
+  if (isNum(activity?.avg_speed) && activity.avg_speed > 0) return activity.avg_speed;
+  const seconds = activity?.moving_s || activity?.elapsed_s;
+  return isNum(activity?.distance_m) && activity.distance_m > 0 && isNum(seconds) && seconds > 0 ? activity.distance_m / seconds : null;
+}
+
 export function speedChannel(sport) {
   const unit = speedUnit(sport);
   if (!unit) return null;
