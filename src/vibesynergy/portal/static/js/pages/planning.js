@@ -9,6 +9,7 @@ import { get, url } from "../api.js";
 import { mount, series, token, tooltipBase } from "../charts.js";
 import { addDays, dayMonth, esc, hoursMinutes, isNum, km, longDate, number, shortDate, sportName } from "../format.js";
 import { N, language, t } from "../i18n.js";
+import { outsidePlanHtml } from "../plan_labels.js";
 import { workoutHtml } from "../workout_text.js";
 import { formLinkHtml, zoneText } from "../form_block.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
@@ -65,7 +66,7 @@ export async function render(view, ctx) {
         ${garminHtml(d.horizon)}
         ${trendHtml(d.trend)}
         ${formLinkHtml(d.fitness)}
-        ${upcomingHtml(plan.upcoming)}
+        ${upcomingHtml(plan.upcoming, plan.plan_source)}
       </div>
       <div class="plan-side">
         ${racesHtml(d.projection, plan.races || [])}
@@ -351,7 +352,7 @@ function phasesHtml(phases, weeks, today) {
 
 // Next nine days ------------------------------------------------------------------------
 
-function upcomingHtml(upcoming) {
+function upcomingHtml(upcoming, planSource) {
   const items = upcoming?.items || [];
   const outside = upcoming?.not_in_plan || [];
   const byDay = new Map();
@@ -363,9 +364,7 @@ function upcomingHtml(upcoming) {
       <h3>${esc(longDate(date).replace(/\s\d{4}$/, ""))}</h3>
       ${rows.map(sessionHtml).join("")}
     </li>`).join("");
-  const others = outside.length
-    ? `<h3>${t("Only on your Garmin calendar")}</h3><p class="sub">${t("Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.")}</p><ul class="trends">${outside.map((item) => `<li>${esc(shortDate(item.date))} · ${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join("")}</ul>`
-    : "";
+  const others = outsidePlanHtml(planSource, outside.map((item) => `<li>${esc(shortDate(item.date))} · ${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join(""));
   return `<section class="card" aria-labelledby="plan-next-title">
     <h2 id="plan-next-title">${t("Next 9 days")}</h2>
     ${days ? `<ol class="plan-days">${days}</ol>` : `<p class="empty">${t("Nothing planned in the next 9 days.")}</p>`}

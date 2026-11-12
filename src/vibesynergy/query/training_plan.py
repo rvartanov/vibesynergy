@@ -1,8 +1,9 @@
-"""The whole intervals.icu training plan for the Training plan page (read-only).
+"""The whole training plan for the Training plan page (read-only).
 
-Weeks come from the weekly NOTE events (``Wk 7 · Base 1 · raceweek · ~6u``) and the weekly
-TARGET events (time per sport). The next nine days list the plan workouts in full. Races
-are the same merged list ``plan`` uses. Edits stay in intervals.icu and the coach flow.
+Weeks come from VibeSynergy's own plan when it leads (``plan_model.week_rows``), else from
+intervals.icu's weekly NOTE events (``Wk 7 · Base 1 · raceweek · ~6u``) and weekly TARGET
+events (time per sport). The next nine days list the plan workouts in full. Races are the
+same merged list ``plan`` uses (intervals.icu and Garmin, whoever leads the plan).
 """
 
 from __future__ import annotations
@@ -57,8 +58,8 @@ def parse_title(title: str | None) -> dict[str, Any]:
     return {"number": number, "phase": phase, "kind": kind, "hours_label": hours}
 
 
-def overview(engine: Engine, today: date) -> dict[str, Any]:
-    monday = today - timedelta(days=today.weekday())
+def _icu_weeks(engine: Engine) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """intervals.icu's weekly NOTE and TARGET events."""
     with engine.connect() as conn:
         rows = [
             dict(row)
@@ -68,6 +69,19 @@ def overview(engine: Engine, today: date) -> dict[str, Any]:
                 .order_by(icu_event.c.date, icu_event.c.id)
             ).mappings()
         ]
+    return (
+        [row for row in rows if row["category"] == "NOTE"],
+        [row for row in rows if row["category"] == "TARGET"],
+    )
+
+
+def overview(engine: Engine, today: date) -> dict[str, Any]:
+    from vibesynergy.query import plan_model
+
+    monday = today - timedelta(days=today.weekday())
+    own = plan_model.leading_plan(engine)
+    week_notes, week_targets = plan_model.week_rows(engine, own) if own else _icu_weeks(engine)
+    with engine.connect() as conn:
         garmin_races = [
             dict(row)
             for row in conn.execute(
@@ -80,17 +94,22 @@ def overview(engine: Engine, today: date) -> dict[str, Any]:
                 .order_by(planned_item.c.date)
             ).mappings()
         ]
-    notes = {row["date"]: row for row in rows if row["category"] == "NOTE"}
+    notes = {row["date"]: row for row in week_notes}
     targets: dict[date, list[dict]] = defaultdict(list)
-    for row in rows:
-        if row["category"] == "TARGET":
-            targets[row["date"]].append(row)
+    for row in week_targets:
+        targets[row["date"]].append(row)
     mondays = sorted(set(notes) | set(targets))
     done = _done(engine, mondays, today)
     weeks = []
     for start in mondays:
         note = notes.get(start)
-        parsed = parse_title(note.get("name") if note else None)
+        # The own plan keeps the week's number, phase and kind; an intervals.icu note has
+        # them in its title only.
+        parsed = (
+            {key: note[key] for key in ("number", "phase", "kind", "hours_label")}
+            if note and own
+            else parse_title(note.get("name") if note else None)
+        )
         goals = []
         for row in targets.get(start, []):
             fam = plan_q.family(row.get("type"))

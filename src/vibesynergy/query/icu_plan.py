@@ -5,8 +5,9 @@ Nothing bulk-upserts. Every write stores a before and after snapshot on
 ``audit_log`` and a line on the coach feed. Revert puts the before snapshot
 back through the API.
 
-The intervals.icu calendar is the plan (``plan_layer``; merged in ``query/plan.py``). A
-Garmin calendar workout whose name and date match a plan workout is the copy
+While intervals.icu leads, its calendar is the plan (``plan_layer``; merged in
+``query/plan.py``). When VibeSynergy leads, the plan is its own model and these events are
+its copy. A Garmin calendar workout whose name and date match a plan workout is the copy
 intervals.icu pushed and is folded into that workout. A real Garmin Coach workout on the
 same date and sport as a plan workout is not in the plan; it is linked as one pair with
 ``flag`` ``dubbel``. Neither side is deleted until ``resolve_duplicate`` says so.
@@ -63,7 +64,8 @@ RACE_PRIORITY = {"RACE_A": "A", "RACE_B": "B", "RACE_C": "C"}
 
 
 def plan_layer(engine: Engine, start: date, end: date) -> dict[str, Any]:
-    """The intervals.icu events that make the plan between ``start`` and ``end``.
+    """The intervals.icu events that make the plan between ``start`` and ``end``, while
+    intervals.icu leads (``plan_model.plan_layer`` is its twin for VibeSynergy's own plan).
 
     ``workouts`` are WORKOUT events in the window. ``notes`` and ``targets`` are the weekly
     NOTE and TARGET events from the Monday of ``start`` on. ``plan_start`` is the first day

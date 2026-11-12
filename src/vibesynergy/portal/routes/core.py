@@ -110,6 +110,7 @@ def register(kit: PortalKit) -> None:
                 "units": {m: catalog.KNOWN[m].unit for m in TODAY_METRICS},
                 "plan": calendar["items"],
                 "not_in_plan": calendar["not_in_plan"],
+                "plan_source": calendar["plan_source"],
             },
             period={"start": str(span.start), "end": str(span.end)},
         )

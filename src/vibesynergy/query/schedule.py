@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.query import plan as plan_q
-from vibesynergy.store.schema import activity_unified, daily_unified, plan_link, plan_session
+from vibesynergy.store.schema import activity_unified, daily_unified
 
 MAX_DAYS = 62  # a month view with the weeks around it
 # The day panel's recovery line: what the day looked like, from the best source.
@@ -37,22 +37,11 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
     if (end - start).days + 1 > MAX_DAYS:
         raise ValueError(f"at most {MAX_DAYS} days")
     view = plan_q.plan(engine, Window(start, end), today, include_sync_status=False)
-    # When VibeSynergy leads the plan, planned sessions can be moved and skipped here:
-    # each intervals.icu copy maps back to its model session.
+    # When VibeSynergy leads the plan, its sessions carry their id and can be moved and
+    # skipped here.
     from vibesynergy.query import plan_model
 
-    editable = plan_model.source(engine) == "vibesynergy"
-    sessions: dict[str, str] = {}
-    if editable:
-        with engine.connect() as conn:
-            sessions = {
-                str(remote): sid
-                for sid, remote in conn.execute(
-                    select(plan_link.c.session_id, plan_link.c.remote_id)
-                    .join(plan_session, plan_session.c.id == plan_link.c.session_id)
-                    .where(plan_link.c.target == "intervals", plan_session.c.status == "planned")
-                )
-            }
+    editable = plan_model.leading_plan(engine) is not None
     days: dict[str, dict[str, Any]] = {}
     for offset in range((end - start).days + 1):
         day = start + timedelta(days=offset)
@@ -68,7 +57,7 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
         matched.update(str(d.get("id")) for d in done if d.get("id"))
         days[key]["planned"].append(
             {
-                "session_id": sessions.get(str((item.get("extra") or {}).get("icu_id"))),
+                "session_id": item.get("session_id"),
                 "title": item.get("title"),
                 "sport": item.get("sport"),
                 "status": item.get("status"),

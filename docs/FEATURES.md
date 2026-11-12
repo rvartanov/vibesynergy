@@ -42,8 +42,8 @@ Details: [SOURCES.md](SOURCES.md).
   export.
 - **Withings**: weight and body composition, blood pressure.
 - **Strava**: activities, gear with mileage; history from the account archive.
-- **intervals.icu**: where VibeSynergy puts the active plan, so its workouts reach Zwift and
-  the other services connected there. Read: plan events, the workout library, and which plan
+- **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach
+  Zwift and the other services connected there. Read: plan events, the workout library, and which plan
   workout an activity was paired with. Not read: fitness, load, zones, RPE/Feel.
 - **CalDAV calendars** (e.g. iCloud): events on the calendar; optionally a copy of Garmin
   workouts in a chosen calendar.
@@ -103,9 +103,11 @@ Details: [SOURCES.md](SOURCES.md).
   plan.
 - **Planning & progress**: the week against the plan per sport and per workout, plan against
   done over the weeks and phases, form, the next nine days; download the plan as Excel or PDF.
-- **Training plan**: a plan model in VibeSynergy (weeks, phases, targets, sessions with steps),
-  a plan builder (goal race, sport and distance, method, hours, rhythm, rest days, fixed
-  sessions), delivery of the plan's workouts to Garmin (per sport) and to intervals.icu.
+- **Training plan**: the plan lives in VibeSynergy (weeks, phases, targets, sessions with
+  steps) and every page reads it there; started in VibeSynergy (`vibesynergy plan create`)
+  or taken over from intervals.icu, a plan builder (goal race, sport and distance, method,
+  hours, rhythm, rest days, fixed sessions), delivery of the plan's workouts to Garmin (per
+  sport) and to intervals.icu.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport.

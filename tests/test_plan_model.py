@@ -209,8 +209,6 @@ def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monke
         lambda engine, client, **k: calls.append(("create", k)) or {"event_id": "88"},
     )
     assert plan_model.mirror(runtime.engine, None)["updated"] == [] and calls == []
-    with pytest.raises(ValueError, match="no week 9"):
-        plan_model.set_week(runtime.engine, week=9, note="x", reason="r", author="Claude")
     with pytest.raises(ValueError, match="reason"):
         plan_model.set_week(runtime.engine, week=3, note="x", reason=" ", author="Claude")
     plan_model.set_week(
@@ -422,3 +420,95 @@ def test_plan_export_carries_what_you_need_without_a_coach(runtime) -> None:
     book = zipfile.ZipFile(io.BytesIO(plan_export.xlsx([], "nl", list(sections.values()))))
     assert "xl/worksheets/sheet3.xml" in book.namelist()
     assert b"TST-1" in plan_export.pdf([], "nl", sections=list(sections.values()))
+
+
+def test_a_plan_starts_in_vibesynergy_without_intervals(runtime) -> None:
+    with pytest.raises(ValueError, match="plan create"):
+        plan_model.set_week(runtime.engine, week=1, note="x", reason="r", author="Claude")
+    made = plan_model.create_plan(
+        runtime.engine,
+        name="Lakeside 2027",
+        start=date(2026, 11, 4),  # a Wednesday: week 1 is the week it falls in
+        end=date(2027, 6, 13),
+        method="friel",
+        reason="new season",
+        author="athlete",
+    )
+    assert made == {"plan_id": "lakeside-2027", "version": 1}
+    held = plan_model.summary(runtime.engine)
+    assert held and (held["status"], held["method"], held["weeks"]) == ("leading", "friel", 0)
+    assert plan_model.source(runtime.engine) == "vibesynergy"
+    with pytest.raises(ValueError, match="already exists"):
+        plan_model.create_plan(
+            runtime.engine,
+            name="Lakeside 2027",
+            start=date(2026, 11, 4),
+            end=date(2027, 6, 13),
+            reason="again",
+            author="athlete",
+        )
+    with pytest.raises(ValueError, match="ends before"):
+        plan_model.create_plan(
+            runtime.engine,
+            name="Other",
+            start=date(2027, 1, 2),
+            end=date(2027, 1, 1),
+            reason="r",
+            author="athlete",
+        )
+    # A week the plan does not have yet is added, by a note or by a target.
+    plan_model.set_week(runtime.engine, week=2, note="Opbouw.", reason="r", author="Claude")
+    plan_model.set_target(
+        runtime.engine, week=4, sport="run", time_s=7_200, reason="r", author="Claude"
+    )
+    with pytest.raises(ValueError, match="count from 1"):
+        plan_model.set_week(runtime.engine, week=0, note="x", reason="r", author="Claude")
+    view = plan_model.view(runtime.engine, date(2026, 11, 2), date(2026, 11, 29))
+    assert [(w["week"], w["monday"], w["note"]) for w in view["weeks"]] == [
+        (2, "2026-11-09", "Opbouw."),
+        (4, "2026-11-23", None),
+    ]
+    assert view["weeks"][1]["targets"][0]["time_s"] == 7_200
+    assert view["version"] == 3  # the refused week 0 made no version
+
+
+def test_a_session_keeps_the_time_and_distance_of_its_steps(runtime) -> None:
+    from sqlalchemy import select
+
+    from vibesynergy.store.schema import plan_session
+
+    plan_model.create_plan(
+        runtime.engine,
+        name="P",
+        start=date(2026, 11, 2),
+        end=date(2026, 12, 6),
+        reason="r",
+        author="athlete",
+    )
+
+    def stored(sport: str, description: str) -> tuple[float | None, float | None]:
+        out = plan_model.set_session(
+            runtime.engine,
+            session_id=None,
+            day=date(2026, 11, 3),
+            name=sport,
+            sport=sport,
+            description=description,
+            reason="r",
+            author="Claude",
+        )
+        with runtime.engine.connect() as conn:
+            row = conn.execute(
+                select(plan_session.c.duration_s, plan_session.c.distance_m).where(
+                    plan_session.c.id == out["session_id"]
+                )
+            ).one()
+        return row.duration_s, row.distance_m
+
+    timed = "Warmup\n- 10m Z1 HR\n\nMain set\n3x\n- 5m Z4 HR\n- 2m Z1 HR\n\nCooldown\n- 5m Z1 HR"
+    assert stored("Run", timed) == (2160, None)
+    # A swim is distances with rests in time: its time assumes 2:30 per 100 m.
+    assert stored("Swim", "Main set\n4x\n- 100mtr Z2 Pace\n- 20s rest") == (680, 400)
+    # Part time, part distance elsewhere: neither total is the whole session, so neither
+    # is kept.
+    assert stored("Ride", "Warmup\n- 10m Z1 HR\n\nMain set\n- 5km Z2 HR") == (None, None)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from vibesynergy.query import plan_builder
@@ -193,3 +195,17 @@ def test_draft_weeks_show_the_current_plan_to_compare(runtime, monkeypatch) -> N
     first, second = out["weeks"][:2]
     assert first["current"] == {"phase": "Base 1", "kind": "load", "hours": 8.0}
     assert second["current"] is None
+
+
+def test_defaults_take_the_hours_from_load_weeks_by_kind(runtime, monkeypatch) -> None:
+    """The hours range comes from the weeks' kind and hours label, not from a word in a title."""
+    from vibesynergy.query import training_plan
+
+    weeks = [
+        {"title": "Wk 1 · Base · load · ~6u45", "kind": "load", "hours_label": "~6u45"},
+        {"title": "Wk 2 · Base · load · ~8u", "kind": "load", "hours_label": "~8u"},
+        {"title": "Wk 3 · Base · recovery · ~4u", "kind": "recovery", "hours_label": "~4u"},
+    ]
+    monkeypatch.setattr(training_plan, "overview", lambda *_: {"races": [], "weeks": weeks})
+    out = plan_builder.defaults(runtime.engine, date(2026, 11, 12))
+    assert (out["hours_min"], out["hours_max"]) == (6.0, 8.0)

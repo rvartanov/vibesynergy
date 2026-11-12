@@ -26,6 +26,8 @@ _SECTIONS = {
     "cooldown": "cooldown",
     "cool down": "cooldown",
 }
+# Swim steps are distances; the planned time assumes this pace (2:30 per 100 m).
+SWIM_S_PER_M = 1.5
 _REPEAT = re.compile(r"^(?P<head>[A-Za-z][A-Za-z ]*?)?\s*(?P<n>\d+)x\s*$")
 _DURATION = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
 _DISTANCE = re.compile(r"^(\d+(?:[.,]\d+)?)(mtr|km)$")
@@ -242,6 +244,41 @@ def total_seconds(steps: list[dict[str, Any]]) -> int:
         else:
             total += int(step.get("duration_s") or 0)
     return total
+
+
+def total_metres(steps: list[dict[str, Any]]) -> float:
+    """Planned distance of the steps (repeats counted); time-only steps count as 0."""
+    total = 0.0
+    for step in steps:
+        if step.get("kind") == "repeat":
+            total += int(step.get("times") or 1) * total_metres(step.get("steps") or [])
+        else:
+            total += float(step.get("distance_m") or 0)
+    return total
+
+
+def _all_have(steps: list[dict[str, Any]], key: str) -> bool:
+    return all(
+        _all_have(step.get("steps") or [], key) if step.get("kind") == "repeat" else step.get(key)
+        for step in steps
+    )
+
+
+def planned_totals(
+    steps: list[dict[str, Any]], *, swim: bool = False
+) -> tuple[int | None, float | None]:
+    """Planned ``(seconds, metres)`` of a session, None where its steps do not say.
+
+    A swim is distances with rests in time: all its metres count, and its time is the
+    rests plus ``SWIM_S_PER_M`` for each metre. In other sports a total counts only when
+    every step has it: half a total would read as a shorter session than the one planned.
+    """
+    if swim:
+        metres = total_metres(steps)
+        return (total_seconds(steps) + round(SWIM_S_PER_M * metres)) or None, metres or None
+    seconds = total_seconds(steps) if _all_have(steps, "duration_s") else 0
+    metres = total_metres(steps) if _all_have(steps, "distance_m") else 0.0
+    return seconds or None, metres or None
 
 
 def to_intervals(workout: Workout) -> str:

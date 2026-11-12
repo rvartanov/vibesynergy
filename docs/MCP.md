@@ -674,9 +674,23 @@ Planned vs completed training.
   leads. The calendar is
   fetched `[calendar] lookahead_months` ahead (12 months when unset); Garmin drops past plan
   days from its replies, so every version is kept.
-- intervals.icu is the plan. `plan_start` is the first day of an intervals.icu
-  plan workout (an event with an `external_id`); `plan_source` is `intervals_icu` when the
-  window reaches it, else `garmin`. From `plan_start` on:
+- The plan is VibeSynergy's own when VibeSynergy leads it (`vibesynergy_plan_model` says
+  `source` `vibesynergy`); intervals.icu then holds a copy. `plan_source` is `vibesynergy`
+  when the window reaches `plan_start` (the first day with a planned session), else
+  `garmin`. From `plan_start` on:
+  - each planned session is an item with `source` `vibesynergy`, `source_id` and
+    `session_id` the session id (for `vibesynergy_plan_session_move` / `_skip` / `_set`),
+    `kind` `workout`, `ownership` `vibesynergy_plan`, `in_plan` true, a Garmin-style `sport`
+    (the raw type is `extra.icu_type`) and `extra` with `description` (cue and steps),
+    `duration_s` and `distance_m` when known, and, while the session has a copy in
+    intervals.icu, `icu_id` (that event's id) and `load` (intervals.icu's estimate). A
+    skipped session is not an item;
+  - Garmin workouts fold in as `garmin_copies` or go to `not_in_plan` exactly as below, and
+    `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
+    are the plan's keys such as `lake27:week:03`; a target has no `title`).
+- While intervals.icu leads, it is the plan. `plan_start` is the first day of an
+  intervals.icu plan workout (an event with an `external_id`); `plan_source` is
+  `intervals_icu` when the window reaches it, else `garmin`. From `plan_start` on:
   - each intervals.icu WORKOUT is an item with `source` `intervals_icu`, `source_id` the
     event id, `kind` `workout`, `ownership` `intervals_plan`, `in_plan` true, a Garmin-style
     `sport` (`running`, `cycling`, `swimming`, `strength_training`, `walking`; the raw type
@@ -700,8 +714,8 @@ Planned vs completed training.
   `garmin` on each training item.
 - `adherence` also has `changed`, `missed` and `not_in_plan` (Garmin workouts outside the
   plan up to today). `planned` and `done` are unchanged in meaning.
-- `weeks`: one row per Monday in the window that has an intervals.icu weekly NOTE or
-  TARGET: `start`, `end`, `note` (`id`, `title`, `text`) and `targets` (`sport`, `family`,
+- `weeks`: one row per Monday in the window that has a week note or weekly target in the
+  plan (intervals.icu's weekly NOTE or TARGET while it leads): `start`, `end`, `note` (`id`, `title`, `text`) and `targets` (`sport`, `family`,
   `time_s`, `distance_m`, `load`, and `done_s` / `done_distance_m` from the activities that
   week), plus `time_s`, the sum of the time targets.
 - Races: an intervals.icu RACE_A/B/C on the day of a Garmin race is that race; the row
@@ -718,8 +732,9 @@ One call for "how should I train today?".
   and attention list, the safety floor (level, rules, text), this coach's last entries and
   freshness, and stale-data warnings. `planned_today` is the first session today.
   `date_label` is `d-m-yyyy`; other dates stay ISO. Items carry `source` and `in_plan`;
-  `plan_source` says where the plan comes from, and `not_in_plan` lists today's Garmin
-  workouts that are not in the intervals.icu plan (see `vibesynergy_plan`).
+  `plan_source` says where the plan comes from (`vibesynergy`, `intervals_icu` or `garmin`),
+  and `not_in_plan` lists today's Garmin workouts that are not in the plan (see
+  `vibesynergy_plan`).
 
 #### `vibesynergy_week`
 Monday to Sunday, planned against what was done.
@@ -727,7 +742,7 @@ Monday to Sunday, planned against what was done.
 - Returns: each session (title, sport, duration, distance, ascent, intensity, status
   done/changed/missed/today/upcoming, matched activity) and totals.
   Saturday and Sunday are included when today is Friday. Also `plan_source`, `note` (the
-  intervals.icu weekly note: `id`, `title`, `text`, or null), `targets` (weekly time targets
+  plan's week note: `id`, `title`, `text`, or null), `targets` (weekly time targets
   per sport with `done_s`, as in `vibesynergy_plan` `weeks`) and `not_in_plan` (Garmin workouts
   that week outside the plan, same shape as `items`).
 - `progress` (the start page's week card, `query/week_progress.py`): `season`, `note`

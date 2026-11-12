@@ -249,7 +249,7 @@ def register(kit: ToolKit) -> None:
     ) -> dict[str, Any]:
         """Plan against done per Monday-to-Sunday week and per training phase, the
         same numbers as the Planning & progress page. Per week: goal_s per sport
-        (intervals.icu's weekly TARGET time, else the planned workouts; basis says which),
+        (the plan's weekly target time, else the planned workouts; basis says which),
         done_s, done_pct, planned and done load (intervals.icu's), counts of done /
         changed / missed / extra workouts, sessions_done_pct (done of the planned workouts
         whose day passed) and compliance_avg (intervals.icu's compliance of the paired
@@ -296,13 +296,14 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_plan(
         period: str | None = None, start: str | None = None, end: str | None = None
     ) -> dict[str, Any]:
-        """The training calendar. From plan_start on, the intervals.icu calendar is the
-        plan (plan_source intervals_icu): its workouts are the items, a Garmin workout that
-        intervals.icu pushed is folded into one as garmin_copies, and any other Garmin
-        workout is listed under not_in_plan and never counted. Earlier days use Garmin
-        (and its coaching plan). Each planned workout says whether it was done (matched to
-        an activity of the same sport that day), changed, or missed; also today's session,
-        adherence, weeks (the weekly intervals.icu note and time targets per sport, with
+        """The training calendar. From plan_start on, the plan is VibeSynergy's own
+        (plan_source vibesynergy; items carry session_id) or, while intervals.icu leads,
+        the intervals.icu calendar (plan_source intervals_icu): its workouts are the items,
+        a Garmin workout that is a copy of one is folded into it as garmin_copies, and any
+        other Garmin workout is listed under not_in_plan and never counted. Earlier days
+        use Garmin (and its coaching plan). Each planned workout says whether it was done
+        (matched to an activity of the same sport that day), changed, or missed; also
+        today's session, adherence, weeks (the week's note and time targets per sport, with
         time done), and upcoming events and races with days to go. An intervals.icu race on
         the day of a Garmin race is that race (intervals_id). Race priority: a stored
         choice, else a Garmin primary race is A, else the intervals.icu RACE_A/B/C letter;

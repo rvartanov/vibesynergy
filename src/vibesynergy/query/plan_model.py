@@ -1,10 +1,11 @@
 """The training plan as VibeSynergy's own model (docs/design/plan-model.md).
 
-Step 1 of the change-over: ``import_from_intervals`` builds the model from the intervals.icu
-plan cache (``icu_event``): week notes (``<prefix>:week:NN``), week targets
-(``<prefix>:target:NN:<sport>``) and workouts (``<prefix>:<date>:<slot>``), each workout's
-steps through ``workout_model``. It reads only; nothing is written to intervals.icu and no
-reader uses the model yet. A new ``plan_version`` is made only when the content changed.
+A plan is ``shadow`` or ``leading``. In shadow intervals.icu leads: ``import_from_intervals``
+rebuilds the model from the intervals.icu plan cache (``icu_event``) after every sync, and
+the readers use that cache. When VibeSynergy leads, the model is the plan: the writes here
+change it, the readers (``query/plan.py`` and what builds on it) read it through
+``plan_layer``, and ``mirror`` copies each change one way to intervals.icu. A plan made with
+``create_plan`` leads from the start and needs no intervals.icu at all.
 """
 
 from __future__ import annotations
@@ -12,13 +13,15 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import Engine, delete, func, insert, or_, select, update
+from sqlalchemy import Engine, and_, delete, func, insert, or_, select, update
 
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import training_plan, workout_model
+from vibesynergy.query.plan import family
 from vibesynergy.store.schema import (
     icu_event,
     plan,
@@ -264,8 +267,64 @@ def current_plan_id(engine: Engine) -> str | None:
 def _required_plan(engine: Engine, plan_id: str | None) -> str:
     found = plan_id or current_plan_id(engine)
     if not found:
-        raise ValueError("no plan yet: import one with `vibesynergy plan import --prefix <tag>`")
+        raise ValueError("no plan yet: make one with `vibesynergy plan create`")
     return found
+
+
+_PLAN_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def create_plan(
+    engine: Engine,
+    *,
+    name: str,
+    start: date,
+    end: date,
+    reason: str,
+    author: str,
+    method: str | None = None,
+    plan_id: str | None = None,
+) -> dict[str, Any]:
+    """A new, empty plan that VibeSynergy leads. Its id (default: from the name) is the
+    start of every session id and the tag on its intervals.icu copies."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("a name is required")
+    if not (reason or "").strip():
+        raise ValueError("a reason is required")
+    if end < start:
+        raise ValueError("the plan ends before it starts")
+    ident = plan_id or "-".join(re.findall(r"[a-z0-9]+", name.lower()))
+    if not _PLAN_ID.fullmatch(ident):
+        raise ValueError("a plan id has lower-case letters, digits and hyphens only")
+    now = utc_now()
+    with engine.begin() as conn:
+        if conn.execute(select(plan.c.id).where(plan.c.id == ident)).scalar():
+            raise ValueError(f"plan {ident!r} already exists")
+        conn.execute(
+            insert(plan_version).values(
+                plan_id=ident,
+                n=1,
+                created_at=now,
+                author=author,
+                reason=reason,
+                summary={"created": ident},
+            )
+        )
+        conn.execute(
+            insert(plan).values(
+                id=ident,
+                subject_id=SUBJECT,
+                name=name,
+                method=method,
+                start=start,
+                end=end,
+                status=LEADING,
+                current_version=1,
+                updated_at=now,
+            )
+        )
+    return {"plan_id": ident, "version": 1}
 
 
 def summary(engine: Engine, plan_id: str | None = None) -> dict[str, Any] | None:
@@ -291,7 +350,7 @@ def shadow_refresh(engine: Engine) -> dict[str, Any] | None:
     try:
         plan_id = current_plan_id(engine)
         if not plan_id:
-            return None  # no plan imported yet: nothing to keep in step
+            return None  # no plan yet: nothing to keep in step
         if source(engine, plan_id) == "vibesynergy":
             return run_mirror(engine)
         return import_from_intervals(engine, prefix=plan_id)
@@ -364,7 +423,7 @@ def set_source(engine: Engine, value: str, plan_id: str | None = None) -> str:
             .values(status=LEADING if value == "vibesynergy" else SHADOW, updated_at=utc_now())
         ).rowcount
     if not done:
-        raise ValueError(f"no plan {plan_id!r}: run 'vibesynergy plan import' first")
+        raise ValueError(f"no plan {plan_id!r}")
     return value
 
 
@@ -392,11 +451,14 @@ def set_session(
 
     garmin_strength.check_description(description)  # a BlockError is a ValueError
     ident = session_id or f"{plan_id}:{day.isoformat()}:{slot or (sport or 'session').lower()}"
+    seconds, metres = workout_model.planned_totals(parsed.steps, swim=family(sport) == "swim")
     row = {
         "date": day,
         "slot": slot,
         "sport": sport,
         "name": name,
+        "duration_s": seconds,
+        "distance_m": metres,
         "workout": {"steps": parsed.steps, "garmin_block": parsed.garmin_block},
         "description": parsed.intro,
         "status": "planned",
@@ -535,18 +597,33 @@ def _bump(conn: Any, plan_id: str, *, author: str, reason: str, summary: dict[st
     return n
 
 
+def _ensure_week(conn: Any, plan_id: str, week: int, version: int) -> None:
+    """Add the week when the plan does not have it yet. Its Monday follows from a week the
+    plan already has, else from the plan's start (week 1 is the week of the first day)."""
+    weeks = plan_week.c.plan_id == plan_id
+    if conn.execute(select(plan_week.c.n).where(weeks, plan_week.c.n == week)).first():
+        return
+    if week < 1:
+        raise ValueError("weeks count from 1")
+    known = conn.execute(select(plan_week.c.n, plan_week.c.monday).where(weeks)).first()
+    if known is None:
+        start = conn.execute(select(plan.c.start).where(plan.c.id == plan_id)).scalar()
+        if start is None:
+            raise ValueError(f"plan {plan_id!r} has no start date to count weeks from")
+        known = (1, start - timedelta(days=start.weekday()))
+    monday = known[1] + timedelta(weeks=week - known[0])
+    conn.execute(insert(plan_week).values(plan_id=plan_id, n=week, monday=monday, version=version))
+
+
 def set_week(
     engine: Engine, *, week: int, note: str, reason: str, author: str, plan_id: str | None = None
 ) -> dict[str, Any]:
-    """Change the note of one plan week (the week's intent and structure)."""
+    """Set the note of one plan week (the week's intent and structure); a week the plan
+    does not have yet is added."""
     plan_id = _required_plan(engine, plan_id)
     with engine.begin() as conn:
-        found = conn.execute(
-            select(plan_week.c.n).where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
-        ).scalar()
-        if found is None:
-            raise ValueError(f"no week {week} in plan {plan_id!r}")
         n = _bump(conn, plan_id, author=author, reason=reason, summary={"week": week})
+        _ensure_week(conn, plan_id, week, n)
         conn.execute(
             update(plan_week)
             .where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
@@ -567,7 +644,8 @@ def set_target(
     load: float | None = None,
     plan_id: str | None = None,
 ) -> dict[str, Any]:
-    """Set (or with no values remove) one weekly target for a sport."""
+    """Set (or with no values remove) one weekly target for a sport; a week the plan does
+    not have yet is added."""
     plan_id = _required_plan(engine, plan_id)
     sport = (sport or "").strip().lower()
     if not sport:
@@ -576,14 +654,8 @@ def set_target(
     if any(v is not None and v <= 0 for v in values.values()):
         raise ValueError("targets are positive numbers")
     with engine.begin() as conn:
-        if (
-            conn.execute(
-                select(plan_week.c.n).where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
-            ).scalar()
-            is None
-        ):
-            raise ValueError(f"no week {week} in plan {plan_id!r}")
         n = _bump(conn, plan_id, author=author, reason=reason, summary={"target": [week, sport]})
+        _ensure_week(conn, plan_id, week, n)
         key = (plan_target.c.plan_id == plan_id, plan_target.c.week == week)
         conn.execute(delete(plan_target).where(*key, plan_target.c.sport == sport))
         if any(v is not None for v in values.values()):
@@ -593,6 +665,12 @@ def set_target(
                 )
             )
     return {"week": week, "sport": sport, "version": n, **values}
+
+
+def week_title(week: dict[str, Any]) -> str:
+    """``Wk 7 · Base 1 · race · ~6u``: the name of a week's note."""
+    parts = (f"Wk {week['n']}", week["phase"], week["kind"], week["hours_label"])
+    return " · ".join(x for x in parts if x)
 
 
 def _icu_rows(conn: Any, plan_id: str, kind: str) -> dict[tuple, dict[str, Any]]:
@@ -639,14 +717,18 @@ def _mirror_weeks(
         note = (w["note"] or "").strip()
         if row is not None and (row["description"] or "").strip() == note:
             continue
-        name = " · ".join(x for x in (f"Wk {n}", w["phase"], w["kind"], w["hours_label"]) if x)
         jobs.append(
             (
                 f"{plan_id}:week:{n:02d}",
                 row,
                 {"description": note}
                 if row is not None
-                else {"category": "NOTE", "name": name, "description": note, "day": w["monday"]},
+                else {
+                    "category": "NOTE",
+                    "name": week_title(w),
+                    "description": note,
+                    "day": w["monday"],
+                },
             )
         )
     for t in targets:
@@ -940,6 +1022,198 @@ def view(engine: Engine, start: date, end: date, plan_id: str | None = None) -> 
             for s in sessions
         ],
     }
+
+
+# The model as the plan the readers use (step 4) -----------------------------------------------
+
+
+def leading_plan(engine: Engine) -> str | None:
+    """The current plan's id when VibeSynergy leads it, else None."""
+    with engine.connect() as conn:
+        row = conn.execute(
+            select(plan.c.id, plan.c.status).order_by(plan.c.updated_at.desc()).limit(1)
+        ).first()
+    return row.id if row is not None and row.status == LEADING else None
+
+
+def _planned(plan_id: str) -> Any:
+    return and_(plan_session.c.plan_id == plan_id, plan_session.c.status == "planned")
+
+
+def _planned_sessions(conn: Any, plan_id: str, start: date, end: date) -> list[dict[str, Any]]:
+    """The planned sessions between ``start`` and ``end`` (a skipped one is out of the
+    plan). One stored without its planned time or distance (written before ``set_session``
+    kept them) gets them from its steps here."""
+    out = []
+    for row in conn.execute(
+        select(plan_session)
+        .where(_planned(plan_id), plan_session.c.date.between(start, end))
+        .order_by(plan_session.c.date, plan_session.c.id)
+    ).mappings():
+        session = dict(row)
+        if session["duration_s"] is None and session["distance_m"] is None:
+            session["duration_s"], session["distance_m"] = workout_model.planned_totals(
+                (session["workout"] or {}).get("steps") or [],
+                swim=family(session["sport"]) == "swim",
+            )
+        out.append(session)
+    return out
+
+
+def week_rows(
+    engine: Engine, plan_id: str, first: date | None = None, last: date | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The weeks whose Monday is in ``first``..``last`` (default: all) as note rows and
+    target rows, shaped like the intervals.icu NOTE and TARGET events the readers know. A
+    note row also has the week's ``number``, ``phase``, ``kind`` and ``hours_label``."""
+    where = [plan_week.c.plan_id == plan_id]
+    if first is not None:
+        where.append(plan_week.c.monday >= first)
+    if last is not None:
+        where.append(plan_week.c.monday <= last)
+    with engine.connect() as conn:
+        weeks = [
+            dict(r)
+            for r in conn.execute(
+                select(plan_week).where(*where).order_by(plan_week.c.n)
+            ).mappings()
+        ]
+        goals = [
+            dict(r)
+            for r in conn.execute(
+                select(plan_target)
+                .where(
+                    plan_target.c.plan_id == plan_id,
+                    plan_target.c.week.in_([w["n"] for w in weeks]),
+                )
+                .order_by(plan_target.c.week, plan_target.c.sport)
+            ).mappings()
+        ]
+    monday = {w["n"]: w["monday"] for w in weeks}
+    notes = [
+        {
+            "id": f"{plan_id}:week:{w['n']:02d}",
+            "date": w["monday"],
+            "name": week_title(w),
+            "description": w["note"],
+            "number": w["n"],
+            "phase": w["phase"],
+            "kind": w["kind"],
+            "hours_label": w["hours_label"],
+        }
+        for w in weeks
+    ]
+    targets = [
+        {
+            "id": f"{plan_id}:target:{t['week']:02d}:{t['sport']}",
+            "date": monday[t["week"]],
+            "name": None,  # the model has no title for a target: readers show its time
+            "type": t["sport"],
+            "targets": {icu: t[mine] for mine, icu in TARGET_FIELDS.items() if t[mine] is not None},
+        }
+        for t in goals
+    ]
+    return notes, targets
+
+
+def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str, Any]:
+    """The model's sessions, week notes and week targets between ``start`` and ``end``, with
+    the keys ``icu_plan.plan_layer`` has, so one calendar merge serves both.
+
+    ``workouts`` are the planned sessions (a skipped one is out of the plan) with their step
+    text. ``icu_id`` is the id of a session's copy in intervals.icu and ``icu_event`` that
+    event as cached, when it has one: Garmin delivery, the activity pairing and the Garmin
+    Coach duplicate pair are still keyed by that event.
+    ``plan_start`` is the first day with a planned session.
+    """
+    from vibesynergy.query import icu_plan
+
+    with engine.connect() as conn:
+        sessions = _planned_sessions(conn, plan_id, start, end)
+        ids = [s["id"] for s in sessions]
+        links = dict(
+            conn.execute(
+                select(plan_link.c.session_id, plan_link.c.remote_id).where(
+                    plan_link.c.target == "intervals", plan_link.c.session_id.in_(ids)
+                )
+            ).all()
+        )
+        events = {
+            r["id"]: dict(r)
+            for r in conn.execute(
+                select(icu_event).where(icu_event.c.id.in_(list(links.values())))
+            ).mappings()
+        }
+        plan_start = conn.execute(
+            select(func.min(plan_session.c.date)).where(_planned(plan_id))
+        ).scalar()
+        marks = icu_plan._athlete_marks(conn) if sessions else {}
+    notes, targets = week_rows(engine, plan_id, start - timedelta(days=start.weekday()), end)
+    return {
+        "workouts": [
+            {
+                "id": s["id"],
+                "date": s["date"],
+                "name": s["name"],
+                "type": s["sport"],
+                "slot": s["slot"],
+                "description": session_text(s),
+                "duration_s": s["duration_s"],
+                "distance_m": s["distance_m"],
+                "external_id": s["id"],
+                "icu_id": links.get(s["id"]),
+                "icu_event": events.get(links.get(s["id"])),
+            }
+            for s in sessions
+        ],
+        "notes": notes,
+        "targets": targets,
+        "plan_start": plan_start,
+        "marks": marks,
+    }
+
+
+def planned_seconds(engine: Engine, plan_id: str, start: date, end: date) -> float:
+    """Planned time of the sessions between ``start`` and ``end``."""
+    with engine.connect() as conn:
+        sessions = _planned_sessions(conn, plan_id, start, end)
+    return float(sum(s["duration_s"] or 0 for s in sessions))
+
+
+def last_planned_day(
+    engine: Engine, plan_id: str, start: date, end: date | None = None
+) -> date | None:
+    """The last day from ``start`` on (up to ``end``) with a planned session."""
+    where = [_planned(plan_id), plan_session.c.date >= start]
+    if end is not None:
+        where.append(plan_session.c.date <= end)
+    with engine.connect() as conn:
+        return conn.execute(select(func.max(plan_session.c.date)).where(*where)).scalar()
+
+
+def session_steps(engine: Engine, plan_id: str, start: date, end: date) -> dict[str, list]:
+    """The steps of each planned session between ``start`` and ``end``, by session id."""
+    with engine.connect() as conn:
+        sessions = _planned_sessions(conn, plan_id, start, end)
+    return {s["id"]: (s["workout"] or {}).get("steps") or [] for s in sessions}
+
+
+def changed_at(engine: Engine, event_ids: list[str]) -> dict[str, Any]:
+    """When the plan last changed each session, by the id of its intervals.icu copy."""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(plan_link.c.remote_id, plan_version.c.created_at)
+            .join(plan_session, plan_session.c.id == plan_link.c.session_id)
+            .join(
+                plan_version,
+                and_(
+                    plan_version.c.plan_id == plan_session.c.plan_id,
+                    plan_version.c.n == plan_session.c.version,
+                ),
+            )
+            .where(plan_link.c.target == "intervals", plan_link.c.remote_id.in_(event_ids))
+        ).all()
+    return {r.remote_id: r.created_at for r in rows}
 
 
 # Export: the plan as a table, readable without VibeSynergy ----------------------------

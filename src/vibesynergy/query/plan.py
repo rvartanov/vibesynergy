@@ -2,17 +2,20 @@
 planned sessions compare with what was done. Used by the MCP tool vibesynergy_plan and the
 portal's Dashboard.
 
-From the first intervals.icu plan workout on, the intervals.icu calendar is the plan.
-A Garmin scheduled workout that intervals.icu pushed (same day, sport family and name, or a
-title carrying the plan's external-id tag such as ``(lake27)``) is folded into that workout
+The plan is VibeSynergy's own model when VibeSynergy leads it (``plan_model.plan_layer``),
+else the intervals.icu calendar (``icu_plan.plan_layer``). From the first plan workout on,
+a Garmin scheduled workout that is a copy of a plan workout (same day, sport family and
+name, or a title carrying the plan's tag such as ``(lake27)``) is folded into that workout
 as ``garmin_copies``. Any other Garmin workout from that day on is not in the plan: it goes
 to ``not_in_plan`` and is never counted as planned. Earlier days keep the Garmin calendar
-as the plan."""
+as the plan. Races and the season still come from intervals.icu and Garmin in both cases
+(a later step)."""
 
 from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
+from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from functools import lru_cache
 from typing import Any
@@ -28,6 +31,9 @@ from vibesynergy.query.views import sync_status
 from vibesynergy.store.schema import activity_unified, planned_item, training_plan
 
 INTERVALS = "intervals_icu"
+VIBESYNERGY = "vibesynergy"
+# ``source`` of a calendar row that is a plan workout, whoever leads the plan.
+PLAN_SOURCES = (INTERVALS, VIBESYNERGY)
 
 # Sport families, to match a planned session with the activity that did it.
 _FAMILIES = (
@@ -205,13 +211,17 @@ def plan(
     if not include_calendar:
         items = [i for i in items if i["source"] != "caldav"]
     items = _combine_mirrors(items)
-    from vibesynergy.query import calendar_mirror, icu_plan
+    from vibesynergy.query import calendar_mirror, icu_plan, plan_model
 
-    layer = icu_plan.plan_layer(engine, window.start, window.end)
+    own = plan_model.leading_plan(engine)
+    if own:
+        layer = plan_model.plan_layer(engine, own, window.start, window.end)
+    else:
+        layer = icu_plan.plan_layer(engine, window.start, window.end)
     icu_races = icu_plan.races(engine, min(window.start, today))
     items = _merge_races(items, [r for r in icu_races if window.start <= r["date"] <= window.end])
     upcoming = _merge_races(upcoming, [r for r in icu_races if r["date"] >= today])
-    items, not_in_plan = _merge_intervals(items, layer)
+    items, not_in_plan = _merge_plan(items, layer, _model_item if own else _icu_item)
     # A training you give (coaching rules) is no hard session for you, whatever its title
     # says ("Ext. interval kort"): you run along easy.
     for item in items:
@@ -318,7 +328,7 @@ def plan(
         **race_phase_from_events(upcoming, today, saved),
         "items": items,
         "not_in_plan": not_in_plan,
-        "plan_source": INTERVALS
+        "plan_source": (VIBESYNERGY if own else INTERVALS)
         if layer["plan_start"] is not None and layer["plan_start"] <= window.end
         else "garmin",
         "plan_start": str(layer["plan_start"]) if layer["plan_start"] else None,
@@ -409,6 +419,42 @@ def _icu_item(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _model_item(row: dict[str, Any]) -> dict[str, Any]:
+    """A session of VibeSynergy's own plan as a calendar row."""
+    sport_family = family(row.get("type")) or family(row.get("name"))
+    extra: dict[str, Any] = {
+        "brick_part": row["slot"] if row.get("slot") in ("fiets", "loop") else None,
+        "icu_type": row.get("type"),
+        "description": row.get("description"),
+        "ownership": "vibesynergy_plan",
+    }
+    if row.get("icu_id"):
+        # Garmin delivery and the activity pairing are keyed by the intervals.icu copy.
+        extra["icu_id"] = row["icu_id"]
+    # The planned load is intervals.icu's estimate until the model plans load itself.
+    copy = (row.get("icu_event") or {}).get("raw") or {}
+    if load := _positive(copy.get("icu_training_load")):
+        extra["load"] = load
+    if duration := _positive(row.get("duration_s")):
+        extra["duration_s"] = duration
+    if distance := _positive(row.get("distance_m")):
+        extra["distance_m"] = distance
+    return {
+        "source": VIBESYNERGY,
+        "source_id": row["id"],
+        "session_id": row["id"],
+        "date": row["date"],
+        "kind": "workout",
+        "title": row.get("name"),
+        "sport": _SPORT.get(sport_family or "", row.get("type")),
+        "plan_id": None,
+        "is_race": False,
+        "primary": False,
+        "extra": extra,
+        "plan_source": VIBESYNERGY,
+    }
+
+
 def _plan_tags(rows: list[dict[str, Any]]) -> list[re.Pattern]:
     """External-id prefixes such as ``lake27`` (from ``lake27:2026-11-07:ride``)."""
     heads = set()
@@ -431,8 +477,10 @@ def _copy_link(item: dict[str, Any], method: str) -> dict[str, Any]:
     }
 
 
-def _merge_intervals(items: list[dict], layer: dict[str, Any]) -> tuple[list[dict], list[dict]]:
-    """The intervals.icu workouts become the plan; Garmin copies fold into them.
+def _merge_plan(
+    items: list[dict], layer: dict[str, Any], as_item: Callable[[dict[str, Any]], dict[str, Any]]
+) -> tuple[list[dict], list[dict]]:
+    """The layer's workouts become the plan; Garmin copies fold into them.
 
     Returns the calendar rows and the Garmin workouts that are not in the plan.
     """
@@ -445,7 +493,7 @@ def _merge_intervals(items: list[dict], layer: dict[str, Any]) -> tuple[list[dic
         return items, []
     from vibesynergy.query.icu_plan import link_duplicate
 
-    workouts = [_icu_item(row) for row in rows]
+    workouts = [as_item(row) for row in rows]
     by_name: dict[tuple[date, str], list[dict]] = defaultdict(list)
     by_day: dict[date, list[dict]] = defaultdict(list)
     for workout in workouts:
@@ -499,7 +547,11 @@ def _merge_intervals(items: list[dict], layer: dict[str, Any]) -> tuple[list[dic
     for key, group in coaches.items():
         plan_rows = plans.get(key) or []
         if len(group) == 1 and len(plan_rows) == 1:
-            link_duplicate(group[0], plan_rows[0], layer["marks"])
+            # The pair is resolved on the intervals.icu event: for a session of the own
+            # plan that is its copy, and one without a copy has no pair.
+            event = plan_rows[0].get("icu_event", plan_rows[0])
+            if event:
+                link_duplicate(group[0], event, layer["marks"])
     merged = kept + workouts
     merged.sort(key=lambda i: (_as_day(i["date"]), i["kind"]))
     return merged, outside
@@ -538,7 +590,7 @@ def _merge_races(items: list[dict], icu_races: list[dict], *, add: bool = True) 
 def _weeks(
     engine: Engine, layer: dict[str, Any], window: Window, today: date
 ) -> list[dict[str, Any]]:
-    """Weekly NOTE text and TARGET time per sport, with what was done that week."""
+    """The week's note and target time per sport, with what was done that week."""
     notes = {_as_day(row["date"]): row for row in layer["notes"]}
     targets: dict[date, list[dict]] = defaultdict(list)
     for row in layer["targets"]:
@@ -883,13 +935,18 @@ def _overlaps_start(item: dict, day: date) -> bool:
 
 
 def planned_moving_s(engine: Any, window: Window) -> float | None:
-    """Planned workout time in the window from the intervals.icu plan, or None without a plan.
+    """Planned workout time in the window from the plan (VibeSynergy's own when it leads,
+    else intervals.icu's), or None without a plan.
 
     The safety floor compares the last 7 days with this: a build week that follows
     the plan is no load spike, even after a quiet block."""
     from sqlalchemy import func
 
+    from vibesynergy.query import plan_model
     from vibesynergy.store.schema import icu_event
+
+    if own := plan_model.leading_plan(engine):
+        return plan_model.planned_seconds(engine, own, window.start, window.end) or None
 
     moving = func.json_extract(icu_event.c.raw, "$.moving_time")
     with engine.connect() as conn:
