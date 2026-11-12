@@ -104,7 +104,8 @@ Details: [SOURCES.md](SOURCES.md).
 - **Planning & progress**: the week against the plan per sport and per workout, plan against
   done over the weeks and phases, form, the next nine days; download the plan as Excel or PDF.
 - **Training plan**: a plan model in VibeSynergy (weeks, phases, targets, sessions with steps),
-  a plan builder (goal race, sport and distance, method, hours, rhythm, rest days, fixed
+  started in VibeSynergy (`vibesynergy plan create`) or taken over from intervals.icu, a plan
+  builder (goal race, sport and distance, method, hours, rhythm, rest days, fixed
   sessions), delivery of the plan's workouts to Garmin (per sport) and to intervals.icu.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own

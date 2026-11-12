@@ -14,11 +14,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from vibesynergy.query.workout_model import Workout, to_intervals, total_seconds
+from vibesynergy.query.workout_model import (
+    SWIM_S_PER_M,
+    Workout,
+    to_intervals,
+    total_metres,
+    total_seconds,
+)
 
 Steps = list[dict[str, Any]]
-# Swim steps are distances; the planned time assumes this pace (2:30 per 100 m).
-SWIM_S_PER_M = 1.5
 
 
 def _time(kind: str, minutes: float, target: dict | None = None, **extra: Any) -> dict:
@@ -601,16 +605,6 @@ TEMPLATES += (
 BY_ID = {template.id: template for template in TEMPLATES}
 
 
-def _metres(steps: Steps) -> float:
-    total = 0.0
-    for step in steps:
-        if step.get("kind") == "repeat":
-            total += int(step.get("times") or 1) * _metres(step.get("steps") or [])
-        else:
-            total += float(step.get("distance_m") or 0)
-    return total
-
-
 def catalogue(lang: str = "nl") -> list[dict[str, Any]]:
     """Every template with what it is for, its phases, load and parameters."""
     return [
@@ -676,7 +670,7 @@ def render(template_id: str, lang: str = "nl", **params: Any) -> dict[str, Any]:
         "name": template.names[lang].format(**values),
         "type": {"run": "Run", "ride": "Ride", "swim": "Swim"}[template.sport],
         "text": to_intervals(workout),
-        "seconds": total_seconds(steps) + round(SWIM_S_PER_M * _metres(steps)),
+        "seconds": total_seconds(steps) + round(SWIM_S_PER_M * total_metres(steps)),
         "load": template.load,
         "easier": template.easier,
     }

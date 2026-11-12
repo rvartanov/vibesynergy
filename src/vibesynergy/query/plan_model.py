@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import date, timedelta
 from typing import Any
 
@@ -19,6 +20,7 @@ from sqlalchemy import Engine, delete, func, insert, or_, select, update
 
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import training_plan, workout_model
+from vibesynergy.query.plan import family
 from vibesynergy.store.schema import (
     icu_event,
     plan,
@@ -264,8 +266,64 @@ def current_plan_id(engine: Engine) -> str | None:
 def _required_plan(engine: Engine, plan_id: str | None) -> str:
     found = plan_id or current_plan_id(engine)
     if not found:
-        raise ValueError("no plan yet: import one with `vibesynergy plan import --prefix <tag>`")
+        raise ValueError("no plan yet: make one with `vibesynergy plan create`")
     return found
+
+
+_PLAN_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+
+
+def create_plan(
+    engine: Engine,
+    *,
+    name: str,
+    start: date,
+    end: date,
+    reason: str,
+    author: str,
+    method: str | None = None,
+    plan_id: str | None = None,
+) -> dict[str, Any]:
+    """A new, empty plan that VibeSynergy leads. Its id (default: from the name) is the
+    start of every session id and the tag on its intervals.icu copies."""
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("a name is required")
+    if not (reason or "").strip():
+        raise ValueError("a reason is required")
+    if end < start:
+        raise ValueError("the plan ends before it starts")
+    ident = plan_id or "-".join(re.findall(r"[a-z0-9]+", name.lower()))
+    if not _PLAN_ID.fullmatch(ident):
+        raise ValueError("a plan id has lower-case letters, digits and hyphens only")
+    now = utc_now()
+    with engine.begin() as conn:
+        if conn.execute(select(plan.c.id).where(plan.c.id == ident)).scalar():
+            raise ValueError(f"plan {ident!r} already exists")
+        conn.execute(
+            insert(plan_version).values(
+                plan_id=ident,
+                n=1,
+                created_at=now,
+                author=author,
+                reason=reason,
+                summary={"created": ident},
+            )
+        )
+        conn.execute(
+            insert(plan).values(
+                id=ident,
+                subject_id=SUBJECT,
+                name=name,
+                method=method,
+                start=start,
+                end=end,
+                status=LEADING,
+                current_version=1,
+                updated_at=now,
+            )
+        )
+    return {"plan_id": ident, "version": 1}
 
 
 def summary(engine: Engine, plan_id: str | None = None) -> dict[str, Any] | None:
@@ -291,7 +349,7 @@ def shadow_refresh(engine: Engine) -> dict[str, Any] | None:
     try:
         plan_id = current_plan_id(engine)
         if not plan_id:
-            return None  # no plan imported yet: nothing to keep in step
+            return None  # no plan yet: nothing to keep in step
         if source(engine, plan_id) == "vibesynergy":
             return run_mirror(engine)
         return import_from_intervals(engine, prefix=plan_id)
@@ -364,7 +422,7 @@ def set_source(engine: Engine, value: str, plan_id: str | None = None) -> str:
             .values(status=LEADING if value == "vibesynergy" else SHADOW, updated_at=utc_now())
         ).rowcount
     if not done:
-        raise ValueError(f"no plan {plan_id!r}: run 'vibesynergy plan import' first")
+        raise ValueError(f"no plan {plan_id!r}")
     return value
 
 
@@ -392,11 +450,14 @@ def set_session(
 
     garmin_strength.check_description(description)  # a BlockError is a ValueError
     ident = session_id or f"{plan_id}:{day.isoformat()}:{slot or (sport or 'session').lower()}"
+    seconds, metres = workout_model.planned_totals(parsed.steps, swim=family(sport) == "swim")
     row = {
         "date": day,
         "slot": slot,
         "sport": sport,
         "name": name,
+        "duration_s": seconds,
+        "distance_m": metres,
         "workout": {"steps": parsed.steps, "garmin_block": parsed.garmin_block},
         "description": parsed.intro,
         "status": "planned",
@@ -535,18 +596,33 @@ def _bump(conn: Any, plan_id: str, *, author: str, reason: str, summary: dict[st
     return n
 
 
+def _ensure_week(conn: Any, plan_id: str, week: int, version: int) -> None:
+    """Add the week when the plan does not have it yet. Its Monday follows from a week the
+    plan already has, else from the plan's start (week 1 is the week of the first day)."""
+    weeks = plan_week.c.plan_id == plan_id
+    if conn.execute(select(plan_week.c.n).where(weeks, plan_week.c.n == week)).first():
+        return
+    if week < 1:
+        raise ValueError("weeks count from 1")
+    known = conn.execute(select(plan_week.c.n, plan_week.c.monday).where(weeks)).first()
+    if known is None:
+        start = conn.execute(select(plan.c.start).where(plan.c.id == plan_id)).scalar()
+        if start is None:
+            raise ValueError(f"plan {plan_id!r} has no start date to count weeks from")
+        known = (1, start - timedelta(days=start.weekday()))
+    monday = known[1] + timedelta(weeks=week - known[0])
+    conn.execute(insert(plan_week).values(plan_id=plan_id, n=week, monday=monday, version=version))
+
+
 def set_week(
     engine: Engine, *, week: int, note: str, reason: str, author: str, plan_id: str | None = None
 ) -> dict[str, Any]:
-    """Change the note of one plan week (the week's intent and structure)."""
+    """Set the note of one plan week (the week's intent and structure); a week the plan
+    does not have yet is added."""
     plan_id = _required_plan(engine, plan_id)
     with engine.begin() as conn:
-        found = conn.execute(
-            select(plan_week.c.n).where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
-        ).scalar()
-        if found is None:
-            raise ValueError(f"no week {week} in plan {plan_id!r}")
         n = _bump(conn, plan_id, author=author, reason=reason, summary={"week": week})
+        _ensure_week(conn, plan_id, week, n)
         conn.execute(
             update(plan_week)
             .where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
@@ -567,7 +643,8 @@ def set_target(
     load: float | None = None,
     plan_id: str | None = None,
 ) -> dict[str, Any]:
-    """Set (or with no values remove) one weekly target for a sport."""
+    """Set (or with no values remove) one weekly target for a sport; a week the plan does
+    not have yet is added."""
     plan_id = _required_plan(engine, plan_id)
     sport = (sport or "").strip().lower()
     if not sport:
@@ -576,14 +653,8 @@ def set_target(
     if any(v is not None and v <= 0 for v in values.values()):
         raise ValueError("targets are positive numbers")
     with engine.begin() as conn:
-        if (
-            conn.execute(
-                select(plan_week.c.n).where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
-            ).scalar()
-            is None
-        ):
-            raise ValueError(f"no week {week} in plan {plan_id!r}")
         n = _bump(conn, plan_id, author=author, reason=reason, summary={"target": [week, sport]})
+        _ensure_week(conn, plan_id, week, n)
         key = (plan_target.c.plan_id == plan_id, plan_target.c.week == week)
         conn.execute(delete(plan_target).where(*key, plan_target.c.sport == sport))
         if any(v is not None for v in values.values()):

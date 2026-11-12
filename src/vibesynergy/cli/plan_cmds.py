@@ -85,6 +85,39 @@ def plan_import(
     typer.echo(_json.dumps(report, indent=2, ensure_ascii=False))
 
 
+@plan_app.command("create")
+def plan_create(
+    name: Annotated[str, typer.Argument(help="plan name, such as 'Lakeside 2027'")],
+    start: Annotated[str, typer.Option(help="first day (YYYY-MM-DD)")],
+    end: Annotated[str, typer.Option(help="last day (YYYY-MM-DD)")],
+    method: Annotated[str | None, typer.Option(help="training method, such as friel")] = None,
+    plan_id: Annotated[
+        str | None, typer.Option("--id", help="short id (default: from the name)")
+    ] = None,
+    config: ConfigOpt = None,
+) -> None:
+    """Start a new, empty plan in VibeSynergy. Weeks and sessions are added by the coach."""
+    import json as _json
+    from datetime import date
+
+    from vibesynergy.query import plan_model
+
+    try:
+        out = plan_model.create_plan(
+            _runtime(config).engine,
+            name=name,
+            start=date.fromisoformat(start),
+            end=date.fromisoformat(end),
+            method=method,
+            plan_id=plan_id,
+            reason="plan created",
+            author="cli",
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(_json.dumps(out, indent=2, ensure_ascii=False))
+
+
 @plan_app.command("export")
 def plan_export(
     out: Annotated[

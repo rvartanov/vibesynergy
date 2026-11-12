@@ -27,6 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - Bug report and feature request forms that ask for what is needed, and
   [docs/REPORTING.md](docs/REPORTING.md) ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 - This changelog and [docs/FEATURES.md](docs/FEATURES.md), kept current with every change.
+- `vibesynergy plan create` starts a training plan in VibeSynergy itself, without
+  intervals.icu. Your coach can then add weeks, targets and sessions to it; a week that is
+  not there yet is added with its first note or target, and a session keeps the planned time
+  or distance of its steps ([#25](https://github.com/rvartanov/vibesynergy/pull/25)).
 
 - **Get started** on the start page: three steps (connect a source, set your zones, set up
   your coach) with what is done and a link each; put it away when you no longer need it

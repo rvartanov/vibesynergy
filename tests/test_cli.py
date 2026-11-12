@@ -222,3 +222,14 @@ def test_init_demo_and_database_backups(env, tmp_path) -> None:
     # Nothing pending: no backup before the upgrade.
     assert "backed up" not in run("db", "upgrade", "--backup")
     assert not list((tmp_path / "data" / "backups").glob("before-update-*.sqlite"))
+
+
+def test_plan_create_starts_a_plan_that_vibesynergy_leads(env) -> None:
+    run("init")
+    out = run("plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13")
+    assert '"plan_id": "lakeside-2027"' in out
+    assert run("plan", "source").strip() == "vibesynergy"
+    again = runner.invoke(
+        app, ["plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13"]
+    )
+    assert again.exit_code != 0 and "already exists" in again.output
