@@ -1349,3 +1349,16 @@ activity_load = Table(
     Column("load", Float, nullable=False),
     Column("computed_at", UTCDateTime, nullable=False),
 )
+
+# Time in zones per activity (query.zone_times), from the stream and the thresholds valid
+# that day: ``zones`` is {zone number: seconds}; ``inputs`` fingerprints what it came from.
+activity_zone_own = Table(
+    "activity_zone_own",
+    metadata,
+    Column("group_id", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("inputs", String, nullable=False),
+    Column("zones", JSON, nullable=False),
+    Column("computed_at", UTCDateTime, nullable=False),
+    PrimaryKeyConstraint("group_id", "kind"),
+)

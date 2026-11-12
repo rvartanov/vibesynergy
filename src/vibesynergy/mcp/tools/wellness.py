@@ -87,15 +87,20 @@ def register(kit: ToolKit) -> None:
         basis: str = "hr",
         include_coaching: bool = True,
     ) -> dict[str, Any]:
-        """Time in each heart-rate, power or pace zone per week and in total. Heart rate
-        also includes the low / moderate / high split and a polarisation index. Power and
-        pace keep every recorded zone. An activity intervals.icu has counts with its zone
-        times (its own sport settings); activities_by_zone_source says how many. Default
-        last_90d."""
+        """Time in each heart-rate, power or pace zone per week and in total, counted by
+        VibeSynergy from each activity's stream with the zones of that day (heart rate: five
+        Friel zones from LTHR, 5a-5c as zone 5; power: seven Coggan zones from FTP, rides;
+        pace: seven Friel zones from threshold pace, runs). Heart rate also includes the
+        low / moderate / high split and a polarisation index. Default last_90d."""
         span = window(period, start, end, "last_90d")
         return envelope(
             views.intensity_distribution(
-                engine, span, basis=basis, include_coaching=include_coaching, raw=rt.raw
+                engine,
+                span,
+                basis=basis,
+                include_coaching=include_coaching,
+                parquet=rt.parquet,
+                athlete=settings.athlete,
             ),
             span=span,
         )
