@@ -116,6 +116,21 @@ def _pin_today(monkeypatch) -> None:
     monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda _tz: WEDNESDAY)
 
 
+def test_planning_without_a_plan_has_no_watch_check(runtime, monkeypatch) -> None:
+    """A new user (no plan): the page gets no horizon block, so no "plan runs only to"
+    line without a date (that crashed the page)."""
+    _pin_today(monkeypatch)
+    settings = replace(runtime.settings, sources={"garmin": {"enabled": True}})
+    rt = Runtime.open(settings)
+    try:
+        client = TestClient(create_portal_app(rt), base_url="http://127.0.0.1:8447")
+        data = client.get("/api/planning").json()["data"]
+        assert data["horizon"] is None
+        assert data["week"]["has_plan"] is False
+    finally:
+        rt.close()
+
+
 def test_planning_api_and_old_addresses(runtime, monkeypatch) -> None:
     _pin_today(monkeypatch)
     _seed(runtime)
@@ -127,8 +142,18 @@ def test_planning_api_and_old_addresses(runtime, monkeypatch) -> None:
         data = client.get("/api/planning", params={"week": "2026-11-04"}).json()["data"]
         assert data["week"]["start"] == "2026-11-02"
         assert {"week", "trend", "fitness", "projection", "plan"} <= set(data)
+        # Without a connected Garmin there is nothing to check on the watch.
+        assert data["horizon"] is None
+    finally:
+        rt.close()
+    settings = replace(settings, sources={**settings.sources, "garmin": {"enabled": True}})
+    rt = Runtime.open(settings)
+    try:
+        client = TestClient(create_portal_app(rt), base_url=f"https://{TAILNET}:8447")
+        data = client.get("/api/planning", params={"week": "2026-11-04"}).json()["data"]
         # Planning shows whether the coming days are on the Garmin.
         assert data["horizon"] is not None and {"missing", "fill"} <= set(data["horizon"])
+        assert data["horizon"]["has_plan"] is True
         assert data["plan_source"] == "intervals"  # the page's text follows who leads
         assert data["trend"]["weeks"][-1]["start"] == "2026-11-02"
         assert data["fitness"]["columns"][7] == "source"

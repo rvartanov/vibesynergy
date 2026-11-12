@@ -58,7 +58,7 @@ export async function render(view, ctx) {
       <p class="sub">${esc(d.plan_source === "vibesynergy" ? t("Your coach changes the plan; you can move or skip a session in the calendar.") : t("Read-only. The plan is changed in intervals.icu or through your coach."))} ${esc(t("Download the plan:"))} <a href="${esc(url(`plan/export.xlsx?lang=${language()}`))}" download>Excel</a> · <a href="${esc(url(`plan/export.pdf?lang=${language()}`))}" download>PDF</a> · <a href="${esc(url("plan/export.csv"))}" download>CSV</a> · <a href="${esc(url("plan/booklet"))}" target="_blank" rel="noopener">${esc(t("Coach booklet (print)"))}</a></p></div>
       ${pickerHtml(plan.phases || [], weeks, progress.start, d.today)}</div>
     ${tabsHtml("")}
-    ${weeks.length || plan.races?.length || progress.has_plan ? "" : `<div class="card empty">${d.plan_source === "vibesynergy" ? t("No plan yet.") : t("No plan in intervals.icu yet.")}</div>`}
+    ${weeks.length || plan.races?.length || progress.has_plan ? "" : noPlanHtml()}
     <div class="plan-layout">
       <div class="plan-main">
         ${weekCardHtml(progress, weeks, d.today)}
@@ -105,14 +105,28 @@ async function renderAnalysis(view, ctx) {
   await renderTraining(view.querySelector("[data-planning-analysis]"), ctx);
 }
 
-// On your Garmin: the dashboard's horizon warnings point here.
+// No plan yet: say so once, with the next step.
+function noPlanHtml() {
+  return `<section class="card empty-state" aria-labelledby="plan-empty-title">
+    <h2 id="plan-empty-title">${esc(t("No plan yet"))}</h2>
+    <p>${esc(t("Build a plan here, or set up your coach and let it plan with you. Your weeks, phases and races then show on this page."))}</p>
+    <p class="actions"><a class="btn primary" href="#/planning/builder">${esc(t("Build a plan"))}</a> <a class="btn" href="#/coach/settings">${esc(t("Set up your coach"))}</a></p>
+  </section>`;
+}
+
+// On your Garmin: the dashboard's horizon warnings point here. Null without a plan or
+// without a connected Garmin (the server leaves it out): then there is nothing to check.
 function garminHtml(h) {
-  if (!h) return "";
+  if (!h || h.has_plan === false) return "";
   const rows = [
     ...h.missing.map((i) => t("Not on your Garmin yet: {title} ({day}).", { title: i.title, day: longDate(i.date) })),
     ...h.duplicates.map((i) => t("Twice on your Garmin: {title} ({day}).", { title: i.title, day: longDate(i.date) })),
     ...h.outdated.map((i) => t("Old version on your Garmin: {title} ({day}).", { title: i.title, day: longDate(i.date) })),
-    ...(h.fill?.behind ? [t("Your plan runs only to {day}. Ask your coach to fill it up to {end}.", { day: longDate(h.fill.planned_through), end: longDate(h.through) })] : []),
+    ...(h.fill?.behind
+      ? [h.fill.planned_through
+        ? t("Your plan runs only to {day}. Ask your coach to fill it up to {end}.", { day: longDate(h.fill.planned_through), end: longDate(h.through) })
+        : t("Nothing is planned for the coming days. Ask your coach to fill your plan up to {end}.", { end: longDate(h.through) })]
+      : []),
   ];
   const ok = !rows.length;
   return `<section class="card" aria-labelledby="plan-garmin-title">

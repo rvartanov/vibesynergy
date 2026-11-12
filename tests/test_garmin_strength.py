@@ -380,6 +380,26 @@ def test_one_rest_day_at_the_end_is_not_behind(runtime, monkeypatch) -> None:
     assert fill == {"planned_through": "2026-11-09", "behind": False}
 
 
+def test_without_a_plan_nothing_is_behind(runtime, monkeypatch) -> None:
+    """A new user has no plan: that is "no plan", not a plan that fell behind (the page
+    crashed on the missing date)."""
+    _no_calendar(monkeypatch)
+    out = horizon.status(runtime.engine, TODAY, 9)
+    assert out["has_plan"] is False
+    assert out["fill"] == {"planned_through": None, "behind": False}
+    assert out["level"] == "ok"
+
+    # A plan whose last workout was last week did fall behind, with no date to name.
+    _event(runtime, {**EVENT, "start_date_local": "2026-10-27T00:00:00"})
+    out = horizon.status(runtime.engine, TODAY, 9)
+    assert out["has_plan"] is True
+    assert out["fill"] == {"planned_through": None, "behind": True}
+
+    # Long ago is no plan any more.
+    out = horizon.status(runtime.engine, date(2027, 3, 1), 9)
+    assert out["has_plan"] is False and out["fill"]["behind"] is False
+
+
 def test_step_text_must_name_the_same_kit_as_the_exercise() -> None:
     """a barbell Bulgarian split squat whose text said "dumbbells"."""
     wrong = (
