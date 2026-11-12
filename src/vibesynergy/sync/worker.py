@@ -143,9 +143,25 @@ class Worker:
                 delay = min(delay * 2, max_delay)
 
 
-def recover_stale_jobs(queue: JobQueue) -> int:
-    """Re-queue jobs still marked running after a prior worker process died."""
-    return queue.requeue_abandoned(_owner_alive)
+def recover_stale_jobs(queue: JobQueue, *, startup: bool = False) -> int:
+    """Re-queue jobs still marked running after a prior worker process died.
+
+    ``startup`` is for the one call ``serve`` makes before its workers start. At that moment
+    this process runs no job, so a job owned by its own pid was left by an earlier run: in a
+    container the service has the same pid on every start. A container also gets a new
+    hostname when it is recreated (an update), and nothing else works on its database, so
+    there every job still marked running is one the previous container left behind."""
+    if not startup:
+        return queue.requeue_abandoned(_owner_alive)
+    in_container = os.environ.get("VIBESYNERGY_CONTAINER") == "1"
+    own = f"{socket.gethostname()}:{os.getpid()}"
+
+    def alive(owner: str | None) -> bool | None:
+        if in_container or owner == own:
+            return False
+        return _owner_alive(owner)
+
+    return queue.requeue_abandoned(alive)
 
 
 def _owner_alive(owner: str | None) -> bool | None:

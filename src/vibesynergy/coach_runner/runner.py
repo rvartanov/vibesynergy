@@ -15,6 +15,7 @@ tool arguments and results never go to the log or the audit log.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -77,7 +78,9 @@ class RunResult:
 
 
 def zone(rt) -> ZoneInfo:
-    return ZoneInfo(str((rt.settings.coach_runner or {}).get("timezone") or ZONE))
+    """The athlete's own time zone: the schedule, "today" and the budget month follow it."""
+    configured = (rt.settings.coach_runner or {}).get("timezone")
+    return ZoneInfo(str(configured or getattr(rt.settings, "timezone", None) or ZONE))
 
 
 def month_start(rt, now: datetime) -> datetime:
@@ -511,6 +514,18 @@ def run(
             raise
         notify_failure(rt, job, for_date, result.error or "")
         return result
+    except Exception as exc:
+        # Anything unexpected (a malformed answer from a local model server, a locked
+        # database): the run must not stay "running", or today's run is never tried again
+        # and nobody hears about it. The job queue retries; the last attempt tells the athlete.
+        message = f"{type(exc).__name__}: {exc}"[:500]
+        with contextlib.suppress(Exception):
+            _save(rt, row["id"], status="failed", error=message, finished_at=utc_now())
+        log.exception("coach runner: %s %s failed unexpectedly", job, run_key)
+        if row["attempts"] >= MAX_ATTEMPTS:
+            with contextlib.suppress(Exception):
+                notify_failure(rt, job, for_date, message)
+        raise
     _audit(rt, row, result)
     if result.status == "failed":
         notify_failure(rt, job, for_date, result.error or "")

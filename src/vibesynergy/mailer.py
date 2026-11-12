@@ -85,6 +85,7 @@ def _file_copy(settings: Any, message: EmailMessage) -> None:
             cfg["imap_host"],
             int(cfg.get("imap_port") or 993),
             ssl_context=ssl.create_default_context(),
+            timeout=30,  # a server that accepts and then stalls must not hold up the sync lane
         ) as imap:
             imap.login(cfg["username"], _password(settings) or "")
             imap.append(

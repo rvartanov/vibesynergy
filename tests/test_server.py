@@ -282,3 +282,35 @@ def test_routes_work_with_and_without_prefix(service) -> None:
     _, client, _, _ = service
     assert client.get("/health").status_code == 200
     assert client.head("/withings/notify/tok").status_code == 200
+
+
+def test_callback_page_escapes_the_source_name(service) -> None:
+    _, client, _, _ = service
+    page = client.get("/vibesynergy/%3Csvg%20onload=alert(1)%3E/callback")
+    assert "<svg" not in page.text
+
+
+def test_strava_event_needs_our_subscription_and_a_json_object(service) -> None:
+    rt, client, _, _ = service
+    event = {
+        "object_type": "activity",
+        "object_id": 1,
+        "aspect_type": "delete",
+        "owner_id": 77,
+        "subscription_id": 5,
+    }
+    for body in ([1, 2], "text", None):
+        assert client.post("/vibesynergy/strava/webhook", json=body).status_code == 400
+    assert client.post("/vibesynergy/strava/webhook", content=b"{not json").status_code == 400
+    # No subscription stored (not connected yet): nothing is believed, whatever id it carries.
+    rt.registry.get("strava").ctx.secrets.set(WEBHOOK, {"verify_token": "vt"})
+    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 403
+    without_id = {k: v for k, v in event.items() if k != "subscription_id"}
+    assert client.post("/vibesynergy/strava/webhook", json=without_id).status_code == 403
+    assert rt.jobs.counts() == {}
+
+
+def test_withings_notification_with_a_bad_number_is_a_400(service) -> None:
+    _, client, _, _ = service
+    reply = client.post("/vibesynergy/withings/notify/tok", content="appli=abc")
+    assert reply.status_code == 400

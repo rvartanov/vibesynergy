@@ -65,17 +65,24 @@ def is_fit(data: bytes) -> bool:
     return len(data) >= 12 and data[8:12] == b".FIT"
 
 
-def fit_files_in(data: bytes, name: str = "") -> Iterator[tuple[str, bytes]]:
-    """Yield ``(name, bytes)`` for a FIT file or every FIT file inside a zip (recursively)."""
+_MAX_ZIP_DEPTH = 3
+_MAX_FIT_MEMBER_BYTES = 512 * 1024**2
+
+
+def fit_files_in(data: bytes, name: str = "", *, _depth: int = 0) -> Iterator[tuple[str, bytes]]:
+    """Yield ``(name, bytes)`` for a FIT file or every FIT file inside a zip (recursively).
+
+    Bounded: a zip nested deeper than a download ever is, or a member far larger than a FIT
+    file, is skipped rather than unpacked into memory."""
     if is_fit(data):
         yield name, data
         return
-    if not zipfile.is_zipfile(io.BytesIO(data)):
+    if _depth >= _MAX_ZIP_DEPTH or not zipfile.is_zipfile(io.BytesIO(data)):
         return
     with zipfile.ZipFile(io.BytesIO(data)) as zf:
         for info in zf.infolist():
-            if not info.is_dir():
-                yield from fit_files_in(zf.read(info), info.filename)
+            if not info.is_dir() and info.file_size <= _MAX_FIT_MEMBER_BYTES:
+                yield from fit_files_in(zf.read(info), info.filename, _depth=_depth + 1)
 
 
 @dataclass

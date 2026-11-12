@@ -623,7 +623,7 @@ def serve(
         from vibesynergy import history
         from vibesynergy.sync.worker import recover_stale_jobs
 
-        if recovered := recover_stale_jobs(rt.jobs):
+        if recovered := recover_stale_jobs(rt.jobs, startup=True):
             console.print(f"Re-queued {recovered} job(s) a previous run left running")
 
         if stopped := history.cancel_api_history(rt):

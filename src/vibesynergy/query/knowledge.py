@@ -281,6 +281,15 @@ def archived_articles(engine: Engine) -> list[dict[str, Any]]:
     return [row for row in list_articles(engine) if row["status"] != "active"]
 
 
+def is_prompt_article(engine: Engine, slug: str, topic: str | None = None) -> bool:
+    """Is this (existing or about to be created) article one of the coach's instructions?"""
+    if topic == PROMPT_TOPIC:
+        return True
+    with engine.connect() as conn:
+        article = _one(conn, kb_article, kb_article.c.slug == str(slug).strip())
+    return article is not None and article.topic == PROMPT_TOPIC
+
+
 def method_group(article: Mapping[Any, Any]) -> str | None:
     """Which part of Coach → Methods & rules an article belongs to, if any."""
     if article["topic"] == PROMPT_TOPIC:

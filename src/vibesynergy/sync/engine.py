@@ -5,6 +5,7 @@ One dataset failing never stops the others; its error is recorded in ``dataset_s
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
 from collections.abc import Callable, Sequence
@@ -98,9 +99,17 @@ class SyncEngine:
         if not datasets:  # a plain sync: leave recently fetched, slowly changing datasets be
             specs = [s for s in specs if not self._fresh(source.id, s)]
         results = []
-        for spec in specs:
-            _check_sync_deadline(deadline)
-            results.append(self.sync_dataset(source, spec, window, deadline=deadline))
+        try:
+            for spec in specs:
+                _check_sync_deadline(deadline)
+                results.append(self.sync_dataset(source, spec, window, deadline=deadline))
+        except BaseException:
+            # Stopped halfway (the time limit, a shutdown): what was already stored still
+            # has to reach the unified tables, or it stays invisible until a later change.
+            if results:
+                with contextlib.suppress(Exception):
+                    self.changed(results)
+            raise
         if source_id == "intervals_icu":
             try:
                 from vibesynergy.core.timeutil import today_in

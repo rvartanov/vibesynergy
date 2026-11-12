@@ -36,6 +36,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Security: the sign-in landing page no longer shows a name from the address as it came
+  in; Strava webhook events are only accepted with this install's own subscription id; an
+  AI app can no longer rewrite the coach's instructions by itself (it proposes, you approve);
+  an import refuses archives built to fill memory or disk; the SQL tool bounds the size of a
+  value; the login page only returns to pages on this site ([#18](https://github.com/rvartanov/vibesynergy/pull/18)).
+- In a container, a sync that was running when the service stopped or was updated is picked
+  up again at the next start instead of blocking that source for good ([#18](https://github.com/rvartanov/vibesynergy/pull/18)).
+- The coach's schedule and "today" follow your own time zone (Settings → System) when the
+  coach has none of its own ([#18](https://github.com/rvartanov/vibesynergy/pull/18)).
+- A coach run that failed on an unexpected answer stayed "running" and was never retried or
+  reported; a planned step written as "Z3-Z2" broke Fitness → Form; the morning coach entry
+  could fail while VibeSynergy was still working out the load of a new activity ([#18](https://github.com/rvartanov/vibesynergy/pull/18)).
+- Known vulnerabilities in two dependencies (certifi, opentelemetry-api) ([#18](https://github.com/rvartanov/vibesynergy/pull/18)).
 - A ride recorded by a trainer app (MyWhoosh, Zwift) and the watch counted as two activities
   ([#13](https://github.com/rvartanov/vibesynergy/pull/13)).
 - Strength, Pilates and walking added no training load; swims were scored on wrist heart rate

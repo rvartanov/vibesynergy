@@ -88,7 +88,17 @@ def register(kit: ToolKit) -> None:
 
         Author comes from the connection. ``revert_to`` copies that article version forward.
         Omit rules or sources to leave them as they are.
+
+        The coach's own instructions (topic ``coach-prompts``) are not written here: suggest
+        the change with ``vibesynergy_kb_propose_change`` and the athlete approves it.
         """
+        if knowledge.is_prompt_article(engine, slug, topic):
+            # These articles are what the unattended coach is told to do. An app that may
+            # write messages must not be able to rewrite them on its own.
+            raise ToolError(
+                "The coach's instructions change only with the athlete's approval. Suggest "
+                "this with vibesynergy_kb_propose_change (kind 'article')."
+            )
         try:
             saved = knowledge.upsert_article(
                 engine,

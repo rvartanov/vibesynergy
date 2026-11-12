@@ -37,14 +37,18 @@ TABLES: dict[str, str] = {
     "injury_log": "Worst pain per injury and day: injury_id, date, pain (0-10), timing, "
     "affects_movement, note.",
 }
+MAX_VALUE_BYTES = 20_000_000
 _ALLOWED_FUNCTIONS_ACTIONS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_FUNCTION}
 
 
 def run(db_path: Path, query: str, *, limit: int = 200, timeout_s: float = 10.0) -> dict[str, Any]:
     if ";" in query.strip().rstrip(";"):
         raise ValueError("one statement only")
+    limit = max(1, limit)  # fetchmany(0) would return every row
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
+        # No single value larger than this: a query cannot build a huge string in the service.
+        conn.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, MAX_VALUE_BYTES)
         conn.set_authorizer(_authorizer)
         deadline = time.monotonic() + timeout_s
         conn.set_progress_handler(lambda: int(time.monotonic() > deadline), 10_000)

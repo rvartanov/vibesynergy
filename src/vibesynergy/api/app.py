@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import contextlib
 import hmac
+import html
+import json
 import logging
 import re
 import time
@@ -249,7 +251,8 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
         _log_outcome("paste_back", reason="state_mismatch" if state else "no_state")
         return _oauth_page(
             f"<h1>Almost done</h1><p>Copy this page's full address from the address bar "
-            f"and paste it into the terminal where <code>vibesynergy auth {source_id}</code> is "
+            f"and paste it into the terminal where <code>vibesynergy auth "
+            f"{html.escape(_safe_source(source_id))}</code> is "
             "waiting.</p>"
         )
 
@@ -274,7 +277,10 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
     async def withings_notify(token: str, request: Request) -> Response:
         check_withings_token(token)
         form = {k: v[0] for k, v in parse_qs((await request.body()).decode()).items()}
-        appli = int(form.get("appli", 0) or 0)
+        try:
+            appli = int(form.get("appli", 0) or 0)
+        except ValueError:
+            raise HTTPException(400) from None
         window = _withings_window(form, settings.timezone)
         enabled = {d.name for d in rt.registry.get("withings").sync_datasets()}
         datasets = [d for d in WITHINGS_APPLI.get(appli, ["measures"]) if d in enabled]
@@ -303,10 +309,19 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
     @router.post("/strava/webhook")
     async def strava_event(request: Request) -> Response:
-        event = await request.json()
+        try:
+            event = await request.json()
+        except ValueError:
+            event = None
+        if not isinstance(event, dict):  # scanner noise: not an outage, so no traceback
+            raise HTTPException(400)
         hook = secrets("strava").get(WEBHOOK) or {}
         athlete = (secrets("strava").get("athlete") or {}).get("id")
-        if hook.get("subscription_id") and event.get("subscription_id") != hook["subscription_id"]:
+        # Without a subscription of our own nothing Strava sends is expected: an event is only
+        # believed when it carries the id Strava gave this install.
+        if not hook.get("subscription_id") or (
+            event.get("subscription_id") != hook["subscription_id"]
+        ):
             raise HTTPException(403)
         if athlete and event.get("owner_id") != athlete:
             raise HTTPException(403)
@@ -353,11 +368,19 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
                 {"source": "strava", "dataset": "activities", "key": object_id},
                 priority=PRIORITY,
             )
-        fields = ("object_type", "object_id", "aspect_type", "updates")
+        fields = ("object_type", "object_id", "aspect_type")
+        updates = event.get("updates")
         audit(
             "strava.event",
             {
-                **{k: event.get(k) for k in fields},
+                **{
+                    k: v if isinstance(v := event.get(k), int | str) and len(str(v)) <= 64 else None
+                    for k in fields
+                },
+                # Strava sends a few short fields here; anything bigger is not kept.
+                "updates": updates
+                if isinstance(updates, dict) and len(json.dumps(updates, default=str)) <= 2000
+                else None,
                 "event_time": event_time,
                 "received_at": received_at,
                 "queued_jobs": queued_jobs,
