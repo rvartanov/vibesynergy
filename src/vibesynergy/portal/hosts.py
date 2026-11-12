@@ -18,6 +18,23 @@ def allowed_hosts(settings) -> set[str]:
     return hosts
 
 
+def portal_address(settings) -> str | None:
+    """Where the portal is reached, for links in mails and on the Settings page.
+
+    With a domain of your own in ``[portal] hosts`` it is that domain (the first one), over
+    https behind your reverse proxy. Without one it is the machine's tailnet name from
+    ``[server] public_url`` on the portal port (tailscale serve publishes that port on the
+    tailnet only). None when neither is set."""
+    for host in settings.portal.get("hosts", []) or []:
+        name = str(host).strip().lower()
+        if name and name not in LOCAL_HOSTS:
+            return f"https://{name}"
+    if not settings.public_url:
+        return None
+    host = urlsplit(settings.public_url).hostname
+    return f"https://{host}:{settings.portal.get('port', 8447)}" if host else None
+
+
 def validate_portal_address(settings, portal: str) -> str:
     """Portal origin + path for OAuth return redirects (no credentials, query or fragment)."""
     if not portal.startswith(("https://", "http://")):

@@ -780,11 +780,13 @@ def for_portal(settings: Any) -> dict[str, list[dict[str, Any]]]:
 
 
 def portal_url(rt: Any, page: str = "#/dashboard") -> str:
-    """The portal address of ``page`` on the tailnet, or "" without a public URL."""
-    url = rt.settings.public_url
-    host = url.split("//", 1)[-1] if url else None
+    """The address of ``page`` on the portal: on your own domain when one is set, else on the
+    tailnet; "" when the portal has no address."""
+    from vibesynergy.portal.hosts import portal_address
+
+    base = portal_address(rt.settings)
     page = page if page.startswith("#/") else "#/dashboard"
-    return f"https://{host}:{rt.settings.portal.get('port', 8447)}/{page}" if host else ""
+    return f"{base}/{page}" if base else ""
 
 
 def _send_with_html(send, subject, text, channel, rt, records, link):
