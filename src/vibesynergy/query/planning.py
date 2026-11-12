@@ -2,7 +2,7 @@
 plan leads.
 
 - ``plan_vs_done``: per Monday-to-Sunday week (the same ``week_progress`` the start page's
-  week card uses), the goal per sport (intervals.icu's weekly TARGET time, else the planned
+  week card uses), the goal per sport (the plan's weekly target time, else the planned
   workouts) against time done, the workouts done / changed / missed, and intervals.icu's
   compliance for the paired ones; plus the same per training phase (from the weekly notes).
 - ``projection``: fitness, fatigue and form from today to the last upcoming race if the plan
@@ -25,6 +25,7 @@ from sqlalchemy import Engine, func, select
 from vibesynergy.core.timeutil import Window
 from vibesynergy.query import (
     fitness_model,
+    plan_model,
     planned_load,
     training,
     training_plan,
@@ -273,6 +274,10 @@ def projection(
     inputs = training.ThresholdTimeline(engine, athlete).on(today)
     rates = family_rates(engine, today, athlete, parquet=parquet)
     plan = plan_q.plan(engine, Window(today, horizon), today, include_sync_status=False)
+    # VibeSynergy's own plan holds each session's steps; an intervals.icu workout has them
+    # in its text only.
+    own = plan_model.leading_plan(engine)
+    own_steps = plan_model.session_steps(engine, own, today, horizon) if own else {}
     daily: dict[date, float] = defaultdict(float)
     detail_days = from_time = 0
     detailed_weeks: set[date] = set()
@@ -284,8 +289,11 @@ def projection(
             continue
         extra = item.get("extra") or {}
         fam = plan_q.family(item.get("sport")) or "other"
+        steps = own_steps.get(item.get("session_id"))
+        if steps is None:
+            steps = workout_model.parse_intervals(extra.get("description") or "").steps
         found = planned_load.planned_load(
-            workout_model.parse_intervals(extra.get("description") or "").steps,
+            steps,
             fam,
             inputs,
             seconds=plan_q.planned_duration_s(item),

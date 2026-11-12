@@ -9,6 +9,7 @@ import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml, hasSaved
 import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sportName, userDateTime, weekday } from "../format.js";
 import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
+import { outsidePlanHtml } from "../plan_labels.js";
 import { mountQuickLog } from "../quicklog.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
@@ -128,7 +129,7 @@ export async function render(view, { args, query, meta, stale }) {
           <h2 id="dash-today-title" class="dash-kicker">${t("Advice for today")}</h2>
           <div data-dash-advice>${todayAdviceHtml(d)}</div>
           <div class="dash-plan">
-            ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share)}
+            ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}
             ${completedHtml(d.completed?.activities, d.completed, share, { editable: true })}
           </div>
           ${!can("coach") ? "" : `<div class="dash-coach" data-dash-coaching><p class="sub" role="status">${esc(t("Loading…"))}</p></div>`}
@@ -138,7 +139,7 @@ export async function render(view, { args, query, meta, stale }) {
         <section class="card dash-today" aria-labelledby="dash-plan-title">
           <h2 id="dash-plan-title">${isFuture ? t("Planned") : t("Plan and done")}</h2>
           <div class="dash-plan dash-plan-first">
-            ${planHtml(dayReply.data.plan.filter((row) => TRAINING.has(row.kind)), dayReply.data.not_in_plan || [], share)}
+            ${planHtml(dayReply.data.plan.filter((row) => TRAINING.has(row.kind)), dayReply.data.not_in_plan || [], share, dayReply.data.plan_source)}
             ${isFuture ? "" : completedHtml(dayReply.data.day.activities, null, share)}
           </div>
           ${isFuture && !share ? `<div data-day-weather></div>` : ""}
@@ -620,7 +621,7 @@ function fillCoaching(host, adviceHost, dashboardData, todayReply, yesterdayRepl
   host.innerHTML = dashboardCoachingHtml(plan);
 }
 
-function planHtml(sessions, outside, shared) {
+function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
   // A planned brick: the brick run and the ride with it as one multisport entry.
   const list = sessions || [];
@@ -648,12 +649,7 @@ function planHtml(sessions, outside, shared) {
     ? `<h3>${t("Planned")}</h3><ul class="trends">${rows}</ul>`
     : `<p class="sub">${t("Nothing planned for this day.")}</p>`;
   const others = (outside || []).map((item) => `<li>${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join("");
-  // Garmin workouts that intervals.icu (the plan) does not have: say where they are, why
-  // they are apart and what to do about it.
-  const extra = others
-    ? `<h3>${t("Only on your Garmin calendar")}</h3><p class="sub">${t("Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.")}</p><ul class="trends">${others}</ul>`
-    : "";
-  return `${plan}${extra}`;
+  return `${plan}${outsidePlanHtml(planSource, others)}`;
 }
 
 function activityTitle(activity) {

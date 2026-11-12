@@ -1137,10 +1137,10 @@ coach_reply = Table(
     Index("ix_coach_reply_read_at", "read_at"),
 )
 
-# The training plan as VibeSynergy's own model (docs/design/plan-model.md). Step 1 fills
-# it from intervals.icu in shadow (read-only towards intervals.icu); readers still use
-# icu_event until the switch. Every write is a plan_version; rows keep the version that
-# last changed them.
+# The training plan as VibeSynergy's own model (docs/design/plan-model.md). In shadow
+# (plan.status) it follows intervals.icu and the readers use icu_event; when VibeSynergy leads
+# the readers use these tables and intervals.icu gets a copy. Every write is a plan_version;
+# rows keep the version that last changed them.
 plan = Table(
     "plan",
     metadata,

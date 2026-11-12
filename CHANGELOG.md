@@ -44,6 +44,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- Your training plan now lives in VibeSynergy. When VibeSynergy leads the plan, the start
+  page, the calendar, Planning & progress, the week card, the Garmin check and the
+  projection to the races read VibeSynergy's own plan; intervals.icu only holds a copy. A
+  session shows and can be moved or skipped even when it has no copy in intervals.icu, and a
+  skipped session is no longer planned. Nothing changes while intervals.icu leads the plan
+  ([#25](https://github.com/rvartanov/vibesynergy/pull/25)).
+- "Only on your Garmin calendar" says that those workouts are not in your plan in
+  VibeSynergy, and to ask your coach to add one, when the plan lives in VibeSynergy
+  ([#25](https://github.com/rvartanov/vibesynergy/pull/25)).
+- For AI apps: with the plan in VibeSynergy, `vibesynergy_plan`, `vibesynergy_today` and
+  `vibesynergy_week` give `plan_source` `vibesynergy`, and each planned session has `source`
+  `vibesynergy` and a `session_id` for the `vibesynergy_plan_session_*` tools; `extra.icu_id`
+  stays while the session has a copy in intervals.icu
+  ([#25](https://github.com/rvartanov/vibesynergy/pull/25)).
 - Start page and Planning: Garmin workouts that are not in your intervals.icu plan now stand
   under "Only on your Garmin calendar", with why they do not count in planned versus done and
   what to do about it ([#23](https://github.com/rvartanov/vibesynergy/pull/23)).

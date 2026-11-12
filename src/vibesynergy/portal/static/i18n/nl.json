@@ -3547,5 +3547,6 @@
  "Checking…": "Controleren…",
  "Could not check: {error}": "Controleren lukte niet: {error}",
  "Only on your Garmin calendar": "Alleen in je Garmin-agenda",
- "Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.": "Je plan komt uit intervals.icu. De trainingen hieronder staan wel in je Garmin-agenda, maar niet in intervals.icu. Daarom tellen ze niet mee bij gepland tegenover gedaan. Hoort er een bij je plan, zet hem dan in intervals.icu."
+ "Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.": "Je plan komt uit intervals.icu. De trainingen hieronder staan wel in je Garmin-agenda, maar niet in intervals.icu. Daarom tellen ze niet mee bij gepland tegenover gedaan. Hoort er een bij je plan, zet hem dan in intervals.icu.",
+ "Your plan is in VibeSynergy. The workouts below are on your Garmin calendar but not in your plan, so they do not count in planned versus done. If one belongs to your plan, ask your coach to add it.": "Je plan staat in VibeSynergy. De trainingen hieronder staan wel in je Garmin-agenda, maar niet in je plan. Daarom tellen ze niet mee bij gepland tegenover gedaan. Hoort er een bij je plan, vraag je coach dan om hem toe te voegen."
 }
