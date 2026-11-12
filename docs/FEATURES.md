@@ -75,12 +75,16 @@ Details: [SOURCES.md](SOURCES.md).
   thresholds valid on that day. A session stored twice counts once.
 - **Fitness, fatigue and form** (Fitness → Form): 42- and 7-day weighted averages, form zones
   (transition, fresh, grey, optimal, high risk), ramp rate.
+- **Race predictions** (Fitness → Form): 5 km, 10 km, 10 miles, half marathon, marathon and
+  50 km, from one hour at your threshold pace and your fastest runs of the last 12 weeks
+  (Riegel; stricter beyond the half marathon), with how certain each is, the change against
+  six weeks ago and Garmin's prediction next to it.
 - **Projection to the races**: fitness and form per day if the plan is done as written, from
   each planned session's steps and intensity; the projected form on each race day.
 - **Training analysis**: the fitness chart, weekly volume per sport, time in heart-rate, power
   and pace zones (counted from the streams with the zones of that day), the
-  easy/moderate/hard split and polarisation index, fitness markers (VO2max, race
-  predictions from Garmin), the power curve. Heart-rate TRIMP, TSS and Garmin's load remain
+  easy/moderate/hard split and polarisation index, fitness markers (VO2max, Garmin's
+  race predictions), the power curve. Heart-rate TRIMP, TSS and Garmin's load remain
   available to compare.
 - **Zones & thresholds**: FTP, LTHR, max heart rate, threshold pace and CSS per sport, their
   zones, the history of each value, what Garmin and intervals.icu hold, the coach's
@@ -129,7 +133,7 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 - **Coach page**: advice and the active profile, Knowledge, Methods & rules, Memory, Change log,
   Settings. Changes to planned sessions, thresholds and the knowledge base wait for your
   approval.
-- **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
+- **Any AI app over MCP** (Claude, ChatGPT, local models): 102 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,
   `publish`, `sql`). OAuth with your passphrase, or personal access tokens that expire.

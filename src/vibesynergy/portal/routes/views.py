@@ -140,6 +140,13 @@ def register(kit: PortalKit) -> None:
         data["plan_source"] = plan_model.source(engine)  # who leads the plan
         return envelope(data)
 
+    @router.get("/race-predictions")
+    def race_predictions_page() -> dict[str, Any]:
+        """Fitness → Form: predicted race times for 5 km to 50 km (``race_predictions``)."""
+        from vibesynergy.query import race_predictions
+
+        return envelope(race_predictions.race_predictions(engine, rt.parquet, today()))
+
     @router.get("/form")
     def form_page(range: int = 90) -> dict[str, Any]:
         """Fitness → Form: fitness, fatigue and form and the projection to the races."""

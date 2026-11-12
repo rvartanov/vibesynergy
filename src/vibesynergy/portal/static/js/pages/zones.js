@@ -6,6 +6,7 @@
 import { fitnessHeadHtml } from "../fitness_tabs.js";
 import { mountBests } from "../bests_block.js";
 import { FITNESS_RANGES, formHtml, mountForm } from "../form_block.js";
+import { mountPredictions } from "../race_predictions.js";
 import { get, post } from "../api.js";
 import { esc, number, userDate, userDateTime } from "../format.js";
 import { N, t } from "../i18n.js";
@@ -81,7 +82,10 @@ async function renderForm(view, { query, stale }) {
   const d = reply.data;
   const body = formHtml(d.fitness, d.projection, range);
   view.innerHTML = `${fitnessHeadHtml("form", t("How fit and how fresh you are, and where the plan takes you on race day."))}
-    ${body || `<div class="card empty">${esc(t("No training load yet."))}</div>`}`;
+    ${body || `<div class="card empty">${esc(t("No training load yet."))}</div>`}
+    <section class="card" aria-labelledby="predictions-title"><h2 id="predictions-title">${esc(t("Race predictions"))}</h2>
+      <div data-predictions><p class="sub" role="status">${esc(t("Loading…"))}</p></div></section>`;
+  mountPredictions(view.querySelector("[data-predictions]"), { stale });
   mountForm(view, d, (value) => {
     location.hash = `#/zones/form${value !== "90" ? `?range=${value}` : ""}`;
   });

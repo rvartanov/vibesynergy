@@ -71,7 +71,9 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         "write": ("/resync", "/files/upload"),
     },
     "schedule": {"read": ("/schedule", "/schedule/weather", "/weather")},
-    "zones": {"read": ("/thresholds", "/bests", "/best-runs", "/form")},  # Fitness
+    "zones": {
+        "read": ("/thresholds", "/bests", "/best-runs", "/form", "/race-predictions")
+    },  # Fitness
     # The coach's advice, messages, tasks, knowledge and change log. Not its memory or
     # settings: those are the owner's own context.
     "coach": {

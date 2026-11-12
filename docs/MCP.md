@@ -748,6 +748,17 @@ Planning & progress page shows (`query/planning.py`, built on `week_progress`).
   `number`/`phase`/`kind` from the weekly note, and `sports` per sport with `goal_s` and
   `basis` target/planned), `phases` (the same totals per phase) and `totals`.
 
+#### `vibesynergy_race_predictions`
+Predicted race times for 5 km, 10 km, 10 miles, half marathon, marathon and 50 km.
+- Returns `predictions`: per distance `key`, `distance_m`, `seconds`, `pace_s_per_km`,
+  `certainty` (`high` | `medium` | `low`: how far it extrapolates, how old its evidence is),
+  `from` (`kind` `threshold`, one hour at the confirmed run threshold pace, or `effort`, the
+  fastest time over a distance in the run streams of the last 12 weeks), `change_s` against
+  six weeks ago (only between the same kind of evidence) and `garmin` (Garmin's own
+  prediction, last 14 days).
+- Method: Riegel, exponent 1.06 up to the half marathon and 1.08 beyond it; the fastest
+  prediction from evidence within 4.5x of the distance counts.
+
 #### `vibesynergy_projection`
 A projection, not a measurement: fitness, fatigue and form per day from today to the last
 upcoming race (or the plan's end; at most 300 days) if the plan is done as written, run
