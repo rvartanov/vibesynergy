@@ -198,4 +198,11 @@ class OpenAICompatClient:
             if status == 400 and "tool" in text.lower() and "support" in text.lower():
                 raise ModelError(NO_TOOLS, retry=False)
             raise ModelError(f"API error {status}: {text}", retry=status >= 500)
-        return self.from_openai(response.json())
+        try:
+            return self.from_openai(response.json())
+        except (ValueError, AttributeError, KeyError, TypeError, IndexError) as exc:
+            # A 200 with an HTML page, an empty body or another shape (seen with local servers).
+            raise ModelError(
+                f"the API answered in a form that could not be read ({type(exc).__name__})",
+                retry=True,
+            ) from exc

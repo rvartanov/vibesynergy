@@ -144,3 +144,34 @@ def test_prune_old_finished_jobs_keeps_newest_per_kind_and_history(runtime) -> N
     left = {r["id"] for r in q.recent(limit=10)}
     assert left == {ids[2], keep_history}
     assert q.prune(older_than=timedelta(days=60), statuses=("done",)) == {}
+
+
+def test_startup_recovers_jobs_left_by_an_earlier_run_with_the_same_pid(
+    runtime, monkeypatch
+) -> None:
+    # In a container the service has the same pid on every start: its own id on a running
+    # job means the previous run left it, because this process has not started a job yet.
+    import os
+    import socket
+
+    from vibesynergy.sync.worker import recover_stale_jobs
+
+    q = runtime.jobs
+    q.enqueue("sync", {}, dedupe_key="stuck")
+    q.claim(f"{socket.gethostname()}:{os.getpid()}")
+    assert recover_stale_jobs(q) == 0  # while running, our own jobs are ours
+    assert recover_stale_jobs(q, startup=True) == 1
+    assert q.claim("next") is not None
+
+
+def test_startup_in_a_container_recovers_jobs_of_the_replaced_container(
+    runtime, monkeypatch
+) -> None:
+    from vibesynergy.sync.worker import recover_stale_jobs
+
+    q = runtime.jobs
+    q.enqueue("sync", {}, dedupe_key="stuck")
+    q.claim("old-container-hostname:7")
+    assert recover_stale_jobs(q, startup=True) == 0  # another host: not ours to take
+    monkeypatch.setenv("VIBESYNERGY_CONTAINER", "1")
+    assert recover_stale_jobs(q, startup=True) == 1

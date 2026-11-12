@@ -31,10 +31,33 @@ Progress = Callable[..., None]
 STRAVA_PROGRESS_EVERY = 25
 
 
+# An export is a zip of zips of small files. These bounds are far above any real export and
+# stop an archive built to fill memory or disk (a "zip bomb", or a zip that contains itself).
+MAX_ZIP_DEPTH = 4
+MAX_MEMBER_BYTES = 2 * 1024**3
+MAX_UNPACKED_BYTES = 64 * 1024**3
+
+
+class ArchiveTooLarge(ValueError):
+    """The archive unpacks to more than an export ever does."""
+
+
+def gunzip(data: bytes, limit: int = MAX_MEMBER_BYTES) -> bytes:
+    """``gzip.decompress`` that stops at ``limit`` bytes instead of filling memory."""
+    with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+        out = stream.read(limit + 1)
+    if len(out) > limit:
+        raise ArchiveTooLarge("a compressed file in this archive is too large to import")
+    return out
+
+
 def walk_zip(
     fileobj: IO[bytes] | Path,
     prefix: str = "",
     on_progress: Callable[[float], None] | None = None,
+    *,
+    _depth: int = 0,
+    _budget: list[int] | None = None,
 ) -> Iterator[tuple[str, bytes]]:
     """Yield ``(path, bytes)`` for every non-zip file, descending into nested zips. macOS
     metadata (``__MACOSX/``, ``._*`` files, added when a folder is zipped again on a Mac) is
@@ -42,11 +65,17 @@ def walk_zip(
 
     ``on_progress(fraction)`` is told how far through the zip the walk is (0..1, by compressed
     size, so a big nested zip of FIT files moves it gradually rather than in one jump)."""
+    if _depth > MAX_ZIP_DEPTH:
+        raise ArchiveTooLarge("this archive has zip files nested too deep to import")
+    budget = [MAX_UNPACKED_BYTES] if _budget is None else _budget
     with zipfile.ZipFile(fileobj) as zf:
         infos = [i for i in zf.infolist() if not i.is_dir() and not _mac_metadata(i.filename)]
         total = sum(max(i.compress_size, 1) for i in infos) or 1
         before = 0
         for info in infos:
+            budget[0] -= info.file_size
+            if info.file_size > MAX_MEMBER_BYTES or budget[0] < 0:
+                raise ArchiveTooLarge("this archive unpacks to more than an export can hold")
             weight = max(info.compress_size, 1)
             inner = (
                 None
@@ -60,7 +89,13 @@ def walk_zip(
                     tmp.seek(0)
                     if zipfile.is_zipfile(tmp):
                         tmp.seek(0)
-                        yield from walk_zip(tmp, prefix=f"{path}/", on_progress=inner)
+                        yield from walk_zip(
+                            tmp,
+                            prefix=f"{path}/",
+                            on_progress=inner,
+                            _depth=_depth + 1,
+                            _budget=budget,
+                        )
                     else:
                         tmp.seek(0)
                         yield path, tmp.read()
@@ -163,7 +198,7 @@ def import_strava_export(
                 continue
             data = zf.read(member)
             if member.lower().endswith(".gz"):
-                data = gzip.decompress(data)
+                data = gunzip(data)
             sha256 = hashlib.sha256(data).hexdigest()
             if rt.raw.has_content(sha256):  # e.g. the FIT Garmin uploaded to Strava
                 results["files"].skipped += 1

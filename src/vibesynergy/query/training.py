@@ -388,7 +388,9 @@ def activity_loads(
                 "seconds": float(seconds),
             }
         )
-    if fresh:
+    # Inside a read-only snapshot (the coach capturing the state of the day) there is no
+    # transaction of our own to write in: the loads are used now and kept by a later read.
+    if fresh and hasattr(engine, "begin"):
         with engine.begin() as conn:
             for chunk in range(0, len(fresh), 500):
                 statement = insert(activity_load).values(fresh[chunk : chunk + 500])

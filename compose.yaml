@@ -9,8 +9,10 @@ services:
     environment:
       VIBESYNERGY_EMAIL: you@example.com   # your login; the first link goes here (and to the log)
       # VIBESYNERGY_DEMO: "1"              # first start only: synthetic data to look around
+      # TZ: Europe/Amsterdam               # your time zone: days, weeks and "last night" follow it
     ports:
       - "127.0.0.1:8447:8447"   # the portal, only on this computer
+      # - "127.0.0.1:8448:8448" # AI apps (MCP) and webhooks; see docs/MCP.md before exposing it
     volumes:
       - vibesynergy-data:/data
 volumes:

@@ -26,8 +26,16 @@ function say(text, error = false) {
 
 function next() {
   const wanted = new URLSearchParams(location.search).get("next") || "/";
-  // Only paths on this site: never an absolute or protocol-relative address.
-  return wanted.startsWith("/") && !wanted.startsWith("//") ? wanted : "/";
+  // Only paths on this site: never an absolute or protocol-relative address. The browser
+  // decides what the address means ("/\\host" leaves the site too), so let it resolve first.
+  try {
+    const url = new URL(wanted, location.origin);
+    return url.origin === location.origin && wanted.startsWith("/")
+      ? url.pathname + url.search + url.hash
+      : "/";
+  } catch {
+    return "/";
+  }
 }
 
 function field(id, label, type, autocomplete, extra = "") {

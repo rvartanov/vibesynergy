@@ -29,6 +29,7 @@ def _mid(target: dict[str, Any]) -> float:
 
 def _zones(table: dict[int, float], target: dict[str, Any]) -> float:
     low, high = int(target.get("low") or 1), int(target.get("high") or target.get("low") or 1)
+    low, high = min(low, high), max(low, high)  # "Z3-Z2" means the same range as "Z2-Z3"
     values = [table.get(z, table[5] if z > 5 else table[1]) for z in range(low, high + 1)]
     return sum(values) / len(values)
 
