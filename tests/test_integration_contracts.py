@@ -275,7 +275,7 @@ def test_portal_dashboard_activity_and_mcp_share_coaching_state(runtime):
 
     server = build_server(runtime)
     registered = {tool.name: tool for tool in server._tool_manager.list_tools()}
-    assert len(registered) == 101
+    assert len(registered) == 102
     assert registered["vibesynergy_model_run_write"].annotations.read_only_hint is False
     assert registered["vibesynergy_model_runs"].annotations.read_only_hint is True
     assert registered["vibesynergy_race_set_priority"].annotations.read_only_hint is False

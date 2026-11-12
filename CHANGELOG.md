@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- Race predictions for 5 km, 10 km, 10 miles, half marathon, marathon and 50 km on
+  Fitness → Form, from your threshold pace and recent runs, with how certain each is, the
+  change against six weeks ago and Garmin's prediction next to it; also over MCP
+  (`vibesynergy_race_predictions`) ([#17](https://github.com/rvartanov/vibesynergy/pull/17)).
 - Time in heart-rate, power and pace zones counted by VibeSynergy from each activity's stream,
   with the zones valid on that day ([#15](https://github.com/rvartanov/vibesynergy/pull/15)).
 - Days in the future open on the start page, with what is planned and the weather forecast
