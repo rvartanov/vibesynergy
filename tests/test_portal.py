@@ -558,53 +558,26 @@ def test_training_page(with_activities) -> None:
     assert kinds["hr"]["total_seconds_by_zone"] == data["zones"]["total_seconds_by_zone"]
 
 
-def test_training_keeps_power_and_pace_zone_counts(with_activities) -> None:
+def test_training_keeps_power_and_pace_zone_counts(with_activities, monkeypatch) -> None:
     from datetime import date
 
     from sqlalchemy import select
 
-    from vibesynergy.core.timeutil import Window, utc_now
-    from vibesynergy.query import views
-    from vibesynergy.store.schema import activity_zone_time
+    from vibesynergy.core.timeutil import Window
+    from vibesynergy.query import views, zone_times
+    from vibesynergy.store.schema import activity_unified
 
     rt, client = with_activities
-    with rt.engine.begin() as conn:
-        sample = conn.execute(
-            select(
-                activity_zone_time.c.source,
-                activity_zone_time.c.activity_source_id,
-                activity_zone_time.c.raw_item_id,
-            )
-            .where(activity_zone_time.c.kind == "hr")
-            .limit(1)
-        ).one()
-        now = utc_now()
-        for zone in range(1, 8):
-            conn.execute(
-                activity_zone_time.insert().values(
-                    source=sample.source,
-                    activity_source_id=sample.activity_source_id,
-                    kind="power",
-                    zone=zone,
-                    seconds=zone * 10,
-                    low=100 + zone * 50,
-                    raw_item_id=sample.raw_item_id,
-                    updated_at=now,
-                )
-            )
-        for zone, low in ((0, 0.0), (1, 2.5), (2, 3.0), (3, 3.5)):
-            conn.execute(
-                activity_zone_time.insert().values(
-                    source=sample.source,
-                    activity_source_id=sample.activity_source_id,
-                    kind="pace",
-                    zone=zone,
-                    seconds=30 + zone,
-                    low=low,
-                    raw_item_id=sample.raw_item_id,
-                    updated_at=now,
-                )
-            )
+    with rt.engine.connect() as conn:
+        group = conn.scalar(select(activity_unified.c.group_id).limit(1))
+    counted = {
+        "power": {group: {zone: zone * 10.0 for zone in range(1, 8)}},
+        "pace": {group: {zone: 30.0 + zone for zone in range(1, 8)}},
+        "hr": {},
+    }
+    monkeypatch.setattr(
+        zone_times, "for_window", lambda engine, parquet, window, kind, athlete=None: counted[kind]
+    )
     window = Window(date(2026, 1, 1), date(2026, 12, 31))
     power = views.intensity_distribution(rt.engine, window, basis="power")
     assert list(power["total_seconds_by_zone"]) == list(range(1, 8))
@@ -619,14 +592,14 @@ def test_training_keeps_power_and_pace_zone_counts(with_activities) -> None:
     ]
     assert "three_zone_share" not in power
     pace = views.intensity_distribution(rt.engine, window, basis="pace")
-    assert list(pace["total_seconds_by_zone"]) == [0, 1, 2, 3]
+    assert list(pace["total_seconds_by_zone"]) == list(range(1, 8))  # seven Friel run zones
     assert "three_zone_share" not in pace
     with pytest.raises(ValueError):
         views.intensity_distribution(rt.engine, window, basis="cadence")
 
     payload = client.get("/api/training", params={"period": "all"}).json()["data"]["zone_kinds"]
     assert list(payload["power"]["total_seconds_by_zone"]) == [str(n) for n in range(1, 8)]
-    assert list(payload["pace"]["total_seconds_by_zone"]) == ["0", "1", "2", "3"]
+    assert list(payload["pace"]["total_seconds_by_zone"]) == [str(n) for n in range(1, 8)]
     assert "three_zone_share" not in payload["power"]
     assert "three_zone_share" not in payload["pace"]
 

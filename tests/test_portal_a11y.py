@@ -388,6 +388,17 @@ def populate(rt: Runtime) -> dict:
             },
         )
     )
+    # The ride's power (VibeSynergy counts time in power zones from it): every zone once.
+    rt.parquet.write_stream(
+        Stream(
+            "synthetic-ride-1",
+            {
+                "t": [ride_start + timedelta(seconds=i * 10) for i in range(samples * 4)],
+                "hr": [125 + (i % 20) for i in range(samples * 4)],
+                "power": [(100, 170, 220, 260, 300, 360, 420)[i % 7] for i in range(samples * 4)],
+            },
+        )
+    )
     rt.parquet.write_stream(
         Stream(
             "synthetic-unzoned-2",
