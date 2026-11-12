@@ -26,6 +26,7 @@ RETIRED_SOURCES = frozenset({"icloud"})
 _RETIRED_WARNED: set[tuple[str, str]] = set()
 
 UNITS = ("metric", "imperial")
+DEFAULT_PORTAL_PORT = 8447  # [portal] port when the config does not set one
 DEFAULT_CALENDAR_LOOKAHEAD_MONTHS = 12
 MAX_CALENDAR_LOOKAHEAD_MONTHS = 60
 
@@ -279,7 +280,7 @@ def _validate(settings: Settings) -> None:
     url = settings.server.get("public_url")
     if url and not str(url).startswith("https://"):
         raise ConfigError("[server] public_url must start with https://")
-    port = settings.portal.get("port", 8447)
+    port = settings.portal.get("port", DEFAULT_PORTAL_PORT)
     if not isinstance(port, int) or not 0 < port < 65536:
         raise ConfigError(f"[portal] port must be a port number, got {port!r}")
     for source_id, cfg in settings.sources.items():

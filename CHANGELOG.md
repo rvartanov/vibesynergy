@@ -73,6 +73,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Signing in to Google Calendar works again with a domain of your own in `[portal] hosts`:
+  the address Google sends you back to is the tailnet address again, the one registered at
+  Google, and no longer moves when a domain is added
+  ([#26](https://github.com/rvartanov/vibesynergy/pull/26)).
 - The button in mails (evening report, coach reports, alerts) and the portal address on
   Settings open your own domain from `[portal] hosts` when you have one, instead of always the
   tailnet address ([#24](https://github.com/rvartanov/vibesynergy/pull/24)).

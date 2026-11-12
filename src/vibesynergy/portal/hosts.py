@@ -6,6 +6,8 @@ import ipaddress
 import re
 from urllib.parse import urlsplit, urlunsplit
 
+from vibesynergy.core.config import DEFAULT_PORTAL_PORT
+
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
@@ -18,21 +20,28 @@ def allowed_hosts(settings) -> set[str]:
     return hosts
 
 
+def tailnet_address(settings) -> str | None:
+    """The portal's tailnet address: the machine's name from ``[server] public_url`` on the
+    portal port (tailscale serve publishes that port on the tailnet only). None without a
+    public address. It does not change when a domain is added to ``[portal] hosts``, so
+    anything registered elsewhere (an OAuth redirect URI) keeps working."""
+    if not settings.public_url:
+        return None
+    host = urlsplit(settings.public_url).hostname
+    return f"https://{host}:{settings.portal.get('port', DEFAULT_PORTAL_PORT)}" if host else None
+
+
 def portal_address(settings) -> str | None:
     """Where the portal is reached, for links in mails and on the Settings page.
 
     With a domain of your own in ``[portal] hosts`` it is that domain (the first one), over
-    https behind your reverse proxy. Without one it is the machine's tailnet name from
-    ``[server] public_url`` on the portal port (tailscale serve publishes that port on the
-    tailnet only). None when neither is set."""
+    https behind your reverse proxy. Without one it is the tailnet address
+    (:func:`tailnet_address`). None when neither is set."""
     for host in settings.portal.get("hosts", []) or []:
         name = str(host).strip().lower()
         if name and name not in LOCAL_HOSTS:
             return f"https://{name}"
-    if not settings.public_url:
-        return None
-    host = urlsplit(settings.public_url).hostname
-    return f"https://{host}:{settings.portal.get('port', 8447)}" if host else None
+    return tailnet_address(settings)
 
 
 def validate_portal_address(settings, portal: str) -> str:
