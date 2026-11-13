@@ -13,7 +13,7 @@ Updating: `vibesynergy update --check` says whether `main` on GitHub has somethi
 `vibesynergy update` then backs up the database (`backups/before-update-*.sqlite`, the newest
 three are kept), runs `uv tool upgrade vibesynergy`, applies the migrations with the new code and
 restarts the user service, with a log in `reports/update-*.log`. Settings → System → About this
-version shows waiting updates (checked hourly) and has **Update now**, which asks your password
+version shows waiting updates (checked hourly) and has **Update now**, which needs no password when you are logged in
 and runs the same update in its own systemd unit, so the restart doesn't cut it off. Run from a
 git checkout instead: `git pull && uv sync && uv run vibesynergy db upgrade`, then restart.
 

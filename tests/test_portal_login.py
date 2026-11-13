@@ -178,3 +178,20 @@ def test_link_and_reset_mails_are_limited(runtime, portal, mail):
     for _ in range(auth.MAX_MAILS_CLIENT + 3):
         portal.post("/auth/reset", json={"email": EMAIL}, headers=WRITE)
     assert len(mail) == 2 * auth.MAX_MAILS_CLIENT + 1  # + the "new login" notice
+
+
+def test_update_now_needs_only_the_login(runtime, portal, monkeypatch):
+    """Logged in, Update now starts without a password; logged out, the gate refuses it."""
+    from vibesynergy.query import about
+
+    started = []
+    monkeypatch.setattr(about, "start_update", lambda rt: started.append(1) or {"started": "u"})
+    assert portal.post("/api/settings/update", json={}, headers=WRITE).status_code == 401
+    assert not started
+    acc = auth.create_account(runtime.engine, EMAIL)
+    token = auth.issue_token(runtime.engine, acc["id"], "setup", auth.SETUP_TTL)
+    assert portal.post("/auth/link/use", json={"token": token}, headers=WRITE).status_code == 200
+    assert portal.post("/auth/password", json={"password": GOOD}, headers=WRITE).status_code == 200
+    reply = portal.post("/api/settings/update", json={}, headers=WRITE)
+    assert reply.status_code == 200 and started == [1]
+    assert about.about(runtime)["confirm"] == "none"

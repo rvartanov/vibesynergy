@@ -1,6 +1,6 @@
 // About this version: the footer line and the Settings → System section.
 // Which version runs, since when, the database schema and the last deploy; with updates
-// waiting, "Update now" starts the server's update after your password (without a login, the
+// waiting, "Update now" starts the server's update (without a portal login it asks the
 // coach passphrase); where the server can't update itself, how to do it.
 import { get, post } from "./api.js";
 import { ago, esc, userDateTime } from "./format.js";
@@ -43,7 +43,7 @@ function updateHtml(info) {
   const last = unit.result && unit.result !== "success" ? `<p><span class="chip warning">${esc(t("The last update did not succeed."))}</span></p>` : "";
   const form = info.updates?.behind
     ? `<form class="filters" data-update-form>
-        <label>${esc(info.confirm === "password" ? t("Your password") : t("Coach passphrase"))} <input class="btn" type="password" name="secret" autocomplete="current-password" required></label>
+        ${info.confirm === "passphrase" ? `<label>${esc(t("Coach passphrase"))} <input class="btn" type="password" name="secret" autocomplete="off" required></label>` : ""}
         <button class="btn primary" type="submit">${esc(t("Update now"))}</button>
       </form>
       <p class="sub">${esc(t("VibeSynergy makes a backup, updates, restarts and checks itself. It takes about a minute."))}</p>`
@@ -122,15 +122,14 @@ function bindUpdate(el, info) {
     button.disabled = true;
     status.textContent = t("Starting the update…");
     try {
-      const secret = form.secret.value;
-      await post("settings/update", info.confirm === "password" ? { password: secret } : { passphrase: secret });
+      await post("settings/update", form.secret ? { passphrase: form.secret.value } : {});
       form.remove();
       status.textContent = t("Updating… The page reloads when the new version answers.");
       waitForNewVersion(el, info.commit, status);
     } catch (error) {
       button.disabled = false;
       status.textContent = t("Not started: {error}", { error: t(error.message) });
-      form.secret.focus();
+      (form.secret || button).focus();
     }
   });
 }

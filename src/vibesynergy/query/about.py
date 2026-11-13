@@ -213,11 +213,10 @@ def about(rt, *, fresh: bool = False) -> dict[str, Any]:
     """Everything the footer and Settings → System → About this version show. ``fresh``
     checks GitHub for updates now instead of using the hourly answer."""
     from vibesynergy import updater
-    from vibesynergy.query import auth
+    from vibesynergy.portal.auth_gate import auth_required
     from vibesynergy.store import db
 
     started = STARTED_AT.astimezone(UTC)
-    account = auth.account(rt.engine)
     news = updates(fresh=fresh)
     unit = update_unit(rt.settings.data_dir)
     return {
@@ -230,7 +229,8 @@ def about(rt, *, fresh: bool = False) -> dict[str, Any]:
         "repo_url": REPO_URL,
         "updates": news,
         "update": unit,
-        "confirm": "password" if account and account["password_hash"] else "passphrase",
+        # With the portal login on, the session is the check; without it, the passphrase.
+        "confirm": "none" if auth_required(rt.settings) else "passphrase",
         "update_hint": updater.how(updater.installed()["kind"])
         if news and news.get("behind") and unit is None
         else None,
