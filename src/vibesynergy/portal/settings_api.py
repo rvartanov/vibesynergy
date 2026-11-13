@@ -207,8 +207,7 @@ class PushSubscription(BaseModel):
 
 
 class UpdateBody(BaseModel):
-    passphrase: str = Field(default="", max_length=1024)
-    password: str = Field(default="", max_length=1024)  # the login's, when the install has one
+    passphrase: str = Field(default="", max_length=1024)  # only asked without a portal login
 
 
 class PassphraseBody(BaseModel):
@@ -970,19 +969,13 @@ def build_settings_router(rt: Runtime) -> APIRouter:
 
     @router.post("/settings/update")
     def update_now(request: UpdateBody) -> dict[str, Any]:
-        """Settings → System → Update now: your password (or, without a login, the coach
-        passphrase), then the update unit."""
-        from vibesynergy.query import about, auth
+        """Settings → System → Update now. With the portal login on, being logged in is
+        enough (the login gate lets nobody else reach this); without a login it asks the
+        coach passphrase, because then anyone who reaches the portal could start it."""
+        from vibesynergy.portal.auth_gate import auth_required
+        from vibesynergy.query import about
 
-        account = auth.account(rt.engine)
-        if account and account["password_hash"]:
-            if limiter.locked("portal"):
-                raise ValueError("Too many wrong attempts. Try again in 15 minutes.")
-            if not auth.verify_password(request.password, account["password_hash"]):
-                limiter.fail("portal")
-                _audit_portal("portal.password.denied", {"action": "update"})
-                raise ValueError("Your current password is not right.")
-        else:
+        if not auth_required(rt.settings):
             confirm_passphrase(request.passphrase, "update")
         started = about.start_update(rt)
         _audit_portal("portal.update.start", started)

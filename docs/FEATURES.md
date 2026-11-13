@@ -20,7 +20,7 @@ Status: alpha (0.0.1). The portal is in Dutch and English.
 - **Settings → Account**: change the password and the second step (asks the password again),
   see and end your sessions.
 - **Updates**: Settings → System → About this version shows waiting updates with what they
-  bring (checked hourly, or at once with **Check for updates**) and has **Update now** (asks your password). On the command line
+  bring (checked hourly, or at once with **Check for updates**) and has **Update now** (one click when you are logged in; without a portal login it asks the coach passphrase). On the command line
   `vibesynergy update` (`--check`). Each update backs up the database first and logs what it
   did. A container updates by pulling the new image.
 - **Demo data** to look around without accounts: `vibesynergy init --demo`, then

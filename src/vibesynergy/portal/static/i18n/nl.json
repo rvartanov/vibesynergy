@@ -2862,7 +2862,6 @@
  "Your password, to confirm the change": "Je wachtwoord, om de wijziging te bevestigen",
  "Report a bug": "Een fout melden",
  "An update is available": "Er is een update",
- "Your password": "Je wachtwoord",
  "Pull the newest image and start the container again.": "Haal de nieuwste image op en start de container opnieuw.",
  "In the checkout: git pull, uv sync, vibesynergy db upgrade, then restart.": "In de checkout: git pull, uv sync, vibesynergy db upgrade, en dan herstarten.",
  "Install it again from GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy": "Installeer opnieuw vanaf GitHub: uv tool install git+https://github.com/rvartanov/vibesynergy",
