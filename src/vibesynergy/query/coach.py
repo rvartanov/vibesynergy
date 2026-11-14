@@ -24,11 +24,12 @@ from vibesynergy.store.schema import coach_event, coach_head, coach_revision
 SCHEMA_VERSION = 1
 # 2: the method, priorities, phases, sport order, weekly time, event sources, manual
 # races, source priorities and the internal coach's assessment schedule are gone.
-POLICY_VERSION = "2"
+# 3: the Garmin Coach boundary is gone (Claude is the only coach).
+POLICY_VERSION = "3"
 BOUNDARIES = [
     "Use measured evidence and confirmed user context; distinguish uncertainty and inference.",
     "Do not diagnose, invent measurements or infer exercise load from calendar commitments.",
-    "Preserve Garmin Coach, personal events and human-written activity text.",
+    "Preserve personal events and human-written activity text.",
     "Settings never grant external-write permission or bypass workout approval and ownership.",
     (
         "Private context stays out of public annotations; apply the "
@@ -89,7 +90,6 @@ _INSTRUCTION_CONFLICTS = (
         "approval",
         (
             r"\b(skip|without|no) (your |my )?approval\b",
-            r"\b(edit|change|delete|overwrite) garmin coach\b",
             r"\bignore (ownership|approval)\b",
         ),
         "Workout changes still need your approval.",

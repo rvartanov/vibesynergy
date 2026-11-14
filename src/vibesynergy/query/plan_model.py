@@ -1126,7 +1126,6 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
     Coach duplicate pair are still keyed by that event.
     ``plan_start`` is the first day with a planned session.
     """
-    from vibesynergy.query import icu_plan
 
     with engine.connect() as conn:
         sessions = _planned_sessions(conn, plan_id, start, end)
@@ -1147,7 +1146,6 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
         plan_start = conn.execute(
             select(func.min(plan_session.c.date)).where(_planned(plan_id))
         ).scalar()
-        marks = icu_plan._athlete_marks(conn) if sessions else {}
     notes, targets = week_rows(engine, plan_id, start - timedelta(days=start.weekday()), end)
     return {
         "workouts": [
@@ -1169,7 +1167,6 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
         "notes": notes,
         "targets": targets,
         "plan_start": plan_start,
-        "marks": marks,
     }
 
 
