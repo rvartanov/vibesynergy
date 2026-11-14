@@ -167,6 +167,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   [#14](https://github.com/rvartanov/vibesynergy/pull/14)).
 - Morning check-ins are no longer written to intervals.icu
   ([#14](https://github.com/rvartanov/vibesynergy/pull/14)).
+- Garmin Coach leftovers: the coach rule about preserving Garmin Coach (coach policy
+  version 3, written by migration 0050), the `dubbel` pair between a Garmin Coach session
+  and a plan workout, and the MCP tool `vibesynergy_icu_resolve_duplicate`. A Garmin workout
+  that is not in the plan is simply listed as not in the plan
+  ([#31](https://github.com/rvartanov/vibesynergy/issues/31)).
 
 ## 0.0.1a1 — 2026-11-11
 

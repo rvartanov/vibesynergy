@@ -24,7 +24,7 @@ class ExternalObjectRef(coach.StrictModel):
 
 class OwnershipClaim(coach.StrictModel):
     target: ExternalObjectRef
-    origin: Literal["vibesynergy", "garmin_coach", "personal", "unknown"]
+    origin: Literal["vibesynergy", "garmin", "personal", "unknown"]
     origin_id: str | None = None
     ledger_id: str | None = None
     verified: bool = False

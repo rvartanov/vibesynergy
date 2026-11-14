@@ -19,6 +19,7 @@ GONE = {
     "vibesynergy_nutrition",
     "vibesynergy_result",
     "vibesynergy_chart",
+    "vibesynergy_icu_resolve_duplicate",
 }
 
 

@@ -40,7 +40,6 @@ const ACTIVITY_VERBS = {
   vibesynergy_icu_move_event: N("moved a plan session"),
   vibesynergy_icu_delete_event: N("removed a plan session"),
   vibesynergy_icu_revert: N("undid a plan change"),
-  vibesynergy_icu_resolve_duplicate: N("chose which plan to keep"),
   vibesynergy_kb_search: N("searched knowledge"),
   vibesynergy_kb_get: N("opened a knowledge article"),
   vibesynergy_kb_upsert: N("updated knowledge"),
