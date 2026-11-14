@@ -4,6 +4,7 @@
 import { get } from "../api.js";
 import { esc, longDate, number } from "../format.js";
 import { N, t } from "../i18n.js";
+import { screenAlerts } from "../screen_alerts.js";
 import { sportLabel } from "../symbols.js";
 
 const KB_KINDS = { article: N("article"), rule: N("rule"), source: N("source") };
@@ -33,6 +34,8 @@ function noticeText(item) {
       return t("Old version on your Garmin: {title} ({day}).", { title: item.title, day });
     case "horizon_behind":
       return t("Your plan runs only to {day}. Ask your coach to fill it up to {end}.", { day, end: item.end ? longDate(item.end) : "" });
+    case "screen_alert":
+      return item.text;
     default:
       return item.kind;
   }
@@ -40,10 +43,10 @@ function noticeText(item) {
 
 export async function render(view, { stale }) {
   document.title = `${t("Waiting for you")} · VibeSynergy`;
-  const { data } = await get("inbox");
+  const [{ data }, alerts] = await Promise.all([get("inbox"), get("alerts").catch(() => null)]);
   if (stale()) return;
   const decisions = data.decisions || [];
-  const notices = data.notices || [];
+  const notices = [...(data.notices || []), ...screenAlerts(alerts?.data)];
   view.innerHTML = `<div class="page-head"><div><h1>${esc(t("Waiting for you"))}</h1>
       <p class="sub">${esc(t("Proposals only you can take or leave, then things worth a look. Each one opens where you handle it."))}</p></div></div>
     <section class="card" aria-labelledby="inbox-decisions"><h2 id="inbox-decisions">${esc(t("Your decision ({n})", { n: decisions.length }))}</h2>

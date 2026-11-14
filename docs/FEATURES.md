@@ -68,7 +68,9 @@ Details: [SOURCES.md](SOURCES.md).
   planned and the weather forecast.
 - **Quick add** and **Search** (`/`) over activities, notes, coach messages, the knowledge
   base and gear.
-- **Waiting for you**: proposals only you decide on, and notices worth a look.
+- **Waiting for you** (the bell): proposals only you decide on, and notices worth a look,
+  including the warnings that appeared at the top of the screen in the last day, also after
+  you closed them there.
 
 ## Training
 
