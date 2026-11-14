@@ -280,6 +280,12 @@ def _headline(text: str, limit: int = 70) -> str:
     for stop in (" (", ". ", "; "):
         if stop in compact:
             compact = compact.split(stop, 1)[0]
+    if len(compact) > limit and ", " in compact:
+        # "Je rusthartslag ligt 5 bpm boven je gebruikelijke, vaak een vroeg teken …":
+        # the part before the comma reads as a whole sentence, a cut with "…" does not.
+        head = compact.split(", ", 1)[0]
+        if 25 <= len(head) <= limit:
+            return head
     if len(compact) <= limit:
         return compact
     cut = compact[: limit - 1].rsplit(" ", 1)[0]

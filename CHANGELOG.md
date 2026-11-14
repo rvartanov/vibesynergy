@@ -94,6 +94,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- On a phone a warning in the top bar gets its own row under the buttons; it covered the
+  VibeSynergy name and could not be read.
+- Alert mails no longer cut the subject off with "…" halfway a sentence: the subject is the
+  first whole part of the message.
 - Messages that send you to Settings name the page as it is called now: Settings → Sources
   (and its Calendar, Status and History parts), Settings → Sharing → Coach apps, Settings →
   System. They no longer point to "Settings → Calendar", "Data → Sources" or "Data & sync",

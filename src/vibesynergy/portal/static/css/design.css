@@ -578,6 +578,11 @@ table.activities td { vertical-align: middle; }
 @media (max-width: 600px) {
   .top { flex-wrap: wrap; gap: 6px; padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); }
   .brand { min-width: 0; }
+  /* A sync chip or warning in the header gets its own row under the buttons: in the row it
+     squeezed the brand and its text ran over the name. */
+  .header-sync-chips, .header-warn-notices { order: 4; flex-basis: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0 0 6px; }
+  .header-sync-chip { border-radius: 12px; background: var(--surface); justify-content: space-between; }
+  .header-sync-chip > a, .header-sync-chip > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 }
 @media (max-width: 440px) {
   .top { gap: 2px; }
