@@ -436,7 +436,7 @@ shared Today/Dashboard/Calendar pages. The Calendar page adds a dated agenda wit
 receipt information; the original metric heatmap remains available.
 
 Read-only ingestion plus the guarded mirror (ledger, conditional writes, read-back) are the implementation. Copying stays off until the portal switch is on, and a failed Garmin or
-calendar read never deletes. Garmin Coach
+calendar read never deletes. Garmin
 workouts are only copied onto the calendar; this source never writes them back to Garmin.
 
 Migration 0019 adds the nullable `pending_write` checkpoint to the existing mirror ledger.
@@ -506,10 +506,8 @@ and after snapshot on the audit log and a line on the coach feed. Revert puts th
 before snapshot back through the API. Writes wait about a second between calls.
 
 A Garmin workout with the same name and date as a plan workout is the copy intervals.icu
-pushed. It is left out of the plan so it is not counted as Garmin Coach. A Garmin Coach
-workout on the same date and sport stays, linked as one pair flagged `dubbel`.
-`vibesynergy_icu_resolve_duplicate` deletes the plan event when `keep` is `garmin`, or marks
-the Coach session for the athlete when `keep` is `plan`. Garmin Coach is not deleted from here.
+pushed. It is folded into that plan workout so it is not counted twice. Any other Garmin
+workout on a plan day is listed as not in the plan; nothing is deleted on either side.
 
 Morning check-ins stay in VibeSynergy: they are not written to intervals.icu (since
 12-11-2026). RPE and Feel are not read from or written to intervals.icu either (see below).

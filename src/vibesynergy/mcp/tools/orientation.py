@@ -418,33 +418,6 @@ def register(kit: ToolKit) -> None:
             )
         )
 
-    @tool(ICU_DELETE, "plan.write")
-    def vibesynergy_icu_resolve_duplicate(
-        keep: str,
-        reason: str,
-        expected_version: str,
-        event_id: str | None = None,
-        external_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Choose one side of a dubbel pair. Nothing is deleted until this is called.
-
-        keep=garmin keeps the Garmin Coach session: the intervals.icu event is deleted and
-        audited. keep=plan keeps the intervals.icu workout; Garmin Coach cannot be deleted
-        from here, so that session is marked for the athlete.
-        """
-        return _icu(
-            lambda client: icu_plan.resolve_duplicate(
-                engine,
-                client,
-                keep=keep,
-                reason=reason,
-                expected_version=expected_version,
-                event_id=event_id,
-                external_id=external_id,
-                author=current_author(),
-            )
-        )
-
     @tool(WRITE, "coach.write")
     def vibesynergy_coach_write(
         entry_type: coach_workouts.CoachEntryType,

@@ -146,7 +146,7 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 - **Coach page**: advice and the active profile, Knowledge, Methods & rules, Memory, Change log,
   Settings. Changes to planned sessions, thresholds and the knowledge base wait for your
   approval.
-- **Any AI app over MCP** (Claude, ChatGPT, local models): 102 tools to read your data,
+- **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,
   `publish`, `sql`). OAuth with your passphrase, or personal access tokens that expire.

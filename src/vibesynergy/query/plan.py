@@ -490,8 +490,6 @@ def _merge_plan(
             if item["kind"] in TRAINING_KINDS:
                 item.setdefault("plan_source", item["source"])
         return items, []
-    from vibesynergy.query.icu_plan import link_duplicate
-
     workouts = [as_item(row) for row in rows]
     by_name: dict[tuple[date, str], list[dict]] = defaultdict(list)
     by_day: dict[date, list[dict]] = defaultdict(list)
@@ -533,24 +531,6 @@ def _merge_plan(
             outside.append(item)
         else:
             kept.append(item)
-    # A Garmin Coach session on the same day and sport as one plan workout is the pair
-    # ``resolve_duplicate`` decides on.
-    coaches: dict[tuple, list[dict]] = defaultdict(list)
-    plans: dict[tuple, list[dict]] = defaultdict(list)
-    for item in outside:
-        if item["kind"] == "plan_workout" and (sport := family(item.get("sport"))):
-            coaches[(_as_day(item["date"]), sport)].append(item)
-    for row in rows:
-        if sport := family(row.get("type")) or family(row.get("name")):
-            plans[(row["date"], sport)].append(row)
-    for key, group in coaches.items():
-        plan_rows = plans.get(key) or []
-        if len(group) == 1 and len(plan_rows) == 1:
-            # The pair is resolved on the intervals.icu event: for a session of the own
-            # plan that is its copy, and one without a copy has no pair.
-            event = plan_rows[0].get("icu_event", plan_rows[0])
-            if event:
-                link_duplicate(group[0], event, layer["marks"])
     merged = kept + workouts
     merged.sort(key=lambda i: (_as_day(i["date"]), i["kind"]))
     return merged, outside

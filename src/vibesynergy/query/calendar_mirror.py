@@ -3,8 +3,8 @@
 Personal events stay user-owned: this job never creates, updates or deletes them.
 Only a mirror whose legacy UID, href and ``X-HERMES-*`` proof match a Garmin native key
 can change, and only after that proof is stored in the ledger. Titles and dates are not
-ownership. Garmin Coach workouts are copied onto the calendar; nothing is written back
-to Garmin.
+ownership. Garmin workouts are copied onto the calendar; nothing is written back to
+Garmin.
 
 The portal switch defaults off. A failed or incomplete Garmin read never authorizes a
 deletion. An existing mirror is only changed on a later reconcile, after its content has

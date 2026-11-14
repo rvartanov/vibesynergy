@@ -19,7 +19,7 @@ from vibesynergy.sources.intervals_icu.client import (
     IntervalsIcuError,
 )
 from vibesynergy.sources.intervals_icu.mappers import map_events
-from vibesynergy.store.schema import audit_log, coach_decision_log, icu_event
+from vibesynergy.store.schema import audit_log, icu_event
 
 KEY = "icu-secret-key-9f3a"
 ATHLETE = "i000001"
@@ -313,7 +313,7 @@ def _garmin(runtime) -> None:
         )
 
 
-def test_pushed_copy_is_folded_and_coach_is_flagged_dubbel(runtime) -> None:
+def test_pushed_copy_is_folded_and_another_garmin_workout_is_not_in_plan(runtime) -> None:
     _seed(runtime)
     _garmin(runtime)
     data = plan.plan(runtime.engine, Window(DAY, DAY), DAY, include_sync_status=False)
@@ -321,93 +321,10 @@ def test_pushed_copy_is_folded_and_coach_is_flagged_dubbel(runtime) -> None:
     (workout,) = data["today"]
     assert workout["source"] == "intervals_icu"
     assert [copy["source_id"] for copy in workout["garmin_copies"]] == ["push-1"]
-    garmin = data["not_in_plan"]
-    assert {item["source_id"] for item in garmin} == {"coach-1"}
-    pair = garmin[0]
-    assert pair["in_plan"] is False
-    assert pair["flag"] == "dubbel"
-    assert pair["duplicate"]["plan"]["external_id"] == "2026-11-02:Run"
-    assert pair["duplicate"]["marked_for_athlete"] is False
-
-
-def test_resolve_duplicate_deletes_for_garmin_and_marks_for_plan(runtime) -> None:
-    version = _seed(runtime)
-    _garmin(runtime)
-    api = Api(EVENT)
-    client = _client(api)
-    marked = icu_plan.resolve_duplicate(
-        runtime.engine,
-        client,
-        keep="plan",
-        reason="Keep the intervals.icu session",
-        expected_version=version,
-        external_id="2026-11-02:Run",
-    )
-    assert marked["marked_for_athlete"] is True
-    assert not any(call[0] == "DELETE" for call in api.calls)
-    items = plan.plan(runtime.engine, Window(DAY, DAY), DAY, include_sync_status=False)[
-        "not_in_plan"
-    ]
-    pair = next(item for item in items if item["source_id"] == "coach-1")
-    assert pair["duplicate"]["marked_for_athlete"] is True
-    with runtime.engine.connect() as conn:
-        meta = (
-            conn.execute(
-                select(coach_decision_log.c.meta).where(
-                    coach_decision_log.c.entry_type == "plan_change"
-                )
-            )
-            .scalars()
-            .all()
-        )
-    assert any(row.get("mark") == "athlete" for row in meta)
-
-    removed = icu_plan.resolve_duplicate(
-        runtime.engine,
-        client,
-        keep="garmin",
-        reason="Keep Garmin Coach",
-        expected_version=version,
-        event_id="1001",
-    )
-    assert any(
-        call[0] == "DELETE" and call[1].endswith(f"/athlete/{ATHLETE}/events/1001")
-        for call in api.calls
-    )
-    assert _audit(runtime, removed["audit_id"])["before"]["name"] == "Easy run"
-    data = plan.plan(runtime.engine, Window(DAY, DAY), DAY, include_sync_status=False)
-    # With the plan workout gone there is no intervals.icu plan left: Garmin is the plan.
-    assert data["not_in_plan"] == []
-    coach = next(item for item in data["items"] if item["source_id"] == "coach-1")
-    assert "flag" not in coach
-
-
-@pytest.mark.parametrize(("legacy", "kept"), [("coach", "garmin")])
-def test_resolve_duplicate_still_takes_the_old_keep_values(runtime, legacy, kept) -> None:
-    version = _seed(runtime)
-    _garmin(runtime)
-    result = icu_plan.resolve_duplicate(
-        runtime.engine,
-        _client(Api(EVENT)),
-        keep=legacy,
-        reason="Old caller",
-        expected_version=version,
-        event_id="1001",
-    )
-    assert result["kept"] == kept
-
-
-def test_resolve_duplicate_refuses_an_unknown_keep(runtime) -> None:
-    version = _seed(runtime)
-    with pytest.raises(icu_plan.IcuWriteError, match="garmin or plan"):
-        icu_plan.resolve_duplicate(
-            runtime.engine,
-            _client(Api(EVENT)),
-            keep="both",
-            reason="Nope",
-            expected_version=version,
-            event_id="1001",
-        )
+    (garmin,) = data["not_in_plan"]
+    assert garmin["source_id"] == "coach-1"
+    assert garmin["in_plan"] is False
+    assert "flag" not in garmin and "duplicate" not in garmin
 
 
 def test_plan_write_scope_is_separate(runtime) -> None:

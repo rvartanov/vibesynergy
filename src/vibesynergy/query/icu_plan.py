@@ -1,4 +1,4 @@
-"""AI coach writes to the intervals.icu plan, and the Garmin Coach duplicate link.
+"""AI coach writes to the intervals.icu plan.
 
 Writes go to one event id. An ``external_id`` only finds that id in the cache.
 Nothing bulk-upserts. Every write stores a before and after snapshot on
@@ -8,9 +8,8 @@ back through the API.
 While intervals.icu leads, its calendar is the plan (``plan_layer``; merged in
 ``query/plan.py``). When VibeSynergy leads, the plan is its own model and these events are
 its copy. A Garmin calendar workout whose name and date match a plan workout is the copy
-intervals.icu pushed and is folded into that workout. A real Garmin Coach workout on the
-same date and sport as a plan workout is not in the plan; it is linked as one pair with
-``flag`` ``dubbel``. Neither side is deleted until ``resolve_duplicate`` says so.
+intervals.icu pushed and is folded into that workout. Any other Garmin workout is not in
+the plan.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Literal
+from typing import Any
 
 from sqlalchemy import Engine, func, select
 
@@ -31,9 +30,6 @@ from vibesynergy.sources.intervals_icu.mappers import TARGET_KEYS, _updated, map
 from vibesynergy.store.raw import RawRecord
 from vibesynergy.store.schema import audit_log, coach_decision_log, icu_event, raw_item
 
-Keep = Literal["garmin", "plan"]
-# A value from before the rename, still accepted on input: "coach" meant Garmin Coach.
-_LEGACY_KEEP: dict[str, Keep] = {"coach": "garmin"}
 # Actor on the revertable before/after snapshot rows. The MCP call itself is a separate
 # ``actor="mcp"`` row; ``author`` and ``client_id`` say which coach app made the change.
 PLAN_ACTOR = "plan"
@@ -70,8 +66,7 @@ def plan_layer(engine: Engine, start: date, end: date) -> dict[str, Any]:
     ``workouts`` are WORKOUT events in the window. ``notes`` and ``targets`` are the weekly
     NOTE and TARGET events from the Monday of ``start`` on. ``plan_start`` is the first day
     of any plan workout (one with an external_id), across the whole cache: from that day on
-    the intervals.icu calendar is the plan. ``marks`` are the Garmin Coach sessions the
-    coach marked for the athlete.
+    the intervals.icu calendar is the plan.
     """
     monday = start - timedelta(days=start.weekday())
     with engine.connect() as conn:
@@ -92,13 +87,11 @@ def plan_layer(engine: Engine, start: date, end: date) -> dict[str, Any]:
                 icu_event.c.category == "WORKOUT", icu_event.c.source == "plan"
             )
         ).scalar()
-        marks = _athlete_marks(conn) if rows else {}
     return {
         "workouts": [r for r in rows if r["category"] == "WORKOUT" and r["date"] >= start],
         "notes": [r for r in rows if r["category"] == "NOTE" and r["for_week"]],
         "targets": [r for r in rows if r["category"] == "TARGET"],
         "plan_start": plan_start,
-        "marks": marks,
     }
 
 
@@ -363,8 +356,6 @@ def revert(
         raise IcuWriteError(
             "Check-ins are no longer copied to intervals.icu, so that copy can't be undone here."
         )
-    if action == "icu.mark":
-        return _clear_mark(engine, detail, reason, who, audit_id)
     with engine.connect() as conn:
         raw_id = _calendar_raw_id(conn)
     if before is None and isinstance(after, dict):
@@ -420,163 +411,6 @@ def revert(
         day=_day(stored.get("start_date_local"), date.today()),
         extra={"reverts": audit_id},
     )
-
-
-def resolve_duplicate(
-    engine: Engine,
-    client: IntervalsIcuClient,
-    *,
-    keep: Keep | str,
-    reason: str,
-    expected_version: str,
-    event_id: str | None = None,
-    external_id: str | None = None,
-    author: str | None = None,
-) -> dict[str, Any]:
-    _reason(reason)
-    keep = _LEGACY_KEEP.get(keep, keep)
-    if keep not in {"garmin", "plan"}:
-        raise IcuWriteError("keep must be garmin or plan.")
-    with engine.connect() as conn:
-        row = _resolve(conn, event_id, external_id)
-    if keep == "garmin":
-        deleted = delete_event(
-            engine,
-            client,
-            reason=reason,
-            expected_version=expected_version,
-            event_id=row["id"],
-            author=author,
-        )
-        deleted["kept"] = "garmin"
-        return deleted
-    _require_current(client, row, expected_version)
-    coach = _coach_partner(engine, row)
-    who = author or current_author()
-    with engine.begin() as conn:
-        audit_id = _audit(
-            conn,
-            action="icu.mark",
-            reason=reason,
-            before=row["raw"],
-            after=row["raw"],
-            event_id=row["id"],
-            author=who,
-            extra={"mark": "athlete", "garmin_source_id": coach["source_id"]},
-        )
-        _feed(
-            conn,
-            reason=reason,
-            day=row["date"],
-            author=who,
-            meta={
-                "audit_id": audit_id,
-                "action": "icu.mark",
-                "event_id": row["id"],
-                "garmin_source_id": coach["source_id"],
-                "mark": "athlete",
-            },
-        )
-    return {
-        "kept": "plan",
-        "event_id": row["id"],
-        "version": version_token(row["updated"], row["raw"]),
-        "audit_id": audit_id,
-        "marked_for_athlete": True,
-        "garmin_source_id": coach["source_id"],
-    }
-
-
-def link_duplicate(item: dict, row: dict[str, Any], marks: dict[str, bool]) -> None:
-    """Flag a Garmin Coach session and a plan workout on one day and sport as ``dubbel``."""
-    item["flag"] = "dubbel"
-    item["duplicate"] = {
-        "garmin": {
-            "source": "garmin",
-            "source_id": item.get("source_id"),
-            "title": item.get("title"),
-        },
-        "plan": {
-            "id": row["id"],
-            "external_id": row.get("external_id"),
-            "name": row.get("name"),
-            "version": version_token(row.get("updated"), row.get("raw") or {}),
-        },
-        "marked_for_athlete": bool(marks.get(str(item.get("source_id")))),
-    }
-
-
-def _athlete_marks(conn) -> dict[str, bool]:
-    rows = conn.execute(
-        select(coach_decision_log.c.meta)
-        .where(coach_decision_log.c.entry_type == "plan_change")
-        .order_by(coach_decision_log.c.id.desc())
-        .limit(200)
-    ).scalars()
-    seen: dict[str, bool] = {}
-    for meta in rows:
-        if not isinstance(meta, dict):
-            continue
-        garmin_id = meta.get("garmin_source_id")
-        if not garmin_id or garmin_id in seen:
-            continue
-        seen[str(garmin_id)] = meta.get("mark") == "athlete"
-    return {key: True for key, on in seen.items() if on}
-
-
-def _coach_partner(engine: Engine, row: dict) -> dict:
-    from vibesynergy.query.plan import family
-    from vibesynergy.store.schema import planned_item
-
-    sport = family(row.get("type"))
-    if not sport:
-        raise IcuWriteError("This plan session has no sport to match.")
-    with engine.connect() as conn:
-        candidates = [
-            dict(item)
-            for item in conn.execute(
-                select(planned_item).where(
-                    planned_item.c.source == "garmin",
-                    planned_item.c.kind == "plan_workout",
-                    planned_item.c.date == row["date"],
-                )
-            ).mappings()
-        ]
-    matches = [item for item in candidates if family(item.get("sport")) == sport]
-    if len(matches) != 1:
-        raise IcuWriteError(
-            "There is not exactly one Garmin Coach session that day for that sport."
-        )
-    return matches[0]
-
-
-def _clear_mark(engine: Engine, detail: dict, reason: str, author: str, audit_id: int) -> dict:
-    garmin_id = detail.get("garmin_source_id")
-    with engine.begin() as conn:
-        new_id = _audit(
-            conn,
-            action="icu.revert",
-            reason=reason,
-            before=detail.get("before"),
-            after=detail.get("after"),
-            event_id=str(detail.get("event_id") or ""),
-            author=author,
-            extra={"reverts": audit_id, "mark": None, "garmin_source_id": garmin_id},
-        )
-        _feed(
-            conn,
-            reason=reason,
-            day=None,
-            author=author,
-            meta={
-                "audit_id": new_id,
-                "action": "icu.revert",
-                "event_id": detail.get("event_id"),
-                "garmin_source_id": garmin_id,
-                "mark": None,
-            },
-        )
-    return {"kept": "cleared", "audit_id": new_id, "marked_for_athlete": False}
 
 
 def _require_current(client: IntervalsIcuClient, row: dict, expected: str) -> None:

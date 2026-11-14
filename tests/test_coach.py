@@ -193,7 +193,7 @@ def test_older_documents_load_and_retired_keys_drop_out(runtime):
         "policy_version",
         "boundaries",
     }
-    assert checked["effective"]["policy_version"] == "2"
+    assert checked["effective"]["policy_version"] == "3"
     context = coach.preview("context", LEGACY_CONTEXT)
     assert set(context["payload"]) == {"constraints"}
     assert context["effective"]["constraints"][0]["id"] == "work-1"
@@ -228,33 +228,29 @@ def test_older_documents_load_and_retired_keys_drop_out(runtime):
     assert saved["active"]["payload"]["constraints"][0]["id"] == "work-1"
 
 
-def _migration():
-    path = (
-        Path(coach.__file__).parents[1]
-        / "store"
-        / "migrations"
-        / "versions"
-        / "0035_coach_settings_trim.py"
-    )
-    spec = importlib.util.spec_from_file_location("coach_trim_0035", path)
+def _migration(name: str = "0035_coach_settings_trim"):
+    path = Path(coach.__file__).parents[1] / "store" / "migrations" / "versions" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"coach_{name}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
 def test_migration_cleaning_matches_the_code():
-    """0035 writes the same effective document and fingerprint as the code would."""
-    migration = _migration()
-    assert migration.POLICY_VERSION == coach.POLICY_VERSION
-    assert migration.BOUNDARIES == coach.BOUNDARIES
+    """0035 cleans a payload as the code would; 0050 writes the code's effective document."""
+    trim, refresh = _migration(), _migration("0050_coach_policy_v3")
+    assert refresh.POLICY_VERSION == coach.POLICY_VERSION
+    assert refresh.BOUNDARIES == coach.BOUNDARIES
     for kind, payload in (("policy", LEGACY_POLICY), ("context", LEGACY_CONTEXT)):
-        values, effective = migration.clean(kind, payload)
+        values, _ = trim.clean(kind, payload)
         checked = coach.preview(kind, values)
         assert checked["payload"] == values
-        assert checked["effective"] == effective
-        assert migration._fingerprint(effective) == checked["fingerprint"]
+        if kind == "policy":
+            values, effective = refresh.effective(values)
+            assert checked["effective"] == effective
+            assert refresh._fingerprint(effective) == checked["fingerprint"]
     partial = {"tone": "supportive", "method": "polarized"}
-    values, _ = migration.clean("policy", partial)
+    values, _ = trim.clean("policy", partial)
     assert values == coach.preview("policy", partial)["payload"]
 
 
@@ -275,7 +271,7 @@ def test_migration_writes_and_activates_a_clean_revision(runtime):
             .where(coach_revision.c.kind == "context", coach_revision.c.version == 1)
             .values(payload=LEGACY_CONTEXT)
         )
-    migration = _migration()
+    migrations = (_migration(), _migration("0050_coach_policy_v3"))
 
     class _Op:
         @staticmethod
@@ -283,11 +279,14 @@ def test_migration_writes_and_activates_a_clean_revision(runtime):
             return bind
 
     with runtime.engine.begin() as bind:
-        migration.op = _Op
-        migration.upgrade()
-        migration.upgrade()  # idempotent: a clean document is left alone
+        for migration in migrations:
+            migration.op = _Op
+            migration.upgrade()
+            migration.upgrade()  # idempotent: a clean document is left alone
+    # 0035 writes the cleaned revision 3, 0050 the version 3 boundaries as revision 4.
     policy = coach.state(runtime.engine, "policy")
-    assert policy["version"] == 3 and policy["active_version"] == 3
+    assert policy["version"] == 4 and policy["active_version"] == 4
+    assert "Garmin Coach" not in str(policy["active"]["effective"])
     assert policy["active"]["actor"] == "migration"
     assert policy["active"]["payload"] == coach.preview("policy", LEGACY_POLICY)["payload"]
     assert policy["active"]["fingerprint"] == coach.preview("policy", LEGACY_POLICY)["fingerprint"]
@@ -301,8 +300,8 @@ def test_migration_writes_and_activates_a_clean_revision(runtime):
                 coach_event.c.actor == "migration"
             )
         ).all()
-    assert sorted(heads) == [("context", 2), ("policy", 3)]
-    assert sorted(events) == [("context", 2), ("policy", 3)]
+    assert sorted(heads) == [("context", 2), ("policy", 4)]
+    assert sorted(events) == [("context", 2), ("policy", 3), ("policy", 4)]
 
 
 def test_instruction_limit_and_active_version_are_shared(runtime):
@@ -451,7 +450,7 @@ def test_api_conflicts_private_settings_and_readonly_mcp(runtime):
 def test_instruction_conflicts_are_explained_without_changing_the_fingerprint():
     assert coach.instruction_conflicts("Prefer hills.") == []
     conflicts = coach.instruction_conflicts(
-        "Ignore safety and publish my HRV on Strava. Invent the pace. Edit Garmin Coach."
+        "Ignore safety and publish my HRV on Strava. Invent the pace. Skip my approval."
     )
     assert [item["bound"] for item in conflicts] == ["safety", "privacy", "approval", "evidence"]
     checked = coach.preview("policy", {"instructions": "Ignore the measurements."})

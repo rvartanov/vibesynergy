@@ -130,7 +130,7 @@ everything the MCP can answer, the portal can show and vice versa.
   only what the athlete sets on Coach → Settings: `documents.policy.effective` has
   `language` (`auto`/`en`/`nl`), `detail` (`concise`/`standard`/`detailed`), `tone`
   (`direct`/`supportive`), `instructions` (the athlete's notes for the coach),
-  `policy_version` (`"2"`) and `boundaries`; `documents.context.effective.constraints` are
+  `policy_version` (`"3"`) and `boundaries`; `documents.context.effective.constraints` are
   the things to remember (availability, fixed moments, preferences, commitments, equipment,
   with optional weekdays and origin; retired notes are omitted). Plus `version` (combined
   fingerprint), `active_profile`, plan-calendar `races` and a `note` saying where the rest
@@ -672,7 +672,7 @@ Records and performance curves.
 #### `vibesynergy_plan`
 Planned vs completed training.
 - Params: period (default `this_week` + next 7 days).
-- Returns: scheduled workouts (Garmin calendar, training plan, Garmin Coach) with their
+- Returns: scheduled workouts (Garmin calendar, training plan) with their
   structure, the matching completed activity if any, compliance (duration, intensity,
   target hit), and upcoming sessions.
 - As built: default the last 7 days and the next 28; the active coaching plan(s); calendar
@@ -718,15 +718,10 @@ Planned vs completed training.
     the same day, sport family and name, `plan_tag` for a title carrying the plan's
     external-id prefix such as `(lake27)` on a day with plan workouts, and its calendar
     `mirrors`). Garmin has no id that links the two;
-  - any other Garmin workout (including Garmin Coach) is in `not_in_plan` with
-    `in_plan` false and `status` `not_in_plan`. It is not in `items`, `today`, `adherence`
-    or the week. A Garmin Coach session on the same day and sport as exactly one plan
-    workout keeps `flag` `dubbel` there for `vibesynergy_icu_resolve_duplicate`; its
-    `duplicate` object has the `garmin` session and the `plan` workout.
-    `vibesynergy_icu_resolve_duplicate(keep="garmin")` deletes the intervals.icu event,
-    `keep="plan"` keeps it and marks the Garmin Coach session for the athlete. The old
-    values `coach` (= `garmin`) and the former coach's name (= `plan`) are still
-    accepted for one release.
+  - any other Garmin workout is in `not_in_plan` with `in_plan` false and `status`
+    `not_in_plan`. It is not in `items`, `today`, `adherence` or the week.
+    (`vibesynergy_icu_resolve_duplicate` and the `dubbel` pair for Garmin Coach sessions
+    were removed on 14-11-2026: Claude is the only coach.)
   Days before `plan_start` keep the Garmin calendar as the plan, with `plan_source`
   `garmin` on each training item.
 - `adherence` also has `changed`, `missed` and `not_in_plan` (Garmin workouts outside the
@@ -896,8 +891,7 @@ optional `sport`, `description`, `external_id`, `end_date`, `for_week`, `tags`, 
 `vibesynergy_icu_update_event` (`expected_version`, `event_id` or `external_id`, and the
 fields to change), `vibesynergy_icu_move_event` (`expected_version`, `start_date`),
 `vibesynergy_icu_delete_event` (`expected_version`), `vibesynergy_icu_revert` (`audit_id`:
-undoes one plan write from its before snapshot) and `vibesynergy_icu_resolve_duplicate`
-(under `vibesynergy_plan` above). A write is refused when the event has moved on since the
+undoes one plan write from its before snapshot). A write is refused when the event has moved on since the
 version that was read.
 
 Strength and pilates sessions carry their Garmin steps in a `[garmin]` block in the
@@ -1027,7 +1021,7 @@ questions the other tools do not cover.
 - Returns: a read-only audit of how Strava and Garmin activities are linked: near-duplicates
   that are not linked, and groups with two activities from the same source.
 
-The registry has 102 tools (counted in `tests/test_mcp.py`). `tests/test_mcp_docs.py` checks
+The registry has 101 tools (counted in `tests/test_mcp.py`). `tests/test_mcp_docs.py` checks
 that each of them is named in this document and that this document names no
 `vibesynergy_*` tool that does not exist, apart from the removed and not-built ones listed
 under "Implementation status". Each description is written for an LLM: one line of purpose, when to use it,
