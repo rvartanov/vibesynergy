@@ -44,6 +44,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- The bell (Waiting for you) also lists the warnings that appear at the top of the screen,
+  so one you closed or missed can still be found ([#30](https://github.com/rvartanov/vibesynergy/pull/30)).
+- Texts and the morning coach instructions no longer mention Garmin Coach; you don't use it
+  any more ([#30](https://github.com/rvartanov/vibesynergy/pull/30)).
 - **Update now** no longer asks your password: being logged in to the portal is enough.
   Without a portal login it still asks the coach passphrase
   ([#28](https://github.com/rvartanov/vibesynergy/pull/28)).

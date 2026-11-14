@@ -92,7 +92,7 @@ _INSTRUCTION_CONFLICTS = (
             r"\b(edit|change|delete|overwrite) garmin coach\b",
             r"\bignore (ownership|approval)\b",
         ),
-        "Workout changes still need your approval. Garmin Coach stays as it is.",
+        "Workout changes still need your approval.",
     ),
     (
         "evidence",
