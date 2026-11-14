@@ -348,3 +348,14 @@ def test_mail_headline_cuts_at_a_clause_not_mid_word():
     long = "Ochtend: " + "heel lange zin zonder haakje of punt " * 4
     out = _headline(long)
     assert out.endswith("…") and len(out) <= 70 and not out[:-1].endswith(" ")
+
+
+def test_mail_headline_prefers_a_whole_clause_over_an_ellipsis():
+    from vibesynergy.alerts import _headline
+
+    text = (
+        "Je rusthartslag ligt 5 bpm boven je gebruikelijke, vaak een vroeg teken van ziekte "
+        "of overbelasting. Neem het rustig aan."
+    )
+    assert _headline(text) == "Je rusthartslag ligt 5 bpm boven je gebruikelijke"
+    assert _headline("Kort, maar het past.") == "Kort, maar het past."

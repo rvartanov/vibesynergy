@@ -173,6 +173,22 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
                     found = True
                     break
             assert found, seen
+            # A header warning gets its own row: it used to sit on top of the name.
+            page.evaluate(
+                """() => {
+                    const box = document.createElement('div');
+                    box.className = 'header-warn-notices';
+                    box.innerHTML = '<span class="header-sync-chip warn"><span>Rust vandaag.'
+                        + '</span><button type="button" class="btn small">&times;</button></span>';
+                    document.querySelector('header.top .brand').after(box);
+                }"""
+            )
+            brand = page.locator("header.top .brand-name").bounding_box()
+            notice = page.locator(".header-warn-notices").bounding_box()
+            assert brand is not None and notice is not None
+            assert notice["y"] >= brand["y"] + brand["height"], (brand, notice)
+            assert notice["x"] + notice["width"] <= PHONE["width"], notice
+            page.screenshot(path=str(tmp_path / "phone-header-notice.png"))
             browser.close()
     finally:
         if server:
