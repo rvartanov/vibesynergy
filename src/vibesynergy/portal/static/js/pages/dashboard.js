@@ -5,6 +5,7 @@
 import { captureViewState, restoreViewState } from "../refresh_state.js";
 import { get, post } from "../api.js";
 import { savedAdviceRole } from "../coaching_presentation.js";
+import { recoverySummaryText } from "../recovery_summary.js";
 import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml, hasSavedAdvice } from "../daily_review.js";
 import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sportName, userDateTime, weekday } from "../format.js";
 import { bindEffort, effortHtml } from "../effort.js";
@@ -153,7 +154,7 @@ export async function render(view, { args, query, meta, stale }) {
     html.noted = `<section class="card day-diary" aria-labelledby="day-journal-title"><h2 id="day-journal-title">${isToday ? t("Noted today") : t("This day in your diary")}</h2>${journal || `<p class="sub">${t("Nothing noted for this day.")}</p>`}</section>`;
   }
   if (showBoard) {
-    html.recovery = `<section class="card dash-recovery" aria-labelledby="dash-recovery-title">${recoveryHtml(d.recovery, d.load)}</section>`;
+    html.recovery = `<section class="card dash-recovery" aria-labelledby="dash-recovery-title">${recoveryHtml(d.recovery, d.load, d.verdict)}</section>`;
     html.week = `<section class="card dash-week" aria-labelledby="dash-week-title">${weekHtml(d.week, today, d.week_progress, share)}</section>`;
   }
   if (showUpcoming || showCalendar) {
@@ -748,7 +749,7 @@ const FORM_MEANING = {
   "overreaching risk": N("Training load: very tired; plan rest soon."),
 };
 
-function recoveryHtml(recovery, load) {
+function recoveryHtml(recovery, load, verdict = null) {
   if (failed(recovery)) return `<h2 id="dash-recovery-title">${t("Recovery")}</h2>${errorHtml()}`;
   const rows = RECOVERY_ROWS.map(([metric, label]) => {
     const block = recovery?.[metric];
@@ -764,15 +765,14 @@ function recoveryHtml(recovery, load) {
   const body = rows
     ? `<div class="table-wrap"><table aria-label="${esc(t("Recovery"))}"><tbody>${rows}</tbody></table></div>`
     : `<div class="empty">${t("No recovery data today yet.")}</div>`;
-  return `<h2 id="dash-recovery-title">${t("Recovery")}</h2>${rows ? recoverySummary(recovery) : ""}${body}${form}`;
+  return `<h2 id="dash-recovery-title">${t("Recovery")}</h2>${rows ? recoverySummary(recovery, verdict) : ""}${body}${form}`;
 }
 
-function recoverySummary(recovery) {
+function recoverySummary(recovery, verdict) {
   const shown = RECOVERY_ROWS.map(([metric]) => [metric, recovery?.[metric]]).filter(([, block]) => block);
   const off = shown.filter(([metric, block]) => recoveryMeaning(metric, block).tone === "warning").length;
-  const text = off
-    ? t("{n} of {total} signs are off your usual. Take it a little easier.", { n: number(off), total: number(shown.length) })
-    : t("You look recovered as usual.");
+  const level = verdict && !failed(verdict) ? verdict.level : "amber";
+  const text = recoverySummaryText(off, shown.length, level);
   return `<p class="dash-recovery-summary dash-keep-line">${esc(text)}</p>`;
 }
 

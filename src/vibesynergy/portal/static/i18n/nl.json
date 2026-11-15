@@ -277,7 +277,6 @@
  "Advice for today": "Advies voor vandaag",
  "Why this advice": "Waarom dit advies",
  "You look recovered as usual.": "Je bent hersteld zoals gewoonlijk.",
- "{n} of {total} signs are off your usual. Take it a little easier.": "{n} van de {total} signalen wijken af van normaal. Doe het wat rustiger aan.",
  "Chart": "Grafiek",
  "Check-in": "Check-in",
  "Check-in saved.": "Check-in opgeslagen.",
@@ -2970,5 +2969,10 @@
  "Pain or niggle": "Pijn of ongemak",
  "{side} {part}": "{part} {side}",
  "Done editing": "Klaar",
- "{browser} on {system}": "{browser} op {system}"
+ "{browser} on {system}": "{browser} op {system}",
+ "1 of {total} signs is off your usual.": "1 van de {total} signalen wijkt af van normaal.",
+ "{n} of {total} signs are off your usual.": "{n} van de {total} signalen wijken af van normaal.",
+ "Take it a little easier.": "Doe het wat rustiger aan.",
+ "Keep an eye on it; on its own it doesn't change today's advice.": "Let erop; op zichzelf verandert het het advies voor vandaag niet.",
+ "You're looking at demo data. Connect Garmin, Strava or Withings to see your own.": "Je kijkt nu naar demogegevens. Koppel Garmin, Strava of Withings om je eigen gegevens te zien."
 }

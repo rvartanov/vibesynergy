@@ -102,6 +102,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- The start page's recovery line agrees with today's advice: one sign off that doesn't
+  change the advice (resting heart rate alone) now reads "keep an eye on it" instead of
+  "take it a little easier" next to advice for a quality session
+  ([#37](https://github.com/rvartanov/vibesynergy/issues/37)).
+- With only the demo data in, the Get started guide says why connecting a source is still
+  to do ([#38](https://github.com/rvartanov/vibesynergy/issues/38)).
 - Settings → Account lists where you are logged in by browser and system ("Chrome on
   Linux") instead of the browser's raw identification string; hover for the full string
   ([#41](https://github.com/rvartanov/vibesynergy/issues/41)).
