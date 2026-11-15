@@ -31,6 +31,7 @@ def test_a_new_install_has_three_steps_to_do(runtime, client) -> None:
     assert setup_guide.state(runtime) == {
         "steps": {"source": False, "zones": False, "coach": False},
         "complete": False,
+        "demo": True,
     }
     data = client.get("/api/setup").json()["data"]
     assert data["steps"] == {"source": False, "zones": False, "coach": False}

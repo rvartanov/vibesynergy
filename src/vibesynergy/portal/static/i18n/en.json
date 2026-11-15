@@ -277,7 +277,6 @@
  "Advice for today": "Advice for today",
  "Why this advice": "Why this advice",
  "You look recovered as usual.": "You look recovered as usual.",
- "{n} of {total} signs are off your usual. Take it a little easier.": "{n} of {total} signs are off your usual. Take it a little easier.",
  "Chart": "Chart",
  "Check-in": "Check-in",
  "Check-in saved.": "Check-in saved.",
@@ -2970,5 +2969,10 @@
  "Pain or niggle": "Pain or niggle",
  "{side} {part}": "{side} {part}",
  "Done editing": "Done editing",
- "{browser} on {system}": "{browser} on {system}"
+ "{browser} on {system}": "{browser} on {system}",
+ "1 of {total} signs is off your usual.": "1 of {total} signs is off your usual.",
+ "{n} of {total} signs are off your usual.": "{n} of {total} signs are off your usual.",
+ "Take it a little easier.": "Take it a little easier.",
+ "Keep an eye on it; on its own it doesn't change today's advice.": "Keep an eye on it; on its own it doesn't change today's advice.",
+ "You're looking at demo data. Connect Garmin, Strava or Withings to see your own.": "You're looking at demo data. Connect Garmin, Strava or Withings to see your own."
 }

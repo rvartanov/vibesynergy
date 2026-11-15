@@ -15,7 +15,8 @@
     "start_layout.js",
     "setup_guide.js",
     "week_progress.js",
-    "daily_review.js"
+    "daily_review.js",
+    "recovery_summary.js"
   ],
   "quicklog": [
     "quicklog.js"

@@ -18,7 +18,9 @@ NOT_A_DATA_SOURCE = frozenset({"demo", "files", "caldav", "intervals_icu"})
 
 def state(rt) -> dict[str, Any]:
     steps = {"source": _source(rt), "zones": _zones(rt), "coach": coach_configured(rt)}
-    return {"steps": steps, "complete": all(steps.values())}
+    # Only the demo data in: the guide says why connecting a source is still to do (#38).
+    demo = "demo" in rt.registry.enabled_ids()
+    return {"steps": steps, "complete": all(steps.values()), "demo": demo}
 
 
 def _source(rt) -> bool:

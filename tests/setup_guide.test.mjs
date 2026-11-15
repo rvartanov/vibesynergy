@@ -22,3 +22,10 @@ test("no guide when setup is complete, put away or unknown", () => {
   assert.equal(setupGuideHtml(state({ source: false, zones: false, coach: false }, { dismissed: true })), "");
   assert.equal(setupGuideHtml(null), "");
 });
+
+test("with only the demo data the source step says why it is still to do (#38)", () => {
+  const demo = setupGuideHtml({ ...state({ source: false, zones: true, coach: true }), demo: true });
+  assert.match(demo, /looking at demo data/);
+  const real = setupGuideHtml(state({ source: false, zones: true, coach: true }));
+  assert.doesNotMatch(real, /demo data/);
+});

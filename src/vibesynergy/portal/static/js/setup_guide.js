@@ -11,6 +11,7 @@ const STEPS = [
   ["zones", N("Set your zones and thresholds"), N("Your heart rate, power and pace zones: what an easy or a hard session means for you."), "#/zones"],
   ["coach", N("Set up your coach"), N("An AI coach reads your data and gives advice every day."), "#/coach/settings"],
 ];
+const DEMO_WHY = N("You're looking at demo data. Connect Garmin, Strava or Withings to see your own.");
 
 /** The card, or "" when there is nothing to do: setup is complete, put away or unknown.
  * `open`: whether the steps show at once or wait behind the card's heading. */
@@ -20,10 +21,11 @@ export function setupGuideHtml(setup, { open = true } = {}) {
   const next = STEPS.find(([id]) => !setup.steps[id])?.[0];
   const rows = STEPS.map(([id, title, why, href]) => {
     const ok = Boolean(setup.steps[id]);
+    const reason = id === "source" && !ok && setup.demo ? DEMO_WHY : why;
     // One main action in the card: the first step still to do.
     return `<li class="setup-step${ok ? " is-done" : ""}">
       <span class="chip ${ok ? "success" : "planned"}">${esc(ok ? t("Done") : t("To do"))}</span>
-      <span class="setup-step-text"><strong>${esc(t(title))}</strong><span class="sub">${esc(t(why))}</span></span>
+      <span class="setup-step-text"><strong>${esc(t(title))}</strong><span class="sub">${esc(t(reason))}</span></span>
       <a class="btn${id === next ? " primary" : ""}" href="${href}" aria-label="${esc(ok ? t("Open: {step}", { step: t(title) }) : t(title))}">${esc(ok ? t("Open") : t("Set up"))}</a>
     </li>`;
   }).join("");
