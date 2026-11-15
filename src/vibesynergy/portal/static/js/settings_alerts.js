@@ -94,7 +94,7 @@ export function mailHtml(m) {
 
 export function emailState(a, m) {
   if (a.channels.email) return ["good", t("ready")];
-  if (!a.email_to) return ["warning", t("needs an address")];
+  if (!a.email_to && !a.account_email) return ["warning", t("needs an address")];
   if (!m.smtp_host || !m.username || !m.password_set) return ["warning", t("needs mail settings")];
   return ["warning", t("not ready")];
 }
@@ -108,9 +108,10 @@ export function alertsHtml(a, m) {
     <h2>${t("Email")} <span class="chip ${tone}" data-email-state>${esc(state)}</span></h2>
     <p class="sub">${esc(t("VibeSynergy checks every {n} minutes and emails you when something needs action. The same warning waits a day.", { n: number(a.every_minutes) }))}</p>
     <div class="settings-grid">
-      ${field(t("Email alerts to"), "email_to", a.email_to, 'type="email" autocomplete="email" placeholder="you@example.com"')}
+      ${field(t("Email alerts to"), "email_to", a.email_to, `type="email" autocomplete="email" placeholder="${esc(a.account_email || "you@example.com")}"${a.account_email ? ' aria-describedby="alerts-to-hint"' : ""}`)}
       <label class="check"><input type="checkbox" name="enabled"${a.enabled === false ? "" : " checked"} aria-describedby="alerts-enabled-hint"> <span>${t("Alerts on")}<span class="sub alert-group-hint" id="alerts-enabled-hint">${t("Off: VibeSynergy stops checking and sends no email.")}</span></span></label>
     </div>
+    ${a.account_email ? `<p class="sub" id="alerts-to-hint">${esc(t("Empty: alerts go to your account address, {email}.", { email: a.account_email }))}</p>` : ""}
     ${saveRow()}
     <div class="settings-save"><button class="btn primary" type="button" data-test-alert>${t("Send test alert")}</button><span class="sub" data-test-status role="status" aria-live="polite"></span></div>
     <h3>${t("Open now")}</h3>${open}

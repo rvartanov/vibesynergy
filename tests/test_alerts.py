@@ -606,3 +606,17 @@ def test_coach_mail_lists_the_verdict_per_session() -> None:
         lambda text: {"Keep": "Houden", "Adjust": "Aanpassen"}.get(text, text),
     )
     assert lines == ["✓ Houden: Duurloop Z2 40'", "~ Aanpassen: Kracht MT-A (RDL 50 kg)"]
+
+
+def test_alert_mail_goes_to_the_account_address_without_email_to(runtime):
+    """[alerts] email_to empty: the account's own address is used (#42)."""
+
+    from vibesynergy.query import auth
+
+    bare = replace(runtime.settings, alerts={})
+    assert alerts.recipient(bare, runtime.engine) is None
+    auth.create_account(runtime.engine, "athlete@example.com")
+    assert alerts.recipient(bare, runtime.engine) == "athlete@example.com"
+    assert alerts.recipient(bare) is None
+    chosen = replace(runtime.settings, alerts={"email_to": "coach@example.com"})
+    assert alerts.recipient(chosen, runtime.engine) == "coach@example.com"

@@ -486,6 +486,7 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             "alerts": {
                 **{k: on_disk.alerts.get(k) for k in config_edit.ALERT_KEYS},
                 "channels": alerts.channels(on_disk, rt.engine),
+                "account_email": alerts.account_email(rt.engine),
                 "open": alerts.open_alerts(settings),
                 "every_minutes": on_disk.schedule.get("alerts", alerts.ALERT_MINUTES),
                 "kinds": [
@@ -705,11 +706,10 @@ def build_settings_router(rt: Runtime) -> APIRouter:
         service), so a new setup can be tried before restarting."""
         on_disk = load_settings(settings.config_path)
         sent, errors = [], []
-        if on_disk.alerts.get("email_to"):
+        to = alerts.recipient(on_disk, rt.engine)
+        if to:
             try:
-                mailer.send(
-                    on_disk, on_disk.alerts["email_to"], "VibeSynergy: test alert", TEST_TEXT
-                )
+                mailer.send(on_disk, to, "VibeSynergy: test alert", TEST_TEXT)
                 sent.append("email")
             except mailer.MailError as exc:
                 errors.append(f"email: {exc}")
