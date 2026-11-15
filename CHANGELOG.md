@@ -102,6 +102,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Going to another page opens it at the top instead of where the previous page was
+  scrolled ([#44](https://github.com/rvartanov/vibesynergy/issues/44)).
 - The check-in uses the same words everywhere: **Muscle soreness** (fresh to heavy) on the
   start page, in the + dialog, the diary and recovery, and one **+ Pain or niggle** button
   that opens the same form. Changing an answer under **Edit check-in** keeps the check-in

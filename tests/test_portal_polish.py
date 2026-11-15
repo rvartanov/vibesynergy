@@ -256,6 +256,19 @@ def test_small_polish_on_throwaway_portal(tmp_path, monkeypatch) -> None:
             _wait_for_text(page, "Morning check")
             assert page.locator("[name=saved]").input_value() != ""
 
+            # Another page opens at its top, not at the last page's scroll position (#44).
+            page.evaluate(
+                "() => { document.body.style.minHeight = '5000px'; window.scrollTo(0, 3000); }"
+            )
+            assert page.evaluate("() => window.scrollY") > 0
+            page.evaluate("() => { location.hash = '#/activities'; }")
+            page.wait_for_function(
+                "() => document.querySelector('#view')?.dataset.page === 'activities'"
+            )
+            _settle(page)
+            assert page.evaluate("() => window.scrollY") == 0
+            page.evaluate("() => { document.body.style.minHeight = ''; }")
+
             page.emulate_media(color_scheme="light")
             page.goto(base + "/#/coach", wait_until="domcontentloaded")
             _wait_for_text(page, "Skip the tempo", quiet=True)
