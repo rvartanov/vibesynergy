@@ -29,6 +29,7 @@ const PAGE_LOADERS = {
   data: () => import("./pages/data.js"),
   sources: () => import("./pages/sources.js"),
   history: () => import("./pages/history.js"),
+  help: () => import("./pages/help.js"),
 };
 const CHART_PAGES = new Set([
   "dashboard", "metrics", "sleep", "sql", "planning", "activity", "body", "correlations",
@@ -623,6 +624,8 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
+  const help = document.querySelector(".foot .help-link");
+  if (help) help.textContent = t("Help");
   const bug = document.querySelector(".foot .bug-report");
   if (bug) {
     bug.textContent = t("Report a bug");

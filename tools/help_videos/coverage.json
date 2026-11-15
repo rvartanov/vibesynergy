@@ -1,0 +1,98 @@
+{
+  "_comment": "Which portal files each help video shows (paths under src/vibesynergy/portal/static/js, globs allowed). A pull request that changes one of these files re-records that video, or has the label no-help-video. tools/check_help_videos.py reads this.",
+  "_not_shown": {
+    "pages/gear.js": "Gear needs Strava, which the demo data has not got",
+    "pages/help.js": "the Help page itself"
+  },
+  "login": [
+    "login.js"
+  ],
+  "today": [
+    "pages/dashboard.js",
+    "pages/day.js",
+    "pages/diary.js",
+    "start_blocks.js",
+    "start_layout.js",
+    "setup_guide.js",
+    "week_progress.js",
+    "daily_review.js"
+  ],
+  "quicklog": [
+    "quicklog.js"
+  ],
+  "activities": [
+    "pages/activities.js",
+    "pages/activity.js",
+    "effort.js",
+    "annotation_preview.js"
+  ],
+  "calendar": [
+    "pages/schedule.js",
+    "pages/calendar.js"
+  ],
+  "planning": [
+    "pages/planning.js",
+    "plan_labels.js",
+    "compliance.js",
+    "race_phase.js",
+    "pages/training.js"
+  ],
+  "plan-builder": [
+    "plan_builder.js"
+  ],
+  "fitness": [
+    "pages/zones.js",
+    "fitness_chart.js",
+    "fitness_tabs.js",
+    "zone_presentation.js",
+    "race_predictions.js",
+    "bests_block.js"
+  ],
+  "coach": [
+    "pages/coach.js",
+    "coach_*.js"
+  ],
+  "health": [
+    "pages/recovery.js",
+    "pages/sleep.js",
+    "pages/body.js"
+  ],
+  "injuries": [
+    "pages/injuries.js"
+  ],
+  "insight": [
+    "pages/metrics.js",
+    "pages/correlations.js",
+    "pages/sql.js"
+  ],
+  "search-inbox": [
+    "pages/search.js",
+    "pages/inbox.js"
+  ],
+  "sources": [
+    "pages/sources.js",
+    "pages/data.js",
+    "pages/history.js",
+    "settings_sources.js",
+    "settings_sync.js",
+    "archive_import.js",
+    "icu_connect.js",
+    "calendar_settings.js"
+  ],
+  "sharing": [
+    "settings_shares.js",
+    "agent_links.js",
+    "settings_access.js"
+  ],
+  "account": [
+    "account_settings.js",
+    "settings_alerts.js",
+    "push_settings.js"
+  ],
+  "customize": [
+    "settings_system.js",
+    "theme.js",
+    "nav.js",
+    "pages/settings.js"
+  ]
+}

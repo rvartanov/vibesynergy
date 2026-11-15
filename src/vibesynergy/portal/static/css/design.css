@@ -562,6 +562,15 @@ table.activities td { vertical-align: middle; }
 .foot-actions { margin: var(--space-1) 0 0; }
 .foot-link { font: inherit; color: var(--action); background: none; border: 0; min-height: var(--control); padding: 0 var(--space-3); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; border-radius: var(--radius); }
 .foot-link:hover { background: var(--subtle); }
+a.foot-link { display: inline-flex; align-items: center; }
+/* Help: video manuals in a grid; the index links jump to one. */
+.help-index ul { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0 0 var(--space-4); padding: 0; list-style: none; }
+.help-group h2 { margin: var(--space-6) 0 var(--space-3); }
+.help-index a { color: var(--action); text-decoration: underline; text-underline-offset: 3px; }
+.help-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); align-items: start; }
+.help-grid > .card { margin: 0; scroll-margin-top: calc(var(--control) * 2); }
+.help-manual h3 a { color: inherit; }
+.help-manual video { display: block; width: 100%; aspect-ratio: 16 / 9; height: auto; margin-top: var(--space-3); border-radius: var(--radius); background: var(--subtle); }
 
 /* Quick add: a button in the header on every screen; it opens the quick log in a dialog. */
 .quick-add { font: inherit; }
