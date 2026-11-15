@@ -8,7 +8,7 @@ throwaway demo portal, never against your own data. Re-record them when a page c
    ```bash
    export XDG_CONFIG_HOME=~/vs-help-home/config XDG_DATA_HOME=~/vs-help-home/data
    uv run vibesynergy init --demo --email tester@example.test
-   printf '\n[portal]\nport = 8591\n' >> "$XDG_CONFIG_HOME/vibesynergy/config.toml"
+   printf '\n[portal]\nport = 8593\n' >> "$XDG_CONFIG_HOME/vibesynergy/config.toml"
    # Share links need a public address; any test name will do.
    sed -i 's|# public_url = ""|public_url = "https://vibesynergy.example.test"|' "$XDG_CONFIG_HOME/vibesynergy/config.toml"
    uv run vibesynergy sync
@@ -23,7 +23,7 @@ throwaway demo portal, never against your own data. Re-record them when a page c
 
    ```bash
    uv run --with playwright python tools/help_videos/run.py          # or: run.py today coach
-   tools/help_videos/build.sh
+   tools/help_videos/build.sh                                          # or: build.sh today coach
    ```
 
 Which videos a change makes out of date: `uv run python tools/check_help_videos.py`
