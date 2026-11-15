@@ -334,12 +334,15 @@ def coach(r: Rec):
     ta = r.pg.locator("textarea[name=instructions]")
     ta.fill("")
     r.type(ta, "Houd het kort en concreet.")
-    r.pg.keyboard.press("Tab")
     r.say(
         "Notities voor je coach worden vanzelf bewaard.",
         "Notes for your coach are saved automatically.",
     )
+    rows = r.pg.locator("textarea[name=constraint_text]")
+    before = rows.count()
+    # Straight from the notes to the button: the first click must work (#35).
     r.click(r.pg.get_by_role("button", name="Notitie toevoegen"))
+    r.check(rows.count() == before + 1, "Notitie toevoegen: the first click added no note")
     r.select(
         r.pg.locator("main select")
         .filter(has=r.pg.locator("option", has_text="Beschikbaarheid"))
