@@ -16,7 +16,8 @@ uv run --with playwright pytest -q tests/test_portal_a11y.py tests/test_portal_p
 
 and the JavaScript checks: `node --check` on every module, `node --test tests/*.test.mjs`,
 `node tools/check_*.mjs` and `uv run python docs/design/check_design.py`. CI runs all of
-these. Docs-only changes: check links and `git diff --check`.
+these. Portal changes also run `uv run python tools/check_help_videos.py` (see
+[Help videos](#help-videos)). Docs-only changes: check links and `git diff --check`.
 
 Small pull requests, one theme each; say in the description which checks you ran.
 
@@ -59,6 +60,25 @@ Group's usability heuristics and WCAG 2.2 AA, with design tokens from
 `portal/static/css/design-tokens.css` (see `docs/design/README.md`). Before merging, run an
 axe check and a keyboard-only pass. A UI pull request lists the guidelines it applied and
 any deviation with its reason.
+
+## Help videos
+
+Help (`#/help`) has a short video for each thing you do in VibeSynergy. They are part of
+the interface, so they change with it, in the same pull request:
+
+- **A changed page**: a pull request that changes what a video shows re-records that video
+  (`tools/help_videos/README.md`: `run.py <video>`, then `build.sh`). Update the scenario in
+  `tools/help_videos/scenarios.py` first when the steps or labels changed; it fails on a
+  step that no longer works.
+- **A new page or feature**: add a scenario, an entry in `MANUALS` in `static/js/pages/help.js`
+  (with nl and en texts), and its files in `tools/help_videos/coverage.json`.
+- **Nothing visible changed** (a refactor, a fix behind the scenes): add the label
+  `no-help-video`.
+
+`tools/help_videos/coverage.json` says which files each video shows. CI (the Help videos
+workflow) fails a pull request that changes one of those files without a new recording of
+that video, unless it has the `no-help-video` label. A new page module must appear in a
+video or be listed under `_not_shown` with the reason.
 
 ## Bugs and ideas
 

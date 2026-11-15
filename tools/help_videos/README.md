@@ -26,6 +26,10 @@ throwaway demo portal, never against your own data. Re-record them when a page c
    tools/help_videos/build.sh
    ```
 
+Which videos a change makes out of date: `uv run python tools/check_help_videos.py`
+(compares with `origin/main`; `coverage.json` maps each video to the files it shows). CI runs
+the same check on every pull request; see CONTRIBUTING.md#help-videos.
+
 Each scenario in `scenarios.py` also checks what it does (a failed step is reported, with a
 screenshot in `tour/out/`). Captions come from the `r.say(nl, en)` calls. A new manual needs
 a scenario and an entry in `MANUALS` in `static/js/pages/help.js`; `tests/test_help_manuals.py`

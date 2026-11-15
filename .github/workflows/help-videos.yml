@@ -1,0 +1,25 @@
+name: Help videos
+
+# A pull request that changes a page a help video shows re-records that video, or has the
+# label no-help-video (CONTRIBUTING.md#help-videos). Its own workflow, so adding the label
+# re-runs only this.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths: ["src/vibesynergy/portal/static/**", "tools/help_videos/coverage.json", "tools/check_help_videos.py"]
+
+jobs:
+  help-videos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Help videos re-recorded, or labelled no-help-video
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: python tools/check_help_videos.py --base "${{ github.event.pull_request.base.sha }}"
