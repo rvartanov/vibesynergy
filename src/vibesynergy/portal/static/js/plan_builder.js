@@ -118,7 +118,7 @@ function collect(form, sports) {
   const out = {
     goal,
     sport,
-    distance: distances.includes(f("distance").value) ? f("distance").value : distances[distances.length - 2],
+    distance: distances.includes(f("distance").value) ? f("distance").value : sports[sport].default || distances[0],
     type: types.includes(f("type").value) ? f("type").value : types[0],
     method: f("method").value,
     hours_min: Number(f("hours_min").value),

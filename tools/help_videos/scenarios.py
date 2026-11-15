@@ -237,6 +237,7 @@ def plan_builder(r: Rec):
         "Pick a race or add a new one: name and date.",
     )
     r.select(r.pg.locator("main select[name=sport]"), "Hardlopen")
+    r.select(r.pg.locator("main select[name=distance]"), "Halve marathon")
     r.say("Kies de sport en de afstand.", "Choose the sport and the distance.", 1.5)
     hmin, hmax = r.pg.locator("input[name=hours_min]"), r.pg.locator("input[name=hours_max]")
     r.point(hmin)

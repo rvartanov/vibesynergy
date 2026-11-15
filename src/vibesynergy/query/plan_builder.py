@@ -17,10 +17,12 @@ SPORTS = {
     "run": {
         "distances": ("5k", "10k", "half", "marathon", "ultra", "custom"),
         "types": ("road", "trail"),
+        "default": "marathon",
     },
     "triathlon": {
         "distances": ("super_sprint", "sprint", "olympic", "middle", "full", "custom"),
         "types": ("road", "cross", "offroad"),
+        "default": "olympic",
     },
 }
 RHYTHMS = ("3:1", "2:1")
@@ -260,7 +262,10 @@ def settings(engine: Any, data_dir: Any, today: date) -> dict[str, Any]:
         "races": races,
         "choices": {
             "methods": list(METHODS),
-            "sports": {k: {n: list(v) for n, v in d.items()} for k, d in SPORTS.items()},
+            "sports": {
+                k: {n: v if isinstance(v, str) else list(v) for n, v in d.items()}
+                for k, d in SPORTS.items()
+            },
             "rhythms": list(RHYTHMS),
             "priorities": list(PRIORITIES),
         },
@@ -373,54 +378,71 @@ STRENGTH_DAYS = (0, 3)
 def _sessions(
     start: date, phase: str, kind: str, minutes: dict[str, float], current: dict[str, Any]
 ) -> list[dict[str, Any]]:
+    """The week's sessions. Sessions of a fixed length (intervals, tests, strength, swims,
+    the brick) count against the week's hours; the endurance sessions share what is left,
+    so the week stays within its hours (#34). When even that does not fit, strength and then
+    test sessions are left out."""
     from vibesynergy.query import workout_library
 
     key = kind if kind in ("recovery", "taper", "race") else phase
-    out = []
+    # (day, sport, template, wanted minutes or None for the template's own length)
+    specs: list[tuple[int, str, str, float | None]] = []
     for sport, total in minutes.items():
         rows = list(PATTERN[sport][key])
         if current.get("tests") and kind == "recovery" and sport in TESTS:
             rows.append(TESTS[sport] + (None,))
         for day, template, share in rows:
-            params: dict[str, Any] = {}
-            defaults = workout_library.BY_ID[template].defaults
-            if share is not None and "minutes" in defaults:
-                params["minutes"] = max(20, int(round(total * share / 5) * 5))
-            if template == "swim_technique":  # the drill focus of that week (swim_drills)
-                params["week"] = (start + timedelta(days=day)).isocalendar()[1]
-            done = workout_library.render(template, "nl", **params)
-            out.append(
-                {
-                    "date": (start + timedelta(days=day)).isoformat(),
-                    "sport": sport,
-                    "template": template,
-                    "name": done["name"],
-                    "minutes": round(done["seconds"] / 60),
-                }
-            )
+            wanted = total * share if share is not None else None
+            if "minutes" not in workout_library.BY_ID[template].defaults:
+                wanted = None
+            specs.append((day, sport, template, wanted))
     if current.get("sport") == "triathlon" and phase in ("build", "peak") and kind == "load":
-        done = workout_library.render("run_brick", "nl")
-        out.append(
-            {
-                "date": (start + timedelta(days=5)).isoformat(),
-                "sport": "run",
-                "template": "run_brick",
-                "name": done["name"],
-                "minutes": round(done["seconds"] / 60),
-            }
-        )
+        specs.append((5, "run", "run_brick", None))
     if current.get("strength") and kind == "load":
         for day, template in zip(STRENGTH_DAYS, STRENGTH.get(phase, []), strict=False):
-            done = workout_library.render(template, "nl")
-            out.append(
-                {
-                    "date": (start + timedelta(days=day)).isoformat(),
-                    "sport": "strength",
-                    "template": template,
-                    "name": done["name"],
-                    "minutes": round(done["seconds"] / 60),
-                }
+            specs.append((day, "strength", template, None))
+
+    def render(day: int, sport: str, template: str, params: dict[str, Any]) -> dict[str, Any]:
+        if template == "swim_technique":  # the drill focus of that week (swim_drills)
+            params["week"] = (start + timedelta(days=day)).isocalendar()[1]
+        done = workout_library.render(template, "nl", **params)
+        return {
+            "date": (start + timedelta(days=day)).isoformat(),
+            "sport": sport,
+            "template": template,
+            "name": done["name"],
+            "minutes": round(done["seconds"] / 60),
+        }
+
+    budget = sum(minutes.values())
+    fixed_rows = [(spec, render(*spec[:3], {})) for spec in specs if spec[3] is None]
+    shared_specs = [spec for spec in specs if spec[3] is not None]
+    # The shortest each endurance session can be (a ride has its warm-up and cool-down).
+    floor = sum(render(*spec[:3], {"minutes": 20})["minutes"] for spec in shared_specs)
+    # Too few hours for every extra: leave out strength, then tests, last first.
+    for extra in ("strength", "test"):
+        while sum(r["minutes"] for _, r in fixed_rows) + floor > budget:
+            drop = [i for i, (spec, _) in enumerate(fixed_rows) if extra in spec[2]]
+            if not drop:
+                break
+            fixed_rows.pop(drop[-1])
+    out = [row for _, row in fixed_rows]
+    left = max(budget - sum(s["minutes"] for s in out), 0)
+    wanted = sum(spec[3] or 0 for spec in shared_specs)
+    factor = min(1.0, left / wanted) if wanted else 1.0
+    shared_rows: list[dict[str, Any]] = []
+    for _ in range(4):  # rendered lengths differ a little from the asked minutes
+        shared_rows = [
+            render(
+                day, sport, template, {"minutes": max(20, int(round((w or 0) * factor / 5) * 5))}
             )
+            for day, sport, template, w in shared_specs
+        ]
+        got = sum(r["minutes"] for r in shared_rows)
+        if got <= left + 5 or factor <= 0.05:
+            break
+        factor *= left / got
+    out += shared_rows
     return sorted(out, key=lambda s: (s["date"], s["sport"]))
 
 

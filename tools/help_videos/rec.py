@@ -21,7 +21,7 @@ from playwright.sync_api import Page, sync_playwright
 # A throwaway demo portal (see README.md), never your own data.
 H = Path(os.environ.get("VS_HELP_HOME", "~/vs-help-home")).expanduser()
 OUT = H / "tour/out"
-B = os.environ.get("VS_HELP_URL", "http://127.0.0.1:8591/")
+B = os.environ.get("VS_HELP_URL", "http://127.0.0.1:8593/")
 W, HGT = 1280, 720
 
 CURSOR_JS = """

@@ -102,6 +102,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- The plan builder keeps each week within your hours: strength, test and interval sessions
+  now count against the week, and the easy sessions share what is left (with 4 to 7 hours a
+  week, base weeks came out at almost 6 hours). With too few hours strength and then test
+  sessions are left out. Switching the sport now picks a sensible distance (marathon,
+  olympic) instead of ultra ([#34](https://github.com/rvartanov/vibesynergy/issues/34)).
 - On a phone a warning in the top bar gets its own row under the buttons; it covered the
   VibeSynergy name and could not be read ([#29](https://github.com/rvartanov/vibesynergy/pull/29)).
 - Alert mails no longer cut the subject off with "…" halfway a sentence: the subject is the

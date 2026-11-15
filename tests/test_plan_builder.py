@@ -209,3 +209,38 @@ def test_defaults_take_the_hours_from_load_weeks_by_kind(runtime, monkeypatch) -
     monkeypatch.setattr(training_plan, "overview", lambda *_: {"races": [], "weeks": weeks})
     out = plan_builder.defaults(runtime.engine, date(2026, 11, 12))
     assert (out["hours_min"], out["hours_max"]) == (6.0, 8.0)
+
+
+@pytest.mark.parametrize(
+    ("sport", "distance", "low", "high"), [("triathlon", "full", 4, 7), ("run", "marathon", 4, 6)]
+)
+def test_draft_weeks_stay_within_their_hours(runtime, sport, distance, low, high) -> None:
+    """Strength, tests and intervals count against the week's hours (#34)."""
+    from datetime import date
+
+    from vibesynergy.portal import prefs
+
+    prefs.save(
+        runtime.settings.data_dir,
+        {
+            "plan_builder": {
+                "goal": {"new": {"name": "Test race", "date": "2027-03-07", "priority": "A"}},
+                "sport": sport,
+                "distance": distance,
+                "hours_min": low,
+                "hours_max": high,
+                "strength": True,
+                "tests": True,
+            }
+        },
+    )
+    out = plan_builder.draft(runtime.engine, runtime.settings.data_dir, date(2026, 11, 9))
+    for week in out["weeks"]:
+        if week["kind"] in ("load", "recovery"):
+            total = sum(s["minutes"] for s in week["sessions"]) / 60
+            assert total <= week["hours"] + 0.25, (week["start"], total, week["hours"])
+
+
+def test_each_sport_has_a_default_distance() -> None:
+    for sport in plan_builder.SPORTS.values():
+        assert sport["default"] in sport["distances"]
