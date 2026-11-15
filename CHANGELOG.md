@@ -102,6 +102,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Email alerts with no address of their own go to your account's address, and Settings →
+  Alerts says so; it no longer shows "needs an address" while your account has one. The
+  alert check now also runs without that address, so the banner and push stay current
+  ([#42](https://github.com/rvartanov/vibesynergy/issues/42)).
 - The plan builder keeps each week within your hours: strength, test and interval sessions
   now count against the week, and the easy sessions share what is left (with 4 to 7 hours a
   week, base weeks came out at almost 6 hours). With too few hours strength and then test

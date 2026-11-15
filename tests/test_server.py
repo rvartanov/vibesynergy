@@ -250,7 +250,8 @@ def test_scheduler(service) -> None:
     settings = replace(rt.settings, schedule={"strava": 0, "withings": 5})
     scheduler = Scheduler(settings, rt.registry, rt.jobs, clock=lambda: now[0])
     assert scheduler.intervals() == {"withings": 5.0}  # strava disabled by 0
-    assert scheduler.run_once() == ["dropfolder", "withings"]  # the drop folder always
+    # The drop folder always; the alert check while alerts are on (#42).
+    assert scheduler.run_once() == ["dropfolder", "alerts", "withings"]
     now[0] = 100
     assert scheduler.run_once() == []  # not due yet
     now[0] = 301
@@ -263,7 +264,13 @@ def test_scheduler(service) -> None:
 def test_one_dataset_and_the_service_checks_have_their_own_interval(service) -> None:
     rt, _, _, _ = service
     now = [0.0]
-    schedule = {"strava": 0, "withings": 0, "withings.measures": 2, "dropfolder": 0}
+    schedule = {
+        "strava": 0,
+        "withings": 0,
+        "withings.measures": 2,
+        "dropfolder": 0,
+        "alerts": 0,
+    }
     settings = replace(rt.settings, schedule=schedule)
     scheduler = Scheduler(settings, rt.registry, rt.jobs, clock=lambda: now[0])
     assert scheduler.intervals() == {"withings.measures": 2.0}

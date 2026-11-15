@@ -825,11 +825,28 @@ def _footer(rt: Any, link: str = "#/dashboard") -> str:
 # Channels ---------------------------------------------------------------------------------
 
 
+def account_email(engine: Any) -> str | None:
+    """The installation's account address, or None (no account, or an old schema)."""
+    from vibesynergy.query import auth
+
+    try:
+        acc = auth.account(engine)
+    except Exception:
+        return None
+    return acc["email"] if acc else None
+
+
+def recipient(settings: Any, engine: Any = None) -> str | None:
+    """Where alert email goes: ``[alerts] email_to``, else the account's own address (#42)."""
+    if settings.alerts.get("email_to"):
+        return settings.alerts["email_to"]
+    return account_email(engine) if engine is not None else None
+
+
 def channels(settings: Any, engine: Any = None) -> dict[str, bool]:
     """The external channels and whether each can send now. Push needs the database (a
     subscribed device), so it is only listed when ``engine`` is given."""
-    cfg = settings.alerts
-    out = {"email": bool(cfg.get("email_to") and mailer.configured(settings))}
+    out = {"email": bool(recipient(settings, engine) and mailer.configured(settings))}
     if engine is not None:
         from vibesynergy import webpush
 
@@ -851,7 +868,7 @@ def deliver(
     if ready["email"]:
         try:
             extra = {"html": html} if html else {}
-            mailer.send(settings, settings.alerts["email_to"], subject, body, **extra)
+            mailer.send(settings, recipient(settings, rt.engine), subject, body, **extra)
             used.append("email")
         except mailer.MailError:
             log.exception("sending the alert email failed")

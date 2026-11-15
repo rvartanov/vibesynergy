@@ -119,7 +119,9 @@ class Scheduler:
             self._next["dropfolder"] = now + drop * 60
             if self._jobs.enqueue("dropfolder", {}, dedupe_key="dropfolder"):
                 queued.append("dropfolder")
-        wanted = cfg.get("enabled", True) and cfg.get("email_to")
+        # Alerts run while they are on; without [alerts] email_to the mail goes to the
+        # account's address, and the portal banner and push need the check too (#42).
+        wanted = cfg.get("enabled", True)
         check = minutes_for(self._settings, "alerts")
         if wanted and check and now >= self._next.get("alerts", 0):
             self._next["alerts"] = now + check * 60
