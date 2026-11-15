@@ -288,7 +288,12 @@ async function render() {
   }
   const again = view.dataset.page === name; // a reload of the same page: keep what's shown until the new one is ready
   view.dataset.page = name;
-  if (!again) view.innerHTML = `<div class="loading">${esc(t("Loading…"))}</div>`;
+  if (!again) {
+    view.innerHTML = `<div class="loading">${esc(t("Loading…"))}</div>`;
+    // Another page opens at its top, not where the last one was scrolled (#44). A page that
+    // opens at a part of itself (#/help/<id>) scrolls there while it renders.
+    if (!refreshing) window.scrollTo(0, 0);
+  }
   let rendered = false;
   try {
     const page = await loader();

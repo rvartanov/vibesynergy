@@ -58,8 +58,6 @@ export async function render(view, { args = [] } = {}) {
       <p class="sub">${esc(t("Short videos that show how to do things in VibeSynergy. Captions are on; turn them off or switch language in the player."))}</p></div></div>
     <nav class="help-index" aria-label="${esc(t("Manuals"))}"><ul class="plain">${MANUALS.flatMap(([, items]) => items).map(([id, title]) => `<li><a href="#/help/${esc(id)}">${esc(t(title))}</a></li>`).join("")}</ul></nav>
     ${MANUALS.map(([group, items]) => `<section class="help-group"><h2>${esc(t(group))}</h2><div class="help-grid">${items.map(manualHtml).join("")}</div></section>`).join("")}`;
-  // Opened from the footer link: start at the top, not where the last page was scrolled.
-  if (!args[0]) window.scrollTo(0, 0);
   if (args[0]) {
     const target = view.querySelector(`#help-${CSS.escape(args[0])}`);
     if (target) {
