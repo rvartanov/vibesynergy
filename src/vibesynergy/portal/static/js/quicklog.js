@@ -3,19 +3,19 @@
 // complaints that are still open. It writes to the diary; the
 // Diary page has the full history and editing.
 import { get, post } from "./api.js";
-import { esc, number } from "./format.js";
+import { complaintTitle, esc, number } from "./format.js";
 import { N, t } from "./i18n.js";
 
 const QUESTIONS = [
   ["sleep_quality", N("Sleep"), N("poor"), N("good")],
-  ["soreness", N("Soreness"), N("none"), N("very sore")],
+  ["soreness", N("Muscle soreness"), N("fresh"), N("heavy")],
   ["mood", N("Mood"), N("sad"), N("cheerful")],
   ["stress", N("Stress"), N("calm"), N("stressed")],
   ["motivation", N("Motivation"), N("low"), N("high")],
 ];
 const DASHBOARD_QUESTIONS = [
   ["sleep_quality", N("Sleep"), N("poor"), N("good")],
-  ["soreness", N("Legs"), N("fresh"), N("heavy")],
+  ["soreness", N("Muscle soreness"), N("fresh"), N("heavy")],
   ["mood", N("Mood"), N("sad"), N("cheerful")],
   ["stress", N("Stress"), N("calm"), N("stressed")],
   ["motivation", N("Motivation"), N("low"), N("high")],
@@ -55,13 +55,13 @@ function draw(el, diary, today, stale, flash = "", variant = "page") {
   };
   if (dashboard && answered && el.dataset.editing !== "1") {
     el.innerHTML = `${flash ? `<div class="sub ok-text" role="status">${esc(flash)}</div>` : ""}<p class="checkin-done">${esc(t("Checked in"))} <span aria-hidden="true">✓</span> · <button type="button" class="btn" data-edit-checkin>${t("Edit check-in")}</button></p>
-      <div class="ql-actions"><button class="btn" type="button" data-compact-open="note">+ ${t("Note")}</button><button class="btn" type="button" data-compact-open="pain">+ ${t("Pain")}</button></div>`;
+      <div class="ql-actions"><button class="btn" type="button" data-compact-open="note">+ ${t("Note")}</button><button class="btn" type="button" data-compact-open="niggle">+ ${t("Pain or niggle")}</button></div>`;
     el.querySelector("[data-edit-checkin]").addEventListener("click", () => {
       el.dataset.editing = "1";
       draw(el, diary, today, stale, "", variant);
     });
     for (const button of el.querySelectorAll("[data-compact-open]")) {
-      button.addEventListener("click", () => el.openForm(button.dataset.compactOpen === "pain" ? "note-pain" : "note"));
+      button.addEventListener("click", () => el.openForm(button.dataset.compactOpen));
     }
     return;
   }
@@ -81,13 +81,14 @@ function draw(el, diary, today, stale, flash = "", variant = "page") {
       .map((i) => {
         const trend = i.pain_log.map((e) => e.pain).join(" → ");
         const todayPain = i.pain_log.find((e) => e.date === today)?.pain;
-        return `<div class="ql-complaint"><span><b>${esc(i.title)}</b> <span class="muted">${esc(trend || t("no pain logged"))}</span></span>
+        return `<div class="ql-complaint"><span><b>${esc(complaintTitle(i))}</b> <span class="muted">${esc(trend || t("no pain logged"))}</span></span>
           <label class="sub">${t("Pain today")} <select class="btn" data-pain="${esc(i.id)}"><option value="">–</option>${Array.from({ length: 11 }, (_, n) => `<option${todayPain === n ? " selected" : ""}>${n}</option>`).join("")}</select></label></div>`;
       })
       .join("")}</div>` : ""}
     <div class="ql-actions">
+      ${dashboard && answered ? `<button class="btn primary" type="button" data-checkin-done>${t("Done editing")}</button>` : ""}
       <button class="btn" type="button" data-open="note">+ ${t("Note")}</button>
-      <button class="btn" type="button" data-open="${dashboard ? "note-pain" : "niggle"}">+ ${dashboard ? t("Pain") : t("Niggle")}</button>
+      <button class="btn" type="button" data-open="niggle">+ ${t("Pain or niggle")}</button>
     </div>
     ${noteFormHtml(choices, { activities: diary.events.filter((event) => event.local_date === today), key: variant })}
     <form class="ql-form" data-form="niggle" hidden>
@@ -111,10 +112,11 @@ function draw(el, diary, today, stale, flash = "", variant = "page") {
     }
   }
 
-  const refresh = async (message) => {
+  // keep: an answer changed while editing the check-in; stay open for the next one (#39).
+  const refresh = async (message, keep = false) => {
     const reply = await get("diary", { period: "last_7d" });
     if (!stale()) {
-      if (dashboard) delete el.dataset.editing;
+      if (dashboard && !keep) delete el.dataset.editing;
       draw(el, reply.data, today, stale, message, variant);
     }
   };
@@ -126,11 +128,15 @@ function draw(el, diary, today, stale, flash = "", variant = "page") {
     }
   };
 
+  el.querySelector("[data-checkin-done]")?.addEventListener("click", () => {
+    delete el.dataset.editing;
+    draw(el, diary, today, stale, "", variant);
+  });
   el.querySelectorAll(".ql-dot").forEach((button) =>
     button.addEventListener("click", async () => {
       try {
         await post("diary/checkin", { [button.dataset.field]: Number(button.dataset.value) });
-        refresh(t("Saved."));
+        refresh(t("Saved."), el.dataset.editing === "1");
       } catch (error) {
         fail(el, error);
       }

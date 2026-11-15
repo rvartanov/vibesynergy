@@ -102,6 +102,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- The check-in uses the same words everywhere: **Muscle soreness** (fresh to heavy) on the
+  start page, in the + dialog, the diary and recovery, and one **+ Pain or niggle** button
+  that opens the same form. Changing an answer under **Edit check-in** keeps the check-in
+  open until you choose **Done editing**
+  ([#39](https://github.com/rvartanov/vibesynergy/issues/39)).
+- A complaint without a title of its own shows its name in your language ("Kuit links"
+  instead of "Left calf") ([#40](https://github.com/rvartanov/vibesynergy/issues/40)).
 - Coach → Memory: clicking **Add a note** straight after typing your notes for the coach
   works the first time. Saving the notes showed a status line that pushed the button down
   under the pointer ([#35](https://github.com/rvartanov/vibesynergy/issues/35)).

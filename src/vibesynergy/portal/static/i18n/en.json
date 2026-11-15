@@ -746,7 +746,6 @@
  "Sleep stages": "Sleep stages",
  "Sleep stages, heart rate, stress and Body Battery through the day": "Sleep stages, heart rate, stress and Body Battery through the day",
  "Smoothing": "Smoothing",
- "Soreness": "Soreness",
  "Sort": "Sort",
  "Source": "Source",
  "Sources": "Sources",
@@ -1097,7 +1096,6 @@
  "upper back": "upper back",
  "usually {value}": "usually {value}",
  "vacation": "vacation",
- "very sore": "very sore",
  "waiting": "waiting",
  "waiting for the API limit": "waiting for the API limit",
  "work": "work",
@@ -1796,7 +1794,6 @@
  "upcoming": "upcoming",
  "Edit check-in": "Edit check-in",
  "Checked in": "Checked in",
- "Legs": "Legs",
  "Stored encrypted on this server, never shown again. VibeSynergy checks the sign-in and lists your calendars before saving anything else.": "Stored encrypted on this server, never shown again. VibeSynergy checks the sign-in and lists your calendars before saving anything else.",
  "The order of the sections and of the pages in them, and which pages show. Kept on this server, so it's the same on every device. Hidden pages still open from their address.": "The order of the sections and of the pages in them, and which pages show. Kept on this server, so it's the same on every device. Hidden pages still open from their address.",
  "FIT, GPX or TCX files, or a zip of them (e.g. from MyWhoosh, Zwift, Komoot or an old device). They're merged with the copies VibeSynergy already has. You can also put files in the drop folder {folder} on this server; it's checked every {n} minutes.": "FIT, GPX or TCX files, or a zip of them (e.g. from MyWhoosh, Zwift, Komoot or an old device). They're merged with the copies VibeSynergy already has. You can also put files in the drop folder {folder} on this server; it's checked every {n} minutes.",
@@ -2969,5 +2966,8 @@
  "Arrange the start page, pick a theme and hide pages from the menu.": "Arrange the start page, pick a theme and hide pages from the menu.",
  "Empty: alerts go to your account address, {email}.": "Empty: alerts go to your account address, {email}.",
  "Races and agenda (start page)": "Races and agenda (start page)",
- "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy."
+ "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.",
+ "Pain or niggle": "Pain or niggle",
+ "{side} {part}": "{side} {part}",
+ "Done editing": "Done editing"
 }

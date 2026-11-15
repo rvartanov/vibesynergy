@@ -20,7 +20,7 @@ const DEFAULT = { period: "last_1m" };
 const EXTRA = [["last_12m", N("12 months")]];
 const CHECKIN = [
   ["sleep_quality", N("Sleep")],
-  ["soreness", N("Soreness")],
+  ["soreness", N("Muscle soreness")],
   ["mood", N("Mood")],
   ["stress", N("Stress")],
   ["motivation", N("Motivation")],

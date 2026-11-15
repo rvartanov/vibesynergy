@@ -461,7 +461,7 @@ function domainsHtml(day, catalogue, skip = new Set(), leave = new Set()) {
     .join("");
 }
 
-const CHECKIN_NAMES = { sleep_quality: N("Sleep quality"), soreness: N("Soreness"), mood: N("Mood"), stress: N("Stress"), motivation: N("Motivation") };
+const CHECKIN_NAMES = { sleep_quality: N("Sleep quality"), soreness: N("Muscle soreness"), mood: N("Mood"), stress: N("Stress"), motivation: N("Motivation") };
 const CHECKIN_SCALE_ENDS = {
   sleep_quality: [N("poor"), N("good")],
   soreness: [N("fresh"), N("heavy")],

@@ -2,7 +2,7 @@
 // warnings say, then what healed. Logging today's pain saves at once; a new complaint is
 // added with + (quick add) or on the start page.
 import { get, post } from "../api.js";
-import { esc, isNum, longDate, number, shortDate } from "../format.js";
+import { complaintTitle, esc, isNum, longDate, number, shortDate } from "../format.js";
 import { N, language, t } from "../i18n.js";
 
 const KINDS = { niggle: N("Niggle"), injury: N("Injury"), illness: N("Illness") };
@@ -26,7 +26,7 @@ function injuryHtml(item, { canWrite }) {
     : "";
   const resolved = item.resolved_on ? ` · ${esc(t("healed on {date}", { date: longDate(item.resolved_on) }))}` : "";
   return `<li class="card injury-item">
-    <h3>${esc(item.title)}</h3>
+    <h3>${esc(complaintTitle(item))}</h3>
     <p class="sub">${esc([kind, since].filter(Boolean).join(" · "))}${resolved}</p>
     <p><strong>${esc(pain)}</strong>${isNum(item.worst_pain) ? ` <span class="sub">${esc(t("worst {n}/10", { n: number(item.worst_pain) }))}</span>` : ""}</p>
     ${flags}${log}

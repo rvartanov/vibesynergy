@@ -66,13 +66,18 @@ def today(r: Rec):
         "Recovery compares HRV, sleep and resting heart rate with your normal.",
     )
     ci = card(r, "Check-in")
+    # A check-in from an earlier recording today: open it again, so the scales show.
+    edit = ci.locator("button", has_text="Check-in wijzigen")
+    if edit.count():
+        edit.first.click()
+        r.wait(0.5)
     r.point(ci)
     r.say(
         "Vul elke ochtend de check-in in: 1 tot 5 per vraag.",
         "Fill in the check-in every morning: 1 to 5 per question.",
     )
     for i, v in enumerate(["4", "2", "4", "2", "4"]):
-        r.click(ci.locator("button", has_text=v).nth(i), 0.3)
+        r.click(ci.locator(".ql-scale").nth(i).locator(f"button[data-value='{v}']"), 0.3)
     r.say("Je antwoorden worden meteen bewaard.", "Your answers are saved right away.")
     r.click(ci.locator("button", has_text="+ Notitie"))
     r.type(ci.locator("textarea"), "Goed geslapen, benen voelen fris.")
@@ -100,21 +105,21 @@ def quicklog(r: Rec):
     r.go("dashboard")
     r.click(r.pg.locator("header button.quick-add"))
     r.say(
-        "De + rechtsboven werkt op elke pagina: check-in, notitie of ongemak.",
-        "The + at the top right works on every page: check-in, note or discomfort.",
+        "De + rechtsboven werkt op elke pagina: check-in, notitie of pijn.",
+        "The + at the top right works on every page: check-in, note or pain.",
     )
     dlg = r.pg.locator("dialog.quick-dialog")
-    r.click(dlg.locator("button", has_text="+ Ongemak"))
+    r.click(dlg.locator("button", has_text="+ Pijn of ongemak"))
     r.wait(0.8)
     r.say(
-        "Kies + Ongemak om pijn of een klacht vast te leggen.",
-        "Choose + Discomfort to log pain or a complaint.",
+        "Kies + Pijn of ongemak om pijn of een klacht vast te leggen.",
+        "Choose + Pain or niggle to log pain or a complaint.",
     )
-    sels = dlg.locator("select:visible")
-    r.select(sels.nth(0), "kuit")
-    r.select(sels.nth(1), "links")
-    r.select(sels.nth(2), "3")
-    r.select(sels.nth(3), "tijdens")
+    form = dlg.locator("form[data-form=niggle]")
+    r.select(form.locator("select[name=body_part]"), "kuit")
+    r.select(form.locator("select[name=side]"), "links")
+    r.select(form.locator("select[name=pain]"), "3")
+    r.select(form.locator("select[name=timing]"), "tijdens")
     r.type(dlg.locator("input[name=note]:visible"), "Trekt bij het afzetten")
     r.say(
         "Kies waar het zit, welke kant, hoe erg (0–10) en wanneer je het voelt.",
@@ -413,8 +418,8 @@ def injuries(r: Rec):
             "Het pijnlog toont alle scores op een rij.", "The pain log shows all scores in a row."
         )
     r.say(
-        "Een nieuwe klacht leg je vast met + of op de startpagina (+ Pijn).",
-        "Log a new complaint with + or on the start page (+ Pain).",
+        "Een nieuwe klacht leg je vast met + of op de startpagina (+ Pijn of ongemak).",
+        "Log a new complaint with + or on the start page (+ Pain or niggle).",
         2.6,
     )
 
