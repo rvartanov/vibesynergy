@@ -102,6 +102,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Settings → Account lists where you are logged in by browser and system ("Chrome on
+  Linux") instead of the browser's raw identification string; hover for the full string
+  ([#41](https://github.com/rvartanov/vibesynergy/issues/41)).
 - Going to another page opens it at the top instead of where the previous page was
   scrolled ([#44](https://github.com/rvartanov/vibesynergy/issues/44)).
 - The check-in uses the same words everywhere: **Muscle soreness** (fresh to heavy) on the

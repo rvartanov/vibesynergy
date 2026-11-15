@@ -242,6 +242,22 @@ export function metricLabel(id, catalogue) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+// "Chrome on Linux" from a browser's user-agent string; the raw string means little (#41).
+export function deviceName(agent) {
+  const ua = String(agent || "");
+  if (!ua) return "";
+  const browser = [
+    [/Edg\//, "Edge"], [/OPR\/|Opera/, "Opera"], [/Firefox\//, "Firefox"], [/CriOS\//, "Chrome"],
+    [/FxiOS\//, "Firefox"], [/Chrome\//, "Chrome"], [/Safari\//, "Safari"],
+  ].find(([re]) => re.test(ua))?.[1];
+  const system = [
+    [/iPhone/, "iPhone"], [/iPad/, "iPad"], [/Android/, "Android"], [/Windows/, "Windows"],
+    [/Mac OS X|Macintosh/, "macOS"], [/CrOS/, "ChromeOS"], [/Linux/, "Linux"],
+  ].find(([re]) => re.test(ua))?.[1];
+  if (browser && system) return t("{browser} on {system}", { browser, system });
+  return browser || system || ua.slice(0, 40);
+}
+
 // A complaint's title in your language. A complaint saved without a title of its own got
 // "Left calf" (the English default from body part and side); show that one translated (#40).
 export function complaintTitle(item) {
