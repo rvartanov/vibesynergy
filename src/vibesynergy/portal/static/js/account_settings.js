@@ -1,7 +1,7 @@
 // Settings → Account: the login. Change the password, the optional second factor (a code by
 // mail or an authenticator app, with backup codes), the devices you are logged in on, and
 // log out here or everywhere. The account's own API lives under /auth.
-import { esc, userDateTime } from "./format.js";
+import { deviceName, esc, userDateTime } from "./format.js";
 import { t } from "./i18n.js";
 
 async function call(method, path, body) {
@@ -20,7 +20,7 @@ const MFA = { none: "Off", mail: "A code by mail", totp: "An authenticator app" 
 
 function html(a) {
   const sessions = a.sessions
-    .map((s) => `<li>${esc(s.agent.slice(0, 60) || t("Unknown device"))} · ${esc(s.client || "?")} · ${esc(t("last used {when}", { when: userDateTime(s.last_seen) }))}${s.current ? ` <span class="chip good">${esc(t("This device"))}</span>` : ` <button class="btn" type="button" data-end-session="${esc(s.id)}">${esc(t("Log out"))}</button>`}</li>`)
+    .map((s) => `<li><span title="${esc(s.agent)}">${esc(deviceName(s.agent) || t("Unknown device"))}</span> · ${esc(s.client || "?")} · ${esc(t("last used {when}", { when: userDateTime(s.last_seen) }))}${s.current ? ` <span class="chip good">${esc(t("This device"))}</span>` : ` <button class="btn" type="button" data-end-session="${esc(s.id)}">${esc(t("Log out"))}</button>`}</li>`)
     .join("");
   return `<section class="card settings-section" aria-labelledby="account-title">
     <h2 id="account-title">${esc(t("Account"))}</h2>

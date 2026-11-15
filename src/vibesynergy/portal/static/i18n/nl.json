@@ -2969,5 +2969,6 @@
  "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "Voor deellinks heeft VibeSynergy het adres nodig waarop anderen het kunnen bereiken. Wie deze server beheert, zet dat als public_url onder [server] in config.toml en start VibeSynergy opnieuw.",
  "Pain or niggle": "Pijn of ongemak",
  "{side} {part}": "{part} {side}",
- "Done editing": "Klaar"
+ "Done editing": "Klaar",
+ "{browser} on {system}": "{browser} op {system}"
 }
