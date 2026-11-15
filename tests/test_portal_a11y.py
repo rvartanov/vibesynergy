@@ -545,6 +545,7 @@ def _routes(activity: str) -> list[str]:
         "#/sleep",
         "#/body",
         "#/metrics",
+        "#/help",
         "#/settings/system",
         "#/settings/appearance",
         "#/coach",

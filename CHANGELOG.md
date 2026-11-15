@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Help** in the footer of every page: 17 short video manuals (logging in, the day and
+  check-in, quick logging, activities, calendar, planning, the plan builder, zones and form,
+  the AI coach, health, complaints, insight, search, sources, sharing, account security and
+  arranging the app), with Dutch and English captions. `#/help/<manual>` links to one.
 - **Check for updates** on Settings → System → About this version asks GitHub now instead of
   waiting for the hourly check, and shows when it last looked
   ([#22](https://github.com/rvartanov/vibesynergy/pull/22)).

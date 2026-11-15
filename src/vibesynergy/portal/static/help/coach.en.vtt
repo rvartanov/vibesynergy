@@ -1,0 +1,28 @@
+WEBVTT
+
+00:00:02.294 --> 00:00:06.443
+Training → Coach: your AI coach's advice, knowledge, rules, memory and tasks.
+
+00:00:06.493 --> 00:00:09.618
+Settings: turn the coach on and choose an AI provider.
+
+00:00:09.668 --> 00:00:14.172
+Paste your own API key here and choose 'Save key'.
+
+00:00:14.222 --> 00:00:18.891
+Per task you set when the coach runs, for example the morning advice at 9.
+
+00:00:18.941 --> 00:00:23.884
+Memory: what the coach remembers about you, and how it talks.
+
+00:00:23.934 --> 00:00:33.588
+Notes for your coach are saved automatically.
+
+00:00:33.638 --> 00:00:38.335
+Under 'What to remember' you add fixed facts, such as when you can train.
+
+00:00:38.385 --> 00:00:42.887
+Knowledge: the articles the coach relies on. You approve changes.
+
+00:00:42.937 --> 00:00:46.592
+Log: every change in what your coach knows, to look back on.

@@ -176,6 +176,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 ## Help and feedback
 
+- **Help** in the footer of every page: short video manuals for each thing you do, with
+  Dutch and English captions; `#/help/<manual>` opens one. They are recorded from the demo
+  data with [tools/help_videos](../tools/help_videos/README.md).
 - **Report a bug** in the footer of every page and under Settings → System: opens GitHub's
   bug form with the version, page, error and browser filled in; you send it from your own
   account.
