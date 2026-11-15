@@ -102,6 +102,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Coach → Memory: clicking **Add a note** straight after typing your notes for the coach
+  works the first time. Saving the notes showed a status line that pushed the button down
+  under the pointer ([#35](https://github.com/rvartanov/vibesynergy/issues/35)).
 - Settings → Sharing says up front, in your language, when share links can't be made yet
   because VibeSynergy has no public address, instead of failing after you fill in the form
   ([#36](https://github.com/rvartanov/vibesynergy/issues/36)).
