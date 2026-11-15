@@ -182,3 +182,32 @@ def test_everything_link_follows_new_pages_and_edits_save_in_place(public) -> No
         f"/api/share_links/{row['id']}", json={"pages": ["*"]}, headers={"x-vibesynergy": "portal"}
     )
     assert gone.status_code >= 400
+
+
+def test_without_a_public_address_the_dialog_says_so_first(runtime, public) -> None:
+    """No [server] public_url: the list says links can't be made yet (#36)."""
+    from vibesynergy.portal.app import create_portal_app
+
+    bare = TestClient(create_portal_app(runtime), base_url="http://localhost")
+    data = bare.get("/api/share_links").json()["data"]
+    assert data["ready"] is False
+    made = bare.post(
+        "/api/share_links",
+        json={"title": "Coach", "pages": ["training"]},
+        headers={"x-vibesynergy": "portal"},
+    )
+    assert made.status_code == 400 and "public_url" in made.text
+    rt, _ = public
+    owner = TestClient(create_portal_app(rt), base_url="http://localhost")
+    assert owner.get("/api/share_links").json()["data"]["ready"] is True
+
+
+def test_every_share_choice_has_its_own_label() -> None:
+    """Two pages named "Calendar" looked like one page listed twice (#43)."""
+    import re
+    from pathlib import Path
+
+    js = Path(__file__).parents[1] / "src/vibesynergy/portal/static/js/settings_shares.js"
+    names = dict(re.findall(r'^\s*"?([a-z*]+)"?: N\("([^"]+)"\)', js.read_text(), re.M))
+    labels = [names[p] for p in share.CHOICES]
+    assert len(labels) == len(set(labels)), labels

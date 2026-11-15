@@ -2967,5 +2967,7 @@
  "Change your password, turn on two-step verification and choose alerts.": "Wijzig je wachtwoord, zet tweestapsverificatie aan en kies je meldingen.",
  "Making VibeSynergy your own": "VibeSynergy naar je hand zetten",
  "Arrange the start page, pick a theme and hide pages from the menu.": "Deel de startpagina in, kies een thema en verberg pagina's in het menu.",
- "Empty: alerts go to your account address, {email}.": "Leeg: meldingen gaan naar je accountadres, {email}."
+ "Empty: alerts go to your account address, {email}.": "Leeg: meldingen gaan naar je accountadres, {email}.",
+ "Races and agenda (start page)": "Wedstrijden en agenda (startpagina)",
+ "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "Voor deellinks heeft VibeSynergy het adres nodig waarop anderen het kunnen bereiken. Wie deze server beheert, zet dat als public_url onder [server] in config.toml en start VibeSynergy opnieuw."
 }

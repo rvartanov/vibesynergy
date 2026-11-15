@@ -860,12 +860,23 @@ def build_settings_router(rt: Runtime) -> APIRouter:
         """Links that still open. Revoked and expired ones stay in the database and show
         up in the log on Settings -> Sharing."""
         links = [link for link in share.list_links(rt.engine) if link["state"] == "active"]
-        return {"data": {"links": links, "pages": list(share.CHOICES), "all": share.ALL}}
+        return {
+            "data": {
+                "links": links,
+                "pages": list(share.CHOICES),
+                "all": share.ALL,
+                # Without the public address a link can't be made: say so before the form.
+                "ready": bool(settings.public_url),
+            }
+        }
 
     @router.post("/share_links")
     def create_share_link(request: ShareRequest) -> dict[str, Any]:
         if not settings.public_url:
-            raise ValueError("share links need [server] public_url (the public address)")
+            raise ValueError(
+                "Share links need VibeSynergy's public address: set public_url under "
+                "[server] in config.toml and restart."
+            )
         code, row = share.create(
             rt.engine,
             request.title,
