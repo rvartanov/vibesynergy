@@ -241,3 +241,17 @@ export function metricLabel(id, catalogue) {
   const text = words.map((w) => (ACRONYMS.has(w) ? w.toUpperCase() : w)).join(" ");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+// A complaint's title in your language. A complaint saved without a title of its own got
+// "Left calf" (the English default from body part and side); show that one translated (#40).
+export function complaintTitle(item) {
+  const part = String(item?.body_part || "").replaceAll("_", " ");
+  const side = item?.side || "none";
+  const english = side === "none" ? cap(part) : `${cap(side)} ${part}`;
+  if (!part || item.title !== english) return item?.title || "";
+  return cap(side === "none" ? t(part) : t("{side} {part}", { side: t(side), part: t(part) }));
+}
+
+function cap(text) {
+  return text ? text[0].toUpperCase() + text.slice(1) : text;
+}

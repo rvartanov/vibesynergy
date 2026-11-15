@@ -2,7 +2,7 @@
 // entered by you; the warnings on injuries are fixed rules, not a diagnosis.
 import { get, post } from "../api.js";
 import { alpha, mount, series, token, tooltipBase } from "../charts.js";
-import { esc, hoursMinutes, km, number, shortDate, sourceName, sportName, tagName } from "../format.js";
+import { complaintTitle, esc, hoursMinutes, km, number, shortDate, sourceName, sportName, tagName } from "../format.js";
 import { tagChip } from "../symbols.js";
 import { N, t } from "../i18n.js";
 import {
@@ -288,7 +288,7 @@ export async function mountDiary(root, ctx, { embedded = false, hashBase, skipHe
         note: f.get("note") || null,
       });
       const stop = reply.data.flags.find((x) => x.level === "stop");
-      await again(stop ? stop.message : t("Logged: {title}, {n}/10.", { title: reply.data.title, n: f.get("pain") }));
+      await again(stop ? stop.message : t("Logged: {title}, {n}/10.", { title: complaintTitle(reply.data), n: f.get("pain") }));
     } catch (error) {
       failed(error);
     }
@@ -408,7 +408,7 @@ function injuryCard(i) {
        <button class="btn" type="button" data-status="resolved">${t("Resolved")}</button>`;
   const since = t("since {date}", { date: shortDate(i.onset) }) + (i.resolved_on ? ` · ${t("resolved {date}", { date: shortDate(i.resolved_on) })}` : "");
   return `<article class="card injury" data-id="${esc(i.id)}">
-    <div class="page-head"><h3>${esc(i.title)}</h3>
+    <div class="page-head"><h3>${esc(complaintTitle(i))}</h3>
       <div class="injury-meta"><span class="chip ${STATUS_CHIP[i.status]}">${esc(t(i.status))}</span> ${esc(t(i.kind))} · ${esc(since)}${i.latest_pain !== null ? ` · ${esc(t("latest {n}/10, worst {worst}/10", { n: i.latest_pain, worst: i.worst_pain }))}` : ""}</div></div>
     ${flags}
     ${i.pain_log.length ? `<div class="legend"><span><i style="background:var(--s2)"></i>${t("Pain (0–10)")}</span><span><i style="background:var(--s1)"></i><span class="load-name">${t("Training load")}</span></span></div><div class="chart injury-chart" role="img" aria-label="${esc(t("Daily pain next to training"))}"></div>` : `<div class="empty">${t("No pain logged yet.")}</div>`}

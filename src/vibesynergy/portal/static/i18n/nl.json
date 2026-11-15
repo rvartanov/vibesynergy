@@ -746,7 +746,6 @@
  "Sleep stages": "Slaapfasen",
  "Sleep stages, heart rate, stress and Body Battery through the day": "Slaapfasen, hartslag, stress en Body Battery door de dag",
  "Smoothing": "Afvlakking",
- "Soreness": "Spierpijn",
  "Sort": "Sorteren",
  "Source": "Bron",
  "Sources": "Bronnen",
@@ -1097,7 +1096,6 @@
  "upper back": "bovenrug",
  "usually {value}": "meestal {value}",
  "vacation": "vakantie",
- "very sore": "veel spierpijn",
  "waiting": "wacht",
  "waiting for the API limit": "wacht op de API-limiet",
  "work": "werk",
@@ -1796,7 +1794,6 @@
  "upcoming": "komt nog",
  "Edit check-in": "Check-in wijzigen",
  "Checked in": "Ingecheckt",
- "Legs": "Benen",
  "Stored encrypted on this server, never shown again. VibeSynergy checks the sign-in and lists your calendars before saving anything else.": "Versleuteld op deze server bewaard, nooit meer getoond. VibeSynergy controleert de aanmelding en toont je agenda's voordat er iets anders wordt opgeslagen.",
  "The order of the sections and of the pages in them, and which pages show. Kept on this server, so it's the same on every device. Hidden pages still open from their address.": "De volgorde van de onderdelen en de pagina's daarin, en welke pagina's zichtbaar zijn. Bewaard op deze server, dus hetzelfde op elk apparaat. Verborgen pagina's openen nog steeds via hun adres.",
  "FIT, GPX or TCX files, or a zip of them (e.g. from MyWhoosh, Zwift, Komoot or an old device). They're merged with the copies VibeSynergy already has. You can also put files in the drop folder {folder} on this server; it's checked every {n} minutes.": "FIT-, GPX- of TCX-bestanden, of een zip daarvan (bijv. van MyWhoosh, Zwift, Komoot of een oud apparaat). Ze worden samengevoegd met de kopieën die VibeSynergy al heeft. Je kunt bestanden ook in de invoermap {folder} op deze server zetten; die wordt elke {n} minuten gecontroleerd.",
@@ -2969,5 +2966,8 @@
  "Arrange the start page, pick a theme and hide pages from the menu.": "Deel de startpagina in, kies een thema en verberg pagina's in het menu.",
  "Empty: alerts go to your account address, {email}.": "Leeg: meldingen gaan naar je accountadres, {email}.",
  "Races and agenda (start page)": "Wedstrijden en agenda (startpagina)",
- "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "Voor deellinks heeft VibeSynergy het adres nodig waarop anderen het kunnen bereiken. Wie deze server beheert, zet dat als public_url onder [server] in config.toml en start VibeSynergy opnieuw."
+ "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "Voor deellinks heeft VibeSynergy het adres nodig waarop anderen het kunnen bereiken. Wie deze server beheert, zet dat als public_url onder [server] in config.toml en start VibeSynergy opnieuw.",
+ "Pain or niggle": "Pijn of ongemak",
+ "{side} {part}": "{part} {side}",
+ "Done editing": "Klaar"
 }
