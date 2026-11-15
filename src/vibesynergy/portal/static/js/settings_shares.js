@@ -10,7 +10,7 @@ import { select } from "./settings_pieces.js";
 
 const PAGE_NAMES = {
   dashboard: N("Dashboard"),
-  calendar: N("Calendar"),
+  calendar: N("Races and agenda (start page)"),
   today: N("Today (any day)"),
   diary: N("Diary"),
   activities: N("Activities"),
@@ -81,7 +81,7 @@ export async function loadShares(el, stale, created = null) {
     <p class="sub">${t("A secret public address that shows the pages you choose, for example to a coach. Anyone with the link can open it until it expires or you revoke it. Settings is never shared.")}</p>
     ${created ? `<div class="share-new"><b>${esc(t("Link for {name}", { name: created.link.title }))}</b><code>${esc(created.url)}</code>
       <div><button class="btn primary" type="button" data-copy>${t("Copy link")}</button> <span class="sub">${t("Shown only now: VibeSynergy keeps just a fingerprint of it. If it's lost, revoke it and make a new one.")}</span></div></div>` : ""}
-    <form class="share-form">
+    ${reply.data.ready === false ? `<p class="notice" data-share-not-ready>${esc(t("To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy."))}</p>` : `<form class="share-form">
       <div class="settings-grid">
         <label>${t("Title (who it's for)")} <input class="btn" name="title" maxlength="80" placeholder="${esc(t("e.g. Coach Anna"))}" required></label>
         <label>${t("Expires after")} ${select("expires", EXPIRIES.map(([v, label]) => [v, t(label)]), "7")}</label>
@@ -89,7 +89,7 @@ export async function loadShares(el, stale, created = null) {
       </div>
       <fieldset><legend>${esc(t("Pages"))}</legend>${sharePagesHtml(pages, reply.data.all, pages.filter((p) => p !== "sql" && p !== "data"), "page")}</fieldset>
       <div class="settings-save"><button class="btn primary" type="submit">${t("Create link")}</button><span class="sub" data-status role="status" aria-live="polite"></span></div>
-    </form>
+    </form>`}
     <h3 class="settings-subhead">${t("Open links")}</h3>
     ${links.length ? sharesTable(links) + links.map((l) => shareEditHtml(l, pages, reply.data.all)).join("") : `<p class="sub">${t("No share links are open.")}</p>`}`;
   // Redraw when the next link expires, so an expired link leaves the list by itself.
@@ -110,7 +110,7 @@ export async function loadShares(el, stale, created = null) {
     }
   });
   const form = el.querySelector(".share-form");
-  bindEverything(form, "page");
+  if (form) bindEverything(form, "page");
   for (const edit of el.querySelectorAll("[data-share-edit]")) {
     const id = edit.dataset.shareEdit;
     bindEverything(edit, `pages-${id}`);
@@ -124,7 +124,7 @@ export async function loadShares(el, stale, created = null) {
         }),
     });
   }
-  form.addEventListener("submit", async (event) => {
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const status = form.querySelector("[data-status]");
     const expires = form.querySelector("[name=expires]").value;

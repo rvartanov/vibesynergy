@@ -102,6 +102,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Settings → Sharing says up front, in your language, when share links can't be made yet
+  because VibeSynergy has no public address, instead of failing after you fill in the form
+  ([#36](https://github.com/rvartanov/vibesynergy/issues/36)).
+- The share-link page list no longer shows "Calendar" twice: the start page's races and
+  agenda now have their own name ([#43](https://github.com/rvartanov/vibesynergy/issues/43)).
 - Email alerts with no address of their own go to your account's address, and Settings →
   Alerts says so; it no longer shows "needs an address" while your account has one. The
   alert check now also runs without that address, so the banner and push stay current

@@ -2967,5 +2967,7 @@
  "Change your password, turn on two-step verification and choose alerts.": "Change your password, turn on two-step verification and choose alerts.",
  "Making VibeSynergy your own": "Making VibeSynergy your own",
  "Arrange the start page, pick a theme and hide pages from the menu.": "Arrange the start page, pick a theme and hide pages from the menu.",
- "Empty: alerts go to your account address, {email}.": "Empty: alerts go to your account address, {email}."
+ "Empty: alerts go to your account address, {email}.": "Empty: alerts go to your account address, {email}.",
+ "Races and agenda (start page)": "Races and agenda (start page)",
+ "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy.": "To make share links, VibeSynergy needs the address where others can reach it. Whoever runs this server sets it as public_url under [server] in config.toml, then restarts VibeSynergy."
 }
