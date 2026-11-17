@@ -5,8 +5,8 @@ workout with real step types, distances and pace targets. Garmin wants absolute 
 so the relative zones are turned into speeds from the confirmed thresholds at build time
 (ICU-6); a threshold change rebuilds the workout through the fingerprint.
 
-Off until a sport is switched on (portal preference ``garmin_delivery``). In the parallel
-week the workout gets an emoji name next to intervals.icu's own copy; ``garmin_strength``
+Off until a sport is switched on (portal preference ``garmin_delivery``). The name carries
+VibeSynergy's mark (``garmin_strength.MARK``); ``garmin_strength``
 does the delivery, withdrawal and self-healing for both.
 """
 
@@ -18,22 +18,17 @@ from typing import Any
 
 from sqlalchemy import select
 
-from vibesynergy.query import evidence, thresholds, workout_model
+from vibesynergy.query import evidence, garmin_strength, thresholds, workout_model
 from vibesynergy.store.schema import icu_event
 
 # Indoor rides (VirtualRide) stay with intervals.icu, which also feeds Zwift.
 SPORTS = ("swim", "run", "ride")
-# During the parallel week VibeSynergy's copies had a sport emoji in front, to stand
-# apart from intervals.icu's push. the athlete switched that push off on 7-11: plain names now.
-NAME_PREFIX = {"swim": "", "run": "", "ride": ""}
 _ICU_TYPES = {"swim": ("Swim",), "run": ("Run", "TrailRun"), "ride": ("Ride", "MountainBikeRide")}
 _RIDE = {"sportTypeId": 2, "sportTypeKey": "cycling"}
 _THRESHOLD_SPORT = {"swim": "swim", "run": "run", "ride": "bike"}
 _RUN = {"sportTypeId": 1, "sportTypeKey": "running"}
 _SWIM = {"sportTypeId": 4, "sportTypeKey": "swimming"}
 _MULTI = {"sportTypeId": 10, "sportTypeKey": "multi_sport"}
-# A brick (PLAN-7): one multisport workout, ride then run, next to the separate copies.
-BRICK_PREFIX = ""
 _POOL = {"unitId": 1, "unitKey": "meter", "factor": 100.0}
 _STEP_TYPES = {
     "warmup": (1, "warmup"),
@@ -293,7 +288,7 @@ def _bricks(out: dict[str, dict], rows: dict[str, Any]) -> dict[str, dict]:
             max(same_day, key=lambda k: out[k]["seconds"]),
         )
         ride = out[ride_id]
-        name = BRICK_PREFIX + f"{ride['title']} + {run['title']}"
+        name = garmin_strength.marked(f"{ride['title']} + {run['title']}")
         workout = build_brick(name, ride["workout"], run["workout"])
         key = f"brick:{ride_id}+{run_id}"
         bricks[key] = {
@@ -339,7 +334,7 @@ def desired(engine, today: date, sports: tuple[str, ...], lookahead: int) -> dic
             parsed = workout_model.parse_intervals(row.description)
             if parsed.unparsed or not parsed.steps:
                 continue  # leave it to intervals.icu's own push
-            name = NAME_PREFIX[sport] + ((row.name or "").strip() or sport.capitalize())
+            name = garmin_strength.marked((row.name or "").strip() or sport.capitalize())
             if sport == "swim":
                 workout = build_swim(name, parsed, values.get("css"))
             elif sport == "ride":

@@ -18,10 +18,10 @@ own step syntax (``- 10m``, ``4x``), so its parser leaves them as text.
 ``parse_block`` reads and checks the block against Garmin's exercise catalog; the plan
 writes refuse an invalid one. ``run`` (a scheduler service) builds the Garmin workout for
 each upcoming session with a block and schedules it on that day under the session's name.
-Until 7-11-2026 an emoji (``NAME_PREFIX``) set it apart from intervals.icu's own Garmin copy,
-which stayed. the athlete switched intervals.icu's Garmin push off then; the copies it
-had already pushed stay on Garmin under the same name, so ``_drop_copies`` takes a same-day,
-same-name workout that is not ours off the calendar. The planned load stays on the
+Its name starts with ``MARK`` (#64), so the athlete sees on the watch which workouts are
+VibeSynergy's. intervals.icu's Garmin push is off since 7-11-2026; the copies it had already
+pushed stay on Garmin under the plain name, so ``_drop_copies`` takes a same-day workout with
+that name (marks aside) that is not ours off the calendar. The planned load stays on the
 intervals.icu event, which still matches the activity.
 ``garmin_strength_delivery`` remembers what was delivered, so
 an edit or a move in intervals.icu replaces ours, a removed block or event takes ours off the
@@ -474,9 +474,20 @@ def _api(rt):
     return connect(SecretStore(rt.settings.secrets_dir, "garmin"))
 
 
-# Our workout's name starts with this on the watch; intervals.icu's copy keeps the plain name.
-# Plain names since intervals.icu's Garmin push is off.
-NAME_PREFIX = {"strength_training": "", "pilates": "", "yoga": ""}
+# Every workout VibeSynergy puts on Garmin starts with this mark (#64), so on the watch and in
+# Garmin Connect it stands apart from Garmin Coach and the athlete's own workouts.
+MARK = "\u26a1 "
+
+
+def marked(name: str) -> str:
+    """The Garmin name for a VibeSynergy workout: the mark in front, once."""
+    plain = name.strip()
+    return plain if plain.startswith(MARK.strip()) else MARK + plain
+
+
+def name_key(name: str | None) -> str:
+    """A name without leading symbols, for comparing ours with intervals.icu's copies."""
+    return " ".join(re.sub(r"^\W+", "", name or "").casefold().split())
 
 
 def desired(engine, today: date, lookahead: int = LOOKAHEAD_DAYS) -> dict[str, dict[str, Any]]:
@@ -500,7 +511,7 @@ def desired(engine, today: date, lookahead: int = LOOKAHEAD_DAYS) -> dict[str, d
             continue
         if block is None:
             continue
-        name = NAME_PREFIX.get(block.sport, "") + ((row.name or "").strip() or "Kracht")
+        name = marked((row.name or "").strip() or "Kracht")
         out[str(row.id)] = {
             "event_id": str(row.id),
             "date": row.date,
@@ -620,7 +631,7 @@ def _drop_copies(engine, api, wanted: dict[str, dict]) -> int:
     """
     names: dict[date, set[str]] = {}
     for want in wanted.values():
-        name = str(want["workout"].get("workoutName") or "").strip().casefold()
+        name = name_key(str(want["workout"].get("workoutName") or ""))
         if name:
             names.setdefault(want["date"], set()).add(name)
     ours_scheduled, ours_workouts = set(), set()
@@ -634,7 +645,7 @@ def _drop_copies(engine, api, wanted: dict[str, dict]) -> int:
         for item in _garmin_day(engine, day):
             if item["scheduled_id"] in ours_scheduled:
                 continue
-            if item["title"].strip().casefold() not in wanted_names:
+            if name_key(item["title"]) not in wanted_names:
                 continue
             if item["workout_id"] in ours_workouts:
                 continue

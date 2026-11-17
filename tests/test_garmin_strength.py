@@ -236,7 +236,7 @@ def test_delivers_once_and_removes_intervals_copy(runtime) -> None:
     first = gs.reconcile(runtime.engine, lambda: api, TODAY)
     assert first == {"delivered": 1, "withdrawn": 0, "errors": 0, "copies_removed": 1}
     assert api.calls == [
-        ("upload", "Kracht AA 40'"),
+        ("upload", "⚡ Kracht AA 40'"),
         ("schedule", 501, "2026-11-03"),
         ("unschedule", 900),
         ("delete", 77),
@@ -258,7 +258,7 @@ def test_delivers_once_and_removes_intervals_copy(runtime) -> None:
     api.calls.clear()
     gs.reconcile(runtime.engine, lambda: api, TODAY)
     assert api.calls[:2] == [("unschedule", 10501), ("delete", 501)]
-    assert api.calls[2] == ("upload", "Kracht AA 40'")
+    assert api.calls[2] == ("upload", "⚡ Kracht AA 40'")
 
     # The block removed: ours comes off the calendar.
     _event(runtime, {**EVENT, "description": "Anatomische adaptatie.\n\n- 40m free"})
@@ -311,7 +311,7 @@ def test_a_session_removed_in_garmin_is_put_back_after_the_next_calendar_sync(ru
     # A later sync without it: delivered again.
     synced(datetime.now(UTC) + timedelta(hours=1))
     gs.reconcile(runtime.engine, lambda: api, TODAY)
-    assert ("upload", "Kracht AA 40'") in api.calls
+    assert ("upload", "⚡ Kracht AA 40'") in api.calls
     assert _delivery(runtime)["state"] == "delivered"
 
     # Listed by the next sync: left alone.
@@ -391,7 +391,7 @@ def test_outdated_content_and_short_plan_are_reported(runtime, monkeypatch) -> N
     now = datetime(2026, 11, 2, 9, tzinfo=UTC)
     out = horizon.status(runtime.engine, TODAY, 9, now=now)
     # Not delivered yet, and the change is days old: outdated. Plan ends 3-11 of 2..10-11.
-    assert [e["title"] for e in out["outdated"]] == ["Kracht AA 40'"]
+    assert [e["title"] for e in out["outdated"]] == ["⚡ Kracht AA 40'"]
     assert out["fill"] == {"planned_through": "2026-11-03", "behind": True}
     assert out["level"] == "warn"
 
@@ -453,3 +453,9 @@ def test_step_text_must_name_the_same_kit_as_the_exercise() -> None:
         'DEADLIFT/ROMANIAN_DEADLIFT sets=3 reps=10 "RDL, dumbbells mag ook"',  # no kit in name
     ):
         gs.check_description(f"Kracht\n\n[garmin]\n{fine}")
+
+
+def test_the_mark_goes_in_front_once_and_names_compare_without_it() -> None:
+    assert gs.marked("Kracht AA 40'") == "⚡ Kracht AA 40'"
+    assert gs.marked("⚡ Kracht AA 40'") == "⚡ Kracht AA 40'"
+    assert gs.name_key("⚡ Kracht AA 40'") == gs.name_key("Kracht  AA 40'")
