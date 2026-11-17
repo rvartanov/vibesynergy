@@ -732,7 +732,6 @@ def _advice(
             if completed_count == 1
             else tr("{n} activities recorded today.", n=completed_count)
         )
-        tail += " " + tr("Review what you have already done before adding training.")
         if todo:
             tail += " " + tr("Still on the plan: {title}.", title=todo[0]["title"])
     elif todo:

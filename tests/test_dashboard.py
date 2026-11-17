@@ -696,3 +696,9 @@ def test_a_cut_short_night_with_a_good_check_in_is_asked_about() -> None:
     assert "short_sleep" not in marked["rules"] and marked["level"] == "green"
     agreed = dashboard._verdict(short, LOAD, _plan(), [], sick=False, checkin={"sleep_quality": 2})
     assert agreed["sleep_check"] is None
+
+
+def test_an_activity_today_names_the_count_and_the_plan_without_a_warning() -> None:
+    """#85: no 'review what you have already done' line; the count and the plan stay."""
+    text = dashboard._advice("green", _plan("Rustige rit Z2 1u"), completed_count=1)
+    assert text == "One activity recorded today. Still on the plan: Rustige rit Z2 1u."
