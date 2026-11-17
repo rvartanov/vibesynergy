@@ -133,7 +133,7 @@ def _outdated(
     from vibesynergy.query import garmin_endurance, garmin_strength, plan_model
 
     lookahead = (end - today).days
-    mark = mark or garmin_strength.MARK
+    mark = garmin_strength.MARK if mark is None else mark
     wanted = garmin_strength.desired(engine, today, lookahead, mark)
     wanted.update(garmin_endurance.desired(engine, today, sports, lookahead, mark))
     if not wanted:

@@ -70,18 +70,22 @@ MARK_TYPES = (
     "run",
     "ride",
     "swim",
-    "brick",
-    "duathlon",
-    "triathlon",
     "multisport",
 )
+# Types from #70, replaced by one multisport (#72): dropped when the marks are saved again.
+OLD_MARK_TYPES = ("brick", "duathlon", "triathlon")
 
 
 def _marks(value: Any) -> dict[str, str]:
     """A mark per workout type; a type left out gets its default (``TYPE_MARKS``)."""
-    if not isinstance(value, dict) or any(k not in MARK_TYPES for k in value):
+    known = (*MARK_TYPES, *OLD_MARK_TYPES)
+    if not isinstance(value, dict) or any(k not in known for k in value):
         raise ValueError(f"garmin_marks: marks for {', '.join(MARK_TYPES)}")
-    return {k: _mark(v) for k, v in value.items() if isinstance(v, str) and v.strip()}
+    return {
+        k: _mark(v)
+        for k, v in value.items()
+        if k in MARK_TYPES and isinstance(v, str) and v.strip()
+    }
 
 
 def _sports(value: Any) -> list[str]:
@@ -249,8 +253,11 @@ VALIDATORS = {
     "garmin_delivery": lambda value: _sports(value),
     # The mark in front of their names on Garmin; absent = ⚡ (garmin_strength.MARK).
     "garmin_mark": _mark,
-    # One mark for everything ("one", the default) or a mark per workout type ("per_type").
-    "garmin_mark_mode": lambda value: _one_of(value, "garmin_mark_mode", ("one", "per_type")),
+    # One mark for everything ("one", the default), a mark per workout type ("per_type"), or
+    # no mark at all ("none").
+    "garmin_mark_mode": lambda value: _one_of(
+        value, "garmin_mark_mode", ("one", "per_type", "none")
+    ),
     "garmin_marks": _marks,
     "plan_horizon_days": _horizon_days,
     # The plan builder's settings: goal, sport, method and options.

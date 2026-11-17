@@ -93,23 +93,29 @@ export function garminDeliveryHtml(src) {
     <p class="sub" data-delivery-status role="status"></p></fieldset>`;
 }
 
-// The mark in front of VibeSynergy's workouts on Garmin: one for all, or one per workout type.
-export const MARK_TYPES = [["strength_training", N("Strength")], ["pilates", N("Pilates")], ["yoga", N("Yoga")], ["run", N("Running")], ["ride", N("Cycling")], ["swim", N("Swimming")], ["brick", N("Brick")], ["duathlon", N("Duathlon")], ["triathlon", N("Triathlon")], ["multisport", N("Multisport")]];
+// The mark in front of VibeSynergy's workouts on Garmin: one for all, one per workout type, or
+// none. A combined workout (multisport) joins its sports' marks unless it has its own.
+export const MARK_TYPES = [["strength_training", N("Strength")], ["pilates", N("Pilates")], ["yoga", N("Yoga")], ["run", N("Running")], ["ride", N("Cycling")], ["swim", N("Swimming")]];
 
 function garminMarksHtml(src) {
-  const perType = src.garmin_mark_mode === "per_type";
+  const mode = src.garmin_mark_mode || "one";
+  const perType = mode === "per_type";
+  const radio = (value, label) => `<label class="check"><input type="radio" name="garmin_mark_mode" value="${value}" data-autosave-skip${mode === value ? " checked" : ""}> ${t(label)}</label>`;
   const marks = src.garmin_marks || {};
   const defaults = src.garmin_marks_default || {};
   const field = (name, value, placeholder, extra = "") => `<input class="btn garmin-mark" name="${name}" maxlength="8" autocomplete="off" data-autosave-skip value="${esc(value || "")}" placeholder="${esc(placeholder || "")}"${extra}>`;
   return `<div class="garmin-marks">
     <p>${t("Mark in front of the name")}</p>
-    <label class="check"><input type="radio" name="garmin_mark_mode" value="one" data-autosave-skip${perType ? "" : " checked"}> ${t("One mark for all workouts")}</label>
-    <label class="check"><input type="radio" name="garmin_mark_mode" value="per_type" data-autosave-skip${perType ? " checked" : ""}> ${t("A mark per workout type")}</label>
-    <div data-mark-one${perType ? " hidden" : ""}><label>${t("Mark")} ${field("garmin_mark", src.garmin_mark, src.garmin_mark_default)}</label></div>
+    ${radio("one", N("One mark for all workouts"))}
+    ${radio("per_type", N("A mark per workout type"))}
+    ${radio("none", N("No mark"))}
+    <div data-mark-one${mode === "one" ? "" : " hidden"}><label>${t("Mark")} ${field("garmin_mark", src.garmin_mark, src.garmin_mark_default)}</label></div>
     <div class="garmin-mark-types" data-mark-types${perType ? "" : " hidden"}>
       ${MARK_TYPES.map(([kind, label]) => `<label>${t(label)} ${field("garmin_marks", marks[kind] || defaults[kind], defaults[kind], ` data-kind="${kind}"`)}</label>`).join("")}
+      <label>${t("Multisport")} ${field("garmin_marks", marks.multisport, "", ' data-kind="multisport"')}</label>
+      <p class="sub">${t("Multisport (a brick, duathlon or triathlon) gets the marks of its sports in order, such as {example}, unless you fill in one mark for it.", { example: (defaults.ride || "") + (defaults.run || "") })}</p>
     </div>
-    <p class="sub">${t("An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: the default.")}</p>
+    <p class="sub" data-mark-hint${mode === "none" ? " hidden" : ""}>${t("An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: the default.")}</p>
   </div>`;
 }
 

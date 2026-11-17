@@ -1,22 +1,25 @@
 WEBVTT
 
-00:00:02.562 --> 00:00:06.318
+00:00:02.812 --> 00:00:06.580
 Settings → Sources: connect Garmin, Strava, Withings, intervals.icu or a calendar.
 
-00:00:06.368 --> 00:00:09.466
+00:00:06.630 --> 00:00:09.738
 Garmin: sign in with your Garmin account and choose 'Connect Garmin'.
 
-00:00:09.516 --> 00:00:12.644
+00:00:09.788 --> 00:00:12.871
 'Update now' fetches the latest data right away.
 
-00:00:12.694 --> 00:00:17.378
+00:00:12.921 --> 00:00:17.583
 The mark in front of the name shows on your watch which workouts come from VibeSynergy.
 
-00:00:17.428 --> 00:00:23.992
+00:00:17.633 --> 00:00:21.337
 Or choose a mark per workout type; the defaults are filled in.
 
-00:00:24.042 --> 00:00:28.559
+00:00:21.387 --> 00:00:27.692
+Multisport gets the marks of its sports, or one mark of its own.
+
+00:00:27.742 --> 00:00:32.183
 Older data? Import the export zip from Garmin or Strava.
 
-00:00:28.609 --> 00:00:32.865
+00:00:32.233 --> 00:00:36.488
 Sync: what VibeSynergy writes back, such as a summary in Strava.

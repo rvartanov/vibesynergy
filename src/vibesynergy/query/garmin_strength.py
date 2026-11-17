@@ -486,47 +486,43 @@ TYPE_MARKS = {
     "run": "\U0001f3c3",
     "ride": "\U0001f6b4",
     "swim": "\U0001f3ca",
-    # Combined workouts (#70): ride then run, run-ride-run, and any other combination.
-    "brick": "\U0001f9f1",
-    "duathlon": "\U0001f6b4\U0001f3c3",
-    "triathlon": "\U0001f3ca\U0001f6b4\U0001f3c3",
-    "multisport": "\U0001f500",
 }
-
-
-def multi_kind(sports: list[str] | tuple[str, ...]) -> str:
-    """A combined workout's type from its segments: ride then run is a brick, run-ride-run a
-    duathlon, swim-ride-run a triathlon, everything else (swim-run, ...) multisport."""
-    order = tuple(sports)
-    if order == ("ride", "run"):
-        return "brick"
-    if order == ("run", "ride", "run"):
-        return "duathlon"
-    if order == ("swim", "ride", "run"):
-        return "triathlon"
-    return "multisport"
-
-
-# One mark for everything, or a mark per workout type (missing types: ``TYPE_MARKS``).
+# Every combined workout (a brick, duathlon, triathlon, ...) is multisport (#72): its mark is
+# the sports' marks in order (ride then run: the ride's and the run's), unless the athlete set a
+# fixed multisport mark (``garmin_marks["multisport"]``).
+MULTISPORT = "multisport"
+# One mark for everything, a mark per workout type (missing types: ``TYPE_MARKS``), or no
+# mark at all (``""``).
 Marks = str | dict[str, str] | None
 
 
-def mark_of(marks: Marks, kind: str) -> str:
+def mark_of(marks: Marks, kind: str | tuple[str, ...]) -> str:
+    """The mark for a workout type, or for a combined workout given its sports in order."""
     if isinstance(marks, dict):
+        if isinstance(kind, tuple):
+            fixed = (marks.get(MULTISPORT) or "").strip()
+            return fixed or "".join(mark_of(marks, sport) for sport in kind)
         return (marks.get(kind) or TYPE_MARKS.get(kind) or MARK).strip()
+    if marks == "":
+        return ""
     return (marks or MARK).strip()
 
 
-def marked(name: str, marks: Marks = MARK, kind: str = "") -> str:
-    """The Garmin name for a VibeSynergy workout: its mark in front, once."""
+def marked(name: str, marks: Marks = MARK, kind: str | tuple[str, ...] = "") -> str:
+    """The Garmin name for a VibeSynergy workout: its mark in front, once (none: the name)."""
     plain = name.strip()
     mark = mark_of(marks, kind)
-    return plain if plain.startswith(mark) else f"{mark} {plain}"
+    if not mark or plain.startswith(mark):
+        return plain
+    return f"{mark} {plain}"
 
 
 def marks_from(stored: dict) -> Marks:
-    """The marks from the portal preferences: per type when chosen, else the one mark."""
-    if stored.get("garmin_mark_mode") == "per_type":
+    """The marks from the portal preferences: per type, none, or the one mark."""
+    mode = stored.get("garmin_mark_mode")
+    if mode == "none":
+        return ""
+    if mode == "per_type":
         return {**TYPE_MARKS, **(stored.get("garmin_marks") or {})}
     return stored.get("garmin_mark") or MARK
 
