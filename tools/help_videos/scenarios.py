@@ -571,6 +571,13 @@ def sources(r: Rec):
         "The mark in front of the name shows on your watch which workouts come from VibeSynergy.",
         2.8,
     )
+    r.click(r.pg.locator("input[name=garmin_mark_mode][value=per_type]"))
+    r.say(
+        "Of kies een teken per soort workout; de standaard staat al ingevuld.",
+        "Or choose a mark per workout type; the defaults are filled in.",
+        2.8,
+    )
+    r.click(r.pg.locator("input[name=garmin_mark_mode][value=one]"))
     r.scroll(1200, 5)
     r.say(
         "Oude gegevens? Importeer de export-zip van Garmin of Strava.",

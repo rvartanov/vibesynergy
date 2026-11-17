@@ -813,3 +813,10 @@ input.garmin-mark {
   width: 5em;
   text-align: center;
 }
+
+/* Marks per workout type: a row of narrow fields. */
+.garmin-mark-types:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}

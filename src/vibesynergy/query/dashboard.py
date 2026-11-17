@@ -260,7 +260,10 @@ def _horizon_args(rt) -> tuple:
 
     stored = prefs.load(data_dir)
     sports = tuple(stored.get("garmin_delivery") or ())
-    return prefs.horizon_days(data_dir), sports, None, stored.get("garmin_mark")
+    from vibesynergy.query import garmin_strength
+
+    marks = garmin_strength.marks_from(stored)
+    return prefs.horizon_days(data_dir), sports, None, marks
 
 
 def _coach_runs(engine, timezone: str, tr) -> list:

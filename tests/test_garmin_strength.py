@@ -484,3 +484,26 @@ def test_the_mark_preference_takes_symbols_only(tmp_path) -> None:
             prefs.save(tmp_path, {"garmin_mark": bad})
     prefs.save(tmp_path, {"garmin_mark": None})
     assert gs.mark_for(tmp_path) == gs.MARK
+
+
+def test_a_mark_per_workout_type_with_defaults(tmp_path) -> None:
+    from vibesynergy.portal import prefs
+
+    prefs.save(tmp_path, {"garmin_mark_mode": "per_type", "garmin_marks": {"run": "\U0001f7e2"}})
+    marks = gs.mark_for(tmp_path)
+    assert gs.marked("Duurloop", marks, "run") == "\U0001f7e2 Duurloop"
+    assert gs.marked("Kracht", marks, "strength_training") == "\U0001f3cb️ Kracht"
+    assert gs.marked("Rit + Brickloop", marks, "brick") == "\U0001f6b4\U0001f3c3 Rit + Brickloop"
+    with pytest.raises(ValueError):
+        prefs.save(tmp_path, {"garmin_marks": {"kayak": "\U0001f6f6"}})
+    prefs.save(tmp_path, {"garmin_mark_mode": "one"})
+    assert gs.marked("Duurloop", gs.mark_for(tmp_path), "run") == "⚡ Duurloop"
+
+
+def test_per_type_marks_rename_strength_and_keep_the_guard_quiet(runtime) -> None:
+    _event(runtime, EVENT)
+    marks = gs.marks_from({"garmin_mark_mode": "per_type"})
+    api = Garmin()
+    gs.reconcile(runtime.engine, lambda: api, TODAY, mark=marks)
+    assert api.calls[0] == ("upload", "\U0001f3cb️ Kracht AA 40'")
+    assert horizon.status(runtime.engine, TODAY, 9, (), mark=marks)["outdated"] == []

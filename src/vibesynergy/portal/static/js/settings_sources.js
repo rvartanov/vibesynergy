@@ -89,9 +89,28 @@ export function garminDeliveryHtml(src) {
   return `<fieldset class="garmin-delivery"><legend>${t("Workouts from VibeSynergy on your Garmin")}</legend>
     ${DELIVERY_SPORTS.map(([k, label]) => `<label class="check"><input type="checkbox" name="garmin_delivery" value="${k}" data-autosave-skip${on.has(k) ? " checked" : ""}> ${t(label)}</label>`).join("")}
     <p class="sub">${t("VibeSynergy puts these workouts on your Garmin calendar itself. Strength and pilates always come from VibeSynergy. Indoor rides keep going to Zwift through intervals.icu.")}</p>
-    <label>${t("Mark in front of the name")} <input class="btn garmin-mark" name="garmin_mark" maxlength="8" autocomplete="off" data-autosave-skip value="${esc(src.garmin_mark || "")}" placeholder="${esc(src.garmin_mark_default || "")}"></label>
-    <p class="sub">${t("An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: {mark}.", { mark: src.garmin_mark_default || "" })}</p>
+    ${garminMarksHtml(src)}
     <p class="sub" data-delivery-status role="status"></p></fieldset>`;
+}
+
+// The mark in front of VibeSynergy's workouts on Garmin: one for all, or one per workout type.
+export const MARK_TYPES = [["strength_training", N("Strength")], ["pilates", N("Pilates")], ["yoga", N("Yoga")], ["run", N("Running")], ["ride", N("Cycling")], ["swim", N("Swimming")], ["brick", N("Brick")]];
+
+function garminMarksHtml(src) {
+  const perType = src.garmin_mark_mode === "per_type";
+  const marks = src.garmin_marks || {};
+  const defaults = src.garmin_marks_default || {};
+  const field = (name, value, placeholder, extra = "") => `<input class="btn garmin-mark" name="${name}" maxlength="8" autocomplete="off" data-autosave-skip value="${esc(value || "")}" placeholder="${esc(placeholder || "")}"${extra}>`;
+  return `<div class="garmin-marks">
+    <p>${t("Mark in front of the name")}</p>
+    <label class="check"><input type="radio" name="garmin_mark_mode" value="one" data-autosave-skip${perType ? "" : " checked"}> ${t("One mark for all workouts")}</label>
+    <label class="check"><input type="radio" name="garmin_mark_mode" value="per_type" data-autosave-skip${perType ? " checked" : ""}> ${t("A mark per workout type")}</label>
+    <div data-mark-one${perType ? " hidden" : ""}><label>${t("Mark")} ${field("garmin_mark", src.garmin_mark, src.garmin_mark_default)}</label></div>
+    <div class="garmin-mark-types" data-mark-types${perType ? "" : " hidden"}>
+      ${MARK_TYPES.map(([kind, label]) => `<label>${t(label)} ${field("garmin_marks", marks[kind] || defaults[kind], defaults[kind], ` data-kind="${kind}"`)}</label>`).join("")}
+    </div>
+    <p class="sub">${t("An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: the default.")}</p>
+  </div>`;
 }
 
 // Diary notes to intervals.icu: off by default, and only sent while intervals.icu
