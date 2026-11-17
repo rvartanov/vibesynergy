@@ -577,6 +577,12 @@ def sources(r: Rec):
         "Or choose a mark per workout type; the defaults are filled in.",
         2.8,
     )
+    r.point(r.pg.locator("input[name=garmin_marks][data-kind=multisport]"))
+    r.say(
+        "Multisport krijgt de tekens van zijn sporten, of één eigen teken.",
+        "Multisport gets the marks of its sports, or one mark of its own.",
+        2.6,
+    )
     r.click(r.pg.locator("input[name=garmin_mark_mode][value=one]"))
     r.scroll(1200, 5)
     r.say(

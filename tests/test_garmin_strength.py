@@ -492,20 +492,34 @@ def test_a_mark_per_workout_type_with_defaults(tmp_path) -> None:
     prefs.save(tmp_path, {"garmin_mark_mode": "per_type", "garmin_marks": {"run": "\U0001f7e2"}})
     marks = gs.mark_for(tmp_path)
     assert gs.marked("Duurloop", marks, "run") == "\U0001f7e2 Duurloop"
-    assert gs.marked("Kracht", marks, "strength_training") == "\U0001f3cb️ Kracht"
-    assert gs.marked("Rit + Brickloop", marks, "brick") == "\U0001f9f1 Rit + Brickloop"
-    assert gs.marked("Duatlon", marks, "duathlon") == "\U0001f6b4\U0001f3c3 Duatlon"
-    assert gs.multi_kind(("ride", "run")) == "brick"
-    assert gs.multi_kind(("run", "ride", "run")) == "duathlon"
-    assert gs.multi_kind(("swim", "ride", "run")) == "triathlon"
-    assert gs.multi_kind(("swim", "run")) == "multisport"
-    tri = gs.marked("Triatlon", marks, gs.multi_kind(("swim", "ride", "run")))
-    assert tri == "\U0001f3ca\U0001f6b4\U0001f3c3 Triatlon"
-    assert gs.marked("Swimrun", marks, "multisport") == "\U0001f500 Swimrun"
+    assert gs.marked("Kracht", marks, "strength_training") == "\U0001f3cb\ufe0f Kracht"
+    # Multisport joins its sports' marks in order, unless it has a mark of its own.
+    brick = gs.marked("Rit + Brickloop", marks, ("ride", "run"))
+    assert brick == "\U0001f6b4\U0001f7e2 Rit + Brickloop"
+    tri = gs.marked("Triatlon", marks, ("swim", "ride", "run"))
+    assert tri == "\U0001f3ca\U0001f6b4\U0001f7e2 Triatlon"
+    prefs.save(tmp_path, {"garmin_marks": {"multisport": "\U0001f9f1", "brick": "x"}})
+    assert prefs.load(tmp_path)["garmin_marks"] == {"multisport": "\U0001f9f1"}
+    marks = gs.mark_for(tmp_path)
+    assert gs.marked("Rit + Brickloop", marks, ("ride", "run")) == "\U0001f9f1 Rit + Brickloop"
     with pytest.raises(ValueError):
         prefs.save(tmp_path, {"garmin_marks": {"kayak": "\U0001f6f6"}})
     prefs.save(tmp_path, {"garmin_mark_mode": "one"})
-    assert gs.marked("Duurloop", gs.mark_for(tmp_path), "run") == "⚡ Duurloop"
+    assert gs.marked("Duurloop", gs.mark_for(tmp_path), "run") == "\u26a1 Duurloop"
+    assert gs.marked("Rit + Loop", gs.mark_for(tmp_path), ("ride", "run")) == "\u26a1 Rit + Loop"
+
+
+def test_no_mark_keeps_plain_names_and_the_guard_quiet(runtime, tmp_path) -> None:
+    from vibesynergy.portal import prefs
+
+    prefs.save(tmp_path, {"garmin_mark_mode": "none"})
+    marks = gs.mark_for(tmp_path)
+    assert gs.marked("Duurloop", marks, "run") == "Duurloop"
+    _event(runtime, EVENT)
+    api = Garmin()
+    gs.reconcile(runtime.engine, lambda: api, TODAY, mark=marks)
+    assert api.calls[0] == ("upload", "Kracht AA 40'")
+    assert horizon.status(runtime.engine, TODAY, 9, (), mark=marks)["outdated"] == []
 
 
 def test_per_type_marks_rename_strength_and_keep_the_guard_quiet(runtime) -> None:
