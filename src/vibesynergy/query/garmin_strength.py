@@ -31,6 +31,7 @@ stay with intervals.icu.
 
 from __future__ import annotations
 
+import copy
 import logging
 import re
 import shlex
@@ -322,7 +323,16 @@ def _step(
     return step
 
 
-def _exercise_steps(step: Step) -> list[dict]:
+def _rest_text(seconds: int) -> str:
+    minutes, rest = divmod(seconds, 60)
+    if not minutes:
+        return f"{rest}s"
+    return f"{minutes} min" if not rest else f"{minutes}:{rest:02d} min"
+
+
+def _exercise_steps(step: Step, *, last_rest: bool = True) -> list[dict]:
+    """The sets of one exercise. ``last_rest`` False: the last set has no timed rest, because
+    a lap recovery (a new station) or the end of the workout follows."""
     sides = step.sides or ("",)
     work: list[dict] = []
     for side in sides:
@@ -334,20 +344,26 @@ def _exercise_steps(step: Step) -> list[dict]:
             entry["weightValue"] = step.weight[0]
             entry["weightUnit"] = dict(_WEIGHT_UNITS[step.weight[1]])
         work.append(entry)
-    if step.rest:
-        work.append(_step("recovery", f"Rust {step.rest}s", seconds=step.rest))
+    rest = [_step("recovery", f"Rust {step.rest}s", seconds=step.rest)] if step.rest else []
+    if last_rest or not rest:
+        return [*work, *rest] if step.sets == 1 else [_repeat(step.sets, [*work, *rest])]
     if step.sets == 1:
         return work
-    return [
-        {
-            "type": "RepeatGroupDTO",
-            "stepType": {"stepTypeId": 6, "stepTypeKey": "repeat"},
-            "numberOfIterations": step.sets,
-            "smartRepeat": False,
-            "endCondition": dict(_ITERATIONS),
-            "workoutSteps": work,
-        }
-    ]
+    # The sets before the last keep their rest; the last set is the same work without it.
+    head = [*work, *rest]
+    first = head if step.sets == 2 else [_repeat(step.sets - 1, head)]
+    return [*first, *copy.deepcopy(work)]
+
+
+def _repeat(times: int, steps: list[dict]) -> dict:
+    return {
+        "type": "RepeatGroupDTO",
+        "stepType": {"stepTypeId": 6, "stepTypeKey": "repeat"},
+        "numberOfIterations": times,
+        "smartRepeat": False,
+        "endCondition": dict(_ITERATIONS),
+        "workoutSteps": steps,
+    }
 
 
 def _number(steps: list[dict], start: int = 1) -> int:
@@ -360,8 +376,11 @@ def _number(steps: list[dict], start: int = 1) -> int:
     return order
 
 
-def _lap_recovery() -> dict:
-    step = _step("recovery", "")
+def _lap_recovery(rest: int = 0) -> dict:
+    """Garmin's "Herstel" step that waits for the lap button. After a set that had a timed
+    rest, the rest becomes its text: the minimum before pressing lap."""
+    text = f"Herstel minstens {_rest_text(rest)}, dan Lap" if rest else ""
+    step = _step("recovery", text)
     step["endCondition"] = dict(_LAP_BUTTON)
     step.pop("endConditionValue", None)
     return step
@@ -377,16 +396,24 @@ def build_workout(name: str, description: str | None, block: Block) -> dict[str,
     steps: list[dict] = []
     previous: str | None = None
     station: tuple | None = None
-    for step in block.steps:
+    rest_before = 0
+    for index, step in enumerate(block.steps):
         if step.kind == "exercise":
             # Time to walk to the next station and set up: Garmin's own "Herstel" step that
             # waits for the lap button, after the warm-up and between exercises. A
             # warm-up set and a work set of the same exercise are one station: no pause.
             here = (step.category, step.name)
             if previous == "warmup" or (previous == "exercise" and here != station):
-                steps.append(_lap_recovery())
+                steps.append(_lap_recovery(rest_before))
             station = here
-            steps.extend(_exercise_steps(step))
+            # The last set skips its timed rest when a lap recovery or the end comes next:
+            # one rest, until lap, with the minimum as its text.
+            after = block.steps[index + 1] if index + 1 < len(block.steps) else None
+            ends = after is None or (
+                after.kind == "exercise" and (after.category, after.name) != here
+            )
+            steps.extend(_exercise_steps(step, last_rest=not ends))
+            rest_before = step.rest if ends else 0
         elif step.kind == "class":
             open_step = _step("interval", step.label)
             open_step["endCondition"] = dict(_LAP_BUTTON)
@@ -419,7 +446,7 @@ def fingerprint(name: str, day: date, block: Block, description: str | None) -> 
                 for step in block.steps
             ],
             # Lap-button recovery between stations (5 Nov 2026): redeliver once.
-            "transitions": 2,  # 2: one station, one pause
+            "transitions": 3,  # 2: one station, one pause; 3: no timed rest before lap (#57)
             # Classes became one open step (2 Nov 2026): redeliver the timed ones once.
             **({"open": True} if block.sport in CLASSES else {}),
         }

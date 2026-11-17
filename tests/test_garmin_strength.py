@@ -51,21 +51,57 @@ def test_block_becomes_garmin_steps_with_timed_holds_and_both_sides() -> None:
     lap = steps[1]
     assert lap["stepType"]["stepTypeKey"] == "recovery"
     assert lap["endCondition"]["conditionTypeKey"] == "lap.button" and "description" not in lap
-    assert [s["stepType"]["stepTypeKey"] for s in steps[3::2]] == ["recovery", "recovery"]
-    squat = steps[2]
-    assert squat["type"] == "RepeatGroupDTO" and squat["numberOfIterations"] == 2
-    work, rest = squat["workoutSteps"]
+    kinds = [
+        s["type"] if s["type"] == "RepeatGroupDTO" else s["stepType"]["stepTypeKey"] for s in steps
+    ]
+    # Two sets: set, rest, set; then one Herstel until lap that names the minimum rest (#57).
+    assert kinds == [
+        "warmup", "recovery",
+        "interval", "recovery", "interval", "recovery",
+        "interval", "recovery", "interval", "recovery",
+        "RepeatGroupDTO", "interval", "interval",
+    ]  # fmt: skip
+    work, rest, last = steps[2], steps[3], steps[4]
     assert (work["category"], work["exerciseName"]) == ("SQUAT", "GOBLET_SQUAT")
     assert work["endCondition"]["conditionTypeKey"] == "reps" and work["endConditionValue"] == 15
-    assert rest["endConditionValue"] == 75
+    assert rest["endConditionValue"] == 75 and last["exerciseName"] == "GOBLET_SQUAT"
+    assert steps[5]["endCondition"]["conditionTypeKey"] == "lap.button"
+    assert steps[5]["description"] == "Herstel minstens 1:15 min, dan Lap"
+    assert steps[9]["description"] == "Herstel minstens 45s, dan Lap"
     # A bare name resolves to its one category.
-    assert steps[4]["workoutSteps"][0]["category"] == "HIP_STABILITY"
-    plank = steps[6]
-    left, right, _ = plank["workoutSteps"]
+    assert steps[6]["category"] == "HIP_STABILITY"
+    # Three sets of the last exercise: two with their rest, the last without (workout ends).
+    plank = steps[10]
+    assert plank["type"] == "RepeatGroupDTO" and plank["numberOfIterations"] == 2
+    left, right, plank_rest = plank["workoutSteps"]
     assert left["endCondition"]["conditionTypeKey"] == "time" and left["endConditionValue"] == 30
     assert (left["description"], right["description"]) == ("Zijplank, links", "Zijplank, rechts")
-    orders = [steps[0]["stepOrder"], squat["stepOrder"], work["stepOrder"], rest["stepOrder"]]
-    assert orders == [1, 3, 4, 5]
+    assert plank_rest["endConditionValue"] == 30
+    assert [s["description"] for s in steps[11:]] == ["Zijplank, links", "Zijplank, rechts"]
+    orders = [s["stepOrder"] for s in steps[:6]]
+    assert orders == [1, 2, 3, 4, 5, 6]
+
+
+def test_one_station_keeps_its_rests_and_a_station_change_has_one_pause() -> None:
+    text = """Kracht.
+
+[garmin]
+SQUAT/BARBELL_BACK_SQUAT sets=1 reps=5 rest=90s weight=40kg "Opwarmset"
+SQUAT/BARBELL_BACK_SQUAT sets=3 reps=6 rest=180s weight=65kg "Back squat"
+ROW/INVERTED_ROW sets=1 reps=8 "Inverted row"
+"""
+    block = gs.parse_block(text)
+    assert block is not None
+    steps = gs.build_workout("Kracht", text, block)["workoutSegments"][0]["workoutSteps"]
+    kinds = [
+        s["type"] if s["type"] == "RepeatGroupDTO" else s["stepType"]["stepTypeKey"] for s in steps
+    ]
+    # Warm-up set, its rest (same station), 2x set+rest, the last set, one pause until lap.
+    assert kinds == ["interval", "recovery", "RepeatGroupDTO", "interval", "recovery", "interval"]
+    assert steps[1]["endConditionValue"] == 90
+    assert steps[2]["numberOfIterations"] == 2
+    assert steps[4]["description"] == "Herstel minstens 3 min, dan Lap"
+    assert "endConditionValue" not in steps[4]
 
 
 @pytest.mark.parametrize("line", ['pilates "Pilatesles"', 'pilates time=60m "Pilatesles"'])
@@ -315,7 +351,7 @@ def test_a_block_without_weight_keeps_its_fingerprint() -> None:
             "steps": [
                 {k: v for k, v in gs.asdict(step).items() if k != "weight"} for step in block.steps
             ],
-            "transitions": 2,
+            "transitions": 3,  # bumped once on purpose: no timed rest before lap (#57)
         }
     )
     assert gs.fingerprint("Kracht", date(2026, 11, 5), block, BLOCK) == old
@@ -335,10 +371,7 @@ def test_warm_up_and_work_sets_of_one_exercise_are_one_station() -> None:
         if s.get("endCondition", {}).get("conditionTypeKey") == "lap.button"
     ]
     # after the warm-up, then only before the RDL (not between the two goblet squat lines)
-    assert (
-        len(laps) == 2
-        and steps[laps[1] + 1]["workoutSteps"][0]["exerciseName"] == "ROMANIAN_DEADLIFT"
-    )
+    assert len(laps) == 2 and steps[laps[1] + 1]["exerciseName"] == "ROMANIAN_DEADLIFT"
 
 
 def _no_calendar(monkeypatch) -> None:
