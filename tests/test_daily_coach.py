@@ -359,3 +359,21 @@ def test_mail_headline_prefers_a_whole_clause_over_an_ellipsis():
     )
     assert _headline(text) == "Je rusthartslag ligt 5 bpm boven je gebruikelijke"
     assert _headline("Kort, maar het past.") == "Kort, maar het past."
+
+
+def test_measurements_alone_say_recovery_not_physiotherapist(runtime):
+    """#54: low HRV, readiness and a short night are no reported complaint."""
+    rules = ["low_hrv", "low_readiness", "short_sleep"]
+    for kind in ("morning", "evening", "weekly", "block"):
+        text = q.fixed_safety_summary(runtime, kind, "flag", rules)
+        assert "physiotherapist" not in text and "reported" not in text
+        assert "measurements" in text
+        deep = q.fixed_safety_summary(runtime, kind, "refuse", ["deep_fatigue"])
+        assert "physiotherapist" not in deep and "measurements" in deep
+    # A reported complaint with them keeps the physio text.
+    sore = q.fixed_safety_summary(runtime, "morning", "flag", [*rules, "sore"])
+    assert "physiotherapist" in sore
+    sick = q.fixed_safety_summary(runtime, "morning", "refuse", ["sick", "low_hrv"])
+    assert "physiotherapist" in sick
+    # Load alone keeps its own text.
+    assert "load" in q.fixed_safety_summary(runtime, "morning", "flag", ["load_spike"])

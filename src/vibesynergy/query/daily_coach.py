@@ -115,6 +115,52 @@ LOAD_FLAG = {
 }
 
 
+# Rules on measurements only (#54): HRV, sleep, readiness, resting heart rate, load. Nothing
+# was reported, so the text is about recovery and points to no physio or doctor.
+MEASURED_RULES = LOAD_RULES | frozenset(
+    {"short_sleep", "low_readiness", "low_hrv", "rhr_up", "hrv_rhr", "deep_fatigue"}
+)
+RECOVERY_FLAG = {
+    "morning": (
+        "Keep it easy: no hard training today. Your measurements point to incomplete "
+        "recovery; check again tomorrow."
+    ),
+    "evening": (
+        "Keep the next day easy: no hard training. Your measurements point to incomplete "
+        "recovery; check again in the morning."
+    ),
+    "weekly": (
+        "Keep next week easy: no hard training. Your measurements point to incomplete "
+        "recovery; look again as the week goes on."
+    ),
+    "block": (
+        "Don't use a hard test to judge this block. Your measurements point to incomplete "
+        "recovery; keep it easy."
+    ),
+}
+RECOVERY_REFUSAL = {
+    "morning": (
+        "Rest today and don't train. Your measurements point to deep fatigue; check again tomorrow."
+    ),
+    "evening": (
+        "Keep tomorrow free of training. Your measurements point to deep fatigue; check "
+        "again in the morning."
+    ),
+    "weekly": (
+        "Don't add hard training next week. Your measurements point to deep fatigue: give it time."
+    ),
+    "block": (
+        "Don't judge this block with a hard test. Your measurements point to deep fatigue: "
+        "give it time."
+    ),
+}
+
+
+def measured_only(rules) -> bool:
+    """True when every fired rule is a measurement: no complaint, pain or illness reported."""
+    return bool(rules) and set(rules) <= MEASURED_RULES
+
+
 def load_only(rules) -> bool:
     """True when every fired rule is about load, not about a complaint, pain or illness."""
     return bool(rules) and set(rules) <= LOAD_RULES
@@ -201,10 +247,13 @@ def guard_text(rt, text: str, safety_state: dict, *, kind: str = "morning") -> s
         return text
     if kind in REFUSAL:
         tr = translator(_language(rt))
+        rules = safety_state.get("rules")
         if level == "refuse":
-            return tr(REFUSAL[kind])
-        if load_only(safety_state.get("rules")):
+            return tr(RECOVERY_REFUSAL[kind] if measured_only(rules) else REFUSAL[kind])
+        if load_only(rules):
             return tr(LOAD_FLAG[kind])
+        if measured_only(rules):
+            return tr(RECOVERY_FLAG[kind])
         return tr(FLAG[kind])
     language = "nl" if _language(rt) == "nl" else "en"
     key = f"evening_{level}" if kind == "evening" else level
