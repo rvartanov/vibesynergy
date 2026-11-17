@@ -79,7 +79,7 @@ def test_swim_is_delivered_only_when_switched_on(runtime) -> None:
     assert ge.desired(runtime.engine, TODAY, (), 21) == {}
     found = ge.desired(runtime.engine, TODAY, ("swim",), 21)
     (entry,) = found.values()
-    assert entry["name"] == "Zwemmen duur 40'" and entry["date"] == date(2026, 11, 11)
+    assert entry["name"] == "⚡ Zwemmen duur 40'" and entry["date"] == date(2026, 11, 11)
 
     class Garmin:
         def __init__(self):
@@ -97,7 +97,7 @@ def test_swim_is_delivered_only_when_switched_on(runtime) -> None:
     assert gs.reconcile(runtime.engine, lambda: api, TODAY)["delivered"] == 0
     result = gs.reconcile(runtime.engine, lambda: api, TODAY, ("swim",))
     assert result["delivered"] == 1
-    assert api.calls == [("upload", "Zwemmen duur 40'"), ("schedule", 9, "2026-11-11")]
+    assert api.calls == [("upload", "⚡ Zwemmen duur 40'"), ("schedule", 9, "2026-11-11")]
 
 
 def test_run_steps_get_heart_rate_targets_from_lthr_zones() -> None:
@@ -186,7 +186,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
     )
     found = ge.desired(runtime.engine, TODAY, ("ride", "run"), 21)
     brick = found["brick:1+3"]  # the longest ride that day, not the coffee ride
-    assert brick["name"] == "Lange rit Z2 1u45 + Brickloop Z2 20'" and brick["parts"] == [
+    assert brick["name"] == "⚡ Lange rit Z2 1u45 + Brickloop Z2 20'" and brick["parts"] == [
         "1",
         "3",
     ]
