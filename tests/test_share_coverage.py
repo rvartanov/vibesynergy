@@ -45,6 +45,7 @@ OWNER_ONLY = {
     ("GET", "/weather"),  # a coming day's forecast on the day page: never in a shared view
     ("POST", "/prefs"),
     ("POST", "/activity-effort"),  # the owner's own RPE
+    ("POST", "/diary/sleep-incomplete"),  # marking a night is the owner's (#53)
     ("POST", "/race-priority"),
     ("GET", "/activity-annotation-preview"),  # publishing to Strava/Garmin is the owner's
     ("GET", "/activity-publication-preview"),
