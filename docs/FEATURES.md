@@ -69,6 +69,9 @@ Details: [SOURCES.md](SOURCES.md).
   measurements, the timeline, best efforts and the diary. Blocks can be reordered and hidden.
   A block or key number without data takes no space; one line at the bottom names what is
   left out. A block you tick under "Arrange the start page" stays even while it is empty.
+  Under a safety restriction the text follows its cause: a reported complaint, pain or
+  illness points to a physio or doctor; measurements alone are about recovery; load alone
+  about load.
 - **Any day** (`#/dashboard/<date>`): past days with what happened; days ahead with what is
   planned and the weather forecast.
 - **Quick add** and **Search** (`/`) over activities, notes, coach messages, the knowledge

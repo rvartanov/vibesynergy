@@ -147,6 +147,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- The safety notice no longer sends you to a physiotherapist or doctor about "what you
+  reported" when only measurements set it off (low HRV, readiness, a short night, resting
+  heart rate): it now says your measurements point to incomplete recovery and to check again
+  tomorrow. A complaint, pain or illness you reported still gets the physio advice. (#54)
 - The start page's recovery line agrees with today's advice: one sign off that doesn't
   change the advice (resting heart rate alone) now reads "keep an eye on it" instead of
   "take it a little easier" next to advice for a quality session
