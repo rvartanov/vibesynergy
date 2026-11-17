@@ -138,8 +138,11 @@ everything the MCP can answer, the portal can show and vice versa.
   `harness` (the stamp from `vibesynergy_coach_prompt`). Checked: `for_date` is the target
   day (morning: today; evening: today or tomorrow), the summary is within the word limit
   (×1.5), and the safety outcome is complete and consistent (level, the colour of that
-  level, at least one reason; a level milder than the rules' needs `override_reason`;
-  `sick`, `red_flag_note`, `pain_7` and `affects_movement` can never be softened). The
+  level, at least one reason; a level milder than the rules' needs `override_reason`).
+  It is a check of form and validity, never of approval: a request over MCP is the
+  athlete's own, through his AI app, and is already approved. The registry's approval
+  steps, and the rule that `sick`, `red_flag_note`, `pain_7` and `affects_movement` can
+  never be softened, apply to the autonomous runner only. The
   stored entry has `meta.safety` and `meta.harness` (`version`, `via` runner or mcp, `task`,
   `stamp`, `current`, `follows_current`, `rules_floor`); a write under an old or missing
   stamp is stored with a warning in `meta.warnings`. `vibesynergy_coach_handbook` has the

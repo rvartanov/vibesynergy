@@ -136,8 +136,21 @@ within the same run. Nothing invalid is stored, mailed or shown.
 | Target day | `for_date` is today for `morning`, `injury`, `checkin`; today or tomorrow for `evening`. In a run, "today" is the run's day. |
 | Length | the summary is within the task's word limit × 1.5 (70 for the daily advice, 100 for test and kb, 150 for the reviews). |
 | Safety (daily advice) | `safety = {level, colour, reasons, override_reason?}`: a known level, the colour of that level, 1-5 reasons. |
-| Against the rules | a level milder than the rules' floor needs `override_reason`; `sick`, `red_flag_note`, `pain_7` and `affects_movement` can never be softened. |
+| Against the rules | a level milder than the rules' floor needs `override_reason`. The runner can never soften `sick`, `red_flag_note`, `pain_7` or `affects_movement`. |
 | Task | `task` must be a registry task and write that task's entry type. |
+
+**Validity, not approval.** The contract checks form and validity: the schema, a consistent
+safety outcome, the target day, and the idempotency key that keeps a retry from writing
+twice. It asks for no approval. The two paths stay distinct:
+
+- **The runner** acts on its own (scheduled and event tasks). The registry's `approval`
+  applies to it: what a task may not do without the athlete's yes becomes a proposal, and
+  it can never soften illness or real pain.
+- **An MCP client** acts for the athlete: the request is his own, through his AI app, and
+  is already approved. Its writes get the same validity checks and nothing more.
+
+`meta.harness.via` (`runner` or `mcp`) and the author (`client:coach-runner` or the app's
+own client id) say which path wrote an entry.
 
 After the loop the runner checks what only the run knows (`runner.contract_issues`): the
 entry is of the task's type, for the run's day, within the length, written under this run's

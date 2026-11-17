@@ -164,8 +164,10 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   measurement gaps, check-in, complaints, injuries), and an output contract. An entry that
   misses the contract (wrong day, far too long, a daily advice without level, colour and
   reasons, or milder than the rules without saying why) is refused, for the built-in coach
-  and for AI apps over MCP alike; illness and real pain can never be softened. Every entry
-  records the harness version it was written under.
+  and for AI apps over MCP alike. It checks validity, not approval: what you ask through
+  your own AI app is already approved, and approval steps are for the coach acting on its
+  own, which also can never soften illness or real pain. Every entry records the harness
+  version it was written under and which of the two wrote it.
 - **Plan checks**: every plan change is checked for gaps around it (a name that doesn't
   match the length, a strength session without a full warm-up, a reference to a session that
   is gone, nearby sessions that mention the changed one). The start page and the coach see

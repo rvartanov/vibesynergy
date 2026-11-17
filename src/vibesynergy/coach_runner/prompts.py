@@ -167,7 +167,10 @@ MCP_RULES = """\
   waarde van "harness.stamp" uit vibesynergy_coach_prompt). Zo staat bij de entry onder welke
   versie van het harnas hij geschreven is.
 - De server controleert elke write tegen het uitvoercontract. Een entry die er niet aan
-  voldoet wordt geweigerd, met de reden.
+  voldoet wordt geweigerd, met de reden. Dat is een controle op vorm en geldigheid, geen
+  goedkeuring: wat je via MCP doet is een verzoek van {name} zelf en is al akkoord.
+- Stap 2d geldt voor de coach die zelfstandig draait. Vraagt {name} je uitdrukkelijk om
+  een milder niveau, dan mag dat ook daar, met override_reason.
 """
 
 INSIGHT_RULES = """\

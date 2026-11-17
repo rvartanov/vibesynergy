@@ -16,7 +16,13 @@ What is checked, per entry:
    ``{"level", "colour", "reasons", "override_reason"?}``. The level is one of the floor's
    four, the colour is the one that belongs to the level, there is at least one reason,
    and a level milder than the rules' own needs ``override_reason``: the judgement the
-   coach made, in a sentence. Illness, a red-flag note and real pain can never be softened.
+   coach made, in a sentence. The autonomous runner can never soften illness, a red-flag
+   note or real pain.
+
+This is a check of form and validity, not of approval. A write over MCP is the athlete's
+own request through his AI app and is already approved; the approval steps of the task
+registry apply to the runner acting on its own (scheduled and event tasks). The two paths
+stay distinct on the entry: ``meta.harness.via`` is ``runner`` or ``mcp``.
 
 Every stored entry also gets ``meta.harness``: the harness, rules, prompt and context
 versions it was written under, how it came in (runner or MCP) and the rules' outcome at
@@ -119,11 +125,18 @@ def _words(text: str) -> int:
     return len(text.split())
 
 
-def check_safety(safety: Any, floor: dict[str, Any] | None) -> dict[str, Any]:
+def check_safety(
+    safety: Any, floor: dict[str, Any] | None, *, autonomous: bool = False
+) -> dict[str, Any]:
     """The validated safety outcome, or a ``ContractError`` naming every problem.
 
     ``floor`` is the rules' outcome for that day (``{"level", "rules"}``); without it the
     comparison with the rules is skipped, the shape is still checked.
+
+    ``autonomous`` is the coach runner acting on its own (a scheduled or event task): it
+    may never soften illness or real pain. A write over MCP is the athlete's own request
+    through his AI app and is checked for validity only: a level milder than the rules'
+    needs its reason, whatever the rule.
     """
     if not isinstance(safety, dict):
         raise ContractError("safety is required for a daily advice. " + SAFETY_HELP)
@@ -157,7 +170,7 @@ def check_safety(safety: Any, floor: dict[str, Any] | None) -> dict[str, Any]:
     if floor and level in safety_floor.LEVELS and floor.get("level") in safety_floor.LEVELS:
         hard = sorted(set(floor.get("rules") or []) & safety_floor.HARD_RULES)
         milder = safety_floor.rank(level) < safety_floor.rank(floor["level"])
-        if milder and hard:
+        if milder and hard and autonomous:
             problems.append(
                 f"safety.level {level!r} is milder than the rules' {floor['level']!r}, and "
                 f"{', '.join(hard)} can never be softened; use {floor['level']!r}"
@@ -186,10 +199,16 @@ def check_write(
     task: str | None = None,
     safety: Any = None,
     floor: dict[str, Any] | None = None,
+    autonomous: bool = False,
 ) -> dict[str, Any]:
-    """Validate one entry before it is stored. Returns ``{"task", "safety"}`` (the task id
-    the contract came from and the cleaned safety outcome, each possibly ``None``); raises
-    ``ContractError`` listing everything that is wrong, so one retry can fix it all."""
+    """Validate one entry before it is stored. This is a check of form and validity
+    (schema, a consistent safety outcome, the target day), never of approval: what needs
+    the athlete's yes is the registry's ``approval`` and applies to the autonomous runner.
+    ``autonomous`` is true for a write from a runner run (``check_safety``).
+
+    Returns ``{"task", "safety"}``: the task id the contract came from and the cleaned
+    safety outcome, each possibly ``None``. Raises ``ContractError`` listing everything
+    that is wrong, so one retry can fix it all."""
     found = task_for(entry_type, task)
     problems: list[str] = []
     text = (summary or "").strip()
@@ -214,7 +233,7 @@ def check_write(
     cleaned = None
     if (found is not None and found.contract.safety) or safety is not None:
         try:
-            cleaned = check_safety(safety, floor)
+            cleaned = check_safety(safety, floor, autonomous=autonomous)
         except ContractError as exc:
             problems.append(str(exc))
     if problems:

@@ -128,10 +128,15 @@ def test_milder_than_the_rules_needs_the_judgement_in_words():
 
 
 @pytest.mark.parametrize("rule", sorted(safety_floor.HARD_RULES))
-def test_illness_and_pain_can_never_be_softened(rule):
+def test_the_runner_can_never_soften_illness_and_pain(rule):
     soft = {**OK, "override_reason": "voelt zich prima"}
+    floor = {"level": "refuse", "rules": [rule, "low_hrv"]}
     with pytest.raises(contract.ContractError, match="can never be softened"):
-        _check(safety=soft, floor={"level": "refuse", "rules": [rule, "low_hrv"]})
+        _check(safety=soft, floor=floor, autonomous=True)
+    # Over MCP the request is the athlete's own: validity only, so the reason is enough.
+    assert _check(safety=soft, floor=floor)["safety"]["override_reason"] == "voelt zich prima"
+    with pytest.raises(contract.ContractError, match=r"give safety\.override_reason"):
+        _check(safety=OK, floor=floor)
 
 
 def test_the_wrong_target_day_is_refused():
@@ -196,7 +201,7 @@ def test_the_rules_are_versioned():
     assert contract.parse_stamp("latest") is None
 
 
-RULES_DIGEST = "f949a4b5f774"
+RULES_DIGEST = "179817f85d01"
 
 
 @pytest.mark.parametrize("job", [t for t in registry.live() if t != "insight"])
@@ -338,6 +343,28 @@ def test_an_mcp_entry_records_the_harness_it_was_written_under(rt, today):
     )
     assert note.structured_content["data"]["meta"]["harness"]["task"] is None
     assert note.structured_content["meta"]["warnings"] == []
+
+
+def test_an_mcp_write_is_checked_for_validity_not_approval(rt, today, monkeypatch):
+    """A request over MCP is the athlete's own: the same form checks as the runner, and no
+    approval step. Only the autonomous runner is barred from softening illness."""
+    from vibesynergy.query import coach_brief
+
+    sick = {"safety": {"level": "refuse", "rules": ["sick"]}}
+    monkeypatch.setattr(coach_brief, "today_brief", lambda rt_, day: sick)
+    eased = {**OK, "override_reason": "Alex vroeg het zelf: koorts is weg, alleen wandelen."}
+    result = _mcp(rt, "vibesynergy_coach_write", **_write(safety=eased))
+    assert not result.is_error
+    meta = result.structured_content["data"]["meta"]
+    assert meta["harness"]["via"] == "mcp" and meta["safety"]["level"] == "ok"
+    assert meta["harness"]["rules_floor"] == {"level": "refuse", "rules": ["sick"]}
+    # The same write from a runner run is refused.
+    token = contract.set_run({"task": "morning", "for_date": DAY, "stamp": "h2.r2.pseed.c2"})
+    try:
+        refused = _mcp(rt, "vibesynergy_coach_write", **_write(safety=eased, idempotency_key="r"))
+    finally:
+        contract.reset_run(token)
+    assert refused.is_error and "can never be softened" in refused.content[0].text
 
 
 # --- safety in the context of every task --------------------------------------------------

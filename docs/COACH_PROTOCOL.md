@@ -134,8 +134,14 @@ Read the error, fix exactly that, write again:
   ease and flag amber, refuse red). `reasons` say what you weighed and why this level; only
   repeating the rule names is not a reason. Start from the rules' level (`safety.floor.level`
   in the context). Stricter is always allowed. Milder needs `override_reason`: the judgement
-  you made, in one sentence. Illness, a red-flag note, pain 7 or more and an injury that
-  changes how the athlete moves can never be softened.
+  you made, in one sentence.
+
+This check is about form and validity, not approval. What you do over MCP is the athlete's
+own request through you and is already approved; no extra yes is asked at the write. The
+approval steps in the task register apply to the coach inside VibeSynergy when it acts on
+its own (scheduled and event tasks); that coach also can never soften illness, a red-flag
+note, pain 7 or more or an injury that changes how the athlete moves. Entries show which
+path wrote them (`meta.harness.via`: `runner` or `mcp`).
 
 Where judgement is asked: the check-in against the measurements, measurement gaps (a night
 updated later, a readiness from after training or from a partial night: a number out of a

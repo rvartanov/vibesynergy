@@ -454,8 +454,8 @@ def register(kit: ToolKit) -> None:
         one sentence, required when your level is milder than the rules' level}. colour
         follows level: ok=green, ease=amber, flag=amber, refuse=red. The rules' level is
         safety.floor in vibesynergy_coach_prompt(job, include_context=true) and
-        safety.level in vibesynergy_today. Illness, a red-flag note, pain 7+ and an injury
-        that changes movement can never be softened.
+        safety.level in vibesynergy_today. This is a check of validity, not of approval:
+        a write over MCP is the athlete's own request and needs no further yes.
         task: the harness task this entry belongs to (morning, evening, weekly, monthly,
         block, race, test, thresholds, kb, injury, checkin); its contract then applies.
         harness: the harness.stamp from vibesynergy_coach_prompt, so the entry records which
@@ -505,6 +505,7 @@ def register(kit: ToolKit) -> None:
                 task=task,
                 safety=safety,
                 floor=floor,
+                autonomous=under is not None,
             )
         except harness_contract.ContractError as exc:
             raise ToolError(str(exc)) from exc
