@@ -134,6 +134,11 @@ Plan writes have no idempotency key: they carry a `reason` and are protected by
 about to use (the plan article sets the scheme, now `lake27:<date>:<slot>` and week notes
 `lake27:week:NN`, tag `lake27`). Found it: update instead of creating.
 
+**Multisport.** A brick, duathlon or triathlon is one session per sport on the same day,
+linked by `slot` in order: `ms1-swim`, `ms2-ride`, `ms3-run` (a duathlon `ms1-run`,
+`ms2-ride`, `ms3-run`; a second one that day `msb1-…`). The calendar shows it as one entry
+and Garmin gets it as one multisport workout with the transitions.
+
 **Publishing.** Setting `public_insight` needs the `publish` permission (Settings → Sharing → Coach apps): the line ends up in a public description. Without it, write the assessment without `public_insight`.
 
 **Privacy.** Public text is the `public_insight` (Strava, Garmin and intervals.icu

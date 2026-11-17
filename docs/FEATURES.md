@@ -114,7 +114,9 @@ Details: [SOURCES.md](SOURCES.md).
   steps) and every page reads it there; started in VibeSynergy (`vibesynergy plan create`)
   or taken over from intervals.icu, a plan builder (goal race, sport and distance, method,
   hours, rhythm, rest days, fixed sessions), delivery of the plan's workouts to Garmin (per
-  sport, with a mark in front of the name: one for all, ⚡ by default, one per workout type with multisport joining its sports' marks, or none) and to intervals.icu.
+  sport, with a mark in front of the name: one for all, ⚡ by default, one per workout type with multisport joining its sports' marks, or none) and to intervals.icu;
+  a triathlon, duathlon or brick is one session per sport linked by slot (`ms1-swim`,
+  `ms2-ride`, `ms3-run`), one entry in the calendar and one Garmin multisport workout.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport.

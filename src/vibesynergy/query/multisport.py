@@ -9,11 +9,47 @@ not count again, so nothing is counted twice.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
 MULTI = ("multi_sport", "multisport", "triathlon", "duathlon", "brick")
 SLACK = timedelta(minutes=2)
+
+# A planned multisport (#74): sessions on one day whose slot is ``ms<n>-<sport>`` (``ms1-swim``,
+# ``ms2-ride``, ``ms3-run``) are one combined workout in that order. A letter after ``ms``
+# (``msb1-run``) starts a second one that day. The old brick slots still count: ``fiets``
+# first, ``loop`` second.
+_SLOT = re.compile(r"^ms([a-z]?)([1-9][0-9]?)(?:-[a-z0-9_-]*)?$")
+_LEGACY = {"fiets": ("", 1), "loop": ("", 2)}
+
+
+def slot_part(slot: str | None) -> tuple[str, int] | None:
+    """``(group, order)`` of a session slot in a planned multisport, else ``None``."""
+    text = (slot or "").strip().lower()
+    if text in _LEGACY:
+        return _LEGACY[text]
+    found = _SLOT.match(text)
+    return (found.group(1), int(found.group(2))) if found else None
+
+
+def event_part(external_id: str | None, brick_part: str | None = None) -> tuple[str, int] | None:
+    """The same for an intervals.icu copy: its ``external_id`` ends in the slot
+    (``<plan>:<date>:<slot>``); an old brick keeps its ``brick_part``."""
+    head, sep, slot = (external_id or "").rpartition(":")
+    return (slot_part(slot) if sep and head else None) or slot_part(brick_part)
+
+
+def planned_groups(items: list[dict[str, Any]], part=lambda item: item.get("multi_part")):
+    """Indexes of ``items`` (one day) per planned multisport, in order: only groups of two or
+    more parts."""
+    groups: dict[str, list[tuple[int, int]]] = {}
+    for index, item in enumerate(items):
+        found = part(item)
+        if found:
+            groups.setdefault(found[0], []).append((found[1], index))
+    return [[i for _, i in sorted(members)] for _, members in sorted(groups.items())
+            if len(members) >= 2]  # fmt: skip
 
 
 def is_multisport(sport: str | None) -> bool:

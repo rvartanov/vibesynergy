@@ -169,7 +169,10 @@ def register(kit: ToolKit) -> None:
         source vibesynergy). description is intervals.icu step text (cue first, then steps);
         unknown steps are refused. The change reaches intervals.icu (and from there Zwift and
         Garmin) within minutes; changes made in intervals.icu itself are put back. Keep the
-        week note and week targets in step (COACH-5)."""
+        week note and week targets in step (COACH-5). slot names a new session's id; slots
+        ms1-swim, ms2-ride, ms3-run (ms<n>-<sport>, msb1-... for a second one that day) link
+        that day's sessions into one multisport in that order: a triathlon, duathlon or
+        brick, one Garmin multisport workout."""
         from vibesynergy.query import plan_model
 
         if plan_model.current_plan_id(engine) is None:

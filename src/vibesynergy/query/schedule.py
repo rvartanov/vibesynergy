@@ -65,6 +65,7 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
                 "distance_m": plan_q.planned_distance_m(item),
                 "description": item.get("description"),
                 "brick_part": (item.get("extra") or {}).get("brick_part"),
+                "multi_part": (item.get("extra") or {}).get("multi_part"),
                 "done": [
                     {"id": d.get("id"), "name": d.get("name"), "moving_s": d.get("moving_s")}
                     for d in done
@@ -139,28 +140,40 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
                     (icu.get(str(done["id"])) or {}).get("compliance"),
                 )
                 done["compliance"], done["compliance_source"] = pct, source
-    # A planned brick is one holder too: the brick run and the day's ride with it.
+    # A planned multisport is one holder too (#74): the sessions linked by their slot in order
+    # (a triathlon, a duathlon, a brick), else a brick run and the day's ride with it.
+    from vibesynergy.query import multisport
+
     for entry in days.values():
         plans = entry["planned"]
+        groups = multisport.planned_groups(plans)
+        linked = {i for group in groups for i in group}
         runs = [
             i
             for i, p in enumerate(plans)
-            if plan_q.family(p.get("sport")) == "run"
+            if i not in linked
+            and plan_q.family(p.get("sport")) == "run"
             and (p.get("brick_part") == "loop" or "brick" in (p.get("title") or "").lower())
         ]
-        rides = [i for i, p in enumerate(plans) if plan_q.family(p.get("sport")) == "ride"]
+        rides = [
+            i
+            for i, p in enumerate(plans)
+            if i not in linked and plan_q.family(p.get("sport")) == "ride"
+        ]
         if runs and rides:
             ride = next((i for i in rides if plans[i].get("brick_part") == "fiets"), rides[0])
+            groups.append([ride, runs[0]])
+        if groups:
             entry["planned_multisport"] = [
                 {
-                    "title": f"{plans[ride].get('title')} + {plans[runs[0]].get('title')}",
-                    "parts": [ride, runs[0]],
-                    "planned_s": sum(plans[i].get("planned_s") or 0 for i in (ride, runs[0])),
+                    "title": " + ".join(str(plans[i].get("title")) for i in group),
+                    "parts": group,
+                    "sports": [plan_q.family(plans[i].get("sport")) for i in group],
+                    "planned_s": sum(plans[i].get("planned_s") or 0 for i in group),
                 }
+                for group in groups
             ]
     # A multisport is one holder with its parts: the parts count, the holder does not.
-    from vibesynergy.query import multisport
-
     holders = multisport.parts(
         [
             {
@@ -230,13 +243,13 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
             for i in brick["parts"]:
                 found = [str(d["id"]) for d in entry["planned"][i]["done"] if d.get("id")]
                 done_ids += found[:1]
-            if len(done_ids) < 2 or any(d in part_of for d in done_ids):
+            if len(done_ids) < len(brick["parts"]) or any(d in part_of for d in done_ids):
                 continue
             entry.setdefault("multisport", []).append(
                 {
                     "id": None,
                     "name": brick["title"],
-                    "sport": "brick",
+                    "sport": "brick" if brick["sports"] == ["ride", "run"] else "multisport",
                     "moving_s": sum(stats.get(d, {}).get("moving_s") or 0 for d in done_ids),
                     "load": None,
                     "parts": done_ids,

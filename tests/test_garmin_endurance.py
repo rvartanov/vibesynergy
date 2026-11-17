@@ -226,3 +226,57 @@ def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
     assert "skipLastRestStep" not in built[1] and built[2]["skipLastRestStep"] is True
     lone = [{"kind": "work", "duration_s": 60}, {"kind": "rest", "duration_s": 60}]
     assert ge.trim_rest_before_lap(lone) == [{"kind": "work", "duration_s": 60}]
+
+
+def test_a_triathlon_linked_by_slot_becomes_one_multisport_workout(runtime) -> None:
+    """#74: ms1-swim, ms2-ride, ms3-run on one day are one workout in that order."""
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
+    base = {"category": "WORKOUT", "start_date_local": "2026-11-08T00:00:00"}
+    _events(
+        runtime,
+        [
+            {**base, "id": 13, "type": "Run", "name": "Loop 20'",
+             "external_id": "fry27:2026-11-08:ms3-run", "description": "- 20m Z2 HR"},
+            {**base, "id": 11, "type": "Swim", "name": "Zwem 1500",
+             "external_id": "fry27:2026-11-08:ms1-swim", "description": "- 1500mtr Z2 Pace"},
+            {**base, "id": 12, "type": "Ride", "name": "Fiets 1u",
+             "external_id": "fry27:2026-11-08:ms2-ride", "description": "- 60m 70%"},
+            {**base, "id": 14, "type": "Ride", "name": "Koffierit", "description": "- 30m 55%"},
+        ],
+    )  # fmt: skip
+    found = ge.desired(runtime.engine, TODAY, ("swim", "ride", "run"), 21)
+    tri = found["brick:11+12+13"]
+    assert tri["parts"] == ["11", "12", "13"]
+    assert tri["name"] == "⚡ Zwem 1500 + Fiets 1u + Loop 20'"
+    workout = tri["workout"]
+    assert workout["sportType"]["sportTypeKey"] == "multi_sport"
+    assert workout["isSessionTransitionEnabled"] is True and "poolLength" not in workout
+    segments = workout["workoutSegments"]
+    assert [s["sportType"]["sportTypeKey"] for s in segments] == ["swimming", "cycling", "running"]
+    assert [s["segmentOrder"] for s in segments] == [1, 2, 3]
+    assert [s["workoutSteps"][0]["stepOrder"] for s in segments] == [1, 2, 3]
+    assert {"11", "12", "13", "14"} <= set(found)  # the separate copies stay
+    assert sum(k.startswith("brick:") for k in found) == 1  # the coffee ride is no brick
+    # Swim not delivered: no half triathlon, and the ride and run are no brick either.
+    rest = ge.desired(runtime.engine, TODAY, ("ride", "run"), 21)
+    assert not any(k.startswith("brick:") for k in rest)
+
+
+def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
+    base = {"category": "WORKOUT", "start_date_local": "2026-11-09T00:00:00"}
+    _events(
+        runtime,
+        [
+            {**base, "id": 21, "type": "Run", "name": "Run 1",
+             "external_id": "fry27:2026-11-09:ms1-run", "description": "- 10m Z3 HR"},
+            {**base, "id": 22, "type": "Ride", "name": "Ride",
+             "external_id": "fry27:2026-11-09:ms2-ride", "description": "- 40m 75%"},
+            {**base, "id": 23, "type": "Run", "name": "Run 2",
+             "external_id": "fry27:2026-11-09:ms3-run", "description": "- 5m Z3 HR"},
+        ],
+    )  # fmt: skip
+    found = ge.desired(runtime.engine, TODAY, ("ride", "run"), 21)
+    (key,) = [k for k in found if k.startswith("brick:")]
+    keys = [s["sportType"]["sportTypeKey"] for s in found[key]["workout"]["workoutSegments"]]
+    assert key == "brick:21+22+23" and keys == ["running", "cycling", "running"]

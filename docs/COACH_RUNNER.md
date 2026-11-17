@@ -97,12 +97,14 @@ them read afterwards. An explicit "akkoord" or "ja" on a concrete proposal count
 The athlete's approval for that change (ICU-4): the coach carries out only that proposal and
 quotes the reply in its entry. When the reply is ambiguous it does nothing and asks.
 
-## Garmin multisport (brick) workouts
+## Garmin multisport workouts (brick, duathlon, triathlon)
 
-Not included. VibeSynergy no longer writes workouts to Garmin: the plan reaches Garmin
-through intervals.icu. A brick is planned as its parts in intervals.icu, as today. A
-dedicated Garmin multisport upload would need a new write path through the Garmin source
-with ownership checks and read-back; that is a separate issue if wanted.
+A combined workout is planned as its parts, one session per sport on the same day, linked by
+the slot `ms<n>-<sport>` in order: `ms1-swim`, `ms2-ride`, `ms3-run` (#74). A letter after
+`ms` (`msb1-run`) starts a second one that day. With Garmin delivery on for every sport in
+it, VibeSynergy sends it as one Garmin multisport workout: a segment per sport with the
+transitions, the swim as open water. The parts go separately as well. A brick without slots
+still works: a run with "brick" in its name and that day's ride.
 
 ## Switching from the routines to the API
 

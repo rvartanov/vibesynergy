@@ -266,3 +266,58 @@ def test_a_part_brings_its_holder_and_siblings_for_the_insight(runtime) -> None:
         "garmin:ride",
     ]
     assert multisport.relatives(runtime.engine, ["garmin:swim"]) == ["garmin:swim"]
+
+
+def test_a_slot_links_a_session_into_a_planned_multisport() -> None:
+    """#74: ms<n>-<sport>, an optional group letter, and the old brick slots."""
+    assert multisport.slot_part("ms1-swim") == ("", 1)
+    assert multisport.slot_part("ms3-run") == ("", 3)
+    assert multisport.slot_part("msb2-ride") == ("b", 2)
+    assert multisport.slot_part("fiets") == ("", 1) and multisport.slot_part("loop") == ("", 2)
+    assert multisport.slot_part("run") is None and multisport.slot_part("brick-run") is None
+    assert multisport.slot_part(None) is None
+    assert multisport.event_part("fry27:2026-11-08:ms2-ride") == ("", 2)
+    assert multisport.event_part("2026-11-08:ride", "fiets") == ("", 1)
+    assert multisport.event_part("fry27:2026-11-08:run") is None
+    items = [{"multi_part": ("", 2)}, {"multi_part": None}, {"multi_part": ("", 1)},
+             {"multi_part": ("b", 1)}]  # fmt: skip
+    assert multisport.planned_groups(items) == [[2, 0]]  # group b has one part: none
+
+
+def test_a_planned_triathlon_is_one_holder_in_the_calendar(runtime) -> None:
+    import json
+    from datetime import date
+
+    from vibesynergy.normalize.normaliser import write_records
+    from vibesynergy.query import schedule
+    from vibesynergy.sources.intervals_icu.mappers import map_events
+
+    base = {"category": "WORKOUT", "start_date_local": "2026-11-15T00:00:00",
+            "updated": "2026-11-01T10:00:00.000Z"}  # fmt: skip
+    events = [
+        {**base, "id": 93, "name": "Loop", "type": "Run", "moving_time": 1200,
+         "external_id": "fry27:2026-11-15:ms3-run"},
+        {**base, "id": 91, "name": "Zwem", "type": "Swim", "moving_time": 1800,
+         "external_id": "fry27:2026-11-15:ms1-swim"},
+        {**base, "id": 92, "name": "Fiets", "type": "Ride", "moving_time": 3600,
+         "external_id": "fry27:2026-11-15:ms2-ride"},
+    ]  # fmt: skip
+    stored = runtime.raw.put(
+        source="intervals_icu",
+        dataset="events",
+        item_key="tri",
+        payload=json.dumps(events).encode(),
+        content_type="application/json",
+    )
+    with runtime.engine.begin() as conn:
+        write_records(
+            conn,
+            list(map_events(runtime.raw.load(stored.id))),
+            source="intervals_icu",
+            raw_item_id=stored.id,
+        )
+    day = date(2026, 11, 15)
+    out = schedule.calendar(runtime.engine, day, day, date(2026, 11, 10))["days"][0]
+    (holder,) = out["planned_multisport"]
+    assert holder["title"] == "Zwem + Fiets + Loop"
+    assert holder["sports"] == ["swim", "ride", "run"] and holder["planned_s"] == 6600
