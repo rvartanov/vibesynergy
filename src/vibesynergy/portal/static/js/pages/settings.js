@@ -546,18 +546,38 @@ function bind(view, ctx) {
       }
     });
   });
+  // The mark in front of VibeSynergy's Garmin workouts: one for all, or one per type.
+  const saveMarks = async (input, changes) => {
+    const status = input.closest("fieldset").querySelector("[data-delivery-status]");
+    status.textContent = t("Saving…");
+    status.classList.remove("error-text");
+    try {
+      await post("prefs", { changes });
+      status.textContent = t("Saved. Garmin is updated within a few minutes.");
+    } catch (error) {
+      status.textContent = t("Not saved: {error}", { error: error.message });
+      status.classList.add("error-text");
+    }
+  };
   view.querySelectorAll("[name=garmin_mark]").forEach((input) => {
-    input.addEventListener("change", async () => {
-      const status = input.closest("fieldset").querySelector("[data-delivery-status]");
-      status.textContent = t("Saving…");
-      status.classList.remove("error-text");
-      try {
-        await post("prefs", { changes: { garmin_mark: input.value.trim() || null } });
-        status.textContent = t("Saved. Garmin is updated within a few minutes.");
-      } catch (error) {
-        status.textContent = t("Not saved: {error}", { error: error.message });
-        status.classList.add("error-text");
-      }
+    input.addEventListener("change", () => saveMarks(input, { garmin_mark: input.value.trim() || null }));
+  });
+  view.querySelectorAll("[name=garmin_mark_mode]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const box = input.closest(".garmin-marks");
+      const perType = input.value === "per_type";
+      box.querySelector("[data-mark-one]").hidden = perType;
+      box.querySelector("[data-mark-types]").hidden = !perType;
+      saveMarks(input, { garmin_mark_mode: input.value });
+    });
+  });
+  view.querySelectorAll("[name=garmin_marks]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const fields = [...input.closest("[data-mark-types]").querySelectorAll("[name=garmin_marks]")];
+      // An emptied field goes back to its default.
+      if (!input.value.trim()) input.value = input.placeholder;
+      const marks = Object.fromEntries(fields.filter((f) => f.value.trim() && f.value.trim() !== f.placeholder).map((f) => [f.dataset.kind, f.value.trim()]));
+      saveMarks(input, { garmin_marks: Object.keys(marks).length ? marks : null });
     });
   });
   view.querySelectorAll("[name=icu_private_notes]").forEach((input) => {

@@ -476,22 +476,47 @@ def _api(rt):
 
 # Every workout VibeSynergy puts on Garmin starts with a mark (#64), so on the watch and in
 # Garmin Connect it stands apart from Garmin Coach and the athlete's own workouts. The athlete
-# picks it in Settings (portal preference ``garmin_mark``, #66); this one when none is chosen.
+# picks it in Settings: one for everything (portal preference ``garmin_mark``, #66; this one
+# when none is chosen) or one per workout type (``garmin_marks``, #68; ``TYPE_MARKS`` fill in).
 MARK = "\u26a1"
+TYPE_MARKS = {
+    "strength_training": "\U0001f3cb\ufe0f",
+    "pilates": "\U0001f938",
+    "yoga": "\U0001f9d8",
+    "run": "\U0001f3c3",
+    "ride": "\U0001f6b4",
+    "swim": "\U0001f3ca",
+    "brick": "\U0001f6b4\U0001f3c3",
+}
+# One mark for everything, or a mark per workout type (missing types: ``TYPE_MARKS``).
+Marks = str | dict[str, str] | None
 
 
-def marked(name: str, mark: str = MARK) -> str:
-    """The Garmin name for a VibeSynergy workout: the mark in front, once."""
+def mark_of(marks: Marks, kind: str) -> str:
+    if isinstance(marks, dict):
+        return (marks.get(kind) or TYPE_MARKS.get(kind) or MARK).strip()
+    return (marks or MARK).strip()
+
+
+def marked(name: str, marks: Marks = MARK, kind: str = "") -> str:
+    """The Garmin name for a VibeSynergy workout: its mark in front, once."""
     plain = name.strip()
-    mark = (mark or MARK).strip()
+    mark = mark_of(marks, kind)
     return plain if plain.startswith(mark) else f"{mark} {plain}"
 
 
-def mark_for(data_dir) -> str:
-    """The athlete's chosen mark, or ``MARK``."""
+def marks_from(stored: dict) -> Marks:
+    """The marks from the portal preferences: per type when chosen, else the one mark."""
+    if stored.get("garmin_mark_mode") == "per_type":
+        return {**TYPE_MARKS, **(stored.get("garmin_marks") or {})}
+    return stored.get("garmin_mark") or MARK
+
+
+def mark_for(data_dir) -> Marks:
+    """The athlete's chosen mark(s)."""
     from vibesynergy.portal import prefs
 
-    return prefs.load(data_dir).get("garmin_mark") or MARK
+    return marks_from(prefs.load(data_dir))
 
 
 def name_key(name: str | None) -> str:
@@ -500,7 +525,7 @@ def name_key(name: str | None) -> str:
 
 
 def desired(
-    engine, today: date, lookahead: int = LOOKAHEAD_DAYS, mark: str = MARK
+    engine, today: date, lookahead: int = LOOKAHEAD_DAYS, mark: Marks = MARK
 ) -> dict[str, dict[str, Any]]:
     """Upcoming plan workouts with a valid block, by intervals.icu event id."""
     out: dict[str, dict[str, Any]] = {}
@@ -522,7 +547,7 @@ def desired(
             continue
         if block is None:
             continue
-        name = marked((row.name or "").strip() or "Kracht", mark)
+        name = marked((row.name or "").strip() or "Kracht", mark, block.sport)
         out[str(row.id)] = {
             "event_id": str(row.id),
             "date": row.date,
@@ -700,7 +725,7 @@ def reconcile(
     today: date,
     sports: tuple[str, ...] = (),
     lookahead: int = LOOKAHEAD_DAYS,
-    mark: str = MARK,
+    mark: Marks = MARK,
 ) -> dict[str, Any]:
     from vibesynergy.query import garmin_endurance
 

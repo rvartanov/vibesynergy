@@ -56,7 +56,7 @@ def status(
     days: int = DAYS,
     vibesynergy_sports: tuple[str, ...] = (),
     now: datetime | None = None,
-    mark: str | None = None,
+    mark: str | dict[str, str] | None = None,
 ) -> dict[str, Any]:
     end = today + timedelta(days=days - 1)
     calendar = plan_q.plan(engine, Window(today, end), today, include_sync_status=False)
@@ -125,7 +125,7 @@ def _outdated(
     end: date,
     sports: tuple[str, ...],
     now: datetime,
-    mark: str | None = None,
+    mark: str | dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Workouts VibeSynergy delivers whose Garmin copy lacks the plan's current content."""
     if engine is None:
@@ -228,6 +228,7 @@ def _has_plan(engine: Any, today: date) -> bool:
 def for_runtime(rt: Any, day: date) -> dict[str, Any] | None:
     """The guard with the athlete's own horizon and delivered sports (portal, coach)."""
     from vibesynergy.portal import prefs
+    from vibesynergy.query import garmin_strength
 
     try:
         stored = prefs.load(rt.settings.data_dir)
@@ -236,7 +237,7 @@ def for_runtime(rt: Any, day: date) -> dict[str, Any] | None:
             day,
             prefs.horizon_days(rt.settings.data_dir),
             tuple(stored.get("garmin_delivery") or ()),
-            mark=stored.get("garmin_mark"),
+            mark=garmin_strength.marks_from(stored),
         )
     except Exception:  # a page or brief must still answer
         return None

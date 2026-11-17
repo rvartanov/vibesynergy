@@ -455,6 +455,12 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 row["garmin_delivery"] = stored_prefs.get("garmin_delivery") or []
                 row["garmin_mark"] = stored_prefs.get("garmin_mark") or ""
                 row["garmin_mark_default"] = garmin_strength.MARK
+                row["garmin_mark_mode"] = stored_prefs.get("garmin_mark_mode") or "one"
+                row["garmin_marks"] = {
+                    **garmin_strength.TYPE_MARKS,
+                    **(stored_prefs.get("garmin_marks") or {}),
+                }
+                row["garmin_marks_default"] = garmin_strength.TYPE_MARKS
             sources.append(row)
         return {
             "config_path": str(path),

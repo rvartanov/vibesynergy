@@ -16,6 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   to Garmin Coach and your own. Upcoming workouts on Garmin are renamed once. (#64)
 - **Choose that mark** in Settings → Sources → Garmin: any emoji or symbol; empty means ⚡.
   Changing it renames the upcoming workouts on Garmin within a few minutes. (#66)
+- **Or a mark per workout type**: strength 🏋️, pilates 🤸, yoga 🧘, run 🏃, ride 🚴, swim 🏊
+  and brick 🚴🏃 are filled in; change any of them, or keep one mark for everything. (#68)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
   warnings for the sessions around it:
   - a name whose minutes don't match the steps (45' while it takes 50');

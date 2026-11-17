@@ -273,7 +273,7 @@ def _is_brick_run(row) -> bool:
 
 
 def _bricks(
-    out: dict[str, dict], rows: dict[str, Any], mark: str = garmin_strength.MARK
+    out: dict[str, dict], rows: dict[str, Any], mark: garmin_strength.Marks = garmin_strength.MARK
 ) -> dict[str, dict]:
     """Each brick run with an outdoor ride on the same day becomes one multisport entry."""
     bricks: dict[str, dict] = {}
@@ -290,7 +290,7 @@ def _bricks(
             max(same_day, key=lambda k: out[k]["seconds"]),
         )
         ride = out[ride_id]
-        name = garmin_strength.marked(f"{ride['title']} + {run['title']}", mark)
+        name = garmin_strength.marked(f"{ride['title']} + {run['title']}", mark, "brick")
         workout = build_brick(name, ride["workout"], run["workout"])
         key = f"brick:{ride_id}+{run_id}"
         bricks[key] = {
@@ -311,7 +311,7 @@ def desired(
     today: date,
     sports: tuple[str, ...],
     lookahead: int,
-    mark: str = garmin_strength.MARK,
+    mark: garmin_strength.Marks = garmin_strength.MARK,
 ) -> dict[str, dict]:
     """Upcoming plan workouts of the switched-on sports, by intervals.icu event id."""
     from vibesynergy.query import threshold_push
@@ -342,7 +342,9 @@ def desired(
             parsed = workout_model.parse_intervals(row.description)
             if parsed.unparsed or not parsed.steps:
                 continue  # leave it to intervals.icu's own push
-            name = garmin_strength.marked((row.name or "").strip() or sport.capitalize(), mark)
+            name = garmin_strength.marked(
+                (row.name or "").strip() or sport.capitalize(), mark, sport
+            )
             if sport == "swim":
                 workout = build_swim(name, parsed, values.get("css"))
             elif sport == "ride":
