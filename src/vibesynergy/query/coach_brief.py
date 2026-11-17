@@ -71,6 +71,12 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
     return {
         "date": str(day),
         "date_label": format_user_date(day),
+        # RunSynergy group trainings waiting for the athlete: adopting is his choice (portal).
+        "group_trainings": [
+            {k: g[k] for k in ("session_id", "date", "state", "club", "title", "minutes")}
+            for g in board.get("group_trainings") or []
+            if isinstance(g, dict) and "session_id" in g
+        ],
         "checkin": checkin,
         "complaints": [
             {

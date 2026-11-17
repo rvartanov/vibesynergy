@@ -41,6 +41,10 @@
   "plan-builder": [
     "plan_builder.js"
   ],
+  "group-training": [
+    "group_training.js",
+    "runsynergy_connect.js"
+  ],
   "fitness": [
     "pages/zones.js",
     "fitness_chart.js",

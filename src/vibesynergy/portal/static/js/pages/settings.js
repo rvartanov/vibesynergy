@@ -24,6 +24,7 @@ import { bindBugReport } from "../bugreport.js";
 import { mountAccount } from "../account_settings.js";
 import { bestSourceSettings } from "../best_source_settings.js";
 import { bindIcuConnect } from "../icu_connect.js";
+import { bindRunsynergyConnect } from "../runsynergy_connect.js";
 import { weatherLocationSettings } from "../weather_location.js";
 import * as dataPage from "./data.js";
 import * as historyPage from "./history.js";
@@ -564,6 +565,7 @@ function bind(view, ctx) {
     });
   });
   bindIcuConnect(view);
+  bindRunsynergyConnect(view);
   view.querySelectorAll("[data-source-connect]").forEach((box) => {
     const status = box.querySelector("[data-connect-status]");
     box.querySelector("[data-disconnect]")?.addEventListener("click", async (event) => {

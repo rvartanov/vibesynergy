@@ -45,6 +45,7 @@ strava = "vibesynergy.sources.strava:StravaSource"
 strava_export = "vibesynergy.sources.strava.export:StravaExportSource"
 withings = "vibesynergy.sources.withings:WithingsSource"
 intervals_icu = "vibesynergy.sources.intervals_icu:IntervalsIcuSource"
+runsynergy = "vibesynergy.sources.runsynergy:RunSynergySource"
 
 [dependency-groups]
 dev = [

@@ -148,6 +148,7 @@ def dashboard(
         lambda: _week_progress(engine, today, plan, getattr(rt, "raw", None), include_calendar)
     )
     trends = _block(lambda: _trends(engine, today, tr))
+    group_trainings = _block(lambda: _group_trainings(engine, today))
     open_injuries = _block(lambda: _open_injuries(injuries))
     result = {
         "date": str(today),
@@ -167,6 +168,7 @@ def dashboard(
         "week_progress": progress,
         "trends": trends,
         "injuries": open_injuries,
+        "group_trainings": group_trainings,
     }
     if _failed(verdict):
         result["safety"] = {"error": BLOCK_ERROR}
@@ -178,6 +180,19 @@ def dashboard(
     if not _failed(completed):
         latency.dashboard_visible(engine, completed["activities"])
     return result
+
+
+def _group_trainings(engine: Engine, today: date) -> list[dict[str, Any]]:
+    """RunSynergy group trainings this week and next that wait for a decision: a workout
+    to adopt for a "Training geven" session, or a cancelled training."""
+    from vibesynergy.query import group_training
+
+    found = group_training.proposals(engine, today, today + timedelta(days=7))
+    return [
+        {k: v for k, v in p.items() if k != "current"}
+        for p in sorted(found.values(), key=lambda p: p["date"])
+        if p["state"] != "adopted"
+    ]
 
 
 def _completed(engine: Engine, today: date) -> dict[str, Any]:

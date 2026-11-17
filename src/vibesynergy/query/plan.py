@@ -175,6 +175,8 @@ def plan(
             for r in conn.execute(
                 select(planned_item)
                 .where(
+                    # RunSynergy group trainings are proposals for a plan session, not plan.
+                    planned_item.c.kind != "group_training",
                     planned_item.c.date <= window.end,
                     or_(
                         planned_item.c.date >= window.start,

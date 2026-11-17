@@ -62,6 +62,7 @@ OWNER_ONLY = {
     ("GET", "/plan/builder"),  # the plan builder's settings are the owner's
     ("POST", "/plan/session/move"),  # changing the plan is the owner's
     ("POST", "/plan/session/skip"),
+    ("POST", "/plan/session/group-training"),
     ("GET", "/push"),  # push notifications are the owner's device
     ("POST", "/push/subscribe"),
     ("POST", "/push/unsubscribe"),

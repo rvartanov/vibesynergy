@@ -40,6 +40,7 @@ DEFAULT_MINUTES = {
     "withings": 60,
     "strava": 60,
     "intervals_icu": 60,
+    "runsynergy": 60,  # group schedules change a few times a week
     # Plan changes made on the watch or in Garmin Connect show up sooner than the full sync.
     "garmin.scheduled_workouts": 15,
 }

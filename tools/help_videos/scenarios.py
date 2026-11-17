@@ -266,6 +266,70 @@ def plan_builder(r: Rec):
     r.scroll(700)
 
 
+def _demo_group_training(action: str) -> None:
+    """Seed or clear the demo's RunSynergy training and "Training geven" session."""
+    import os
+    import subprocess
+
+    env = {
+        **os.environ,
+        "XDG_CONFIG_HOME": str(H / "config"),
+        "XDG_DATA_HOME": str(H / "data"),
+    }
+    helper = Path(__file__).with_name("demo_group_training.py")
+    subprocess.run(["uv", "run", "python", str(helper), action], env=env, check=True)
+
+
+@scenario(
+    "group-training",
+    "Groepstraining geven met RunSynergy",
+    "Coaching a group training with RunSynergy",
+)
+def group_training(r: Rec):
+    _demo_group_training("seed")
+    try:
+        r.go("settings/sources")
+        box = r.pg.locator("[data-source=runsynergy]")
+        r.point(box.locator("h2"))
+        r.say(
+            "Geef je groepstrainingen? Koppel RunSynergy onder Instellingen → Bronnen.",
+            "Do you coach group trainings? Connect RunSynergy under Settings → Sources.",
+            2.6,
+        )
+        r.point(box.locator("input[name=runsynergy_url]"))
+        r.say(
+            "Plak hier de agendalink uit RunSynergy (Mijn gegevens → Agendalink).",
+            "Paste the calendar link from RunSynergy here (My details → Calendar link).",
+            2.8,
+        )
+        r.go("dashboard")
+        block = r.pg.locator(".dash-group-trainings")
+        block.wait_for(timeout=15000)
+        r.check(block.count() == 1, "the group-training proposal shows on Today")
+        r.point(block.locator("h3"))
+        r.say(
+            "Op Vandaag staat het schema van de groep als voorstel voor je sessie Training geven.",
+            "Today shows the group schedule as a proposal for your Training geven session.",
+            2.8,
+        )
+        r.click(block.locator("summary", has_text="Bekijk de workout"))
+        r.say(
+            "Inlopen en uitlopen tot je op Lap drukt, de kern op tijd om te fluiten, jij in Z1.",
+            "Warm-up and cool-down until you press lap, the core on time to blow the whistle, "
+            "you in Z1.",
+            3.2,
+        )
+        r.click(block.get_by_role("button", name="Overnemen"))
+        r.check("Overgenomen" in r.text(".dash-group-trainings"), "adopting says so")
+        r.say(
+            "Overnemen zet hem in je plan en op je horloge; hij telt als gepland.",
+            "Adopt puts it in your plan and on your watch; it counts as planned.",
+            2.8,
+        )
+    finally:
+        _demo_group_training("clear")
+
+
 @scenario("fitness", "Zones, drempels en vorm", "Zones, thresholds and form")
 def fitness(r: Rec):
     r.go("zones")
@@ -595,8 +659,16 @@ def customize(r: Rec):
         "Startpagina indelen: zet blokken aan of uit en verander de volgorde.",
         "Arrange start page: turn blocks on or off and change the order.",
     )
-    r.click(r.pg.get_by_role("button", name="Herstel omhoog"))
-    r.click(r.pg.get_by_role("button", name="Herstel omhoog"))
+    up = r.pg.get_by_role("button", name="Herstel omhoog").first
+    down = r.pg.get_by_role("button", name="Herstel omlaag").first
+    # An earlier recording may have left Recovery at the top: move it back down first.
+    for _ in range(2):
+        if up.is_disabled() and down.is_enabled():
+            down.click()
+            r.wait(0.3)
+    for _ in range(2):
+        if up.is_enabled():
+            r.click(up)
     r.say("Zo staat Herstel bovenaan.", "Now Recovery is near the top.", 1.6)
     r.go("settings/system")
     r.say(

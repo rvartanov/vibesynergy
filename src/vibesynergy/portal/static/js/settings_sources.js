@@ -4,6 +4,7 @@ import { get } from "./api.js";
 import { esc, number, sourceName, timeOfDay } from "./format.js";
 import { N, t } from "./i18n.js";
 import { icuConnectHtml } from "./icu_connect.js";
+import { runsynergyConnectHtml } from "./runsynergy_connect.js";
 import { saveRow } from "./settings_pieces.js";
 
 export function sourcesTabHtml(s, { focus = null, shared = false } = {}) {
@@ -46,6 +47,7 @@ export function connectionCard(src, { shared, settings }) {
     ${shared ? "" : id === "strava" ? stravaConnect(src) : ""}
     ${shared ? "" : id === "intervals_icu" ? icuConnectHtml(src) : ""}
     ${shared ? "" : id === "intervals_icu" ? icuNotesHtml(src) : ""}
+    ${shared ? "" : id === "runsynergy" ? runsynergyConnectHtml(src) : ""}
     ${shared ? "" : id === "garmin" ? garminDeliveryHtml(src) : ""}
     ${shared ? "" : `<p><button class="btn" type="button" data-sync-now="${esc(id)}">${t("Sync now")}</button></p>
       <p class="sub" data-sync-status role="status"></p>`}
