@@ -286,8 +286,13 @@ def _is_brick_run(row) -> bool:
 def _combined_entry(
     out: dict[str, dict], ids: list[str], mark: garmin_strength.Marks
 ) -> tuple[str, dict]:
+    from vibesynergy.query import multisport
+
     sports = tuple(out[k]["sport"] for k in ids)
-    name = garmin_strength.marked(" + ".join(out[k]["title"] for k in ids), mark, sports)
+    sign = garmin_strength.mark_of(mark, sports)
+    room = 80 - (len(sign) + 1 if sign else 0)  # Garmin keeps 80 characters, mark included
+    title = multisport.combined_title([out[k]["title"] for k in ids], room)
+    name = garmin_strength.marked(title, mark, sports)
     workout = build_multisport(name, [(out[k]["sport"], out[k]["workout"]) for k in ids])
     day = out[ids[-1]]["date"]
     key = "brick:" + "+".join(ids)

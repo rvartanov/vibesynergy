@@ -27,6 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   `ms3-run`) go to Garmin as one multisport workout, a segment per sport with the
   transitions and the swim as open water, and show as one entry on the calendar and Today.
   Bricks planned the old way keep working. (#74)
+- **Multisport names fit on Garmin**: a prefix the parts share is said once
+  (`Frysman-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'`), and a name
+  still longer than Garmin's 80 characters shortens its longest parts, so every part shows.
+  (#76)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
   warnings for the sessions around it:
   - a name whose minutes don't match the steps (45' while it takes 50');
