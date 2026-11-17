@@ -625,6 +625,16 @@ function fillCoaching(host, adviceHost, dashboardData, todayReply, yesterdayRepl
   host.innerHTML = dashboardCoachingHtml(plan);
 }
 
+// The parts' titles as one name, a prefix they share said once (#76), as the calendar does.
+function combinedTitle(titles) {
+  const found = titles.map((x) => /^(.+?(?::|\s[-–]))\s+/.exec(x));
+  const heads = new Set(found.map((m) => m && m[1].toLowerCase()));
+  if (titles.length > 1 && found.every(Boolean) && heads.size === 1) {
+    return `${found[0][1]} ${titles.map((x, i) => x.slice(found[i][0].length)).join(" + ")}`;
+  }
+  return titles.join(" + ");
+}
+
 function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
   // A planned multisport (#74): the sessions linked by their slot in order (a triathlon, a
@@ -656,7 +666,7 @@ function planHtml(sessions, outside, shared, planSource) {
     return `<li>${withSportIcon(session.sport, esc(title))}${chip}${link}</li>`;
   };
   const parts = new Set(linked.flat());
-  const multi = linked.map((g) => `<li>${withSportIcon("brick", esc(g.map((x) => x.title).join(" + ")))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${g.map(one).join("")}</ul></li>`).join("");
+  const multi = linked.map((g) => `<li>${withSportIcon("brick", esc(combinedTitle(g.map((x) => x.title || ""))))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${g.map(one).join("")}</ul></li>`).join("");
   const rows = multi + list.filter((x) => !parts.has(x)).map(one).join("");
   const plan = rows
     ? `<h3>${t("Planned")}</h3><ul class="trends">${rows}</ul>`

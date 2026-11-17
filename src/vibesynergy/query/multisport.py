@@ -40,6 +40,32 @@ def event_part(external_id: str | None, brick_part: str | None = None) -> tuple[
     return (slot_part(slot) if sep and head else None) or slot_part(brick_part)
 
 
+_PREFIX = re.compile("^(.+?(?::|\\s[-\u2013]))\\s+")
+
+
+def combined_title(titles: list[str], limit: int | None = None) -> str:
+    """The parts' titles as one name (#76): ``A + B + C``, a prefix they share said once
+    (``Frysman-simulatie: zwemmen + fietsen + lopen``), and within ``limit`` characters by
+    shortening the longest parts, so every part still shows (Garmin keeps 80)."""
+    titles = [str(t or "").strip() for t in titles]
+    found = [_PREFIX.match(t) for t in titles]
+    head = ""
+    parts = titles
+    if len(titles) > 1 and all(found) and len({m.group(1).casefold() for m in found}) == 1:
+        head = found[0].group(1) + " "
+        parts = [t[m.end() :] for t, m in zip(titles, found, strict=True)]
+
+    def text() -> str:
+        return head + " + ".join(parts)
+
+    while limit is not None and len(text()) > limit:
+        i = max(range(len(parts)), key=lambda k: len(parts[k]))
+        if len(parts[i]) <= 2:
+            break
+        parts[i] = parts[i][:-2].rstrip() + "…"
+    return text()[:limit] if limit is not None else text()
+
+
 def planned_groups(items: list[dict[str, Any]], part=lambda item: item.get("multi_part")):
     """Indexes of ``items`` (one day) per planned multisport, in order: only groups of two or
     more parts."""

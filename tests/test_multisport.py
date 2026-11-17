@@ -321,3 +321,21 @@ def test_a_planned_triathlon_is_one_holder_in_the_calendar(runtime) -> None:
     (holder,) = out["planned_multisport"]
     assert holder["title"] == "Zwem + Fiets + Loop"
     assert holder["sports"] == ["swim", "ride", "run"] and holder["planned_s"] == 6600
+
+
+def test_a_combined_name_says_a_shared_prefix_once_and_fits() -> None:
+    """#76: Garmin keeps 80 characters; every part still shows."""
+    titles = [
+        "Frysman-simulatie: zwemmen openwater 1900 m",
+        "Frysman-simulatie: fietsen 2u30",
+        "Frysman-simulatie: lopen 45'",
+    ]
+    assert multisport.combined_title(titles) == (
+        "Frysman-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'"
+    )
+    assert multisport.combined_title(["Rit", "Brickloop"]) == "Rit + Brickloop"
+    assert multisport.combined_title(["A: x", "B: y"]) == "A: x + B: y"  # no shared prefix
+    long = ["Lange rit op racetempo met de nieuwe wielen 2u30", "Brickloop direct na de rit 30'",
+            "Nog een loopje om de benen los te maken 20'"]  # fmt: skip
+    short = multisport.combined_title(long, 60)
+    assert len(short) <= 60 and short.count(" + ") == 2 and "…" in short

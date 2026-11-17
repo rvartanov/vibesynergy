@@ -166,7 +166,7 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
         if groups:
             entry["planned_multisport"] = [
                 {
-                    "title": " + ".join(str(plans[i].get("title")) for i in group),
+                    "title": multisport.combined_title([plans[i].get("title") for i in group]),
                     "parts": group,
                     "sports": [plan_q.family(plans[i].get("sport")) for i in group],
                     "planned_s": sum(plans[i].get("planned_s") or 0 for i in group),

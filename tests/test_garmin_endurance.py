@@ -280,3 +280,25 @@ def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
     (key,) = [k for k in found if k.startswith("brick:")]
     keys = [s["sportType"]["sportTypeKey"] for s in found[key]["workout"]["workoutSegments"]]
     assert key == "brick:21+22+23" and keys == ["running", "cycling", "running"]
+
+
+def test_a_long_multisport_name_fits_garmins_80_characters(runtime) -> None:
+    """#76: the shared prefix once, the mark included, every part still there."""
+    base = {"category": "WORKOUT", "start_date_local": "2026-11-10T00:00:00"}
+    sim = "Frysman-simulatie: "
+    _events(
+        runtime,
+        [
+            {**base, "id": 31, "type": "Swim", "name": sim + "zwemmen openwater 1900 m",
+             "external_id": "fry27:2026-11-10:ms1-swim", "description": "- 1900mtr Z2 Pace"},
+            {**base, "id": 32, "type": "Ride", "name": sim + "fietsen 2u30 op racetempo",
+             "external_id": "fry27:2026-11-10:ms2-ride", "description": "- 150m 75%"},
+            {**base, "id": 33, "type": "Run", "name": sim + "lopen 45' na de rit",
+             "external_id": "fry27:2026-11-10:ms3-run", "description": "- 45m Z3 HR"},
+        ],
+    )  # fmt: skip
+    found = ge.desired(runtime.engine, TODAY, ("swim", "ride", "run"), 21)
+    name = found["brick:31+32+33"]["name"]
+    assert len(name) <= 80 and name.startswith("⚡ Frysman-simulatie: zwemmen")
+    assert name.count(" + ") == 2 and name.count("Frysman") == 1
+    assert found["brick:31+32+33"]["workout"]["workoutName"] == name
