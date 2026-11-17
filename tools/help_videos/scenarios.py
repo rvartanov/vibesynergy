@@ -315,7 +315,8 @@ def group_training(r: Rec):
         r.click(block.locator("summary", has_text="Bekijk de workout"))
         r.say(
             "Inlopen en uitlopen tot je op Lap drukt, de kern op tijd om te fluiten, jij in Z1.",
-            "Warm-up and cool-down until you press lap, the core on time to blow the whistle, you in Z1.",
+            "Warm-up and cool-down until you press lap, the core on time to blow the whistle, "
+            "you in Z1.",
             3.2,
         )
         r.click(block.get_by_role("button", name="Overnemen"))

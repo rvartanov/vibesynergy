@@ -105,7 +105,9 @@ def seed(rt: Runtime) -> None:
         day=day,
         name="Training geven Loopgroep Demo",
         sport="Run",
-        description="Training geven, zelf rustig mee.\n\nWarmup\n- 15m Z1 HR\n\nMain set\n- 55m Z1 HR",
+        description=(
+            "Training geven, zelf rustig mee.\n\nWarmup\n- 15m Z1 HR\n\nMain set\n- 55m Z1 HR"
+        ),
         reason="help video",
         author="demo",
         slot="evening",
