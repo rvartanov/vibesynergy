@@ -153,6 +153,33 @@ def _step(step: dict[str, Any], css: Any) -> dict[str, Any]:
     return out
 
 
+_RESTS = ("rest", "recovery")
+
+
+def trim_rest_before_lap(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """No timed recovery right before a step that waits for the lap button, or at the end
+    (#57): the watch would count down a recovery and then wait for lap again. A repeat whose
+    last step is a recovery keeps it on every round but the last; a lone recovery goes."""
+    out: list[dict[str, Any]] = []
+    for index, step in enumerate(steps):
+        after = steps[index + 1] if index + 1 < len(steps) else None
+        lap_next = after is None or bool(after.get("until_lap"))
+        if not lap_next:
+            out.append(step)
+        elif step["kind"] in _RESTS and not step.get("until_lap"):
+            continue
+        elif step["kind"] == "repeat" and step["steps"] and step["steps"][-1]["kind"] in _RESTS:
+            inner, times = step["steps"], int(step.get("times") or 1)
+            if times > 2:
+                out.append({**step, "times": times - 1})
+            elif times == 2:
+                out.extend(inner)
+            out.extend(inner[:-1])
+        else:
+            out.append(step)
+    return out
+
+
 def _steps(steps: list[dict[str, Any]], css: Any) -> list[dict[str, Any]]:
     out = []
     for step in steps:
@@ -185,7 +212,7 @@ def _number(steps: list[dict], start: int = 1) -> int:
 def build_run(
     name: str, workout: workout_model.Workout, values: dict[str, float]
 ) -> dict[str, Any]:
-    steps = _steps(workout.steps, ("run", values))
+    steps = _steps(trim_rest_before_lap(workout.steps), ("run", values))
     _number(steps)
     out: dict[str, Any] = {
         "workoutName": name,
@@ -200,7 +227,7 @@ def build_run(
 def build_ride(
     name: str, workout: workout_model.Workout, values: dict[str, float]
 ) -> dict[str, Any]:
-    steps = _steps(workout.steps, ("ride", values))
+    steps = _steps(trim_rest_before_lap(workout.steps), ("ride", values))
     _number(steps)
     out: dict[str, Any] = {
         "workoutName": name,
@@ -213,7 +240,7 @@ def build_ride(
 
 
 def build_swim(name: str, workout: workout_model.Workout, css: float | None) -> dict[str, Any]:
-    steps = _steps(workout.steps, css)
+    steps = _steps(trim_rest_before_lap(workout.steps), css)
     _number(steps)
     out: dict[str, Any] = {
         "workoutName": name,

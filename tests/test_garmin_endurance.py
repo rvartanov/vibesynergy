@@ -203,3 +203,30 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
     assert {"1", "2", "3"} <= set(found)  # the separate copies stay (PLAN-7)
     # One sport switched on: no brick.
     assert not any(k.startswith("brick") for k in ge.desired(runtime.engine, TODAY, ("run",), 21))
+
+
+def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
+    """#57: the last round of a repeat ends without its recovery when a lap step follows."""
+    text = (
+        "Warmup\n- Press lap 15m Z1 HR\n\n"
+        "Main set\n5x\n- 4m Z3 HR\n- 2m Z1 HR intensity=recovery\n\n"
+        "3x\n- 1m Z4 HR\n- 1m intensity=rest\n\n"
+        "Cooldown\n- Press lap 10m Z1 HR"
+    )
+    steps = parse_intervals(text).steps
+    trimmed = ge.trim_rest_before_lap(steps)
+    kinds = [(s["kind"], s.get("times")) for s in trimmed]
+    # The first repeat is followed by another repeat: unchanged. The second is followed by
+    # the lap cool-down: two full rounds, then the last work step alone.
+    assert kinds == [
+        ("warmup", None),
+        ("repeat", 5),
+        ("repeat", 2),
+        ("work", None),
+        ("cooldown", None),
+    ]
+    assert ge.trim_rest_before_lap(
+        [{"kind": "work", "duration_s": 60}, {"kind": "rest", "duration_s": 60}]
+    ) == [{"kind": "work", "duration_s": 60}]
+    two = parse_intervals("Main set\n2x\n- 1m Z4 HR\n- 1m intensity=rest").steps
+    assert [s["kind"] for s in ge.trim_rest_before_lap(two)] == ["work", "rest", "work"]

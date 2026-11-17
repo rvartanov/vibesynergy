@@ -55,6 +55,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **Workouts on the watch: one rest before a new station.** In a strength workout the last set
+  of an exercise no longer counts down its rest and then waits for lap again. It goes straight
+  to the Herstel step until lap, whose text says the minimum ("Herstel minstens 3 min, dan
+  Lap"). Rests between sets of one station stay. The last set of the workout has no rest. Run,
+  ride and swim workouts do the same: a repeat followed by a step until lap (or the end) skips
+  its last recovery. Upcoming workouts on Garmin are rebuilt once. (#57)
 - The bell (Waiting for you) also lists the warnings that appear at the top of the screen,
   so one you closed or missed can still be found ([#30](https://github.com/rvartanov/vibesynergy/pull/30)).
 - Texts and the morning coach instructions no longer mention Garmin Coach; you don't use it
