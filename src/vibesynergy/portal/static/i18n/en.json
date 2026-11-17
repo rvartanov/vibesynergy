@@ -3002,5 +3002,8 @@
  "Cool-down": "Cool-down",
  "Core": "Core",
  "{min} min": "{min} min",
- "until lap, about {min} min": "until lap, about {min} min"
+ "until lap, about {min} min": "until lap, about {min} min",
+ "{day}, {name}: the name says {minutes}' but the steps take {planned}'.": "{day}, {name}: the name says {minutes}' but the steps take {planned}'.",
+ "{day}, {name}: the barbell work starts without a full warm-up (STR-4).": "{day}, {name}: the barbell work starts without a full warm-up (STR-4).",
+ "{day}, {name}: the text refers to a {session} session that is not there.": "{day}, {name}: the text refers to a {session} session that is not there."
 }

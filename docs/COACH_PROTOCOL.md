@@ -201,6 +201,7 @@ VibeSynergy tells you something happened; details stay behind MCP ([EVENTS.md](E
 | A plan write went wrong | write the session back as it was (`vibesynergy_plan_session_set` with the earlier text; each version is kept) and report; an intervals.icu write outside the plan: `vibesynergy_icu_revert(audit_id, reason)` |
 | MCP unreachable | Do not guess from memory; report through your channel; the next run catches up |
 | Data looks wrong (swim artefacts, duplicates) | Treat it as uncertain (`swim-data-quality`), report duplicates, delete nothing |
+| A plan write returns `checks` | Fix what it names in the same run (another `vibesynergy_plan_session_set`), or say in the reason why it stays. `review_context`: read that session again and adjust its text or warm-up to the new situation |
 | Unsure | No change, no insight; propose or ask |
 
 ## 9. Audit

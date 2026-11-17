@@ -479,14 +479,32 @@ def set_session(
             )
         )
         conn.execute(update(plan).where(plan.c.id == plan_id).values(current_version=n))
-        exists = conn.execute(select(plan_session.c.id).where(plan_session.c.id == ident)).scalar()
-        if exists:
+        before = conn.execute(
+            select(plan_session.c.date).where(plan_session.c.id == ident)
+        ).scalar()
+        if before is not None:
             conn.execute(
                 update(plan_session).where(plan_session.c.id == ident).values(version=n, **row)
             )
         else:
             conn.execute(insert(plan_session).values(id=ident, plan_id=plan_id, version=n, **row))
-    return {"session_id": ident, "version": n}
+    days = [day] if before in (None, day) else [before, day]
+    return {
+        "session_id": ident,
+        "version": n,
+        "checks": _checks(engine, plan_id, ident, days, name),
+    }
+
+
+def _checks(engine: Engine, plan_id: str, ident: str, days: list[date], name: str | None) -> list:
+    """Consistency layer 1 (#60) for one write: warnings, the write itself stands."""
+    from vibesynergy.query import plan_lint
+
+    try:
+        return plan_lint.after_change(engine, plan_id, ident, days, changed_name=name)
+    except Exception:  # a check must never undo or block a plan write
+        log.warning("plan checks failed after %s", ident, exc_info=True)
+        return []
 
 
 def drift(engine: Engine, plan_id: str | None = None) -> list[dict[str, Any]]:
@@ -550,7 +568,8 @@ def move_session(
         conn.execute(
             update(plan_session).where(plan_session.c.id == session_id).values(date=day, version=n)
         )
-    return {"session_id": session_id, "date": day.isoformat(), "version": n}
+    checks = _checks(engine, plan_id, session_id, [row["date"], day], row["name"])
+    return {"session_id": session_id, "date": day.isoformat(), "version": n, "checks": checks}
 
 
 def skip_session(
@@ -559,14 +578,15 @@ def skip_session(
     """Take one planned session out of the plan; the mirror removes its copy."""
     plan_id = _required_plan(engine, plan_id)
     with engine.begin() as conn:
-        _planned_session(conn, plan_id, session_id)
+        row = _planned_session(conn, plan_id, session_id)
         n = _bump(conn, plan_id, author=author, reason=reason, summary={"skip": session_id})
         conn.execute(
             update(plan_session)
             .where(plan_session.c.id == session_id)
             .values(status=SKIPPED, version=n)
         )
-    return {"session_id": session_id, "status": SKIPPED, "version": n}
+    checks = _checks(engine, plan_id, session_id, [row["date"]], row["name"])
+    return {"session_id": session_id, "status": SKIPPED, "version": n, "checks": checks}
 
 
 # Week notes and weekly targets (COACH-5: they change together with the sessions) ----

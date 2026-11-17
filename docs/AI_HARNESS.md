@@ -45,6 +45,27 @@ fixed base context plus its own chain of context blocks.
    scores, later evals.
 8. **Configuration (portal)**: one screen per task.
 
+## Consistency
+
+Gaps that appear when one thing changes and what depends on it does not are caught in three
+layers (#60, #61, #62):
+
+1. **Plan checks** (`query/plan_lint.py`, deterministic, no model):
+   - **What they check:**
+     - name against length;
+     - strength warm-up (STR-4);
+     - references to sessions that are gone;
+     - neighbours of a changed session (`review_context`).
+   - **When they run:**
+     - every plan write returns them;
+     - the start page and `vibesynergy_today` (`plan_checks`) list the next two weeks.
+   - **Knowledge base:** a KB proposal that would replace a rule with unrelated text needs
+     `replace=true`.
+2. **AI auditor** (#61): an independent harness task that reviews the plan, the notes, the
+   rules and recent change reasons, and proposes fixes. Planned.
+3. **Weekly harness audit** (#62): tasks, contracts, pending approvals, missing rules. Each
+   accepted finding becomes a layer-1 check or a rule. Planned.
+
 ## Task list
 
 Every task is switchable and configurable. "Writes" is what the task may do on its own;

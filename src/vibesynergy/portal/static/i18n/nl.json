@@ -3002,5 +3002,8 @@
  "Cool-down": "Cooling-down",
  "Core": "Kern",
  "{min} min": "{min} min",
- "until lap, about {min} min": "tot Lap, ongeveer {min} min"
+ "until lap, about {min} min": "tot Lap, ongeveer {min} min",
+ "{day}, {name}: the name says {minutes}' but the steps take {planned}'.": "{day}, {name}: de naam zegt {minutes}' maar de stappen duren {planned}'.",
+ "{day}, {name}: the barbell work starts without a full warm-up (STR-4).": "{day}, {name}: het werk met de stang begint zonder volledige warming-up (STR-4).",
+ "{day}, {name}: the text refers to a {session} session that is not there.": "{day}, {name}: de tekst verwijst naar een {session}-sessie die er niet is."
 }

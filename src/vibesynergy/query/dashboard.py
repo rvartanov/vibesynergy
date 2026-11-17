@@ -21,6 +21,7 @@ from typing import Any
 from sqlalchemy import Engine, func, select
 
 from vibesynergy.core.timeutil import Window, utc_now
+from vibesynergy.core.user_datetime import format_user_date
 from vibesynergy.i18n import ENGLISH, Translator
 from vibesynergy.query import (
     analysis,
@@ -195,6 +196,49 @@ def _group_trainings(engine: Engine, today: date) -> list[dict[str, Any]]:
     ]
 
 
+def _plan_check_text(item: dict[str, Any], tr: Translator) -> str | None:
+    day = format_user_date(date.fromisoformat(item["date"]))
+    name, params = item["name"], item.get("params") or {}
+    if item["code"] == "name_duration":
+        return tr(
+            "{day}, {name}: the name says {minutes}' but the steps take {planned}'.",
+            day=day,
+            name=name,
+            minutes=params.get("minutes"),
+            planned=params.get("planned"),
+        )
+    if item["code"] == "strength_warmup":
+        return tr(
+            "{day}, {name}: the barbell work starts without a full warm-up (STR-4).",
+            day=day,
+            name=name,
+        )
+    if item["code"] == "stale_reference":
+        return tr(
+            "{day}, {name}: the text refers to a {session} session that is not there.",
+            day=day,
+            name=name,
+            session=params.get("session"),
+        )
+    return None
+
+
+def _plan_checks(engine: Engine, today: date, tr: Translator) -> list[dict[str, Any]]:
+    """Consistency layer 1 (#60): what the plan checks find in the coming two weeks."""
+    from vibesynergy.query import plan_lint
+
+    try:
+        found = plan_lint.upcoming(engine, today)
+    except Exception:  # the start page must still answer
+        log.warning("plan checks failed", exc_info=True)
+        return []
+    return [
+        {"level": "warning", "area": "plan", "message": text, "link": "#/planning"}
+        for item in found
+        if (text := _plan_check_text(item, tr))
+    ]
+
+
 def _completed(engine: Engine, today: date) -> dict[str, Any]:
     completed = views.activities(engine, Window(today, today), limit=50)
     with engine.connect() as conn:
@@ -248,6 +292,7 @@ def _attention_block(
     attention = _attention(engine, today, recovery, load, injuries, sources, tr)
     from vibesynergy.query import horizon
 
+    attention += _plan_checks(engine, today, tr)
     guard = horizon.status(engine, today, *horizon_args)
     for item in guard["missing"]:
         attention.append(
