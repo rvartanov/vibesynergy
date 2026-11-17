@@ -353,7 +353,8 @@ def test_morning_run_tools_mail_and_audit(rt, mail):
     assert page and "Openen in VibeSynergy" in page and f"#/coach/report/{entry['id']}" in page
     assert "HRV binnen band." not in page  # the details stay on the report page (7-11)
     assert subject == f"Coach ochtend {DASH} zo 1 nov"
-    assert body.startswith("Alex, houd de duurloop rustig")
+    # The day's colour and headline first, the same as the dashboard's (#89).
+    assert body.startswith("Groen: Goed hersteld\n\nAlex, houd de duurloop rustig")
     assert f"https://{TAILNET}:8447/#/coach/report/{entry['id']}" in body
     # Audit: every tool call as the runner's client, and the run with its cost.
     mcp_rows = [
@@ -401,7 +402,7 @@ def test_make_again_writes_a_new_report_and_send_again_mails_it(rt, mail):
     mail.clear()
     runner_q.resend(rt, "morning")
     ((_, _, body, _),) = mail
-    assert body.startswith("Alex, toch rustig aan vandaag.")
+    assert body.startswith("Groen: Goed hersteld\n\nAlex, toch rustig aan vandaag.")
     with pytest.raises(runner_q.TestRunError):
         runner_q.resend(rt, "weekly")  # nothing to send yet
 

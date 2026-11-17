@@ -845,6 +845,14 @@ One call for "how should I train today?".
   `plan_source` says where the plan comes from (`vibesynergy`, `intervals_icu` or `garmin`),
   and `not_in_plan` lists today's Garmin workouts that are not in the plan (see
   `vibesynergy_plan`).
+  `advice` is the day's current advice, the same as the dashboard, the Coach page and the
+  mail (#89): `source` `ai` (the newest valid AI advice decides `level` (colour),
+  `safety_level`, `reasons` and `advice`) or `rules`; `mode` is the athlete's setting (`ai`,
+  `rules`, `off`); `fallback` `{reason, text}` says why the rules give it (`no_run`,
+  `run_failed`, `contract`, `ai_off`, `unavailable`, `new_signal`); `updating` says a newer
+  advice is on its way; `rules` and `differences` are the rules' own outcome beside the AI.
+  `verdict` is its short form. `safety` stays the rules' outcome, which a coach's own
+  `safety` is checked against in `vibesynergy_coach_write`.
 
 #### `vibesynergy_week`
 Monday to Sunday, planned against what was done.

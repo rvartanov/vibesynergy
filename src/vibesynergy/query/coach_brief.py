@@ -68,6 +68,9 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         safety_text = fixed_safety_summary(rt, "morning", level, board["safety"].get("rules"))
     warnings = [item["message"] for item in board["attention"] if item.get("area") == "system"]
     verdict = board["verdict"]
+    advice = board.get("advice")
+    if not isinstance(advice, dict) or advice.get("error"):
+        advice = None
     return {
         "date": str(day),
         "date_label": format_user_date(day),
@@ -124,12 +127,11 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         "done_recent": _recent(engine, day),
         "race": race,
         "b_race": supporting[0] if supporting else None,
-        "verdict": {
-            "level": verdict["level"],
-            "headline": verdict["headline"],
-            "advice": verdict["advice"],
-            "reasons": verdict["reasons"],
-        },
+        # The advice every view shows (#89, ``daily_advice``): the AI coach's valid advice
+        # when the setting is AI, else the rules' with the reason. ``safety`` below stays
+        # the rules' own outcome, which a coach's safety is checked against.
+        "verdict": _verdict(advice),
+        "advice": advice,
         "attention": [
             {"level": item["level"], "area": item["area"], "message": item["message"]}
             for item in board["attention"][:12]
@@ -146,6 +148,23 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         },
         "coach_entries": _coach_entries(rt),
         "warnings": warnings,
+    }
+
+
+def _verdict(advice: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The short verdict: the current advice's colour, level, words and source."""
+    if advice is None:
+        return None
+    return {
+        "level": advice["level"],
+        "safety_level": advice["safety_level"],
+        "headline": advice["headline"],
+        "advice": advice["advice"],
+        "reasons": advice["reasons"],
+        "source": advice["source"],
+        "mode": advice["mode"],
+        "fallback": (advice.get("fallback") or {}).get("reason"),
+        "updating": (advice.get("updating") or {}).get("kind"),
     }
 
 

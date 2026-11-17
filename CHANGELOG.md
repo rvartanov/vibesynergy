@@ -11,6 +11,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Today's advice comes from your AI coach** (#89): its colour, safety level, reasons and
+  words, everywhere: the start page, the Coach page, `vibesynergy_today` and the mail show
+  the same advice. When there is no valid advice from your AI coach, the fixed rules give it
+  and the page says why. Choose AI (default), rules only or off under Settings → System →
+  Daily advice.
+- **Something new after the advice** (pain, illness or a complaint) starts a new AI run at
+  once; the advice says it is updating, and the rules take over only if that run fails.
+- **Update advice** on the start page: syncs Garmin, Strava, intervals.icu and Withings, then
+  asks your AI coach for new advice, with its progress.
+- **Where the AI and the rules differ** is under "Why this advice", and logged, so it
+  shows over time whether the AI is too lenient.
 - **One harness for every AI coach** (#88): every coach entry is checked against the
   task's output contract when it is written, by the coach inside VibeSynergy and by any AI
   app over MCP. An entry for the wrong day, a report that is far too long, or a daily advice
@@ -111,6 +122,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **`vibesynergy_today`'s `verdict` is the current advice** (#89): the AI coach's when it is
+  valid, else the rules' (`verdict.source`, `verdict.fallback`); the full advice is in
+  `advice`. `safety` stays the rules' own outcome. The coach's message that is today's advice
+  is no longer repeated under it on the start page, and the rules' safety line no longer
+  sits beside an AI advice that decided its own safety.
 - **"Differed from the plan" looks at how hard, not only how long** (#88): a longer session
   at a low effort (RPE 4 or lower, or heart rate nearly all in zones 1-2) counts as done. A
   session with time above its planned zone counts as harder than planned, also when its

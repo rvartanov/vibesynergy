@@ -324,6 +324,10 @@ def register(kit: PortalKit) -> None:
             period={"start": str(span.start), "end": str(span.end)},
         )
 
+    def _shares_coach(request: Request) -> bool:
+        link = request.scope.get("vibesynergy_share")
+        return link is None or link.allows("GET", "/daily-coaching")
+
     @router.get("/dashboard")
     def dashboard_page(request: Request, lang: str = "en") -> dict[str, Any]:
         """Dashboard: verdict, needs attention, plan and race, this week, trends, injuries;
@@ -338,6 +342,8 @@ def register(kit: PortalKit) -> None:
             tr=translator(lang),
             include_calendar=not request.scope.get("vibesynergy_share"),
             rt=rt,
+            # A share link shows the AI coach's words only when it shares the coach.
+            allow_ai=_shares_coach(request),
         )
         # The assessment panel still reads advice once. This is only the shared profile
         # identity, so dashboard, activity advice, publication and daily reviews match.

@@ -42,15 +42,39 @@ def subject(settings, job: str, day: date) -> str:
     return tr(SUBJECTS[job], day=format_user_short_day(day, lang))
 
 
-def body(rt, entry: dict[str, Any]) -> str:
+def advice_for(rt, job: str, day: date, tr) -> dict[str, Any] | None:
+    """The day's current advice (``daily_advice``) for a daily advice report, so the mail
+    says the same colour and words as the dashboard (#89). ``None`` for other reports."""
+    from vibesynergy.query import daily_advice
+
+    if job not in daily_advice.ADVICE_JOBS:
+        return None
+    try:
+        found = daily_advice.current(rt, day, tr=tr, trigger=False)
+    except Exception:
+        return None
+    return found if found.get("level") else None
+
+
+def _verdict_line(advice: dict[str, Any] | None, tr) -> str:
+    if not advice:
+        return ""
+    from vibesynergy.query import daily_advice
+
+    return f"{daily_advice.colour_name(advice['level'], tr)}: {advice['headline']}"
+
+
+def body(rt, entry: dict[str, Any], advice: dict[str, Any] | None = None) -> str:
     tr = i18n.translator(language(rt.settings))
     text = (entry.get("text") or "").strip()
+    if line := _verdict_line(advice, tr):
+        text = f"{line}\n\n{text}"
     link = alerts.portal_url(rt, f"#/coach/report/{entry['id']}")
     footer = tr("Reply or approve a proposal in VibeSynergy: {link}", link=link) if link else ""
     return f"{text}\n\n{footer}\n\n— VibeSynergy" if footer else f"{text}\n\n— VibeSynergy"
 
 
-def html(rt, title: str, entry: dict[str, Any]) -> str:
+def html(rt, title: str, entry: dict[str, Any], advice: dict[str, Any] | None = None) -> str:
     """The same layout as the morning mail: the note, a chip per session and a button
     to the report. The coach's details (evidence, rule ids, figures) stay out of the mail:
     the athlete found them unreadable there (7-11); the report page keeps them collapsed."""
@@ -62,6 +86,9 @@ def html(rt, title: str, entry: dict[str, Any]) -> str:
         "rich": {
             "text": (entry.get("text") or "").strip(),
             "sessions": meta.get("sessions") or [],
+            "verdict": (
+                {"level": advice["level"], "headline": advice["headline"]} if advice else None
+            ),
         },
     }
     tr = i18n.translator(language(rt.settings))
@@ -72,4 +99,11 @@ def html(rt, title: str, entry: dict[str, Any]) -> str:
 def send(rt, job: str, day: date, entry: dict[str, Any]) -> list[str]:
     """Mail the report; returns the channels used (empty when mail isn't set up)."""
     title = subject(rt.settings, job, day)
-    return alerts.deliver(rt, title, body(rt, entry), only=["email"], html=html(rt, title, entry))
+    advice = advice_for(rt, job, day, i18n.translator(language(rt.settings)))
+    return alerts.deliver(
+        rt,
+        title,
+        body(rt, entry, advice),
+        only=["email"],
+        html=html(rt, title, entry, advice),
+    )

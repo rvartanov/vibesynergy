@@ -76,6 +76,11 @@ OWNER_ONLY = {
     ("POST", "/coach"),
     ("GET", "/coach-runner"),
     ("POST", "/coach-runner"),
+    # The day's advice on the Coach page and its update button are the owner's (#89); a
+    # shared start page shows the advice from /dashboard.
+    ("GET", "/advice"),
+    ("GET", "/advice/refresh"),
+    ("POST", "/advice/refresh"),
     ("GET", "/mcp_clients"),
     ("GET", "/knowledge/archive"),
     ("POST", "/coach-log/revert"),

@@ -251,9 +251,67 @@ def enqueue_test(rt, job: str, now: datetime | None = None) -> int:
     return job_id
 
 
+def enqueue_advice(
+    rt,
+    day: date,
+    run_key: str,
+    *,
+    trigger: str,
+    wait_for: list[int] | None = None,
+    now: datetime | None = None,
+) -> int | None:
+    """Queue one daily advice run now (#89): the manual refresh on the dashboard, or a hard
+    signal that came in after the day's advice. ``wait_for`` are sync jobs it waits for
+    (at most ``SYNC_WAIT``), so the advice reads the fresh data. ``None`` when that run is
+    already queued. The caller checks that the runner is on; a run while it is off ends
+    as ``off`` and queues nothing else."""
+    from vibesynergy.query import daily_advice
+
+    now = now or utc_now()
+    payload: dict[str, Any] = {
+        "job": daily_advice.RERUN_JOB,
+        "run_key": run_key,
+        "for_date": day.isoformat(),
+        "trigger": trigger,
+    }
+    if wait_for:
+        payload["wait_for"] = [int(i) for i in wait_for]
+        payload["requested_at"] = now.isoformat()
+    return rt.jobs.enqueue(
+        JOB,
+        payload,
+        dedupe_key=dedupe_key(daily_advice.RERUN_JOB, run_key),
+        max_attempts=MAX_ATTEMPTS,
+        priority=6,
+    )
+
+
+SYNC_WAIT = timedelta(minutes=10)  # a refresh waits this long at most for its syncs
+SYNC_POLL = timedelta(seconds=10)
+
+
+def _syncs_busy(rt, ids: list[int]) -> bool:
+    if not ids:
+        return False
+    with rt.engine.connect() as conn:
+        found = conn.execute(
+            select(job_table.c.id).where(
+                job_table.c.id.in_(ids), job_table.c.status.in_(("queued", "running"))
+            )
+        ).first()
+    return found is not None
+
+
 def handle(rt, job, *, client=None) -> runner.RunResult:
-    """The ``coach_run`` job. A retryable failure raises, so the queue tries once more."""
+    """The ``coach_run`` job. A retryable failure raises, so the queue tries once more.
+    A run that waits for syncs (the manual refresh) is deferred while they still run."""
     p = job.payload
+    if p.get("wait_for"):
+        requested = datetime.fromisoformat(p.get("requested_at") or utc_now().isoformat())
+        if utc_now() - requested < SYNC_WAIT and _syncs_busy(rt, p["wait_for"]):
+            from vibesynergy.sync.worker import JobError
+
+            raise JobError("waiting for the sync", retry_at=utc_now() + SYNC_POLL)
     return runner.run(
         rt,
         p["job"],

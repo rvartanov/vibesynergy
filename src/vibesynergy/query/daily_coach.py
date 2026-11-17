@@ -633,6 +633,8 @@ def _with_live_safety(
     """
     display = entry["display"]
     advice = entry["advice"]
+    if entry.get("ai_safety"):
+        return entry  # the AI decided this advice's safety (#89)
     if display.get("archive") or not advice or not advice.get("interpretation"):
         return entry
     today = today_in(rt.settings.timezone)
@@ -738,7 +740,11 @@ def _coach_daily_view(
         meta = {**meta, "coach_text": enriched["entry_text"]}
     display_row = None
     level = snap["inputs"]["safety"]["level"]
-    if level in ("flag", "refuse") or enriched.get("advice_mode") == "safety":
+    owned = enriched.get("ai_safety")
+    if owned:
+        # The AI's own valid safety outcome decides (#89): its words, never the rules' line.
+        display_row = {"interpretation": interpretation, "safety": {"level": "ok", "rules": []}}
+    elif level in ("flag", "refuse") or enriched.get("advice_mode") == "safety":
         display_row = {"safety": snap["inputs"]["safety"]}
     elif state == "ready":
         display_row = {"interpretation": interpretation, "safety": snap["inputs"]["safety"]}
@@ -771,6 +777,7 @@ def _coach_daily_view(
         "comparison": snap["inputs"].get("comparison"),
         "log": [],
         "coach_meta": meta,
+        "ai_safety": owned,
     }
 
 

@@ -4,9 +4,9 @@
 // #/today, #/day/<date>, #/diary and #/calendar land here.
 import { captureViewState, restoreViewState } from "../refresh_state.js";
 import { get, post } from "../api.js";
-import { savedAdviceRole } from "../coaching_presentation.js";
 import { recoverySummaryText } from "../recovery_summary.js";
-import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml, hasSavedAdvice } from "../daily_review.js";
+import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml } from "../daily_review.js";
+import { adviceHtml, adviceLevel, bindAdviceRefresh, refreshButtonHtml } from "../daily_advice.js";
 import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sportName, userDateTime, weekday } from "../format.js";
 import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
@@ -127,16 +127,17 @@ export async function render(view, { args, query, meta, stale }) {
   // in the header.
   const html = {};
   if (showBoard) {
-    html.advice = `<section class="card dash-today verdict ${esc(failed(d.verdict) ? "" : d.verdict?.level || "")}" aria-labelledby="dash-today-title">
+    html.advice = `<section class="card dash-today verdict ${esc(adviceLevel(d.advice))}" aria-labelledby="dash-today-title">
           <h2 id="dash-today-title" class="dash-kicker">${t("Advice for today")}</h2>
           <div data-dash-advice>${todayAdviceHtml(d)}</div>
+          ${share ? "" : refreshButtonHtml()}
           ${share ? "" : sleepCheckHtml(d.verdict)}
           <div class="dash-plan">
             ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}
             ${completedHtml(d.completed?.activities, d.completed, share, { editable: true })}
           </div>
           ${share || failed(d.group_trainings) ? "" : groupTrainingsHtml(d.group_trainings)}
-          ${!can("coach") ? "" : `<div class="dash-coach" data-dash-coaching><p class="sub" role="status">${esc(t("Loading…"))}</p></div>`}
+          ${!can("coach") || d.advice?.mode === "rules" || d.advice?.mode === "off" ? "" : `<div class="dash-coach" data-dash-coaching><p class="sub" role="status">${esc(t("Loading…"))}</p></div>`}
         </section>`;
   } else if (dayReply) {
     html.advice = `<div class="dash-block-group">
@@ -157,7 +158,7 @@ export async function render(view, { args, query, meta, stale }) {
     html.noted = `<section class="card day-diary" aria-labelledby="day-journal-title"><h2 id="day-journal-title">${isToday ? t("Noted today") : t("This day in your diary")}</h2>${journal || `<p class="sub">${t("Nothing noted for this day.")}</p>`}</section>`;
   }
   if (showBoard) {
-    html.recovery = `<section class="card dash-recovery" aria-labelledby="dash-recovery-title">${recoveryHtml(d.recovery, d.load, d.verdict)}</section>`;
+    html.recovery = `<section class="card dash-recovery" aria-labelledby="dash-recovery-title">${recoveryHtml(d.recovery, d.load, d.advice)}</section>`;
     html.week = `<section class="card dash-week" aria-labelledby="dash-week-title">${weekHtml(d.week, today, d.week_progress, share)}</section>`;
   }
   if (showUpcoming || showCalendar) {
@@ -225,6 +226,7 @@ export async function render(view, { args, query, meta, stale }) {
     </div>` : ""}`;
 
   bindRefresh(view, { args, query, meta, stale });
+  bindAdviceRefresh(view, { stale, done: () => (stale() ? null : render(view, { args, query, meta, stale })) });
   bindSleepCheck(view, date, { args, query, meta, stale });
   bindGroupTrainings(view);
   bindDayPicker(view, today);
@@ -250,12 +252,11 @@ export async function render(view, { args, query, meta, stale }) {
   bindDoneEffort(view);
   if (shownIds.has("advice") && showBoard && can("coach")) {
     const coachingHost = view.querySelector("[data-dash-coaching]");
-    const adviceHost = view.querySelector("[data-dash-advice]");
     Promise.all([
       fetchDailyCoaching(d.date),
       fetchDailyCoaching(addDays(d.date, -1)),
     ]).then(([todayReply, yesterdayReply]) => {
-      fillCoaching(coachingHost, adviceHost, d, todayReply, yesterdayReply, stale);
+      fillCoaching(coachingHost, d, todayReply, yesterdayReply, stale);
     });
   }
   if (shownIds.has("advice") && !isToday && can("coach")) {
@@ -590,14 +591,10 @@ function syncWarning(delivery) {
   return `<p class="notice error">${esc(t("Sync is late: {sources}.", { sources: names }))}</p>`;
 }
 
+// The day's advice (#89): the AI coach's when valid, else the fixed rules' with the reason.
 function todayAdviceHtml(d) {
-  if (failed(d.verdict)) return errorHtml();
-  const advice = d.verdict?.advice || "";
-  const reasons = d.verdict?.reasons || [];
-  const details = reasons.length
-    ? `<details data-refresh-key="dashboard-guidance-details"><summary>${t("Why this advice")}</summary><p>${esc(reasons.join(". "))}.</p></details>`
-    : "";
-  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice)}</p>${details}`;
+  if (failed(d.advice) || !d.advice) return errorHtml();
+  return adviceHtml(d.advice);
 }
 
 // A night the watch may have cut short (#53): the check-in says good sleep, the watch measured
@@ -626,26 +623,25 @@ function bindSleepCheck(view, date, ctx) {
   }
 }
 
-function safetyLine(verdict) {
-  if (!verdict || failed(verdict) || verdict.safety_level === "ok" || verdict.level === "green") return "";
-  const reason = (verdict.reasons || [])[0];
-  if (!reason) return "";
-  return `<p class="safety-line">${esc(reason)}</p>`;
-}
-
-function fillCoaching(host, adviceHost, dashboardData, todayReply, yesterdayReply, stale) {
+function fillCoaching(host, dashboardData, todayReply, yesterdayReply, stale) {
   if (!host?.isConnected || stale()) return;
   if (!todayReply?.ok) {
     host.innerHTML = "";
     return;
   }
   const plan = dashboardCoachingPlan(todayReply.data, yesterdayReply?.ok ? yesterdayReply.data : {});
-  const current = plan.primary && savedAdviceRole(plan.primary.entry) === "current" && hasSavedAdvice(plan.primary.entry);
-  if (current && adviceHost?.isConnected) {
-    adviceHost.innerHTML = `${safetyLine(dashboardData.verdict)}`;
-    adviceHost.after(host);
-    host.classList.remove("dash-coach");
+  // The advice above is the one source (#89). The coach's message that is that advice is
+  // not repeated below it; another one (this evening's review, say) still is.
+  const shown = dashboardData.advice?.source === "ai" ? dashboardData.advice.entry?.id : null;
+  if (shown && plan.primary?.entry?.advice?.id === shown) {
+    if (!plan.secondary) {
+      host.innerHTML = "";
+      return;
+    }
+    plan.primary = plan.secondary;
+    plan.secondary = null;
   }
+  if (shown && plan.secondary?.entry?.advice?.id === shown) plan.secondary = null;
   if (plan.empty && !plan.safetyText) {
     host.innerHTML = "";
     return;

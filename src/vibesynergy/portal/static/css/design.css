@@ -228,6 +228,9 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 .dash-head .notice { flex-basis: 100%; margin: 0; }
 .dash-kicker { font-size: var(--type-secondary); line-height: var(--leading-body); color: var(--secondary); margin: 0 0 var(--space-1); }
 .dash-today .verdict-advice { font-size: var(--type-h2); line-height: var(--leading-h2); font-weight: 600; max-width: var(--measure); margin: 0 0 var(--space-2); }
+.advice-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.advice-refresh p { margin: 0; }
+.advice-fallback { border-left: 3px solid var(--line); padding-left: var(--space-2); }
 .dash-plan { margin: var(--space-3) 0; padding-top: var(--space-3); border-top: 1px solid var(--subtle); }
 .dash-plan h3 { font-size: var(--type-secondary); color: var(--secondary); margin: var(--space-2) 0 0; }
 .dash-plan .trends { margin: var(--space-1) 0 0; }
