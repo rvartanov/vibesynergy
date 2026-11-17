@@ -565,6 +565,12 @@ def sources(r: Rec):
         "'Nu bijwerken' haalt meteen de nieuwste gegevens op.",
         "'Update now' fetches the latest data right away.",
     )
+    r.point(r.pg.locator("input[name=garmin_mark]"))
+    r.say(
+        "Het teken voor de naam laat op je horloge zien welke workouts van VibeSynergy komen.",
+        "The mark in front of the name shows on your watch which workouts come from VibeSynergy.",
+        2.8,
+    )
     r.scroll(1200, 5)
     r.say(
         "Oude gegevens? Importeer de export-zip van Garmin of Strava.",

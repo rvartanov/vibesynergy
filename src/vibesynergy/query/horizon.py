@@ -56,6 +56,7 @@ def status(
     days: int = DAYS,
     vibesynergy_sports: tuple[str, ...] = (),
     now: datetime | None = None,
+    mark: str | None = None,
 ) -> dict[str, Any]:
     end = today + timedelta(days=days - 1)
     calendar = plan_q.plan(engine, Window(today, end), today, include_sync_status=False)
@@ -85,7 +86,7 @@ def status(
             and not own  # VibeSynergy's emoji copy next to intervals.icu's is on purpose
         ):
             duplicates.append(entry)
-    outdated = _outdated(engine, today, end, vibesynergy_sports, now or utc_now())
+    outdated = _outdated(engine, today, end, vibesynergy_sports, now or utc_now(), mark)
     has_plan = bool(checked) or _has_plan(engine, today)
     fill = _fill(engine, today, end) if has_plan else {"planned_through": None, "behind": False}
     level = "ok" if not (missing or duplicates or outdated or fill["behind"]) else "warn"
@@ -119,7 +120,12 @@ def _vibesynergy_delivers(item: dict[str, Any], sports: tuple[str, ...]) -> bool
 
 
 def _outdated(
-    engine: Any, today: date, end: date, sports: tuple[str, ...], now: datetime
+    engine: Any,
+    today: date,
+    end: date,
+    sports: tuple[str, ...],
+    now: datetime,
+    mark: str | None = None,
 ) -> list[dict[str, Any]]:
     """Workouts VibeSynergy delivers whose Garmin copy lacks the plan's current content."""
     if engine is None:
@@ -127,8 +133,9 @@ def _outdated(
     from vibesynergy.query import garmin_endurance, garmin_strength, plan_model
 
     lookahead = (end - today).days
-    wanted = garmin_strength.desired(engine, today, lookahead)
-    wanted.update(garmin_endurance.desired(engine, today, sports, lookahead))
+    mark = mark or garmin_strength.MARK
+    wanted = garmin_strength.desired(engine, today, lookahead, mark)
+    wanted.update(garmin_endurance.desired(engine, today, sports, lookahead, mark))
     if not wanted:
         return []
     with engine.connect() as conn:
@@ -229,6 +236,7 @@ def for_runtime(rt: Any, day: date) -> dict[str, Any] | None:
             day,
             prefs.horizon_days(rt.settings.data_dir),
             tuple(stored.get("garmin_delivery") or ()),
+            mark=stored.get("garmin_mark"),
         )
     except Exception:  # a page or brief must still answer
         return None

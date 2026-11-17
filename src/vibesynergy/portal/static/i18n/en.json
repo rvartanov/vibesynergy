@@ -2342,6 +2342,8 @@
  "Twice on your Garmin: {title} ({day}).": "Twice on your Garmin: {title} ({day}).",
  "{platform}'s general heart rate zones differ from running": "{platform}'s general heart rate zones differ from running",
  "Workouts from VibeSynergy on your Garmin": "Workouts from VibeSynergy on your Garmin",
+ "Mark in front of the name": "Mark in front of the name",
+ "An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: {mark}.": "An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: {mark}.",
  "Cycling (outdoor and MTB)": "Cycling (outdoor and MTB)",
  "Saved. Garmin is updated within a few minutes.": "Saved. Garmin is updated within a few minutes.",
  "Updates": "Updates",

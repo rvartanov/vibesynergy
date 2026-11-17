@@ -449,10 +449,12 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 row["private_notes"] = icu_notes.enabled(settings.data_dir)
             if sid == "garmin":
                 from vibesynergy.portal import prefs as portal_prefs
+                from vibesynergy.query import garmin_strength
 
-                row["garmin_delivery"] = (
-                    portal_prefs.load(settings.data_dir).get("garmin_delivery") or []
-                )
+                stored_prefs = portal_prefs.load(settings.data_dir)
+                row["garmin_delivery"] = stored_prefs.get("garmin_delivery") or []
+                row["garmin_mark"] = stored_prefs.get("garmin_mark") or ""
+                row["garmin_mark_default"] = garmin_strength.MARK
             sources.append(row)
         return {
             "config_path": str(path),

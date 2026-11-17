@@ -272,7 +272,9 @@ def _is_brick_run(row) -> bool:
     return row.brick_part == "loop" or "brick" in text
 
 
-def _bricks(out: dict[str, dict], rows: dict[str, Any]) -> dict[str, dict]:
+def _bricks(
+    out: dict[str, dict], rows: dict[str, Any], mark: str = garmin_strength.MARK
+) -> dict[str, dict]:
     """Each brick run with an outdoor ride on the same day becomes one multisport entry."""
     bricks: dict[str, dict] = {}
     rides = [k for k, v in out.items() if v["sport"] == "ride"]
@@ -288,7 +290,7 @@ def _bricks(out: dict[str, dict], rows: dict[str, Any]) -> dict[str, dict]:
             max(same_day, key=lambda k: out[k]["seconds"]),
         )
         ride = out[ride_id]
-        name = garmin_strength.marked(f"{ride['title']} + {run['title']}")
+        name = garmin_strength.marked(f"{ride['title']} + {run['title']}", mark)
         workout = build_brick(name, ride["workout"], run["workout"])
         key = f"brick:{ride_id}+{run_id}"
         bricks[key] = {
@@ -304,7 +306,13 @@ def _bricks(out: dict[str, dict], rows: dict[str, Any]) -> dict[str, dict]:
     return bricks
 
 
-def desired(engine, today: date, sports: tuple[str, ...], lookahead: int) -> dict[str, dict]:
+def desired(
+    engine,
+    today: date,
+    sports: tuple[str, ...],
+    lookahead: int,
+    mark: str = garmin_strength.MARK,
+) -> dict[str, dict]:
     """Upcoming plan workouts of the switched-on sports, by intervals.icu event id."""
     from vibesynergy.query import threshold_push
 
@@ -334,7 +342,7 @@ def desired(engine, today: date, sports: tuple[str, ...], lookahead: int) -> dic
             parsed = workout_model.parse_intervals(row.description)
             if parsed.unparsed or not parsed.steps:
                 continue  # leave it to intervals.icu's own push
-            name = garmin_strength.marked((row.name or "").strip() or sport.capitalize())
+            name = garmin_strength.marked((row.name or "").strip() or sport.capitalize(), mark)
             if sport == "swim":
                 workout = build_swim(name, parsed, values.get("css"))
             elif sport == "ride":
@@ -355,5 +363,5 @@ def desired(engine, today: date, sports: tuple[str, ...], lookahead: int) -> dic
                 ),
             }
     if "ride" in sports and "run" in sports:
-        out.update(_bricks(out, seen))
+        out.update(_bricks(out, seen, mark))
     return out

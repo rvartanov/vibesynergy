@@ -474,15 +474,24 @@ def _api(rt):
     return connect(SecretStore(rt.settings.secrets_dir, "garmin"))
 
 
-# Every workout VibeSynergy puts on Garmin starts with this mark (#64), so on the watch and in
-# Garmin Connect it stands apart from Garmin Coach and the athlete's own workouts.
-MARK = "\u26a1 "
+# Every workout VibeSynergy puts on Garmin starts with a mark (#64), so on the watch and in
+# Garmin Connect it stands apart from Garmin Coach and the athlete's own workouts. The athlete
+# picks it in Settings (portal preference ``garmin_mark``, #66); this one when none is chosen.
+MARK = "\u26a1"
 
 
-def marked(name: str) -> str:
+def marked(name: str, mark: str = MARK) -> str:
     """The Garmin name for a VibeSynergy workout: the mark in front, once."""
     plain = name.strip()
-    return plain if plain.startswith(MARK.strip()) else MARK + plain
+    mark = (mark or MARK).strip()
+    return plain if plain.startswith(mark) else f"{mark} {plain}"
+
+
+def mark_for(data_dir) -> str:
+    """The athlete's chosen mark, or ``MARK``."""
+    from vibesynergy.portal import prefs
+
+    return prefs.load(data_dir).get("garmin_mark") or MARK
 
 
 def name_key(name: str | None) -> str:
@@ -490,7 +499,9 @@ def name_key(name: str | None) -> str:
     return " ".join(re.sub(r"^\W+", "", name or "").casefold().split())
 
 
-def desired(engine, today: date, lookahead: int = LOOKAHEAD_DAYS) -> dict[str, dict[str, Any]]:
+def desired(
+    engine, today: date, lookahead: int = LOOKAHEAD_DAYS, mark: str = MARK
+) -> dict[str, dict[str, Any]]:
     """Upcoming plan workouts with a valid block, by intervals.icu event id."""
     out: dict[str, dict[str, Any]] = {}
     with engine.connect() as conn:
@@ -511,7 +522,7 @@ def desired(engine, today: date, lookahead: int = LOOKAHEAD_DAYS) -> dict[str, d
             continue
         if block is None:
             continue
-        name = marked((row.name or "").strip() or "Kracht")
+        name = marked((row.name or "").strip() or "Kracht", mark)
         out[str(row.id)] = {
             "event_id": str(row.id),
             "date": row.date,
@@ -689,13 +700,14 @@ def reconcile(
     today: date,
     sports: tuple[str, ...] = (),
     lookahead: int = LOOKAHEAD_DAYS,
+    mark: str = MARK,
 ) -> dict[str, Any]:
     from vibesynergy.query import garmin_endurance
 
     api = _Lazy(api_factory)
-    wanted = desired(engine, today, lookahead)
+    wanted = desired(engine, today, lookahead, mark)
     # Endurance sports switched on for direct delivery ride the same machinery.
-    wanted.update(garmin_endurance.desired(engine, today, sports, lookahead))
+    wanted.update(garmin_endurance.desired(engine, today, sports, lookahead, mark))
     known = _deliveries(engine)
     result = {"delivered": 0, "withdrawn": 0, "errors": 0}
     calendar_at = _calendar_synced_at(engine)
@@ -765,4 +777,5 @@ def run(rt) -> dict[str, Any]:
     # ahead come onto Garmin as the window moves; ones that fall outside are withdrawn.
     lookahead = prefs.horizon_days(rt.settings.data_dir) - 1
     with SecretStore(rt.settings.secrets_dir, "garmin").lock("calendar-read-write"):
-        return reconcile(rt.engine, lambda: _api(rt), today, sports, lookahead)
+        mark = mark_for(rt.settings.data_dir)
+        return reconcile(rt.engine, lambda: _api(rt), today, sports, lookahead, mark)

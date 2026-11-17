@@ -14,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - **⚡ in front of every Garmin workout from VibeSynergy** (strength, run, ride, swim and
   brick), so on the watch and in Garmin Connect you see which workouts are VibeSynergy's next
   to Garmin Coach and your own. Upcoming workouts on Garmin are renamed once. (#64)
+- **Choose that mark** in Settings → Sources → Garmin: any emoji or symbol; empty means ⚡.
+  Changing it renames the upcoming workouts on Garmin within a few minutes. (#66)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
   warnings for the sessions around it:
   - a name whose minutes don't match the steps (45' while it takes 50');

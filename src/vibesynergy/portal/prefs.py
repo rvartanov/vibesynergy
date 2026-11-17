@@ -54,6 +54,15 @@ def save(data_dir: Path, changes: dict[str, Any]) -> dict[str, Any]:
     return prefs
 
 
+def _mark(value: Any) -> str:
+    """The mark in front of VibeSynergy's Garmin workouts: an emoji or symbol, no letters,
+    digits or spaces, so a name still compares without it (``garmin_strength.name_key``)."""
+    text = value.strip() if isinstance(value, str) else ""
+    if not 1 <= len(text) <= 8 or re.search(r"[\w\s]", text):
+        raise ValueError("garmin_mark: one emoji or symbol, no letters, digits or spaces")
+    return text
+
+
 def _sports(value: Any) -> list[str]:
     allowed = ("swim", "run", "ride")
     if not isinstance(value, list) or any(v not in allowed for v in value):
@@ -217,6 +226,8 @@ VALIDATORS = {
     "intervals_icu.private_notes": lambda value: _bool(value, "intervals_icu.private_notes"),
     # Sports VibeSynergy delivers to Garmin itself: swim first, run and ride later.
     "garmin_delivery": lambda value: _sports(value),
+    # The mark in front of their names on Garmin; absent = ⚡ (garmin_strength.MARK).
+    "garmin_mark": _mark,
     "plan_horizon_days": _horizon_days,
     # The plan builder's settings: goal, sport, method and options.
     "plan_builder": lambda value: _plan_builder(value),

@@ -459,3 +459,28 @@ def test_the_mark_goes_in_front_once_and_names_compare_without_it() -> None:
     assert gs.marked("Kracht AA 40'") == "⚡ Kracht AA 40'"
     assert gs.marked("⚡ Kracht AA 40'") == "⚡ Kracht AA 40'"
     assert gs.name_key("⚡ Kracht AA 40'") == gs.name_key("Kracht  AA 40'")
+
+
+def test_a_chosen_mark_renames_and_still_finds_intervals_copies(runtime) -> None:
+    _event(runtime, EVENT)
+    _garmin_copy(runtime, 900, "Kracht AA 40'", 77)  # intervals.icu's earlier push
+    api = Garmin()
+    gs.reconcile(runtime.engine, lambda: api, TODAY, mark="\U0001f3cb️")
+    assert api.calls[0] == ("upload", "\U0001f3cb️ Kracht AA 40'")
+    assert ("delete", 77) in api.calls
+    # The ledger knows the chosen name: the guard sees nothing outdated with that mark.
+    out = horizon.status(runtime.engine, TODAY, 9, (), mark="\U0001f3cb️")
+    assert out["outdated"] == []
+
+
+def test_the_mark_preference_takes_symbols_only(tmp_path) -> None:
+    from vibesynergy.portal import prefs
+
+    assert gs.mark_for(tmp_path) == gs.MARK
+    prefs.save(tmp_path, {"garmin_mark": " \U0001f7e3 "})
+    assert gs.mark_for(tmp_path) == "\U0001f7e3"
+    for bad in ("VS", "", "a⚡", "⚡ ⚡", "_"):
+        with pytest.raises(ValueError):
+            prefs.save(tmp_path, {"garmin_mark": bad})
+    prefs.save(tmp_path, {"garmin_mark": None})
+    assert gs.mark_for(tmp_path) == gs.MARK

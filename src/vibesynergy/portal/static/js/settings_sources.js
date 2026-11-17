@@ -89,6 +89,8 @@ export function garminDeliveryHtml(src) {
   return `<fieldset class="garmin-delivery"><legend>${t("Workouts from VibeSynergy on your Garmin")}</legend>
     ${DELIVERY_SPORTS.map(([k, label]) => `<label class="check"><input type="checkbox" name="garmin_delivery" value="${k}" data-autosave-skip${on.has(k) ? " checked" : ""}> ${t(label)}</label>`).join("")}
     <p class="sub">${t("VibeSynergy puts these workouts on your Garmin calendar itself. Strength and pilates always come from VibeSynergy. Indoor rides keep going to Zwift through intervals.icu.")}</p>
+    <label>${t("Mark in front of the name")} <input class="btn garmin-mark" name="garmin_mark" maxlength="8" autocomplete="off" data-autosave-skip value="${esc(src.garmin_mark || "")}" placeholder="${esc(src.garmin_mark_default || "")}"></label>
+    <p class="sub">${t("An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: {mark}.", { mark: src.garmin_mark_default || "" })}</p>
     <p class="sub" data-delivery-status role="status"></p></fieldset>`;
 }
 

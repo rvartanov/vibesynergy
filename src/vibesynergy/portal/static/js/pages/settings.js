@@ -546,6 +546,20 @@ function bind(view, ctx) {
       }
     });
   });
+  view.querySelectorAll("[name=garmin_mark]").forEach((input) => {
+    input.addEventListener("change", async () => {
+      const status = input.closest("fieldset").querySelector("[data-delivery-status]");
+      status.textContent = t("Saving…");
+      status.classList.remove("error-text");
+      try {
+        await post("prefs", { changes: { garmin_mark: input.value.trim() || null } });
+        status.textContent = t("Saved. Garmin is updated within a few minutes.");
+      } catch (error) {
+        status.textContent = t("Not saved: {error}", { error: error.message });
+        status.classList.add("error-text");
+      }
+    });
+  });
   view.querySelectorAll("[name=icu_private_notes]").forEach((input) => {
     const status = input.closest("section")?.querySelector("[data-icu-notes-status]");
     if (input.checked && status) icuNotesCheck(status);

@@ -2342,6 +2342,8 @@
  "Twice on your Garmin: {title} ({day}).": "Twee keer op je Garmin: {title} ({day}).",
  "{platform}'s general heart rate zones differ from running": "De algemene hartslagzones in {platform} wijken af van hardlopen",
  "Workouts from VibeSynergy on your Garmin": "Workouts van VibeSynergy op je Garmin",
+ "Mark in front of the name": "Teken voor de naam",
+ "An emoji or symbol, so you see on your watch which workouts come from VibeSynergy. Empty: {mark}.": "Een emoji of symbool, zodat je op je horloge ziet welke workouts van VibeSynergy komen. Leeg: {mark}.",
  "Cycling (outdoor and MTB)": "Fietsen (buiten en MTB)",
  "Saved. Garmin is updated within a few minutes.": "Opgeslagen. Garmin is binnen een paar minuten bijgewerkt.",
  "Updates": "Updates",

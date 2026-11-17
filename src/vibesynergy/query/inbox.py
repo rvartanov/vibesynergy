@@ -97,6 +97,7 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
             today,
             prefs.horizon_days(rt.settings.data_dir),
             tuple(stored.get("garmin_delivery") or ()),
+            mark=stored.get("garmin_mark"),
         )
         for key in ("missing", "duplicates", "outdated"):
             for item in guard.get(key) or []:
