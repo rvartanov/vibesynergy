@@ -206,7 +206,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
 
 
 def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
-    """#57: the last round of a repeat ends without its recovery when a lap step follows."""
+    """#57: a repeat followed by a lap step skips its last recovery (Garmin's own option)."""
     text = (
         "Warmup\n- Press lap 15m Z1 HR\n\n"
         "Main set\n5x\n- 4m Z3 HR\n- 2m Z1 HR intensity=recovery\n\n"
@@ -215,18 +215,14 @@ def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
     )
     steps = parse_intervals(text).steps
     trimmed = ge.trim_rest_before_lap(steps)
-    kinds = [(s["kind"], s.get("times")) for s in trimmed]
-    # The first repeat is followed by another repeat: unchanged. The second is followed by
-    # the lap cool-down: two full rounds, then the last work step alone.
-    assert kinds == [
-        ("warmup", None),
-        ("repeat", 5),
-        ("repeat", 2),
-        ("work", None),
-        ("cooldown", None),
+    # The first repeat is followed by another repeat: unchanged.
+    assert [(s["kind"], s.get("times"), s.get("skip_last_rest")) for s in trimmed] == [
+        ("warmup", None, None),
+        ("repeat", 5, None),
+        ("repeat", 3, True),
+        ("cooldown", None, None),
     ]
-    assert ge.trim_rest_before_lap(
-        [{"kind": "work", "duration_s": 60}, {"kind": "rest", "duration_s": 60}]
-    ) == [{"kind": "work", "duration_s": 60}]
-    two = parse_intervals("Main set\n2x\n- 1m Z4 HR\n- 1m intensity=rest").steps
-    assert [s["kind"] for s in ge.trim_rest_before_lap(two)] == ["work", "rest", "work"]
+    built = ge._steps(trimmed, ("run", {}))
+    assert "skipLastRestStep" not in built[1] and built[2]["skipLastRestStep"] is True
+    lone = [{"kind": "work", "duration_s": 60}, {"kind": "rest", "duration_s": 60}]
+    assert ge.trim_rest_before_lap(lone) == [{"kind": "work", "duration_s": 60}]

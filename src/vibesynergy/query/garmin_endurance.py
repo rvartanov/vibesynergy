@@ -159,7 +159,8 @@ _RESTS = ("rest", "recovery")
 def trim_rest_before_lap(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """No timed recovery right before a step that waits for the lap button, or at the end
     (#57): the watch would count down a recovery and then wait for lap again. A repeat whose
-    last step is a recovery keeps it on every round but the last; a lone recovery goes."""
+    last step is a recovery skips it in the last round (Garmin's ``skipLastRestStep``); a
+    lone recovery goes."""
     out: list[dict[str, Any]] = []
     for index, step in enumerate(steps):
         after = steps[index + 1] if index + 1 < len(steps) else None
@@ -169,12 +170,7 @@ def trim_rest_before_lap(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         elif step["kind"] in _RESTS and not step.get("until_lap"):
             continue
         elif step["kind"] == "repeat" and step["steps"] and step["steps"][-1]["kind"] in _RESTS:
-            inner, times = step["steps"], int(step.get("times") or 1)
-            if times > 2:
-                out.append({**step, "times": times - 1})
-            elif times == 2:
-                out.extend(inner)
-            out.extend(inner[:-1])
+            out.append({**step, "skip_last_rest": True})  # Garmin's skipLastRestStep
         else:
             out.append(step)
     return out
@@ -192,6 +188,7 @@ def _steps(steps: list[dict[str, Any]], css: Any) -> list[dict[str, Any]]:
                     "smartRepeat": False,
                     "endCondition": dict(_ITERATIONS),
                     "workoutSteps": _steps(step["steps"], css),
+                    **({"skipLastRestStep": True} if step.get("skip_last_rest") else {}),
                 }
             )
         else:

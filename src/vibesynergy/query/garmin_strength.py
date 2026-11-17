@@ -31,7 +31,6 @@ stay with intervals.icu.
 
 from __future__ import annotations
 
-import copy
 import logging
 import re
 import shlex
@@ -345,18 +344,15 @@ def _exercise_steps(step: Step, *, last_rest: bool = True) -> list[dict]:
             entry["weightUnit"] = dict(_WEIGHT_UNITS[step.weight[1]])
         work.append(entry)
     rest = [_step("recovery", f"Rust {step.rest}s", seconds=step.rest)] if step.rest else []
-    if last_rest or not rest:
-        return [*work, *rest] if step.sets == 1 else [_repeat(step.sets, [*work, *rest])]
+    skip = bool(rest) and not last_rest
     if step.sets == 1:
-        return work
-    # The sets before the last keep their rest; the last set is the same work without it.
-    head = [*work, *rest]
-    first = head if step.sets == 2 else [_repeat(step.sets - 1, head)]
-    return [*first, *copy.deepcopy(work)]
+        return work if skip else [*work, *rest]
+    # Garmin's own "skip last rest": the watch shows 3 of 3 sets and leaves out the last rest.
+    return [_repeat(step.sets, [*work, *rest], skip_last_rest=skip)]
 
 
-def _repeat(times: int, steps: list[dict]) -> dict:
-    return {
+def _repeat(times: int, steps: list[dict], *, skip_last_rest: bool = False) -> dict:
+    group = {
         "type": "RepeatGroupDTO",
         "stepType": {"stepTypeId": 6, "stepTypeKey": "repeat"},
         "numberOfIterations": times,
@@ -364,6 +360,9 @@ def _repeat(times: int, steps: list[dict]) -> dict:
         "endCondition": dict(_ITERATIONS),
         "workoutSteps": steps,
     }
+    if skip_last_rest:
+        group["skipLastRestStep"] = True
+    return group
 
 
 def _number(steps: list[dict], start: int = 1) -> int:
@@ -446,7 +445,9 @@ def fingerprint(name: str, day: date, block: Block, description: str | None) -> 
                 for step in block.steps
             ],
             # Lap-button recovery between stations (5 Nov 2026): redeliver once.
-            "transitions": 3,  # 2: one station, one pause; 3: no timed rest before lap (#57)
+            # 2: one station, one pause; 3: no timed rest before lap (#57);
+            # 4: that rest skipped with Garmin's skipLastRestStep instead of a written-out set
+            "transitions": 4,
             # Classes became one open step (2 Nov 2026): redeliver the timed ones once.
             **({"open": True} if block.sport in CLASSES else {}),
         }
