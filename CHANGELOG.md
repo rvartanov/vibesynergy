@@ -60,7 +60,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   to the Herstel step until lap, whose text says the minimum ("Herstel minstens 3 min, dan
   Lap"). Rests between sets of one station stay. The last set of the workout has no rest. Run,
   ride and swim workouts do the same: a repeat followed by a step until lap (or the end) skips
-  its last recovery. Upcoming workouts on Garmin are rebuilt once. (#57)
+  its last recovery. This uses Garmin's own "skip last rest" option on the repeat, so the watch
+  still shows 3 of 3 sets. Upcoming workouts on Garmin are rebuilt once. (#57)
 - The bell (Waiting for you) also lists the warnings that appear at the top of the screen,
   so one you closed or missed can still be found ([#30](https://github.com/rvartanov/vibesynergy/pull/30)).
 - Texts and the morning coach instructions no longer mention Garmin Coach; you don't use it
