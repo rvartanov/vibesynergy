@@ -250,7 +250,7 @@ def _completed(engine: Engine, today: date) -> dict[str, Any]:
     return {**completed, "changed_at": changed.isoformat() if changed else None}
 
 
-def _horizon_args(rt) -> tuple[int, tuple[str, ...]]:
+def _horizon_args(rt) -> tuple:
     from vibesynergy.query import horizon
 
     data_dir = getattr(getattr(rt, "settings", None), "data_dir", None)
@@ -259,7 +259,8 @@ def _horizon_args(rt) -> tuple[int, tuple[str, ...]]:
     from vibesynergy.portal import prefs
 
     stored = prefs.load(data_dir)
-    return prefs.horizon_days(data_dir), tuple(stored.get("garmin_delivery") or ())
+    sports = tuple(stored.get("garmin_delivery") or ())
+    return prefs.horizon_days(data_dir), sports, None, stored.get("garmin_mark")
 
 
 def _coach_runs(engine, timezone: str, tr) -> list:

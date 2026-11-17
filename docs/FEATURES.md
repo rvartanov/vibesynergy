@@ -114,7 +114,7 @@ Details: [SOURCES.md](SOURCES.md).
   steps) and every page reads it there; started in VibeSynergy (`vibesynergy plan create`)
   or taken over from intervals.icu, a plan builder (goal race, sport and distance, method,
   hours, rhythm, rest days, fixed sessions), delivery of the plan's workouts to Garmin (per
-  sport, with ⚡ in front of the name) and to intervals.icu.
+  sport, with a mark of your choice in front of the name, ⚡ by default) and to intervals.icu.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport.

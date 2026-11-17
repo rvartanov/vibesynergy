@@ -807,3 +807,9 @@ table.activities .part-mark { color: var(--secondary); }
 .login-card form { display: grid; gap: 8px; margin: 12px 0; }
 .login-card .btn.link { background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; color: inherit; }
 .login-brand { font-weight: 600; margin: 0 0 4px; }
+
+/* The mark in front of VibeSynergy's Garmin workouts: one emoji, a narrow field. */
+input.garmin-mark {
+  width: 5em;
+  text-align: center;
+}
