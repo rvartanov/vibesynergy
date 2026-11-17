@@ -3071,13 +3071,13 @@
  "The fixed rules only": "Alleen de vaste regels",
  "Off: no daily advice": "Uit: geen dagadvies",
  "With your AI coach, its advice decides the colour, the safety level and the reasons. When there is no valid advice from it, the fixed rules give the advice and the page says why. One rule stays fixed: on its own, your AI coach can never make illness, a red-flag complaint, pain of 7 or more, or an injury that changes how you move milder than the rules.": "Met je AI-coach bepaalt zijn advies de kleur, het veiligheidsniveau en de redenen. Is er geen geldig advies van je AI-coach, dan geven de vaste regels het advies en zegt de pagina waarom. Eén regel ligt vast: uit zichzelf maakt je AI-coach ziekte, een alarmerende klacht, pijn van 7 of meer, of een blessure die je bewegen verandert nooit milder dan de regels.",
- "Your AI coach has not written today's advice yet, so this advice comes from the fixed rules.": "Je AI-coach heeft het advies voor vandaag nog niet geschreven, dus dit advies komt van de vaste regels.",
- "Your AI coach's run failed, so this advice comes from the fixed rules.": "Het advies van je AI-coach is mislukt, dus dit advies komt van de vaste regels.",
- "Your AI coach's advice was incomplete (colour, safety or reasons missing), so this advice comes from the fixed rules.": "Het advies van je AI-coach was onvolledig (kleur, veiligheid of redenen ontbraken), dus dit advies komt van de vaste regels.",
- "The AI coach is switched off, so this advice comes from the fixed rules.": "De AI-coach staat uit, dus dit advies komt van de vaste regels.",
- "The AI budget is used up or the AI service is unavailable, so this advice comes from the fixed rules.": "Het AI-budget is op of de AI-dienst is niet bereikbaar, dus dit advies komt van de vaste regels.",
- "Something new came in after your AI coach's advice (pain, illness or a complaint), so this advice comes from the fixed rules.": "Na het advies van je AI-coach kwam er iets nieuws binnen (pijn, ziekte of een klacht), dus dit advies komt van de vaste regels.",
  "Something new came in (pain, illness or a complaint); your AI coach is updating this advice.": "Er kwam iets nieuws binnen (pijn, ziekte of een klacht); je AI-coach werkt dit advies bij.",
  "New data came in; your AI coach is updating this advice.": "Er kwamen nieuwe gegevens binnen; je AI-coach werkt dit advies bij.",
- "New data came in since this advice was written.": "Er kwamen nieuwe gegevens binnen nadat dit advies is geschreven."
+ "New data came in since this advice was written.": "Er kwamen nieuwe gegevens binnen nadat dit advies is geschreven.",
+ "No advice from your AI coach yet today: the fixed rules give it.": "Nog geen advies van je AI-coach vandaag: de vaste regels geven het.",
+ "Your AI coach's run failed: the fixed rules give today's advice.": "Het advies van je AI-coach is mislukt: de vaste regels geven het advies van vandaag.",
+ "Your AI coach's advice was incomplete: the fixed rules give it.": "Het advies van je AI-coach was onvolledig: de vaste regels geven het.",
+ "The AI coach is off: the fixed rules give today's advice.": "De AI-coach staat uit: de vaste regels geven het advies van vandaag.",
+ "AI budget used up or AI service unavailable: the fixed rules give today's advice.": "AI-budget op of AI-dienst niet bereikbaar: de vaste regels geven het advies van vandaag.",
+ "Something new came in after your AI coach's advice (pain, illness or a complaint): the fixed rules give it.": "Na het advies van je AI-coach kwam er iets nieuws binnen (pijn, ziekte of een klacht): de vaste regels geven het."
 }

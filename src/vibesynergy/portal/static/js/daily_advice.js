@@ -53,7 +53,7 @@ function differencesHtml(advice) {
 }
 
 /** The advice itself: the main line, updating and fallback notes, why, and details. */
-export function adviceHtml(advice, { keyPrefix = "dashboard" } = {}) {
+export function adviceHtml(advice, { keyPrefix = "dashboard", refresh = false } = {}) {
   if (failedAdvice(advice)) {
     return `<p class="notice error" role="alert">${esc(t("This part could not load right now."))}</p>`;
   }
@@ -62,10 +62,10 @@ export function adviceHtml(advice, { keyPrefix = "dashboard" } = {}) {
   }
   const reasons = advice.reasons || [];
   const updating = advice.updating?.text
-    ? `<p class="sub" role="status" data-advice-updating>${esc(advice.updating.text)}</p>`
+    ? `<span role="status" data-advice-updating>${esc(advice.updating.text)}</span> `
     : "";
   const fallback = advice.fallback?.text
-    ? `<p class="sub advice-fallback" data-advice-fallback="${esc(advice.fallback.reason)}">${esc(advice.fallback.text)}</p>`
+    ? `<span data-advice-fallback="${esc(advice.fallback.reason)}">${esc(advice.fallback.text)}</span> `
     : "";
   // One disclosure: the reasons, then the details (where the advice came from and where
   // the AI and the rules differ). One target keeps the card calm on a phone.
@@ -74,12 +74,17 @@ export function adviceHtml(advice, { keyPrefix = "dashboard" } = {}) {
     : "";
   const details = `<details data-refresh-key="${esc(keyPrefix)}-guidance-details" data-advice-details><summary>${t("Why this advice")}</summary>
       ${why}<p class="sub">${esc(sourceLine(advice))}</p>${differencesHtml(advice)}</details>`;
-  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${updating}${fallback}${details}`;
+  // Where the advice stands and the update button on one line, so the card stays within one
+  // screen on a phone.
+  const status = updating || fallback || refresh
+    ? `<p class="sub advice-status${fallback ? " advice-fallback" : ""}">${updating}${fallback}${refresh ? refreshButtonHtml() : ""}</p>`
+    : "";
+  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}`;
 }
 
 export function refreshButtonHtml() {
-  return `<div class="advice-refresh"><button class="btn" type="button" data-advice-refresh>${t("Update advice")}</button>
-    <p class="sub" data-advice-progress role="status" aria-live="polite"></p></div>`;
+  return `<button class="linkish advice-refresh" type="button" data-advice-refresh>${t("Update advice")}</button>
+    <span data-advice-progress role="status" aria-live="polite"></span>`;
 }
 
 function progressText(state) {

@@ -58,16 +58,14 @@ RERUN_JOB = "morning"
 
 # The fixed list of reasons the rules take over, in the athlete's words.
 REASONS = {
-    "no_run": "Your AI coach has not written today's advice yet, so this advice comes "
-    "from the fixed rules.",
-    "run_failed": "Your AI coach's run failed, so this advice comes from the fixed rules.",
-    "contract": "Your AI coach's advice was incomplete (colour, safety or reasons missing), "
-    "so this advice comes from the fixed rules.",
-    "ai_off": "The AI coach is switched off, so this advice comes from the fixed rules.",
-    "unavailable": "The AI budget is used up or the AI service is unavailable, so this "
-    "advice comes from the fixed rules.",
+    "no_run": "No advice from your AI coach yet today: the fixed rules give it.",
+    "run_failed": "Your AI coach's run failed: the fixed rules give today's advice.",
+    "contract": "Your AI coach's advice was incomplete: the fixed rules give it.",
+    "ai_off": "The AI coach is off: the fixed rules give today's advice.",
+    "unavailable": "AI budget used up or AI service unavailable: the fixed rules give "
+    "today's advice.",
     "new_signal": "Something new came in after your AI coach's advice (pain, illness or a "
-    "complaint), so this advice comes from the fixed rules.",
+    "complaint): the fixed rules give it.",
 }
 UPDATING = {
     "new_signal": "Something new came in (pain, illness or a complaint); your AI coach is "

@@ -3071,13 +3071,13 @@
  "The fixed rules only": "The fixed rules only",
  "Off: no daily advice": "Off: no daily advice",
  "With your AI coach, its advice decides the colour, the safety level and the reasons. When there is no valid advice from it, the fixed rules give the advice and the page says why. One rule stays fixed: on its own, your AI coach can never make illness, a red-flag complaint, pain of 7 or more, or an injury that changes how you move milder than the rules.": "With your AI coach, its advice decides the colour, the safety level and the reasons. When there is no valid advice from it, the fixed rules give the advice and the page says why. One rule stays fixed: on its own, your AI coach can never make illness, a red-flag complaint, pain of 7 or more, or an injury that changes how you move milder than the rules.",
- "Your AI coach has not written today's advice yet, so this advice comes from the fixed rules.": "Your AI coach has not written today's advice yet, so this advice comes from the fixed rules.",
- "Your AI coach's run failed, so this advice comes from the fixed rules.": "Your AI coach's run failed, so this advice comes from the fixed rules.",
- "Your AI coach's advice was incomplete (colour, safety or reasons missing), so this advice comes from the fixed rules.": "Your AI coach's advice was incomplete (colour, safety or reasons missing), so this advice comes from the fixed rules.",
- "The AI coach is switched off, so this advice comes from the fixed rules.": "The AI coach is switched off, so this advice comes from the fixed rules.",
- "The AI budget is used up or the AI service is unavailable, so this advice comes from the fixed rules.": "The AI budget is used up or the AI service is unavailable, so this advice comes from the fixed rules.",
- "Something new came in after your AI coach's advice (pain, illness or a complaint), so this advice comes from the fixed rules.": "Something new came in after your AI coach's advice (pain, illness or a complaint), so this advice comes from the fixed rules.",
  "Something new came in (pain, illness or a complaint); your AI coach is updating this advice.": "Something new came in (pain, illness or a complaint); your AI coach is updating this advice.",
  "New data came in; your AI coach is updating this advice.": "New data came in; your AI coach is updating this advice.",
- "New data came in since this advice was written.": "New data came in since this advice was written."
+ "New data came in since this advice was written.": "New data came in since this advice was written.",
+ "No advice from your AI coach yet today: the fixed rules give it.": "No advice from your AI coach yet today: the fixed rules give it.",
+ "Your AI coach's run failed: the fixed rules give today's advice.": "Your AI coach's run failed: the fixed rules give today's advice.",
+ "Your AI coach's advice was incomplete: the fixed rules give it.": "Your AI coach's advice was incomplete: the fixed rules give it.",
+ "The AI coach is off: the fixed rules give today's advice.": "The AI coach is off: the fixed rules give today's advice.",
+ "AI budget used up or AI service unavailable: the fixed rules give today's advice.": "AI budget used up or AI service unavailable: the fixed rules give today's advice.",
+ "Something new came in after your AI coach's advice (pain, illness or a complaint): the fixed rules give it.": "Something new came in after your AI coach's advice (pain, illness or a complaint): the fixed rules give it."
 }
