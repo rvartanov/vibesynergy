@@ -10,6 +10,7 @@ import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml, hasSaved
 import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sportName, userDateTime, weekday } from "../format.js";
 import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
+import { bindGroupTrainings, groupTrainingsHtml } from "../group_training.js";
 import { outsidePlanHtml } from "../plan_labels.js";
 import { mountQuickLog } from "../quicklog.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
@@ -133,6 +134,7 @@ export async function render(view, { args, query, meta, stale }) {
             ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}
             ${completedHtml(d.completed?.activities, d.completed, share, { editable: true })}
           </div>
+          ${share || failed(d.group_trainings) ? "" : groupTrainingsHtml(d.group_trainings)}
           ${!can("coach") ? "" : `<div class="dash-coach" data-dash-coaching><p class="sub" role="status">${esc(t("Loading…"))}</p></div>`}
         </section>`;
   } else if (dayReply) {
@@ -222,6 +224,7 @@ export async function render(view, { args, query, meta, stale }) {
     </div>` : ""}`;
 
   bindRefresh(view, { args, query, meta, stale });
+  bindGroupTrainings(view);
   bindDayPicker(view, today);
   for (const button of view.querySelectorAll("[data-block-retry]")) {
     button.addEventListener("click", () => {

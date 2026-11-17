@@ -17,6 +17,7 @@ export const MANUALS = [
     ["calendar", N("Calendar: looking back and ahead"), N("See per month or week what you did and what is planned.")],
     ["planning", N("Planning & progress"), N("Compare the plan with what you did, and see your training analysis.")],
     ["plan-builder", N("Building a training plan"), N("Draft a plan towards a race from your hours and rest days.")],
+    ["group-training", N("Coaching a group training with RunSynergy"), N("Connect RunSynergy and adopt the group schedule as the workout for your Training geven session.")],
     ["fitness", N("Zones, thresholds and form"), N("Change a threshold after a test, and follow your form and best efforts.")],
     ["coach", N("Setting up and using your AI coach"), N("Add your AI key, set the coach's tasks, and tell it what to remember.")],
   ]],

@@ -208,7 +208,7 @@ export function ago(isoTimestamp, now = Date.now()) {
 }
 
 export function sourceName(id) {
-  const names = { caldav: t("iCal / CalDAV calendar"), garmin: "Garmin", withings: "Withings", strava: "Strava", files: t("Files"), garmin_export: t("Garmin export"), strava_export: t("Strava archive"), intervals_icu: "intervals.icu", vibesynergy: "VibeSynergy" };
+  const names = { caldav: t("iCal / CalDAV calendar"), garmin: "Garmin", withings: "Withings", strava: "Strava", files: t("Files"), garmin_export: t("Garmin export"), strava_export: t("Strava archive"), intervals_icu: "intervals.icu", runsynergy: "RunSynergy", vibesynergy: "VibeSynergy" };
   return names[id] ?? id;
 }
 

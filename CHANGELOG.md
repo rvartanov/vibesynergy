@@ -11,6 +11,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **RunSynergy group trainings** become the workout for your "Training geven" sessions. Paste
+  your RunSynergy calendar link under Settings → Sources → RunSynergy. Today then shows each
+  group training you coach as a proposal: warm-up and cool-down until you press lap, the core
+  on time so you can blow the whistle, and you in Z1. Adopt puts it in the plan and on your
+  watch, and it counts as planned. A change in RunSynergy makes a new proposal; a cancelled
+  training says so. The AI coach sees open proposals in `vibesynergy_today`. New help video
+  "Coaching a group training with RunSynergy". (#55)
 - **Help** in the footer of every page: 17 short video manuals (logging in, the day and
   check-in, quick logging, activities, calendar, planning, the plan builder, zones and form,
   the AI coach, health, complaints, insight, search, sources, sharing, account security and

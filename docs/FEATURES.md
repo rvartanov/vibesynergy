@@ -45,6 +45,11 @@ Details: [SOURCES.md](SOURCES.md).
 - **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach
   Zwift and the other services connected there. Read: plan events, the workout library, and which plan
   workout an activity was paired with. Not read: fitness, load, zones, RPE/Feel.
+- **RunSynergy** (the running-group app): the group trainings you give, read from your personal
+  calendar link (Settings → Sources → RunSynergy). Each becomes a workout proposal for the
+  plan's "Training geven" session that day: warm-up and cool-down until lap, the core on time
+  so you can blow the whistle, Z1 for yourself. Adopt it on Today and it reaches the watch and
+  counts as planned. Read only; the link is kept encrypted.
 - **CalDAV calendars** (e.g. iCloud): events on the calendar; optionally a copy of Garmin
   workouts in a chosen calendar.
 - **Files**: FIT, GPX and TCX, by upload, by a drop folder or by import

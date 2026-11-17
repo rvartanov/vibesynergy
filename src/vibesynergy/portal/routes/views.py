@@ -102,6 +102,30 @@ def register(kit: PortalKit) -> None:
         plan_model.mirror_soon(rt.jobs)
         return envelope(out)
 
+    @router.get("/plan/group-trainings")
+    def plan_group_trainings(start: str | None = None, end: str | None = None) -> dict[str, Any]:
+        """RunSynergy group trainings matched to "Training geven" sessions, with the
+        workout built from each (state proposed, adopted or cancelled). Default: today
+        and the next 14 days."""
+        from vibesynergy.query import group_training
+
+        first = _date(start) if start else today()
+        last = _date(end) if end else first + timedelta(days=14)
+        if last < first or (last - first).days > 62:
+            raise ValueError("choose a period of at most two months")
+        found = group_training.proposals(engine, first, last)
+        return envelope({"proposals": sorted(found.values(), key=lambda p: p["date"])})
+
+    @router.post("/plan/session/group-training")
+    def plan_session_group_training(request: PlanSessionChange) -> dict[str, Any]:
+        """Adopt the RunSynergy workout for a "Training geven" session."""
+        from vibesynergy.query import group_training, plan_model
+
+        _own_plan_leads()
+        out = group_training.adopt(engine, request.session_id, author="portal")
+        plan_model.mirror_soon(rt.jobs)
+        return envelope(out)
+
     @router.get("/activity-weather")
     def activity_weather_route(id: str, lang: str = "en") -> dict[str, Any]:
         """The weather of one outdoor session, or null indoors and when unknown."""

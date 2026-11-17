@@ -74,6 +74,12 @@ class GarminConnect(BaseModel):
     password: str
 
 
+class RunSynergyLink(BaseModel):
+    """The personal calendar link from RunSynergy (Mijn gegevens → Agendalink)."""
+
+    url: str = Field(min_length=10, max_length=600)
+
+
 class IcuCredentials(BaseModel):
     """intervals.icu key and athlete id. An empty key keeps the stored one."""
 
@@ -355,8 +361,44 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             )
         return {"data": credentials.status(settings.secrets_dir)}
 
+    @router.get("/sources/runsynergy/link")
+    def runsynergy_link_status() -> dict[str, Any]:
+        """Whether a calendar link is set and its host; never the link."""
+        from vibesynergy.sources.runsynergy import feed
+
+        return {"data": feed.status(settings.secrets_dir)}
+
+    @router.post("/sources/runsynergy/link")
+    def runsynergy_link_save(request: RunSynergyLink) -> dict[str, Any]:
+        """Store the link, switch the source on and read it once now."""
+        from vibesynergy.sources.runsynergy import feed
+
+        found = feed.save(settings.secrets_dir, request.url)
+        config_edit.apply_changes(
+            settings.config_path, {"sources": {"runsynergy": {"enabled": True}}}
+        )
+        with rt.engine.begin() as conn:
+            conn.execute(
+                audit_log.insert().values(
+                    at=utc_now(),
+                    actor="portal",
+                    action="runsynergy.link.saved",
+                    detail={"host": found["host"]},
+                )
+            )
+        rt.jobs.enqueue("sync", {"source": "runsynergy"}, dedupe_key="sync:runsynergy")
+        return {"data": found}
+
     @router.post("/sources/{source_id}/disconnect")
     def source_disconnect(source_id: str) -> dict[str, Any]:
+        if source_id == "runsynergy":
+            from vibesynergy.sources.runsynergy import feed
+
+            feed.clear(settings.secrets_dir)
+            config_edit.apply_changes(
+                settings.config_path, {"sources": {"runsynergy": {"enabled": False}}}
+            )
+            return {"data": {"state": "disconnected"}}
         if source_id == "intervals_icu":
             from vibesynergy.sources.intervals_icu import credentials
 
@@ -522,6 +564,18 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "state": "logged in" if connected else "not logged in",
                 "error": None,
                 "setup": "#/settings/calendar",
+            }
+        if sid == "runsynergy":
+            from vibesynergy.sources.runsynergy import feed
+
+            link = feed.status(settings.secrets_dir)
+            problems = views.sync_status(rt.engine, sid)["problems"]
+            return {
+                "state": "logged in" if link["set"] else "not logged in",
+                "account": link["host"],
+                "error": (problems[0]["last_error"] or "")[:200] or None if problems else None,
+                "write_access": None,
+                "app_set": None,
             }
         if sid == "intervals_icu":
             from vibesynergy.sources.intervals_icu import credentials
