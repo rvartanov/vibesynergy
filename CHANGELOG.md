@@ -153,6 +153,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- Today's advice no longer adds "Review what you have already done before adding training"
+  after the activities recorded today: it was unclear and repeated what Plan and done
+  shows. The count and what is still on the plan stay. (#85)
 - The safety notice no longer sends you to a physiotherapist or doctor about "what you
   reported" when only measurements set it off (low HRV, readiness, a short night, resting
   heart rate): it now says your measurements point to incomplete recovery and to check again
