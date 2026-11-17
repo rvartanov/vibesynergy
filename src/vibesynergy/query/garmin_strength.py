@@ -486,8 +486,27 @@ TYPE_MARKS = {
     "run": "\U0001f3c3",
     "ride": "\U0001f6b4",
     "swim": "\U0001f3ca",
-    "brick": "\U0001f6b4\U0001f3c3",
+    # Combined workouts (#70): ride then run, run-ride-run, and any other combination.
+    "brick": "\U0001f9f1",
+    "duathlon": "\U0001f6b4\U0001f3c3",
+    "triathlon": "\U0001f3ca\U0001f6b4\U0001f3c3",
+    "multisport": "\U0001f500",
 }
+
+
+def multi_kind(sports: list[str] | tuple[str, ...]) -> str:
+    """A combined workout's type from its segments: ride then run is a brick, run-ride-run a
+    duathlon, swim-ride-run a triathlon, everything else (swim-run, ...) multisport."""
+    order = tuple(sports)
+    if order == ("ride", "run"):
+        return "brick"
+    if order == ("run", "ride", "run"):
+        return "duathlon"
+    if order == ("swim", "ride", "run"):
+        return "triathlon"
+    return "multisport"
+
+
 # One mark for everything, or a mark per workout type (missing types: ``TYPE_MARKS``).
 Marks = str | dict[str, str] | None
 
