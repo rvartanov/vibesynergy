@@ -493,7 +493,15 @@ def test_a_mark_per_workout_type_with_defaults(tmp_path) -> None:
     marks = gs.mark_for(tmp_path)
     assert gs.marked("Duurloop", marks, "run") == "\U0001f7e2 Duurloop"
     assert gs.marked("Kracht", marks, "strength_training") == "\U0001f3cb️ Kracht"
-    assert gs.marked("Rit + Brickloop", marks, "brick") == "\U0001f6b4\U0001f3c3 Rit + Brickloop"
+    assert gs.marked("Rit + Brickloop", marks, "brick") == "\U0001f9f1 Rit + Brickloop"
+    assert gs.marked("Duatlon", marks, "duathlon") == "\U0001f6b4\U0001f3c3 Duatlon"
+    assert gs.multi_kind(("ride", "run")) == "brick"
+    assert gs.multi_kind(("run", "ride", "run")) == "duathlon"
+    assert gs.multi_kind(("swim", "ride", "run")) == "triathlon"
+    assert gs.multi_kind(("swim", "run")) == "multisport"
+    tri = gs.marked("Triatlon", marks, gs.multi_kind(("swim", "ride", "run")))
+    assert tri == "\U0001f3ca\U0001f6b4\U0001f3c3 Triatlon"
+    assert gs.marked("Swimrun", marks, "multisport") == "\U0001f500 Swimrun"
     with pytest.raises(ValueError):
         prefs.save(tmp_path, {"garmin_marks": {"kayak": "\U0001f6f6"}})
     prefs.save(tmp_path, {"garmin_mark_mode": "one"})

@@ -94,7 +94,7 @@ export function garminDeliveryHtml(src) {
 }
 
 // The mark in front of VibeSynergy's workouts on Garmin: one for all, or one per workout type.
-export const MARK_TYPES = [["strength_training", N("Strength")], ["pilates", N("Pilates")], ["yoga", N("Yoga")], ["run", N("Running")], ["ride", N("Cycling")], ["swim", N("Swimming")], ["brick", N("Brick")]];
+export const MARK_TYPES = [["strength_training", N("Strength")], ["pilates", N("Pilates")], ["yoga", N("Yoga")], ["run", N("Running")], ["ride", N("Cycling")], ["swim", N("Swimming")], ["brick", N("Brick")], ["duathlon", N("Duathlon")], ["triathlon", N("Triathlon")], ["multisport", N("Multisport")]];
 
 function garminMarksHtml(src) {
   const perType = src.garmin_mark_mode === "per_type";

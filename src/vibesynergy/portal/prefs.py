@@ -63,7 +63,18 @@ def _mark(value: Any) -> str:
     return text
 
 
-MARK_TYPES = ("strength_training", "pilates", "yoga", "run", "ride", "swim", "brick")
+MARK_TYPES = (
+    "strength_training",
+    "pilates",
+    "yoga",
+    "run",
+    "ride",
+    "swim",
+    "brick",
+    "duathlon",
+    "triathlon",
+    "multisport",
+)
 
 
 def _marks(value: Any) -> dict[str, str]:

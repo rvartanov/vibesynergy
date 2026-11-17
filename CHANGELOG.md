@@ -18,6 +18,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   Changing it renames the upcoming workouts on Garmin within a few minutes. (#66)
 - **Or a mark per workout type**: strength 🏋️, pilates 🤸, yoga 🧘, run 🏃, ride 🚴, swim 🏊
   and brick 🚴🏃 are filled in; change any of them, or keep one mark for everything. (#68)
+- **🧱 for a brick, and marks for duathlon, triathlon and multisport**: a combined workout
+  gets its type from its parts (ride then run: brick 🧱; run, ride, run: duathlon 🚴🏃; swim,
+  ride, run: triathlon 🏊🚴🏃; any other combination: multisport 🔀). VibeSynergy builds
+  bricks today; the others are ready. (#70)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
   warnings for the sessions around it:
   - a name whose minutes don't match the steps (45' while it takes 50');

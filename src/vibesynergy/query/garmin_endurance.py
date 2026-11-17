@@ -290,7 +290,9 @@ def _bricks(
             max(same_day, key=lambda k: out[k]["seconds"]),
         )
         ride = out[ride_id]
-        name = garmin_strength.marked(f"{ride['title']} + {run['title']}", mark, "brick")
+        name = garmin_strength.marked(
+            f"{ride['title']} + {run['title']}", mark, garmin_strength.multi_kind(("ride", "run"))
+        )
         workout = build_brick(name, ride["workout"], run["workout"])
         key = f"brick:{ride_id}+{run_id}"
         bricks[key] = {
