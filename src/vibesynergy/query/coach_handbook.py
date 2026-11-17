@@ -138,6 +138,41 @@ def _tasks(engine: Engine, timezone: str | None) -> list[dict[str, Any]]:
     return coach_tasks.status(engine, utc_now(), timezone)
 
 
+def harness_index() -> dict[str, Any]:
+    """The harness every coach works under, over MCP as much as inside VibeSynergy (#88):
+    its versions, how to get a task's rules and context, and what a write must meet."""
+    from vibesynergy.coach_runner import context, contract, prompts, registry
+
+    return {
+        "version": contract.HARNESS_VERSION,
+        "rules_version": prompts.RULES_VERSION,
+        "context_version": context.VERSION,
+        "how": [
+            "Before a task: vibesynergy_coach_prompt(job, include_context=true). It returns "
+            "the task's prompt (body_md), the harness rules (rules_md), the output contract, "
+            "the preloaded context (the safety block with the rules' level and reasons "
+            "first) and harness.stamp.",
+            "Follow rules_md where it differs from body_md.",
+            "Write with vibesynergy_coach_write(..., task=<job>, harness=<harness.stamp>). "
+            "The server checks every write against the contract and refuses what misses it; "
+            "read the error, fix that, write again.",
+        ],
+        "daily_advice_tasks": list(registry.daily()),
+        "safety_schema": contract.SAFETY_HELP,
+        "tasks": {
+            task.id: {
+                "entry_type": task.contract.entry_type,
+                "max_words": task.contract.max_words,
+                "target_day": task.contract.target or None,
+                "safety_required": task.contract.safety,
+                "chain": list(registry.chain_for(task.id)),
+            }
+            for task in registry.TASKS
+            if task.status == "live" and task.runs == "model"
+        },
+    }
+
+
 def handbook(
     engine: Engine,
     *,
@@ -158,6 +193,7 @@ def handbook(
             hashlib.sha256(text.encode("utf-8")).hexdigest()[:12] if text is not None else None
         ),
         "start_here": list(START_HERE),
+        "harness": harness_index(),
         "knowledge": knowledge_index(engine),
         "tasks": _tasks(engine, timezone),
         "access": {

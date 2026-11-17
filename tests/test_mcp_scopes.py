@@ -62,7 +62,7 @@ def test_a_public_insight_needs_the_publish_permission(runtime) -> None:
     assert denied.is_error and "isn't allowed to publish" in denied.content[0].text
     # Without the public line the same entry is the coach's to write.
     private = {k: v for k, v in arguments.items() if k not in ("public_insight", "activity_id")}
-    private["entry_type"] = "morning"
+    private["entry_type"] = "note"
     assert not _call(
         runtime, frozenset({"read", "coach.write"}), "vibesynergy_coach_write", private
     ).is_error

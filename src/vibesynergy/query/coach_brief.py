@@ -108,7 +108,11 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         },
         # suspect: check-in says good sleep, the watch measured under 5 h; incomplete: the
         # athlete marked the night so, it does not count for the advice (#53).
-        "sleep_check": (board.get("verdict") or {}).get("sleep_check"),
+        # updated: the night grew after its first reading (#88); what was computed before
+        # then (an early readiness, a morning report) used the short night.
+        "sleep_check": _sleep_check(board.get("verdict") or {}),
+        # Which readiness reading counts and whether the night was updated later (#88).
+        "measurement": (board.get("verdict") or {}).get("measurement"),
         "planned_today": today_items[0] if today_items else None,
         "horizon": _horizon(rt, day),
         "today": today_items,
@@ -130,10 +134,32 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
             {"level": item["level"], "area": item["area"], "message": item["message"]}
             for item in board["attention"][:12]
         ],
-        "safety": {"level": level, "rules": board["safety"]["rules"], "text": safety_text},
+        # The rules' safety outcome (the fallback, #88): level, colour, the rules that fired
+        # and each one's reason, plus measurement notes that explain a number.
+        "safety": {
+            "level": level,
+            "colour": verdict["level"],
+            "rules": board["safety"]["rules"],
+            "reasons": verdict.get("signals") or [],
+            "notes": verdict.get("notes") or [],
+            "text": safety_text,
+        },
         "coach_entries": _coach_entries(rt),
         "warnings": warnings,
     }
+
+
+def _sleep_check(verdict: dict[str, Any]) -> dict[str, Any] | None:
+    found = verdict.get("sleep_check")
+    grown = (verdict.get("measurement") or {}).get("sleep")
+    if found is None and grown:
+        return {
+            "state": "updated",
+            "measured_s": grown["now_s"],
+            "first_s": grown["first_s"],
+            "updated_at": grown.get("updated_at"),
+        }
+    return found
 
 
 def week_brief(rt: Runtime, start: date, end: date, today: date) -> dict[str, Any]:

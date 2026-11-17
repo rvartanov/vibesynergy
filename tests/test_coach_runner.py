@@ -40,6 +40,9 @@ DASH = "\N{EN DASH}"
 MORNING = datetime(2026, 11, 1, 8, 5, tzinfo=UTC)
 
 
+SAFE = {"level": "ok", "colour": "green", "reasons": ["HRV binnen band, check-in goed"]}
+
+
 def usage(inp=1000, out=200, write=0, read=0):
     return {
         "input_tokens": inp,
@@ -76,6 +79,7 @@ def morning_write(summary="Alex, houd de duurloop rustig: Z2.", day=DAY, **extra
         "for_date": day.isoformat(),
         "details": "HRV binnen band.",
         "kb_rules": ["HRV-4"],
+        "safety": SAFE,
         **extra,
     }
 
@@ -737,7 +741,7 @@ def test_internal_subscriber_failure_never_blocks_the_event(rt, monkeypatch):
 def test_prompts_load_from_docs_without_the_routine_comment(rt, job):
     text = prompts.job_prompt(rt.settings, job)
     assert not text.startswith("<!--") and "trig_" not in text
-    body, rules = text.split("## VibeSynergy API-runner")
+    body, rules = text.split("## Harnasregels v")
     assert "SendUserMessage" not in body
     assert job == "insight" or "geen SendUserMessage" in rules
 
@@ -773,7 +777,7 @@ def test_the_runner_reads_the_prompt_edited_in_the_portal(rt):
         status="active",
     )
     text = prompts.job_prompt(rt.settings, "evening", rt.engine)
-    assert text.startswith("Schrijf alleen: rust goed.") and prompts.rules_for("morning") in text
+    assert text.startswith("Schrijf alleen: rust goed.") and prompts.rules_for("evening") in text
 
 
 def test_model_choice_per_kind_of_run(rt, mail):
@@ -1327,3 +1331,129 @@ def test_an_mcp_coach_sees_the_runners_reports(rt):
     )
     entries = coach_brief._coach_entries(rt)
     assert entries and entries[0]["summary"] == "Alex, rustig aan vandaag."
+
+
+# --- #88: the output contract, fail closed ---------------------------------------------------
+
+
+def _entry(rt, key="morning-2026-11-01"):
+    with rt.engine.connect() as conn:
+        return (
+            conn.execute(
+                select(coach_decision_log).where(coach_decision_log.c.idempotency_key == key)
+            )
+            .mappings()
+            .first()
+        )
+
+
+def test_a_write_without_safety_is_refused_and_the_model_repairs_it(rt, mail):
+    """A weaker model's typical first try: no safety outcome. The write is refused with
+    what is missing, nothing is stored, and the second try is the report."""
+    enable(rt)
+    bare = {k: v for k, v in morning_write().items() if k != "safety"}
+    wrong = morning_write(safety={"level": "ok", "colour": "amber", "reasons": []})
+    model = FakeModel(
+        tool_use("vibesynergy_coach_write", bare, n=1),
+        tool_use("vibesynergy_coach_write", wrong, n=2),
+        tool_use("vibesynergy_coach_write", morning_write(), n=3),
+        done(),
+    )
+    result = runner.run(rt, "morning", DAY.isoformat(), DAY, client=model)
+    assert result.status == "done" and result.mailed
+    first = model.requests[1]["messages"][-1]["content"][0]
+    assert first["is_error"] is True
+    assert "Refused by the output contract" in first["content"]
+    assert "safety is required" in first["content"]
+    second = model.requests[2]["messages"][-1]["content"][0]
+    assert second["is_error"] is True and "colour must be 'green'" in second["content"]
+    assert "at least one short reason" in second["content"]
+    entry = _entry(rt)
+    assert entry["meta"]["safety"] == SAFE
+    stamp = entry["meta"]["harness"]
+    assert stamp["via"] == "runner" and stamp["task"] == "morning"
+    assert stamp["follows_current"] is True
+    assert stamp["stamp"] == prompts.harness_stamp(rt.settings, "morning", rt.engine)
+    harness = run_row(rt)["harness"]
+    assert harness["stamp"] == stamp["stamp"] and harness["contract"] == []
+    assert harness["rules"] == prompts.RULES_VERSION
+    assert [b["name"] for b in harness["blocks"]][:4] == [
+        "athlete",
+        "communication_rule",
+        "safety",
+        "coach_memory",
+    ]
+    # The rules the model was given name the steps and the schema.
+    system = model.requests[0]["system"][-1]["text"]
+    assert "## Harnasregels v2" in system and "safety (verplicht)" in system
+
+
+def test_an_entry_for_the_wrong_day_never_becomes_the_report(rt, mail):
+    enable(rt)
+    yesterday = morning_write(day=DAY - timedelta(days=1))
+    model = FakeModel(tool_use("vibesynergy_coach_write", yesterday, n=1), done())
+    result = runner.run(rt, "morning", DAY.isoformat(), DAY, client=model)
+    assert result.status == "failed" and "no coach entry written" in result.error
+    refused = model.requests[1]["messages"][-1]["content"][0]
+    assert refused["is_error"] is True
+    assert "must be 2026-11-01" in refused["content"]
+    assert _entry(rt, "morning-2026-10-31") is None
+    assert [subject for _, subject, _, _ in mail] == [
+        "Coachrapport mislukt: Ochtendadvies, zo 1 nov"
+    ]
+
+
+def test_an_entry_that_fails_the_run_check_is_marked_invalid_and_not_mailed(rt, mail, monkeypatch):
+    """The second net: whatever gets past the write check and still misses the task's
+    contract fails the run. The entry stays in the log, marked invalid."""
+    enable(rt)
+    monkeypatch.setattr(
+        runner, "contract_issues", lambda *a: ["for_date 2026-10-31 instead of 2026-11-01"]
+    )
+    model = FakeModel(tool_use("vibesynergy_coach_write", morning_write(), n=1), done())
+    result = runner.run(rt, "morning", DAY.isoformat(), DAY, client=model)
+    assert result.status == "failed"
+    assert result.error == "output contract: for_date 2026-10-31 instead of 2026-11-01"
+    row = run_row(rt)
+    assert row["status"] == "failed" and row["mailed_at"] is None
+    assert row["harness"]["contract"] == ["for_date 2026-10-31 instead of 2026-11-01"]
+    stamp = _entry(rt)["meta"]["harness"]
+    assert stamp["valid"] is False and stamp["issues"] == row["harness"]["contract"]
+    assert len(mail) == 1 and mail[0][1].startswith("Coachrapport mislukt")
+
+
+def test_a_job_outside_the_registry_never_reaches_a_model(rt):
+    enable(rt)
+    model = FakeModel()
+    for name in ("advice", "reply", "catch_up"):  # unknown, planned, code-only
+        result = runner.run(rt, name, DAY.isoformat(), DAY, client=model)
+        assert result.status == "failed" and "is not a harness task" in result.error
+    assert model.requests == [] and run_row(rt, "advice") is None
+
+
+def test_a_milder_level_than_the_rules_needs_the_coachs_reason(rt, mail, monkeypatch):
+    """The rules say flag; the coach may say ease, with the judgement it made in words."""
+    from vibesynergy.query import coach_brief
+
+    def flagged(rt_, day):
+        return {"safety": {"level": "flag", "rules": ["low_hrv", "low_readiness"]}}
+
+    monkeypatch.setattr(coach_brief, "today_brief", flagged)
+    enable(rt)
+    ease = {"level": "ease", "colour": "amber", "reasons": ["HRV laag, check-in goed"]}
+    weighed = {**ease, "override_reason": "Readiness is van na de training; vanochtend 27."}
+    model = FakeModel(
+        tool_use("vibesynergy_coach_write", morning_write(safety=ease), n=1),
+        tool_use("vibesynergy_coach_write", morning_write(safety=weighed), n=2),
+        done(),
+    )
+    result = runner.run(rt, "morning", DAY.isoformat(), DAY, client=model)
+    assert result.status == "done"
+    refused = model.requests[1]["messages"][-1]["content"][0]
+    assert refused["is_error"] is True and "milder than the rules' 'flag'" in refused["content"]
+    meta = _entry(rt)["meta"]
+    assert meta["safety"] == weighed
+    assert meta["harness"]["rules_floor"] == {
+        "level": "flag",
+        "rules": ["low_hrv", "low_readiness"],
+    }

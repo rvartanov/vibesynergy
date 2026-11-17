@@ -11,6 +11,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **One harness for every AI coach** (#88): every coach entry is checked against the
+  task's output contract when it is written, by the coach inside VibeSynergy and by any AI
+  app over MCP. An entry for the wrong day, a report that is far too long, or a daily advice
+  without its safety outcome (level, colour, reasons) is refused with what to fix, and is
+  never stored, mailed or shown. A run that ends outside the contract fails and you get the
+  failure message. Each entry records the harness, rules, prompt and context version it was
+  written under.
+- **The coach starts from the safety outcome**: every task's context now holds what the
+  fixed rules decided and why, the sleep check, measurement gaps, your check-in, complaints
+  and pain, next to the injury log. Before, the coach saw only the injury log unless it
+  looked the rest up itself.
+- **AI apps get the coach's own rules and context**: `vibesynergy_coach_prompt` returns the
+  harness rules, the output contract and, with `include_context=true`, the same preloaded
+  context the built-in coach starts with; `vibesynergy_coach_write` takes `safety`, `task`
+  and `harness`.
+- **Measurement gaps are named**: when Garmin updates a night after its first reading
+  (3 h 29 that became 10 h 55), or the day's readiness is the reading after training
+  instead of the one after waking up, the advice says so and judges the morning reading. A
+  readiness computed on a partial night does not count.
 - **A night the watch cut short**: when your check-in says you slept well (4-5) but the watch
   measured under 5 hours, Today asks whether the measurement was incomplete instead of
   calling it a short night. **Yes, ignore this night** keeps that short sleep and the
@@ -92,6 +111,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **"Differed from the plan" looks at how hard, not only how long** (#88): a longer session
+  at a low effort (RPE 4 or lower, or heart rate nearly all in zones 1-2) counts as done. A
+  session with time above its planned zone counts as harder than planned, also when its
+  length was right, and the advice says how many minutes. A shorter session is called
+  shorter.
+- **Amber with a session still to come** now says what amber means for it (keep it easy, or
+  do it controlled or swap it), where it used to say only how many activities were recorded.
+- **The coach's instructions are numbered steps** with decision rules, the output as a
+  schema with an example, and the points where the coach must weigh things itself and say
+  why, so that every model follows them the same way. No model choice changed.
+- **AI apps over MCP**: a `morning` or `evening` entry without `safety`, or for another day
+  than today (evening: today or tomorrow), is now refused. See docs/MCP.md.
 - **Workouts on the watch: one rest before a new station.** In a strength workout the last set
   of an exercise no longer counts down its rest and then waits for lap again. It goes straight
   to the Herstel step until lap, whose text says the minimum ("Herstel minstens 3 min, dan

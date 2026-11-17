@@ -113,11 +113,49 @@ everything the MCP can answer, the portal can show and vice versa.
   model and last run; `vibesynergy_harness_runs(task?, limit?)` (`read`) is the run log, with
   what was preloaded and the output-contract result; `vibesynergy_harness_run(task)`
   (`coach.write`) starts one run of a report task now, like Test now (it costs like any run).
-- Routine prompts: `vibesynergy_coach_prompt(job)` (`read`; `job` is one of the
-  harness's model tasks, e.g. `morning`, `evening`, `weekly` or `insight`) returns the current instructions for that routine:
-  the knowledge-base article `coach-prompt-<job>` (topic `coach-prompts`), or the seed file
-  in `docs/coach-prompts/` while the article does not exist (`source` says which). Read it
-  at the start of every run; `version` changes with each edit.
+- Task instructions: `vibesynergy_coach_prompt(job, include_context?, date?, activity_ids?)`
+  (`read`; `job` is one of the harness's model tasks, e.g. `morning`, `evening`, `weekly` or
+  `insight`) returns what the coach inside VibeSynergy gets for that task, from the same
+  source (#88):
+  - `body_md`: the knowledge-base article `coach-prompt-<job>` (topic `coach-prompts`), or
+    the seed file in `docs/coach-prompts/` while the article does not exist (`source` says
+    which); `version` changes with each edit.
+  - `rules_md`: the harness rules (`coach_runner/prompts.py`, versioned), which go before
+    the prompt where they differ.
+  - `contract`: entry type, required fields, word limit, target day, whether `safety` is
+    required and its schema.
+  - `harness`: `version`, `rules_version`, `context_version`, the task's context `chain`
+    and `stamp` (`h<harness>.r<rules>.p<prompt>.c<context>`).
+  - `context` (with `include_context=true`): the preloaded blocks the runner starts with,
+    as `{version, text, blocks}`, for `date` (default today).
+
+  Read it at the start of every run.
+- Output contract on `vibesynergy_coach_write` (#88): every write, from the runner or from
+  an MCP client, is checked before it is stored and **refused** (a tool error, nothing
+  stored) when it misses the contract. New optional arguments: `safety` (`{level, colour,
+  reasons, override_reason?}`; required for `morning` and `evening` entries and for
+  `task` `injury` or `checkin`), `task` (the harness task whose contract applies) and
+  `harness` (the stamp from `vibesynergy_coach_prompt`). Checked: `for_date` is the target
+  day (morning: today; evening: today or tomorrow), the summary is within the word limit
+  (×1.5), and the safety outcome is complete and consistent (level, the colour of that
+  level, at least one reason; a level milder than the rules' needs `override_reason`).
+  It is a check of form and validity, never of approval: a request over MCP is the
+  athlete's own, through his AI app, and is already approved. The registry's approval
+  steps, and the rule that `sick`, `red_flag_note`, `pain_7` and `affects_movement` can
+  never be softened, apply to the autonomous runner only. The
+  stored entry has `meta.safety` and `meta.harness` (`version`, `via` runner or mcp, `task`,
+  `stamp`, `current`, `follows_current`, `rules_floor`); a write under an old or missing
+  stamp is stored with a warning in `meta.warnings`. `vibesynergy_coach_handbook` has the
+  same under `harness`. **This changes behaviour**: a `morning` or `evening` write without
+  `safety`, or for another day than today, used to be stored and is now refused.
+  `vibesynergy_coach_threshold_propose`, `vibesynergy_coach_memory_write` and
+  `vibesynergy_kb_propose_change` keep their own typed validation (they were already
+  refused when invalid); they do not carry the harness stamp yet.
+- `vibesynergy_today` (#88): `safety` now also has `colour`, `reasons` (`[{rule, text}]`)
+  and `notes`; `measurement` says whether the night was updated after its first reading
+  and which readiness reading counts; `sleep_check` can be `updated`. A planned session
+  that departed from the plan carries `deviation` (`harder`, `longer`, `shorter`,
+  `distance`, `intensity`) in `vibesynergy_plan` and `vibesynergy_week`.
 - Race priority: `vibesynergy_race_set_priority` (`plan.propose`) stores A, B or C for one
   plan-calendar race. Null clears it. `vibesynergy_coach_state` races include `source`,
   `source_id` and `priority` (A, B, C, or null). A Garmin primary race is A until a choice

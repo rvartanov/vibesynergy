@@ -20,7 +20,8 @@ from vibesynergy.core.timeutil import Window
 
 log = logging.getLogger(__name__)
 
-VERSION = 1
+# Bump when the chain format or a base block changes shape (2: the safety block, #88).
+VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -88,7 +89,7 @@ def _communication(rt, day, cache):
     )
 
 
-def _safety(rt, day, cache):
+def _injury_log(rt, day) -> list[dict[str, Any]]:
     from vibesynergy.query import journal
 
     return [
@@ -100,6 +101,47 @@ def _safety(rt, day, cache):
         }
         for row in journal.injuries(rt.engine, day, days=14)
     ]
+
+
+def _safety(rt, day, cache):
+    """The safety outcome every task starts from (#88): what the fixed rules decided and
+    why, the night's measurement gaps, and what the athlete reported. Each part stands on
+    its own: an empty injury log does not hide a floor that fired, and a part that cannot
+    be built says so instead of dropping the rest."""
+
+    def part(build):
+        try:
+            return build()
+        except Exception as exc:
+            log.warning("safety context part failed: %s", exc)
+            return f"niet beschikbaar ({type(exc).__name__}); haal op met vibesynergy_today"
+
+    injuries = part(lambda: _injury_log(rt, day))
+    if cache.get("task") == "insight":
+        # The insight writes a public line (INS-2): it keeps the injury log it always had
+        # and gets no check-in, measurements or floor.
+        return {"injuries": injuries}
+    brief = part(lambda: _brief(rt, day, cache))
+    if not isinstance(brief, dict):
+        return {"floor": brief, "injuries": injuries}
+    safety = brief.get("safety") or {}
+    checkin = brief.get("checkin")
+    return {
+        "floor": {
+            "level": safety.get("level"),
+            "colour": safety.get("colour"),
+            "rules": safety.get("rules") or [],
+            "reasons": safety.get("reasons") or [],
+            "notes": safety.get("notes") or [],
+        },
+        "sleep_check": brief.get("sleep_check"),
+        "sleep_incomplete": bool(isinstance(checkin, dict) and checkin.get("sleep_incomplete")),
+        "measurement": brief.get("measurement"),
+        "checkin": checkin,
+        "complaints": brief.get("complaints") or [],
+        "pain_today": brief.get("pain_today") or [],
+        "injuries": injuries,
+    }
 
 
 def _memory(rt, day, cache):
@@ -318,7 +360,13 @@ BLOCKS: dict[str, Block] = {
     for b in (
         Block("athlete", "Atleet", 3000, _athlete),
         Block("communication_rule", "Communicatieregel", 400, _communication),
-        Block("safety", "Blessures en klachten", 1500, _safety),
+        Block(
+            "safety",
+            "Veiligheid: regeluitkomst, meetgaten, check-in, klachten, blessures",
+            4000,
+            _safety,
+            version=2,
+        ),
         Block("coach_memory", "Coachgeheugen", 2000, _memory),
         Block("today", "Vandaag", 3000, _today),
         Block("recovery", "Herstel", 1200, _recovery),
@@ -352,7 +400,7 @@ def preload(rt, task_id: str, day: date, **extra: Any) -> dict[str, Any]:
 
     Unknown chain names (a block not built yet) and failing blocks are listed, not raised.
     """
-    cache: dict[str, Any] = dict(extra)
+    cache: dict[str, Any] = {**extra, "task": task_id}
     parts: list[str] = []
     report: list[dict[str, Any]] = []
     for name in registry.chain_for(task_id):

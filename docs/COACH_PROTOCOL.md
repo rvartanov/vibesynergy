@@ -113,6 +113,41 @@ advice in one or two sentences, in coach language), `for_date`, `idempotency_key
 `kb_rules` (the rule ids you applied, from the handbook's `rules`), `details` (your internal
 reasoning: numbers, evidence, versions), and `predictions` when you forecast a daily value.
 
+**The harness and its output contract (#88).** You work under the same harness as the coach
+inside VibeSynergy. Before a task, call `vibesynergy_coach_prompt(job, include_context=true)`:
+it returns the task's prompt (`body_md`), the harness rules (`rules_md`: numbered steps that
+go before the prompt where they differ), the output `contract`, the preloaded `context` (the
+`safety` block first: the rules' level, the rules that fired and why, the sleep check,
+measurement gaps, check-in, complaints, pain and the injury log) and `harness.stamp`. Pass
+`task=<job>` and `harness=<stamp>` to `vibesynergy_coach_write`.
+
+The server checks every write and **refuses** what misses the contract; nothing is stored.
+Read the error, fix exactly that, write again:
+
+- `for_date` is the day the entry is about: today for `morning`, today or tomorrow for
+  `evening`.
+- The summary fits the task's word limit (70 for the daily advice; half as much again is
+  tolerated); the rest goes in `details`.
+- A daily advice (`morning`, `evening`, or `task` `injury` / `checkin`) carries `safety`:
+  `{"level": "ok"|"ease"|"flag"|"refuse", "colour": "green"|"amber"|"red", "reasons":
+  [1-5 short sentences], "override_reason": "…"}`. The colour follows the level (ok green,
+  ease and flag amber, refuse red). `reasons` say what you weighed and why this level; only
+  repeating the rule names is not a reason. Start from the rules' level (`safety.floor.level`
+  in the context). Stricter is always allowed. Milder needs `override_reason`: the judgement
+  you made, in one sentence.
+
+This check is about form and validity, not approval. What you do over MCP is the athlete's
+own request through you and is already approved; no extra yes is asked at the write. The
+approval steps in the task register apply to the coach inside VibeSynergy when it acts on
+its own (scheduled and event tasks); that coach also can never soften illness, a red-flag
+note, pain 7 or more or an injury that changes how the athlete moves. Entries show which
+path wrote them (`meta.harness.via`: `runner` or `mcp`).
+
+Where judgement is asked: the check-in against the measurements, measurement gaps (a night
+updated later, a readiness from after training or from a partial night: a number out of a
+gap is not a signal), what was already done today and how, and complaints or pain even when
+the injury log is empty.
+
 **Exactly one entry per run**, also when there is nothing to say: a missing entry is how a
 missed run shows (COACH-4).
 

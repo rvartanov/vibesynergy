@@ -27,10 +27,12 @@ from vibesynergy.query import (
     analysis,
     journal,
     latency,
+    measurement,
     safety_floor,
     training,
     views,
     week_progress,
+    zone_times,
 )
 from vibesynergy.query import plan as plan_q
 from vibesynergy.query import series as qs
@@ -117,6 +119,7 @@ def dashboard(
     completed = _block(lambda: _completed(engine, today))
     recovery = _block(lambda: _recovery(engine, today, timezone))
     load = _block(lambda: _load(engine, today, athlete, load_rt))
+    _today_zones(engine, rt, today, athlete)
     plan = _block(
         lambda: plan_q.plan(
             engine,
@@ -130,6 +133,7 @@ def dashboard(
         lambda: journal.tagged_days(engine, Window(today - timedelta(days=2), today), ["sick"])
     )
     checkin_tags = _block(lambda: _checkin_and_tags(engine, today))
+    gap = _block(lambda: measurement.night(engine, getattr(rt, "raw", None), today))
     attention = _block(
         lambda: (
             _attention_block(
@@ -141,7 +145,9 @@ def dashboard(
     queried_at = utc_now().isoformat()
     delivery = _block(lambda: delivery_status(engine, sources, queried_at=queried_at))
     verdict = _block(
-        lambda: _verdict_block(recovery, load, plan, injuries, sick, checkin_tags, tr, completed)
+        lambda: _verdict_block(
+            recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap
+        )
     )
     plan_view = _block(lambda: _plan_view(plan, today))
     week = _block(lambda: _week(engine, today, None if _failed(plan) else plan))
@@ -387,7 +393,21 @@ def _attention_block(
     return attention
 
 
-def _verdict_block(recovery, load, plan, injuries, sick, checkin_tags, tr, completed) -> dict:
+def _today_zones(engine: Engine, rt, today: date, athlete: dict | None) -> None:
+    """Today's heart-rate time in zones, computed and stored before the plan is read: the
+    deviation from the plan is judged on it (#88). Without streams nothing happens."""
+    parquet = getattr(rt, "parquet", None)
+    if parquet is None:
+        return
+    try:
+        zone_times.for_window(engine, parquet, Window(today, today), "hr", athlete)
+    except Exception:  # the plan is then judged on duration and RPE
+        log.debug("today's heart-rate zones could not be computed", exc_info=True)
+
+
+def _verdict_block(
+    recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap=None
+) -> dict:
     if any(
         _failed(part) for part in (recovery, load, plan, injuries, sick, checkin_tags, completed)
     ):
@@ -403,6 +423,7 @@ def _verdict_block(recovery, load, plan, injuries, sick, checkin_tags, tr, compl
         completed_count=completed["totals"]["count"],
         checkin=checkin,
         tags=tags,
+        measurement=None if _failed(gap) else gap,
     )
 
 
@@ -633,6 +654,8 @@ def _floor_reason(item: dict, tr: Translator) -> str:
     values = dict(item.get("values") or {})
     if "seconds" in item:
         values["time"] = _hm(item["seconds"], tr)
+    for name, seconds in (item.get("times") or {}).items():
+        values[name] = _hm(seconds, tr)
     return tr(item["key"], **values)
 
 
@@ -647,14 +670,16 @@ def _verdict(
     completed_count: int = 0,
     checkin: dict | None = None,
     tags: list[str] | None = None,
+    measurement: dict | None = None,
 ) -> dict:
     """Colour and sentences for the dashboard. The level comes from the shared floor."""
     floor = safety_floor.evaluate(
         safety_floor.signals_from_dashboard(
-            recovery, load, injuries, sick, checkin=checkin, tags=tags
+            recovery, load, injuries, sick, checkin=checkin, tags=tags, measurement=measurement
         )
     )
-    color = {"ok": "green", "ease": "amber", "flag": "amber", "refuse": "red"}[floor["level"]]
+    color = safety_floor.COLOURS[floor["level"]]
+    notes = [_floor_reason(item, tr) for item in floor["notes"]]
     hrv = recovery["hrv.night_avg"]
     sleep, readiness = recovery["sleep.duration"], recovery["recovery.readiness"]
     reasons = [_floor_reason(item, tr) for item in floor["reasons"]]
@@ -675,7 +700,8 @@ def _verdict(
             good.append(tr("HRV normal or better"))
         if sleep_value is not None and sleep_value >= 7 * 3600:
             good.append(tr("slept {time}", time=_hm(sleep_value, tr)))
-    shown = (reasons or good)[:3]
+    # A measurement gap is said, whatever the level: it explains a number that looks off.
+    shown = (reasons or good)[:3] + notes[:2]
     headline = {
         "green": tr("Well recovered"),
         "amber": tr("Take it a bit easier"),
@@ -684,7 +710,14 @@ def _verdict(
     advice = _advice(color, plan, tr, completed_count=completed_count)
     return {
         # The night may be measured incompletely (#53): the athlete is asked, not told.
+        # The portal asks about "suspect" and shows "incomplete"; a night that was updated
+        # later is in ``measurement`` and in the reasons, not a question to the athlete.
         "sleep_check": journal.sleep_check(checkin, sleep_value),
+        "measurement": measurement,
+        "notes": [
+            {"rule": item["rule"], "text": text}
+            for item, text in zip(floor["notes"], notes, strict=True)
+        ],
         "level": color,
         "safety_level": floor["level"],
         "rules": floor["rules"],
@@ -700,6 +733,42 @@ def _verdict(
     }
 
 
+def _todo_line(level: str, session: dict[str, Any], tr: Translator) -> str:
+    """What to do with a session still on today's plan, for the day's colour."""
+    title = session["title"]
+    if level == "green":
+        return tr("Today's plan: {title}, go ahead.", title=title)
+    if level == "amber":
+        if _intensity(session) == "hard":
+            return tr(
+                "Today's plan: {title}; do it controlled or swap for an easy session.",
+                title=title,
+            )
+        return tr("Today's plan: {title}, fine at an easy effort.", title=title)
+    return tr("Swap today's {title} for rest or a very easy session.", title=title)
+
+
+def _deviation_line(session: dict[str, Any], tr: Translator) -> str:
+    """How a finished session departed from the plan (``plan.deviation``), in words."""
+    found = session.get("deviation") or {}
+    title = session["title"]
+    kind = found.get("kind")
+    if kind == "harder":
+        return tr(
+            "Today's {title} ran harder than planned: {n} minutes above the planned zone. "
+            "Recover before you add more.",
+            title=title,
+            n=round(found.get("above_s", 0) / 60),
+        )
+    if kind == "longer":
+        return tr(
+            "Today's {title} ran longer than planned. Recover before you add more.", title=title
+        )
+    if kind == "shorter":
+        return tr("Today's {title} was shorter than planned.", title=title)
+    return tr("Today's {title} differed from the plan. Recover before you add more.", title=title)
+
+
 def _advice(
     level: str,
     plan: dict[str, Any],
@@ -707,23 +776,38 @@ def _advice(
     *,
     completed_count: int = 0,
 ) -> str:
+    """The advice sentence. Branches, in order (#88: each has a regression test):
+
+    1. a session that cannot be matched to an activity, unless the day is red: review first;
+    2. everything planned is finished: how it departed from the plan (harder, longer,
+       shorter, other), else done;
+    3. activities recorded and the day is not red: the count, and what is still on the plan
+       with what the day's colour means for it;
+    4. sessions still to do: go ahead, easy or controlled, or swap for rest;
+    5. nothing planned: what the colour allows.
+
+    In a taper the race line is added.
+    """
     sessions = plan["today"]
     race = plan["next_race"]
     taper = plan["plan_phase"] and plan["plan_phase"]["phase"] == "taper"
     finished = [s for s in sessions if s["status"] in ("done", "changed")]
-    todo = [s for s in sessions if s["status"] not in ("done", "changed")]
-    if any(s["status"] == "uncertain" for s in sessions) and level != "red":
+    # A session that could not be matched is not "to do": on a red day there is nothing to
+    # swap when another session is certain, and it never leads the advice.
+    todo = [s for s in sessions if s["status"] not in ("done", "changed", "uncertain")]
+    unsure = [s for s in sessions if s["status"] == "uncertain"]
+    if unsure and level != "red":
         tail = tr(
             "The plan cannot be matched reliably to completed activity. "
             "Review it before adding training."
         )
-    elif finished and not todo:
-        changed = next((s for s in finished if s["status"] == "changed"), None)
+    elif finished and not todo and not unsure:
+        changed = [s for s in finished if s["status"] == "changed"]
+        # The deviation that matters most leads: harder before longer before the rest.
+        order = {"harder": 0, "longer": 1}
+        changed.sort(key=lambda s: order.get(str((s.get("deviation") or {}).get("kind")), 2))
         if changed:
-            tail = tr(
-                "Today's {title} differed from the plan. Recover before you add more.",
-                title=changed["title"],
-            )
+            tail = _deviation_line(changed[0], tr)
         else:
             tail = tr("Today's {title} is done; recover well.", title=finished[0]["title"])
     elif completed_count and level != "red":
@@ -734,22 +818,17 @@ def _advice(
         )
         if todo:
             tail += " " + tr("Still on the plan: {title}.", title=todo[0]["title"])
-    elif todo:
-        s = todo[0]
-        kind = _intensity(s)
-        if level == "green":
-            tail = tr("Today's plan: {title}, go ahead.", title=s["title"])
-        elif level == "amber":
-            tail = (
-                tr(
-                    "Today's plan: {title}; do it controlled or swap for an easy session.",
-                    title=s["title"],
+            if level == "amber":
+                # Amber with a session still to come: say what amber means for it.
+                tail += " " + (
+                    tr("Do it controlled or swap it for an easy session.")
+                    if _intensity(todo[0]) == "hard"
+                    else tr("Keep it at an easy effort.")
                 )
-                if kind == "hard"
-                else tr("Today's plan: {title}, fine at an easy effort.", title=s["title"])
-            )
-        else:
-            tail = tr("Swap today's {title} for rest or a very easy session.", title=s["title"])
+        elif level == "amber":
+            tail += " " + tr("Keep anything more easy.")
+    elif todo or unsure:
+        tail = _todo_line(level, (todo or unsure)[0], tr)
     else:
         tail = {
             "green": tr("Nothing planned: a good day for quality if you feel like it."),

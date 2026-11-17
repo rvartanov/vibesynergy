@@ -63,13 +63,36 @@ def test_start_message_carries_the_context(rt, monkeypatch):
     )
     text = runner.start_message(rt, "morning", DAY)
     assert '<context name="weather" v="1">\nWeer: zonnig' in text
+    assert '<context name="safety" v="2">' in text
 
 
 def test_contract_issues():
-    assert runner.contract_issues("morning", {"entry_type": "morning", "text": "kort"}) == []
-    long = {"entry_type": "morning", "text": "woord " * 200}
-    assert runner.contract_issues("morning", long) == ["200 words, contract is 70"]
-    assert runner.contract_issues("weekly", {"entry_type": "morning", "text": ""})
+    """The second net after the write check: what only the run knows (#88)."""
+    good = {
+        "entry_type": "morning",
+        "text": "kort",
+        "for_date": DAY,
+        "meta": {
+            "harness": {"via": "runner", "task": "morning"},
+            "safety": {"level": "ok", "colour": "green", "reasons": ["x"]},
+        },
+    }
+    assert runner.contract_issues("morning", good, DAY) == []
+    long = {**good, "text": "woord " * 200}
+    assert runner.contract_issues("morning", long, DAY) == ["200 words, contract is 70"]
+    other_day = {**good, "for_date": date(2026, 10, 31)}
+    assert runner.contract_issues("morning", other_day, DAY) == [
+        "for_date 2026-10-31 instead of 2026-11-01"
+    ]
+    assert runner.contract_issues("morning", {**good, "meta": {}}, DAY) == [
+        "not written under this run's harness",
+        "no safety outcome (level, colour, reasons)",
+    ]
+    assert runner.contract_issues("weekly", {**good, "text": ""}, DAY) == [
+        "entry_type morning instead of note",
+        "no summary",
+        "not written under this run's harness",
+    ]
 
 
 def test_no_tools_model_is_refused(monkeypatch):
