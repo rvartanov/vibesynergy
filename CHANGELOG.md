@@ -11,6 +11,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
+  warnings for the sessions around it:
+  - a name whose minutes don't match the steps (45' while it takes 50');
+  - a strength session that starts heavy barbell work without a full warm-up (STR-4);
+  - a text that refers to a session the day no longer has ("na de looptest");
+  - after a move, skip or add, the sessions nearby that mention it, so they get a second look.
+
+  The start page lists what the checks find for the next two weeks, and `vibesynergy_today`
+  carries it as `plan_checks` for the coach. A knowledge-base proposal that would replace an
+  existing rule with unrelated text is refused unless `replace` is set; the message names the
+  next free id. (#60)
 - **RunSynergy group trainings** become the workout for your "Training geven" sessions. Paste
   your RunSynergy calendar link under Settings → Sources → RunSynergy. Today then shows each
   group training you coach as a proposal: warm-up and cool-down until you press lap, the core

@@ -148,6 +148,11 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   off until you switch it on: morning advice, evening review, week review, race brief,
   check-in, injury and threshold tasks, each with its own switch, schedule and model, a
   monthly cost cap with warnings.
+- **Plan checks**: every plan change is checked for gaps around it (a name that doesn't
+  match the length, a strength session without a full warm-up, a reference to a session that
+  is gone, nearby sessions that mention the changed one). The start page and the coach see
+  what the checks find for the next two weeks. A rule proposal can't overwrite an unrelated
+  rule by mistake.
 - **Coach page**: advice and the active profile, Knowledge, Methods & rules, Memory, Change log,
   Settings. Changes to planned sessions, thresholds and the knowledge base wait for your
   approval.

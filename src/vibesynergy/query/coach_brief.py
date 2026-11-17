@@ -77,6 +77,8 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
             for g in board.get("group_trainings") or []
             if isinstance(g, dict) and "session_id" in g
         ],
+        # Consistency layer 1 (#60): plan gaps in the coming two weeks, to fix or explain.
+        "plan_checks": _plan_checks(rt.engine, day),
         "checkin": checkin,
         "complaints": [
             {
@@ -359,3 +361,15 @@ def _horizon(rt: Runtime, day: date) -> dict[str, Any] | None:
     from vibesynergy.query import horizon
 
     return horizon.for_runtime(rt, day)
+
+
+def _plan_checks(engine, day) -> list[dict]:
+    from vibesynergy.query import plan_lint
+
+    try:
+        found = plan_lint.upcoming(engine, day)
+    except Exception:  # the brief must still answer
+        return []
+    return [
+        {k: f[k] for k in ("date", "session_id", "name", "code", "rule", "message")} for f in found
+    ]

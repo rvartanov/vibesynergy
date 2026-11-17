@@ -220,8 +220,13 @@ def propose_change(
     rationale: str,
     author: str,
     changes: dict[str, Any],
+    replace: bool = False,
 ) -> dict[str, Any]:
-    """Store a change for the athlete to approve. The current text stays as it is."""
+    """Store a change for the athlete to approve. The current text stays as it is.
+
+    A rule text that has little in common with the rule it would replace is refused unless
+    ``replace`` is set (#60): a new rule proposed under an id that is already taken would
+    otherwise overwrite an unrelated rule once approved."""
     kind = _kind(kind)
     target = _target(kind, target)
     rationale = _bounded(rationale, "rationale", 2000)
@@ -232,6 +237,8 @@ def propose_change(
     with engine.begin() as conn:
         _check_proposal_shape(conn, kind, target, cleaned)
         base = _version_of(conn, kind, target)
+        if kind == "rule" and base and "text" in cleaned and not replace:
+            _refuse_unrelated_rule(conn, target, str(cleaned["text"]))
         proposal_id = new_id("kbprop")
         now = utc_now()
         conn.execute(
@@ -911,6 +918,58 @@ def _check_proposal_shape(
         if not changes.get("article_slug"):
             raise ValueError("a new source needs article_slug")
         _article_by_slug(conn, _slug(changes["article_slug"]))
+
+
+RELATED_MIN = 0.2  # share of words two versions of one rule have in common at least
+_OVERLAP_WORD = re.compile(r"[\w%]{3,}", re.UNICODE)
+
+
+def _words(text: str) -> set[str]:
+    return {w.casefold() for w in _OVERLAP_WORD.findall(text or "")}
+
+
+def text_overlap(old: str, new: str) -> float:
+    """Words two texts share, as a share of the smaller one (0 to 1)."""
+    a, b = _words(old), _words(new)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+def next_rule_id(conn: Connection, target: str) -> str | None:
+    """The next free id with the same prefix: STR-3 taken, STR-4 free."""
+    match = re.fullmatch(r"([A-Z][A-Z0-9]*)-(\d+)", target)
+    if not match:
+        return None
+    prefix = match.group(1)
+    taken = set(
+        conn.execute(select(kb_rule.c.id).where(kb_rule.c.id.like(f"{prefix}-%"))).scalars()
+    )
+    pending = set(
+        conn.execute(
+            select(kb_proposal.c.target).where(
+                kb_proposal.c.kind == "rule", kb_proposal.c.status == "pending"
+            )
+        ).scalars()
+    )
+    numbers = [
+        int(i.rsplit("-", 1)[1]) for i in taken | pending if re.fullmatch(rf"{prefix}-\d+", i)
+    ]
+    # After the highest, never in a gap: a gap can be a retired rule that entries still name.
+    return f"{prefix}-{max(numbers, default=0) + 1}"
+
+
+def _refuse_unrelated_rule(conn: Connection, target: str, new_text: str) -> None:
+    current = _one(conn, kb_rule, kb_rule.c.id == target)
+    if current is None or text_overlap(current["text"], new_text) >= RELATED_MIN:
+        return
+    free = next_rule_id(conn, target)
+    hint = f" Use a new id ({free})" if free else " Use a new id"
+    raise ValueError(
+        f"{target} already exists and says something else: "
+        f'"{current["text"][:120]}…". This proposal would replace it.{hint}, '
+        "or pass replace=true if this rule is meant to be replaced."
+    )
 
 
 def _version_of(conn: Connection, kind: str, target: str) -> int:

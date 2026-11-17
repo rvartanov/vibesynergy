@@ -214,6 +214,7 @@ def test_approve_refuses_a_stale_proposal(runtime) -> None:
         rationale="A different sentence.",
         author="client:coach",
         changes={"text": "First suggestion."},
+        replace=True,  # placeholder text: unrelated on purpose (#60 guard)
     )
     upsert_article(
         runtime.engine,

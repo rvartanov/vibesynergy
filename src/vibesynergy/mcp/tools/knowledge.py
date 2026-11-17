@@ -135,10 +135,13 @@ def register(kit: ToolKit) -> None:
         url: str | None = None,
         verified_at: str | None = None,
         article_slug: str | None = None,
+        replace: bool = False,
     ) -> dict[str, Any]:
         """Suggest a change. The current text stays until the athlete approves it in the portal.
 
-        For a rule, pass ``target`` as the rule id and the replacement in ``new_text``.
+        For a rule, pass ``target`` as the rule id and the replacement in ``new_text``. A new
+        rule needs a free id: text unrelated to an existing rule under that id is refused
+        (the error names the next free id) unless ``replace`` is true.
         """
         changes = {
             "title": title,
@@ -163,7 +166,8 @@ def register(kit: ToolKit) -> None:
                 rationale=rationale,
                 author=current_author(),
                 changes=changes,
+                replace=replace,
             )
-        except LookupError as exc:
+        except (LookupError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
         return envelope(proposal)
