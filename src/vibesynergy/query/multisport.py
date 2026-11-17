@@ -48,10 +48,14 @@ def combined_title(titles: list[str], limit: int | None = None) -> str:
     (``Frysman-simulatie: zwemmen + fietsen + lopen``), and within ``limit`` characters by
     shortening the longest parts, so every part still shows (Garmin keeps 80)."""
     titles = [str(t or "").strip() for t in titles]
-    found = [_PREFIX.match(t) for t in titles]
+    found = [m for t in titles if (m := _PREFIX.match(t))]
     head = ""
     parts = titles
-    if len(titles) > 1 and all(found) and len({m.group(1).casefold() for m in found}) == 1:
+    if (
+        len(titles) > 1
+        and len(found) == len(titles)
+        and len({m.group(1).casefold() for m in found}) == 1
+    ):
         head = found[0].group(1) + " "
         parts = [t[m.end() :] for t, m in zip(titles, found, strict=True)]
 
