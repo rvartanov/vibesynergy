@@ -494,7 +494,9 @@ cache and drop races, later weeks and the last days' workouts until the next ful
 (1 Nov 2026). The raw item stays a complete copy of the plan, so `rebuild` gives the same cache.
 
 Each plan workout's `external_id` is `<date>:<sport>`. Brick parts add `:fiets` (bike) or
-`:loop` (run) and share that calendar date as `session_key`. Events with no `external_id`
+`:loop` (run) and share that calendar date as `session_key`. VibeSynergy's own plan writes
+`<plan>:<date>:<slot>`; a slot `ms<n>-<sport>` (`ms1-swim`, `ms2-ride`, `ms3-run`) links the
+sessions of a planned multisport in order (#74). Events with no `external_id`
 are cached too, with `source` `other`. Plan events (they have an `external_id`) use
 `source` `plan`. The cache key is the intervals.icu event id. `external_id` is indexed.
 

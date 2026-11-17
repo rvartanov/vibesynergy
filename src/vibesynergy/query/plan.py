@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Engine, or_, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import coaching
+from vibesynergy.query import coaching, multisport
 from vibesynergy.query.race_priority import effective_priority, stored_priorities
 from vibesynergy.query.safety_floor import title_band
 from vibesynergy.query.views import sync_status
@@ -393,6 +393,7 @@ def _icu_item(row: dict[str, Any]) -> dict[str, Any]:
         "icu_id": row["id"],
         "external_id": row.get("external_id"),
         "brick_part": row.get("brick_part"),
+        "multi_part": multisport.event_part(row.get("external_id"), row.get("brick_part")),
         "icu_type": row.get("type"),
         "description": row.get("description"),
         "tags": row.get("tags") or [],
@@ -425,6 +426,7 @@ def _model_item(row: dict[str, Any]) -> dict[str, Any]:
     sport_family = family(row.get("type")) or family(row.get("name"))
     extra: dict[str, Any] = {
         "brick_part": row["slot"] if row.get("slot") in ("fiets", "loop") else None,
+        "multi_part": multisport.slot_part(row.get("slot")),
         "icu_type": row.get("type"),
         "description": row.get("description"),
         "ownership": "vibesynergy_plan",

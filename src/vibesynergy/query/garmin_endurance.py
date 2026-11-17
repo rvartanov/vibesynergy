@@ -246,25 +246,36 @@ def build_swim(name: str, workout: workout_model.Workout, css: float | None) -> 
     return out
 
 
-def build_brick(name: str, ride: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
-    """Ride and run as one multisport workout: two segments, steps numbered on, with the
-    transition between them, so the watch goes from bike to run without a new start."""
-    ride_steps = copy.deepcopy(ride["workoutSegments"][0]["workoutSteps"])
-    run_steps = copy.deepcopy(run["workoutSegments"][0]["workoutSteps"])
-    _number(run_steps, _number(ride_steps))
+_SPORT_TYPE = {"swim": _SWIM, "ride": _RIDE, "run": _RUN}
+
+
+def build_multisport(name: str, parts: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
+    """Sports in order as one multisport workout (#74): a segment each, steps numbered on, with
+    the transitions between them, so the watch goes from one sport to the next without a new
+    start. A swim in it is open water: no pool length."""
+    segments = []
+    order = 1
+    for index, (sport, workout) in enumerate(parts, start=1):
+        steps = copy.deepcopy(workout["workoutSegments"][0]["workoutSteps"])
+        order = _number(steps, order)
+        segments.append(
+            {"segmentOrder": index, "sportType": dict(_SPORT_TYPE[sport]), "workoutSteps": steps}
+        )
     out: dict[str, Any] = {
         "workoutName": name[:80],
         "sportType": dict(_MULTI),
         "isSessionTransitionEnabled": True,
-        "workoutSegments": [
-            {"segmentOrder": 1, "sportType": dict(_RIDE), "workoutSteps": ride_steps},
-            {"segmentOrder": 2, "sportType": dict(_RUN), "workoutSteps": run_steps},
-        ],
+        "workoutSegments": segments,
     }
-    intro = " ".join(w["description"] for w in (ride, run) if w.get("description"))
+    intro = " ".join(w["description"] for _, w in parts if w.get("description"))
     if intro:
         out["description"] = intro[:1024]
     return out
+
+
+def build_brick(name: str, ride: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
+    """Ride and run as one multisport workout."""
+    return build_multisport(name, [("ride", ride), ("run", run)])
 
 
 def _is_brick_run(row) -> bool:
@@ -272,14 +283,42 @@ def _is_brick_run(row) -> bool:
     return row.brick_part == "loop" or "brick" in text
 
 
+def _combined_entry(
+    out: dict[str, dict], ids: list[str], mark: garmin_strength.Marks
+) -> tuple[str, dict]:
+    sports = tuple(out[k]["sport"] for k in ids)
+    name = garmin_strength.marked(" + ".join(out[k]["title"] for k in ids), mark, sports)
+    workout = build_multisport(name, [(out[k]["sport"], out[k]["workout"]) for k in ids])
+    day = out[ids[-1]]["date"]
+    key = "brick:" + "+".join(ids)
+    return key, {
+        "event_id": key,
+        "date": day,
+        "name": name[:80],
+        "workout": workout,
+        "parts": list(ids),
+        "fingerprint": evidence.digest({"name": name, "date": day.isoformat(), "workout": workout}),
+    }
+
+
 def _bricks(
-    out: dict[str, dict], rows: dict[str, Any], mark: garmin_strength.Marks = garmin_strength.MARK
+    out: dict[str, dict],
+    rows: dict[str, Any],
+    mark: garmin_strength.Marks = garmin_strength.MARK,
+    groups: list[list[str]] | None = None,
 ) -> dict[str, dict]:
-    """Each brick run with an outdoor ride on the same day becomes one multisport entry."""
+    """Each planned multisport becomes one multisport entry: the sessions linked by their slot
+    (``groups``, every part delivered), else a brick run with an outdoor ride on the same day."""
     bricks: dict[str, dict] = {}
-    rides = [k for k, v in out.items() if v["sport"] == "ride"]
+    linked: set[str] = set()
+    for ids in groups or []:
+        linked.update(ids)
+        if all(k in out for k in ids):
+            key, entry = _combined_entry(out, ids, mark)
+            bricks[key] = entry
+    rides = [k for k, v in out.items() if v["sport"] == "ride" and k not in linked]
     for run_id, run in out.items():
-        if run["sport"] != "run" or not _is_brick_run(rows[run_id]):
+        if run["sport"] != "run" or run_id in linked or not _is_brick_run(rows[run_id]):
             continue
         same_day = [k for k in rides if out[k]["date"] == run["date"]]
         if not same_day:
@@ -289,21 +328,36 @@ def _bricks(
             (k for k in same_day if rows[k].brick_part == "fiets"),
             max(same_day, key=lambda k: out[k]["seconds"]),
         )
-        ride = out[ride_id]
-        name = garmin_strength.marked(f"{ride['title']} + {run['title']}", mark, ("ride", "run"))
-        workout = build_brick(name, ride["workout"], run["workout"])
-        key = f"brick:{ride_id}+{run_id}"
-        bricks[key] = {
-            "event_id": key,
-            "date": run["date"],
-            "name": name[:80],
-            "workout": workout,
-            "parts": [ride_id, run_id],
-            "fingerprint": evidence.digest(
-                {"name": name, "date": run["date"].isoformat(), "workout": workout}
-            ),
-        }
+        key, entry = _combined_entry(out, [ride_id, run_id], mark)
+        bricks[key] = entry
     return bricks
+
+
+def _linked_groups(engine, today: date, lookahead: int) -> list[list[str]]:
+    """The planned multisports in the window, as event ids in order, whatever the sports."""
+    from vibesynergy.query import multisport
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                icu_event.c.id, icu_event.c.date, icu_event.c.external_id, icu_event.c.brick_part
+            )
+            .where(
+                icu_event.c.category == "WORKOUT",
+                icu_event.c.date >= today,
+                icu_event.c.date <= today + timedelta(days=lookahead),
+            )
+            .order_by(icu_event.c.date, icu_event.c.id)
+        ).all()
+    by_day: dict[date, list[Any]] = {}
+    for row in rows:
+        by_day.setdefault(row.date, []).append(row)
+    out = []
+    for day_rows in by_day.values():
+        part = lambda r: multisport.event_part(r.external_id, r.brick_part)  # noqa: E731
+        for group in multisport.planned_groups(day_rows, part):
+            out.append([str(day_rows[i].id) for i in group])
+    return out
 
 
 def desired(
@@ -364,6 +418,5 @@ def desired(
                     {"name": name, "date": row.date.isoformat(), "workout": workout}
                 ),
             }
-    if "ride" in sports and "run" in sports:
-        out.update(_bricks(out, seen, mark))
+    out.update(_bricks(out, seen, mark, _linked_groups(engine, today, lookahead)))
     return out

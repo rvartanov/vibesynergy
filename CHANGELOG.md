@@ -22,6 +22,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   triathlon) gets the marks of its sports in order, such as 🚴🏃 for ride then run; fill in one
   multisport mark (🧱, say) to use that instead. (#70, #72)
 - **No mark** is a choice too: Garmin then shows the plain names. (#72)
+- **Triathlons and other multisport workouts on Garmin**: sessions on one day linked by their
+  slot in order (`ms1-swim`, `ms2-ride`, `ms3-run`; a duathlon `ms1-run`, `ms2-ride`,
+  `ms3-run`) go to Garmin as one multisport workout, a segment per sport with the
+  transitions and the swim as open water, and show as one entry on the calendar and Today.
+  Bricks planned the old way keep working. (#74)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
   warnings for the sessions around it:
   - a name whose minutes don't match the steps (45' while it takes 50');

@@ -627,12 +627,22 @@ function fillCoaching(host, adviceHost, dashboardData, todayReply, yesterdayRepl
 
 function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
-  // A planned brick: the brick run and the ride with it as one multisport entry.
+  // A planned multisport (#74): the sessions linked by their slot in order (a triathlon, a
+  // duathlon, a brick), else a brick run and the ride with it, as one multisport entry.
   const list = sessions || [];
-  const isBrickRun = (x) => sportKey(x.sport) === "run" && ((x.extra || {}).brick_part === "loop" || /brick/i.test(x.title || ""));
+  const groups = {};
+  list.forEach((x) => {
+    const part = (x.extra || {}).multi_part;
+    if (part) (groups[part[0]] = groups[part[0]] || []).push([part[1], x]);
+  });
+  const linked = Object.values(groups).filter((g) => g.length >= 2)
+    .map((g) => g.sort((a, b) => a[0] - b[0]).map(([, x]) => x));
+  const inLinked = new Set(linked.flat());
+  const isBrickRun = (x) => !inLinked.has(x) && sportKey(x.sport) === "run" && ((x.extra || {}).brick_part === "loop" || /brick/i.test(x.title || ""));
   const run = list.find(isBrickRun);
-  const rides = list.filter((x) => sportKey(x.sport) === "bike");
+  const rides = list.filter((x) => !inLinked.has(x) && sportKey(x.sport) === "bike");
   const ride = run && (rides.find((x) => (x.extra || {}).brick_part === "fiets") || rides[0]);
+  if (run && ride) linked.push([ride, run]);
   const one = (session) => {
     const title = session.title || sportName(session.sport) || t("Workout");
     const [tone, label] = CHIP[session.status] || ["", ""];
@@ -645,10 +655,9 @@ function planHtml(sessions, outside, shared, planSource) {
       : "";
     return `<li>${withSportIcon(session.sport, esc(title))}${chip}${link}</li>`;
   };
-  const brick = run && ride
-    ? `<li>${withSportIcon("brick", esc(`${ride.title} + ${run.title}`))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${one(ride)}${one(run)}</ul></li>`
-    : "";
-  const rows = brick + list.filter((x) => !(brick && (x === run || x === ride))).map(one).join("");
+  const parts = new Set(linked.flat());
+  const multi = linked.map((g) => `<li>${withSportIcon("brick", esc(g.map((x) => x.title).join(" + ")))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${g.map(one).join("")}</ul></li>`).join("");
+  const rows = multi + list.filter((x) => !parts.has(x)).map(one).join("");
   const plan = rows
     ? `<h3>${t("Planned")}</h3><ul class="trends">${rows}</ul>`
     : `<p class="sub">${t("Nothing planned for this day.")}</p>`;

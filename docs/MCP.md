@@ -763,7 +763,8 @@ The five plan writes share these rules (scope `plan.write`):
 Create or change one session.
 - Params: `reason`, `date`, `name`, `description` (intervals.icu step text: the cue first,
   then the steps; unknown steps are refused), `sport` (optional), `session_id` (the session
-  to change; omit to create one), `slot` (optional, for a new session's id).
+  to change; omit to create one), `slot` (optional, for a new session's id; `ms1-swim`, `ms2-ride`, `ms3-run` link the
+  sessions of one day into one multisport in that order, such as a triathlon).
 - Returns: `session_id`, `version`.
 
 #### `vibesynergy_plan_session_move` *(scope `plan.write`)*
