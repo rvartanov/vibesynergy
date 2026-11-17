@@ -89,7 +89,8 @@ def test_session_purpose_derivation():
     assert session_purpose.derive("run", "Marathon build") == "race"
 
 
-def test_mcp_coach_write_tool(runtime):
+def test_mcp_coach_write_tool(runtime, monkeypatch):
+    monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: date(2026, 10, 11))
     from mcp import Client
 
     async def call():
@@ -104,6 +105,7 @@ def test_mcp_coach_write_tool(runtime):
                         "idempotency_key": "mcp-evening-1",
                         "for_date": "2026-10-11",
                         "model_id": "claude-sonnet-5-5",
+                        "safety": {"level": "ok", "colour": "green", "reasons": ["synthetic"]},
                     },
                 )
         finally:

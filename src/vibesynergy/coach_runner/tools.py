@@ -18,6 +18,7 @@ from typing import Any
 
 import anyio
 
+from vibesynergy.coach_runner import contract
 from vibesynergy.mcp.identity import reset_connection, set_connection
 from vibesynergy.query import publication_insight
 
@@ -111,12 +112,16 @@ class ToolBox:
         *,
         only: frozenset[str] | None = None,
         guard: Guard | None = None,
+        run: dict[str, Any] | None = None,
     ) -> None:
         from vibesynergy.mcp.server import build_server
 
         self._server = build_server(rt)
         self._scopes = scopes
         self._guard = guard
+        # The harness run these calls belong to (task, day, stamp): the write tools read it
+        # to apply the task's contract and stamp the entry (coach_runner.contract).
+        self._run = run
         by_scope: dict[str, str] = self._server.vibesynergy_tool_scopes
         self._allowed = {
             name
@@ -159,6 +164,7 @@ class ToolBox:
         if self._guard and (problem := self._guard(name, arguments)):
             return problem, True
         tokens = set_connection(CLIENT_ID, scopes=self._scopes, label=LABEL)
+        under = contract.set_run(self._run)
         try:
             result = anyio.run(self._server.call_tool, name, arguments)
         except ToolError as exc:
@@ -169,6 +175,7 @@ class ToolBox:
                 self.crashed.append(name)
             return f"The tool {name} failed ({type(exc).__name__}).", True
         finally:
+            contract.reset_run(under)
             reset_connection(tokens)
         parts = [
             _compact(block.text) for block in result.content if getattr(block, "type", "") == "text"

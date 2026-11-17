@@ -27,14 +27,17 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
    event, only for activities still missing their public insight. No HTTP is involved.
 2. **Lane.** `coach_run` jobs run in their own worker lane (`coach`), so a run of a few
    minutes never holds up syncs or Strava webhooks.
-3. **Prompt.** System = the MCP guide (`GUIDE` in `mcp/server.py`) + the job prompt from
-   `docs/coach-prompts/<job>.md` with its leading HTML comment stripped, routine-only
-   instructions rewritten (SendUserMessage → the entry's summary; ToolSearch and the Garmin
-   connector → the VibeSynergy tools and intervals.icu) and the runner rules appended. Edit the
-   markdown files to change the coach; the next run uses them. `[coach_runner] prompts_dir`
-   points elsewhere if wanted. The first user message holds the date, ISO week, the
-   idempotency key to use and **the athlete's unread replies** (or, for an insight, the fire
-   payload `event=… event_id=… activity_ids=…`).
+3. **Prompt.** System = the MCP guide (`GUIDE` in `mcp/server.py`) + the task prompt (the
+   knowledge-base article `coach-prompt-<job>`, else `docs/coach-prompts/<job>.md`) with its
+   leading HTML comment stripped and routine-only instructions rewritten (SendUserMessage →
+   the entry's summary; ToolSearch and the Garmin connector → the VibeSynergy tools and
+   intervals.icu), then **the harness rules** (`coach_runner/prompts.py`, versioned; see
+   [The harness contract](#the-harness-contract)). Edit the article to change the coach; the
+   next run uses it. `[coach_runner] prompts_dir` points elsewhere if wanted. The first user
+   message holds the date, ISO week, the idempotency key to use, **the athlete's unread
+   replies** (or, for an insight, the fire payload `event=… event_id=… activity_ids=…`) and
+   **the preloaded context**: the fixed base (athlete, communication rule, safety, coach
+   memory) and the task's own chain.
 4. **Tools.** The same MCP server as `/vibesynergy/mcp`, called in-process
    (`MCPServer.call_tool`), so every call goes through `vibesynergy.query`, checks its scope and
    is audit-logged with client `coach-runner` (author `client:coach-runner`, label
@@ -45,17 +48,169 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
    (no diary, health or earlier entries), may only write `activity_assessment` for the
    event's activities, and a `public_insight` naming health, diary or injury details is
    refused back to the model (INS-2).
-5. **Model loop.** Messages API with tool use, model `claude-opus-5-5` for every run
-   (the athlete's decision), adaptive thinking, effort `high` (`[coach_runner] effort`). Prompt
+5. **Model loop.** Messages API with tool use, the model chosen per task in Coach →
+   Settings (default `claude-opus-5-5`; #88 changed none of them), adaptive thinking, effort `high` (`[coach_runner] effort`). Prompt
    caching: a breakpoint at the end of the system prompt covers the tool definitions and the
    system (tools render first and are sorted by name, so the prefix is byte-identical
    between runs), and top-level automatic caching moves a second breakpoint to the end of
    the conversation every turn. No refusal fallback to another model: a refused run fails.
-6. **Report.** After the loop the runner finds the entry by its idempotency key. Its text is
-   mailed through `alerts.deliver` (the `[mail]` settings and the alert address of
-   Settings → Alerts), with a link to `#/coach/report/<id>` in the portal. Unread replies
-   that were in the start message are marked read with the run id. No entry means the run
-   failed (nothing is mailed).
+6. **Report.** After the loop the runner finds the entry by its idempotency key and checks
+   it against the task's contract once more. Its text is mailed through `alerts.deliver`
+   (the `[mail]` settings and the alert address of Settings → Alerts), with a link to
+   `#/coach/report/<id>` in the portal. Unread replies that were in the start message are
+   marked read with the run id. No entry, or an entry outside the contract, means the run
+   failed: nothing is mailed and the athlete gets the failure message.
+
+## The harness contract
+
+Decided on 17-11-2026 (#88): every AI call goes through the harness, with fixed rules, a
+fixed prompt and a fixed output contract, so the coach works the same way every time and
+with every model.
+
+### Audit: every model call (17-11-2026)
+
+There is one place in the code that calls a model: `runner._loop` (`model.create`). Nothing
+else imports a model client. `runner.run` is reached from the scheduler (`schedule.handle`),
+from events (`schedule.on_agent_event`), and from Test now / Make again in the portal and
+`vibesynergy_harness_run` over MCP, which all queue the same `coach_run` job.
+
+| Call | Registry | Versioned prompt + rules | Fixed context chain | Contract, fail closed |
+| --- | --- | --- | --- | --- |
+| `morning`, `evening` | yes | yes | yes | yes, with `safety` and the target day |
+| `injury`, `checkin` | yes | yes | yes | yes, with `safety` and the target day |
+| `weekly`, `monthly`, `block`, `race` | yes | yes | yes | yes |
+| `test`, `thresholds`, `kb` | yes | yes | yes | yes; proposals also by their own tools |
+| `insight` | yes | yes | yes (no health in it) | at the write: INS-2 guard and the public-line rules; no entry is allowed |
+| `reply` | planned task, no model call of its own: replies are read by the next run | – | – | – |
+| `catch_up` | code, no model | – | – | – |
+| advice run (#89, #90) | not built yet; it must be a registry task | – | – | the `safety` contract is ready for it |
+| Daily review narrative (`query/daily_coach.py`) | no model: `narrative_enabled` is false and the text is fixed | – | – | – |
+| Cloud routine webhooks (`query/agent_events.py`) | outside VibeSynergy: they fire a Claude Code routine, which comes back over MCP | by `vibesynergy_coach_prompt` | by `include_context=true` | yes, at `vibesynergy_coach_write` |
+
+Gaps found and closed in #88:
+
+1. **A job outside the registry could run** without a context chain or a contract
+   (`_preloaded` returned nothing, `contract_issues` returned no issues). Now `runner.run`
+   refuses any job that is not a live model task, before a model client exists.
+2. **The contract was reported, not enforced**: issues went to the log and the entry was
+   mailed anyway. Required fields were declared and never checked. Now see below.
+3. **The rules had no version.** `RUNNER_RULES` was a constant; a change left no trace on
+   the run. Now `RULES_VERSION`, pinned to the text by a test, and a stamp on every run and
+   entry.
+4. **An MCP coach had a different harness**: `vibesynergy_coach_prompt` served only the
+   article, not the rules the runner appends, no context and no contract, and
+   `vibesynergy_coach_write` accepted anything with a summary. Now one source for all.
+5. **The safety block held only the injury log.**
+
+### Rules any model can follow
+
+The harness rules are written for every model that can use tools, not only the strongest:
+
+- **numbered steps** in a fixed order (read the context, decide the safety level, weigh,
+  write, repair a refused write, what to do when it cannot be decided);
+- **decision rules** instead of prose: the four levels and their colour, start from the
+  rules' level, stricter is always allowed, milder only with the reason, never milder for
+  illness or real pain;
+- **the data preloaded** in the context, so nothing depends on the model choosing the right
+  tools first;
+- **the output as a schema with a worked example**, and the mistakes that are refused;
+- only what applies: the safety steps are in the rules of the daily advice tasks only, and
+  each task's own word limit is filled in.
+
+Room for judgement is named, not left open. Step 3 lists what the rules cannot weigh and the
+model must: the check-in against the measurements, measurement gaps, what was already done
+today and how, and complaints or pain without an injury log. The model has to say in
+`reasons` what tipped it, and in `override_reason` why it went milder than the rules; only
+repeating the rule outcome is not accepted as a reason by the rules, and an empty `reasons`
+is refused by the contract.
+
+### The output contract
+
+`coach_runner/contract.py`, called by `vibesynergy_coach_write` before anything is stored,
+for the runner and for an MCP client alike. A write that misses it is **refused** with a
+message that names every problem, so one more try can fix them all; the model repairs it
+within the same run. Nothing invalid is stored, mailed or shown.
+
+| Check | Rule |
+| --- | --- |
+| Target day | `for_date` is today for `morning`, `injury`, `checkin`; today or tomorrow for `evening`. In a run, "today" is the run's day. |
+| Length | the summary is within the task's word limit × 1.5 (70 for the daily advice, 100 for test and kb, 150 for the reviews). |
+| Safety (daily advice) | `safety = {level, colour, reasons, override_reason?}`: a known level, the colour of that level, 1-5 reasons. |
+| Against the rules | a level milder than the rules' floor needs `override_reason`; `sick`, `red_flag_note`, `pain_7` and `affects_movement` can never be softened. |
+| Task | `task` must be a registry task and write that task's entry type. |
+
+After the loop the runner checks what only the run knows (`runner.contract_issues`): the
+entry is of the task's type, for the run's day, within the length, written under this run's
+harness, with its safety outcome. Any issue fails the run: the entry is marked
+`meta.harness.valid = false`, it is not mailed, the run is `failed` with
+`output contract: …`, and the athlete gets the failure message.
+
+Every entry stores `meta.safety` (the validated outcome: level, colour, reasons, override)
+and `meta.harness`: `version`, `via` (runner or mcp), `task`, `stamp`
+(`h<harness>.r<rules>.p<prompt>.c<context>`), `current`, `follows_current` and `rules_floor`
+(the rules' level and rules at that moment). #89 can read the AI's colour and safety level
+from `meta.safety`, treat an entry without it or with `valid = false` as "no valid advice",
+and show where the AI and the rules differed from `rules_floor`.
+
+### Safety in the context
+
+The base block `safety` (version 2) is in every task's context and carries:
+
+- `floor`: the rules' level, colour, the rules that fired, each one's reason, and notes;
+- `sleep_check` (`suspect`, `incomplete`, `updated`) and `sleep_incomplete`;
+- `measurement`: whether the night was updated after its first reading and which readiness
+  reading counts;
+- `checkin`, `complaints`, `pain_today`;
+- `injuries`: the injury log of the last 14 days.
+
+Each part is built on its own: an empty injury log does not hide a floor that fired, and a
+part that fails says so and leaves the rest. The insight task writes a public line, so its
+safety block is the injury log only, as before.
+
+### The same harness over MCP
+
+An AI that coaches over MCP (a Claude Code routine, another agent) is held to the same
+harness:
+
+1. **Same text.** `vibesynergy_coach_prompt(job)` returns the task's prompt and `rules_md`,
+   the harness rules from the same constants the runner uses, with a short note on how an
+   MCP coach reaches VibeSynergy instead of the runner's.
+2. **Same context.** `include_context=true` returns the runner's preloaded chain for that
+   task and day.
+3. **Same contract**, enforced on the server at `vibesynergy_coach_write`.
+4. **The version on the entry.** The client passes `harness=<stamp>`; the entry records it
+   and whether it is the current one. A write under an old or missing stamp is stored with a
+   warning, so the Coach page and `vibesynergy_coach_entries` show which entries followed
+   the current harness.
+
+Still open (follow-up): the harness stamp on `vibesynergy_coach_threshold_propose`,
+`vibesynergy_coach_memory_write`, `vibesynergy_model_run_write` and the plan writes. Those
+tools validate their own input and refuse what is invalid, and each call is audit-logged
+with its client; they do not record the harness version yet.
+
+### The fallback rules
+
+The fixed rules (`query/safety_floor.py`, `query/dashboard.py`) are what the page shows when
+there is no valid AI advice, so they were reviewed against the last 90 days (19-8 to
+17-11-2026, on a read-only copy of the live data):
+
+- **Deviation from the plan** (`plan.deviation`) looks at intensity and RPE, not at
+  duration alone. *Harder*: heart-rate time above the planned zone ceiling (10 minutes and
+  15% of the session, or more); the ceiling is the highest "Z<n>" in the session's name,
+  zone 1 for a training you give, zone 2 for a session planned easy. *Longer*: over 25%
+  longer and not at a low effort (RPE above 4, or without an RPE, heart rate not nearly all
+  in zones 1-2). Longer at a low effort is the session as planned. *Shorter*: over 25%
+  shorter, named as such. The advice says which it was.
+- **Measurement gaps** (`query/measurement.py`, from the raw history VibeSynergy keeps): a
+  night that grew by an hour or more after its first reading is reported; a readiness from
+  before the night was complete does not count; when the day's readiness is a later
+  recomputation (after training), the floor judges the reading after waking up. The advice
+  says so when the two readings fall on different sides of the rule.
+- **Advice branches**: an amber day with a session still to come now says what amber means
+  for it; a session that could not be matched no longer leads the advice on a red day.
+
+What the review found, with the day it came from, is in the tests
+(`tests/test_harness_safety.py`).
 
 ## Why the Messages API and not the Agent SDK
 

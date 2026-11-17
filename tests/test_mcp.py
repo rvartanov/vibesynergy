@@ -295,8 +295,9 @@ def test_bp_intensity_and_audit(rt) -> None:
     assert failed and failed[-1]["arguments"]["metrics"] == ["nope.nope"]
 
 
-def test_writes_with_nested_models_are_audited(rt) -> None:
+def test_writes_with_nested_models_are_audited(rt, monkeypatch) -> None:
     """predictions and KB rules arrive as Pydantic models; the audit row still lands."""
+    monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: DAY)
     from sqlalchemy import select
 
     from vibesynergy.store.schema import audit_log
@@ -308,6 +309,7 @@ def test_writes_with_nested_models_are_audited(rt) -> None:
         summary="Easy day.",
         idempotency_key="audit-154",
         for_date=str(DAY),
+        safety={"level": "flag", "colour": "amber", "reasons": ["synthetic"]},
         predictions=[{"metric": "hrv.night_avg", "horizon_days": 1, "predicted": 52.0}],
     )
     call(

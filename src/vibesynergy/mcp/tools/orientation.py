@@ -437,8 +437,29 @@ def register(kit: ToolKit) -> None:
         activity_id: str | None = None,
         public_insight: str | None = None,
         sessions: list[dict[str, str]] | None = None,
+        safety: dict[str, Any] | None = None,
+        task: str | None = None,
+        harness: str | None = None,
     ) -> dict[str, Any]:
         """Write a typed AI coach entry. Author comes from the MCP connection, not this call.
+
+        Every write is checked against the harness's output contract and REFUSED when it
+        misses it (nothing is stored; the error says what to fix, then write again):
+        for_date must be the day the entry is about (morning: today; evening: today or
+        tomorrow); the summary must fit the task's word limit (morning, evening 70; the
+        rest goes in details); and a daily advice (entry_type morning or evening, or task
+        injury or checkin) must carry safety.
+        safety: {"level": ok|ease|flag|refuse, "colour": green|amber|red, "reasons":
+        [1-5 short sentences: what you weighed and why this level], "override_reason":
+        one sentence, required when your level is milder than the rules' level}. colour
+        follows level: ok=green, ease=amber, flag=amber, refuse=red. The rules' level is
+        safety.floor in vibesynergy_coach_prompt(job, include_context=true) and
+        safety.level in vibesynergy_today. Illness, a red-flag note, pain 7+ and an injury
+        that changes movement can never be softened.
+        task: the harness task this entry belongs to (morning, evening, weekly, monthly,
+        block, race, test, thresholds, kb, injury, checkin); its contract then applies.
+        harness: the harness.stamp from vibesynergy_coach_prompt, so the entry records which
+        harness version it was written under (the result says whether it is current).
 
         sessions (morning, evening, weekly): your verdict per planned session, shown as a
         status with one symbol and colour each: [{title, decision, note}], decision one of
@@ -462,12 +483,45 @@ def register(kit: ToolKit) -> None:
                 "athlete to allow publishing for this app (Settings → Sharing → Coach apps)."
             )
         day = _date(for_date)
-        meta = coach_workouts.write_meta(
-            rt,
-            entry_type=entry_type,
-            for_date=day,
-            meta={"model_id": model_id} if model_id else None,
+        from vibesynergy.coach_runner import contract as harness_contract
+        from vibesynergy.coach_runner import prompts as harness_prompts
+        from vibesynergy.coach_runner import registry
+
+        under = harness_contract.current_run()
+        if under:
+            # The API runner: the harness knows the task and the day, not the model. The
+            # task's contract applies to its report; anything else it writes on the way
+            # (an extra note, an activity assessment) is checked as that entry type.
+            wanted = registry.BY_ID[under["task"]].contract.entry_type
+            task = under["task"] if wanted == entry_type and under["task"] != "insight" else None
+        try:
+            applies = harness_contract.task_for(entry_type, task)
+            floor = _rules_floor(day) if (applies and applies.contract.safety) or safety else None
+            checked = harness_contract.check_write(
+                entry_type=entry_type,
+                summary=summary,
+                for_date=day,
+                today=under["for_date"] if under else today(),
+                task=task,
+                safety=safety,
+                floor=floor,
+            )
+        except harness_contract.ContractError as exc:
+            raise ToolError(str(exc)) from exc
+        current = (
+            harness_prompts.harness_stamp(settings, checked["task"], engine)
+            if checked["task"]
+            else None
         )
+        stamp = harness_contract.harness_meta(
+            task=checked["task"], declared=harness, current=current, floor=floor
+        )
+        extra: dict[str, Any] = {"harness": stamp}
+        if model_id:
+            extra["model_id"] = model_id
+        if checked["safety"]:
+            extra["safety"] = checked["safety"]
+        meta = coach_workouts.write_meta(rt, entry_type=entry_type, for_date=day, meta=extra)
         try:
             row = coach_workouts.coach_write(
                 engine,
@@ -488,7 +542,25 @@ def register(kit: ToolKit) -> None:
             )
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
-        return envelope(row)
+        warnings = []
+        if checked["task"] and not stamp["follows_current"] and stamp["via"] == "mcp":
+            warnings.append(
+                "This entry was not written under the current harness "
+                f"({current}). Read vibesynergy_coach_prompt(job) first and pass its "
+                "harness.stamp as harness."
+            )
+        return envelope({**row, "harness": stamp}, warnings=warnings)
+
+    def _rules_floor(day) -> dict[str, Any] | None:
+        """The rules' safety outcome for ``day``, to hold the coach's own against. ``None``
+        when it cannot be computed: the shape is still checked, the comparison is not."""
+        from vibesynergy.query import coach_brief
+
+        try:
+            found = coach_brief.today_brief(rt, day)["safety"]
+        except Exception:
+            return None
+        return {"level": found.get("level"), "rules": found.get("rules") or []}
 
     @tool(READ, "read")
     def vibesynergy_activity_insights(days: int = 2) -> dict[str, Any]:
@@ -605,12 +677,22 @@ def register(kit: ToolKit) -> None:
         """Append a note to the coach feed."""
         if kind != "note":
             raise ToolError("vibesynergy_coach_log only accepts kind 'note'")
+        from vibesynergy.coach_runner import contract as harness_contract
+
+        try:  # the same contract as vibesynergy_coach_write: a note, within its length
+            harness_contract.check_write(
+                entry_type="note", summary=text, for_date=today(), today=today()
+            )
+        except harness_contract.ContractError as exc:
+            raise ToolError(str(exc)) from exc
+        stamp = harness_contract.harness_meta(task=None, declared=None, current=None, floor=None)
         row = coach_workouts.coach_write(
             engine,
             entry_type="note",
             summary=text,
             idempotency_key=None,
             for_date=today(),
+            meta={"harness": stamp},
         )
         return envelope({"logged": True, "kind": kind, "entry": row})
 

@@ -105,12 +105,22 @@ def signals_from_dashboard(
     *,
     checkin: dict | None = None,
     tags: list[str] | None = None,
+    measurement: dict | None = None,
 ) -> dict[str, Any]:
-    """Map the dashboard's already loaded blocks onto the floor."""
+    """Map the dashboard's already loaded blocks onto the floor. ``measurement`` is
+    ``query.measurement.night``: which readiness reading the day's value is (#88)."""
     hrv = recovery.get("hrv.night_avg") or {}
     rhr = recovery.get("hr.resting") or {}
     sleep = recovery.get("sleep.duration") or {}
     readiness = recovery.get("recovery.readiness") or {}
+    ready_value, ready_z = readiness.get("value"), readiness.get("z")
+    reading = (measurement or {}).get("readiness") or {}
+    morning = reading.get("morning")
+    if reading.get("context") in ("after_exercise", "later") and morning is not None:
+        # The day's value is a later recomputation; the floor judges the morning.
+        mean, std = readiness.get("baseline_mean"), readiness.get("baseline_std")
+        ready_value = morning
+        ready_z = (morning - mean) / std if mean is not None and std else None
     rhr_up = None
     if rhr.get("value") is not None and rhr.get("baseline_mean") is not None:
         rhr_up = rhr["value"] - rhr["baseline_mean"]
@@ -121,8 +131,12 @@ def signals_from_dashboard(
         "tags": tag_list,
         "sick": bool(sick) or "sick" in tag_list,
         "sleep_s": sleep.get("value"),
-        "readiness": readiness.get("value"),
-        "readiness_z": readiness.get("z"),
+        "readiness": ready_value,
+        "readiness_z": ready_z,
+        # The day's stored value, for the note when it and the morning reading disagree.
+        "readiness_daily": readiness.get("value"),
+        "readiness_daily_z": readiness.get("z"),
+        "measurement": measurement,
         "hrv_z": hrv.get("z"),
         "hrv_low_days": recovery.get("hrv_low_days") or 0,
         "rhr_up_bpm": rhr_up,
@@ -131,6 +145,15 @@ def signals_from_dashboard(
         "form": (load or {}).get("form"),
         "ramp_pct": (load or {}).get("ramp_pct"),
     }
+
+
+def _readiness_level(value: float | None, z: float | None) -> str | None:
+    """flag at or under the low score, ease when only well under the athlete's usual."""
+    if value is not None and value <= THRESHOLDS["readiness_low"]:
+        return "flag"
+    if z is not None and z < THRESHOLDS["readiness_z"]:
+        return "ease"
+    return None
 
 
 def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
@@ -198,12 +221,51 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
     sleep = None if incomplete else signals.get("sleep_s")
     if sleep is not None and sleep < THRESHOLDS["short_sleep_s"]:
         hit("short_sleep", "flag", "only {time} of sleep", seconds=sleep)
-    ready = None if incomplete else signals.get("readiness")
-    ready_z = None if incomplete else signals.get("readiness_z")
-    if ready is not None and ready <= THRESHOLDS["readiness_low"]:
-        hit("low_readiness", "flag", "readiness below normal")
-    elif ready_z is not None and ready_z < THRESHOLDS["readiness_z"]:
-        hit("low_readiness", "ease", "readiness below normal")
+    # Measurement gaps (#88): a readiness computed before the night was complete does not
+    # count; a later recomputation was already replaced by the morning reading.
+    gap = signals.get("measurement") or {}
+    reading = gap.get("readiness") or {}
+    partial = bool(reading.get("partial_night"))
+    notes: list[dict[str, Any]] = []
+    if gap.get("sleep"):
+        notes.append(
+            {
+                "rule": "sleep_updated",
+                "key": "The night was updated after its first reading: {first} became {now}.",
+                "times": {"first": gap["sleep"]["first_s"], "now": gap["sleep"]["now_s"]},
+            }
+        )
+    if partial:
+        notes.append(
+            {
+                "rule": "readiness_partial_night",
+                "key": "Readiness was computed on a partial night, so it does not count.",
+            }
+        )
+    elif (
+        reading.get("morning") is not None
+        and reading.get("context") != "morning"
+        and not incomplete
+        # Said only when it matters: the two readings fall on different sides of the rule.
+        and _readiness_level(signals.get("readiness"), signals.get("readiness_z"))
+        != _readiness_level(signals.get("readiness_daily"), signals.get("readiness_daily_z"))
+    ):
+        after = reading.get("context") == "after_exercise"
+        notes.append(
+            {
+                "rule": "readiness_not_morning",
+                "key": "Readiness is {n} now, after training; this morning it was {m}, "
+                "and the morning counts."
+                if after
+                else "Readiness is {n} now; this morning it was {m}, and the morning counts.",
+                "values": {"n": round(reading["value"]), "m": round(reading["morning"])},
+            }
+        )
+    ready = None if incomplete or partial else signals.get("readiness")
+    ready_z = None if incomplete or partial else signals.get("readiness_z")
+    ready_level = _readiness_level(ready, ready_z)
+    if ready_level:
+        hit("low_readiness", ready_level, "readiness below normal")
     if hrv_z is not None and hrv_z < THRESHOLDS["hrv_z"]:
         hit("low_hrv", "flag", "HRV below your usual range")
     checkin = signals.get("checkin") or {}
@@ -232,7 +294,16 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
             values={"n": round(rhr_up)},
         )
 
-    return {"level": level, "rules": sorted(rules), "reasons": reasons}
+    return {"level": level, "rules": sorted(rules), "reasons": reasons, "notes": notes}
+
+
+# Rules the AI advice may never soften (#88, #89): illness, red-flag notes and real pain.
+HARD_RULES = frozenset({"sick", "red_flag_note", "pain_7", "affects_movement"})
+COLOURS = {"ok": "green", "ease": "amber", "flag": "amber", "refuse": "red"}
+
+
+def rank(level: str) -> int:
+    return _RANK[level]
 
 
 def title_band(title: str | None) -> str:

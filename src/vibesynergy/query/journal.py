@@ -349,7 +349,9 @@ def set_sleep_incomplete(engine: Engine, when: date, incomplete: bool) -> dict[s
 
 def sleep_check(day_checkin: dict | None, sleep_s: float | None) -> dict[str, Any] | None:
     """Whether the night's measurement may be incomplete: ``incomplete`` when marked so,
-    ``suspect`` when the check-in rates sleep 4-5 but under 5 h was measured, else ``None``."""
+    ``suspect`` when the check-in rates sleep 4-5 but under 5 h was measured, else ``None``.
+    A night that Garmin updated later is ``query.measurement`` (#88): by then the measured
+    sleep is no longer short, so this check cannot see it."""
     found = day_checkin or {}
     if found.get("sleep_incomplete"):
         return {"state": "incomplete", "measured_s": sleep_s}

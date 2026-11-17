@@ -3025,5 +3025,15 @@
  "until lap, about {min} min": "until lap, about {min} min",
  "{day}, {name}: the name says {minutes}' but the steps take {planned}'.": "{day}, {name}: the name says {minutes}' but the steps take {planned}'.",
  "{day}, {name}: the barbell work starts without a full warm-up (STR-4).": "{day}, {name}: the barbell work starts without a full warm-up (STR-4).",
- "{day}, {name}: the text refers to a {session} session that is not there.": "{day}, {name}: the text refers to a {session} session that is not there."
+ "{day}, {name}: the text refers to a {session} session that is not there.": "{day}, {name}: the text refers to a {session} session that is not there.",
+ "Today's {title} ran harder than planned: {n} minutes above the planned zone. Recover before you add more.": "Today's {title} ran harder than planned: {n} minutes above the planned zone. Recover before you add more.",
+ "Today's {title} ran longer than planned. Recover before you add more.": "Today's {title} ran longer than planned. Recover before you add more.",
+ "Today's {title} was shorter than planned.": "Today's {title} was shorter than planned.",
+ "Do it controlled or swap it for an easy session.": "Do it controlled or swap it for an easy session.",
+ "Keep it at an easy effort.": "Keep it at an easy effort.",
+ "Keep anything more easy.": "Keep anything more easy.",
+ "The night was updated after its first reading: {first} became {now}.": "The night was updated after its first reading: {first} became {now}.",
+ "Readiness was computed on a partial night, so it does not count.": "Readiness was computed on a partial night, so it does not count.",
+ "Readiness is {n} now, after training; this morning it was {m}, and the morning counts.": "Readiness is {n} now, after training; this morning it was {m}, and the morning counts.",
+ "Readiness is {n} now; this morning it was {m}, and the morning counts.": "Readiness is {n} now; this morning it was {m}, and the morning counts."
 }

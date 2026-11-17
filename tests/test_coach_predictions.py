@@ -332,7 +332,8 @@ def test_read_entries_and_weekly_scores(runtime):
         predictions.prediction_scores(runtime.engine, span, "not.a.metric")
 
 
-def test_mcp_write_and_read_tools(runtime):
+def test_mcp_write_and_read_tools(runtime, monkeypatch):
+    monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: ENTRY_DAY)
     written = _call(
         runtime,
         None,
@@ -342,6 +343,7 @@ def test_mcp_write_and_read_tools(runtime):
             "summary": "Synthetic evening note.",
             "idempotency_key": "mcp-pred-1",
             "for_date": ENTRY_DAY.isoformat(),
+            "safety": {"level": "ok", "colour": "green", "reasons": ["synthetic"]},
             "model_id": "synthetic-model",
             "kb_rules": ["HRV-2"],
             "predictions": [_prediction()],

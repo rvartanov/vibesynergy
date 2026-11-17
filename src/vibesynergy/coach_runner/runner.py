@@ -25,7 +25,16 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, insert, select, update
 
 from vibesynergy import alerts, i18n
-from vibesynergy.coach_runner import MODEL, REPORT_JOBS, context, pricing, prompts, registry, report
+from vibesynergy.coach_runner import (
+    MODEL,
+    REPORT_JOBS,
+    context,
+    contract,
+    pricing,
+    prompts,
+    registry,
+    report,
+)
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.coach_runner.model import (
     AnthropicClient,
@@ -346,6 +355,8 @@ def start_message(
     harness: dict[str, Any] | None = None,
 ) -> str:
     """The first user turn. ``harness``, when given, receives the preloaded block report."""
+    if job not in registry.BY_ID:
+        raise RunnerError(f"{job} is not a harness task", retry=False)
     iso_year, iso_week, _ = for_date.isocalendar()
     head = (
         f"Run: {job}. Datum: {format_user_date(for_date)} ({for_date.isoformat()}), "
@@ -386,29 +397,66 @@ def _preloaded(
 ) -> str:
     """The task's context chain, loaded before the first turn so the model starts
     with what it always needs. Tools stay available for anything beyond it."""
-    if job not in registry.BY_ID:
-        return ""
     found = context.preload(rt, job, for_date, **extra)
     if harness is not None:
         harness.update(context=found["version"], blocks=found["blocks"])
     return "\n\nVooraf geladen context (stand van nu; haal meer op met de tools):\n" + found["text"]
 
 
-def contract_issues(job: str, entry: dict[str, Any] | None) -> list[str]:
-    """Where the written entry misses the task's output contract. Reported, not
-    fatal: the entry is already written and mailed as usual."""
+def contract_issues(
+    job: str, entry: dict[str, Any] | None, for_date: date | None = None
+) -> list[str]:
+    """Where the entry a run wrote misses the task's output contract. Any issue fails the
+    run (fail closed, #88): the entry is marked invalid and is not mailed.
+
+    The write itself was already checked (``contract.check_write`` refuses a bad entry back
+    to the model, which can then repair it). This is the second net, for what only the run
+    knows: the entry is of the task's type, for the run's day, within the task's length,
+    written under this harness, and a daily advice carries its safety outcome."""
     task = registry.BY_ID.get(job)
     if task is None or entry is None:
         return []
     issues = []
     want = task.contract.entry_type
-    if want and entry.get("entry_type") not in (None, want):
+    if want and entry.get("entry_type") != want:
         issues.append(f"entry_type {entry.get('entry_type')} instead of {want}")
+    text = str(entry.get("text") or "")
+    if "summary" in task.contract.required and not text.strip():
+        issues.append("no summary")
     limit = task.contract.max_words
-    words = len(str(entry.get("text") or "").split())
-    if limit and words > limit * 1.5:
+    words = len(text.split())
+    if limit and words > limit * contract.WORD_SLACK:
         issues.append(f"{words} words, contract is {limit}")
+    written_for = entry.get("for_date")
+    if "for_date" in task.contract.required and written_for is None:
+        issues.append("no for_date")
+    elif for_date is not None and written_for is not None and written_for != for_date:
+        issues.append(f"for_date {written_for} instead of {for_date}")
+    meta = entry.get("meta") or {}
+    stamp = meta.get("harness") or {}
+    if stamp.get("via") != "runner" or stamp.get("task") != job:
+        issues.append("not written under this run's harness")
+    if task.contract.safety:
+        safety = meta.get("safety")
+        if not isinstance(safety, dict) or safety.get("level") not in contract.LEVELS:
+            issues.append("no safety outcome (level, colour, reasons)")
     return issues
+
+
+def _mark_invalid(rt, entry_id: int, issues: list[str]) -> None:
+    """An entry that failed the contract stays in the log, marked: nothing downstream
+    (the mail, the dashboard, #89's current advice) may treat it as valid."""
+    with rt.engine.begin() as conn:
+        meta = conn.execute(
+            select(coach_decision_log.c.meta).where(coach_decision_log.c.id == entry_id)
+        ).scalar()
+        merged = dict(meta or {})
+        merged["harness"] = {**(merged.get("harness") or {}), "valid": False, "issues": issues}
+        conn.execute(
+            update(coach_decision_log)
+            .where(coach_decision_log.c.id == entry_id)
+            .values(meta=merged)
+        )
 
 
 def find_entry(
@@ -477,6 +525,11 @@ def run(
     cfg = runner_settings.load(rt)
     if not cfg.enabled or not cfg.api_key_set:
         return RunResult(status="off")
+    if job not in registry.live():
+        # No model call outside the registry (#88): a job without a task has no prompt
+        # version, no context chain and no contract, so it does not run.
+        log.warning("coach runner: %s is not a live harness task; not run", job)
+        return RunResult(status="failed", error=f"{job} is not a harness task")
     if over_budget(rt, cfg):
         check_budget(rt, cfg)
         existing = get_run(rt, job, run_key)
@@ -599,20 +652,27 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
     provider = provider_for(cfg, job)
     model = _client(rt, client, provider)
     model_name = row.get("model") or model_for(cfg, job)
-    if job in registry.BY_ID and not registry.model_ok(
-        job, model_capabilities(provider, model_name)
-    ):
+    if not registry.model_ok(job, model_capabilities(provider, model_name)):
         raise RunnerError(f"{model_name} lacks what {job} needs", retry=False)
+    # What this run is told and given, as one stamp; every entry it writes carries it.
+    stamp = prompts.harness_stamp(rt.settings, job, rt.engine)
+    under = {"task": job, "for_date": for_date, "stamp": stamp}
     if job == "insight":
         ids = (payload or {}).get("activity_ids") or []
-        box = ToolBox(rt, INSIGHT_SCOPES, only=INSIGHT_TOOLS, guard=insight_guard(rt.engine, ids))
-        replies: list[dict[str, Any]] = []
-    else:
-        task = registry.BY_ID.get(job)
         box = ToolBox(
             rt,
-            COACH_SCOPES | set(task.scopes if task else ()),
+            INSIGHT_SCOPES,
+            only=INSIGHT_TOOLS,
+            guard=insight_guard(rt.engine, ids),
+            run=under,
+        )
+        replies: list[dict[str, Any]] = []
+    else:
+        box = ToolBox(
+            rt,
+            COACH_SCOPES | set(registry.BY_ID[job].scopes),
             guard=kb_guard() if job == "kb" else None,
+            run=under,
         )
         replies = coach_replies.unread(rt.engine)
     try:
@@ -620,7 +680,12 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
     except prompts.PromptError as exc:
         raise RunnerError(str(exc), retry=False) from exc
     tools = box.definitions()
-    harness: dict[str, Any] = {}
+    harness: dict[str, Any] = {
+        "version": contract.HARNESS_VERSION,
+        "stamp": stamp,
+        "rules": prompts.RULES_VERSION,
+        "prompt": prompts.prompt_version(rt.settings, job, rt.engine),
+    }
     messages: list[dict[str, Any]] = [
         {
             "role": "user",
@@ -635,8 +700,7 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             ),
         }
     ]
-    if harness:
-        _save(rt, row["id"], harness=harness)
+    _save(rt, row["id"], harness=harness)
     totals = {k: row[f"{k}_tokens"] for k in ("input", "output", "cache_write", "cache_read")}
     cost = float(row["cost_usd"])
     turns = int(row["turns"])
@@ -721,11 +785,25 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             _save(rt, row["id"], status=result.status, error=result.error, finished_at=finished)
             return result
         result.entry_id = entry["id"]
-        issues = contract_issues(job, entry)
-        for issue in issues:
-            log.warning("coach runner %s output contract: %s", job, issue)
-        if harness:
-            _save(rt, row["id"], harness={**harness, "contract": issues})
+        issues = contract_issues(job, entry, for_date)
+        _save(rt, row["id"], harness={**harness, "contract": issues})
+        if issues:
+            # Fail closed: an entry outside the contract is no report. It is marked
+            # invalid, not mailed, and the athlete hears that the run failed.
+            for issue in issues:
+                log.warning("coach runner %s output contract: %s", job, issue)
+            _mark_invalid(rt, entry["id"], issues)
+            result.status = "failed"
+            result.error = "output contract: " + "; ".join(issues)
+            _save(
+                rt,
+                row["id"],
+                status="failed",
+                error=result.error[:500],
+                entry_id=entry["id"],
+                finished_at=finished,
+            )
+            return result
         coach_replies.mark_read(rt.engine, [r["id"] for r in replies], row["id"])
         _save(rt, row["id"], status="done", entry_id=entry["id"], finished_at=finished)
         _mail(rt, row, job, for_date, entry, result)

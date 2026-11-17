@@ -133,23 +133,139 @@ def _relative_change(planned: float | None, actual: float | None) -> bool:
     return abs(float(actual) - float(planned)) / float(planned) > _CHANGE
 
 
-def departs_from_plan(item: dict[str, Any], activity: dict[str, Any]) -> bool:
-    """True when the matched activity is not the session that was planned.
+# Deviation from the plan (#88). Duration alone is not a deviation: a longer session at a
+# low effort is the session that was planned, and a session of the planned length that ran
+# above its zone is not.
+LOW_RPE = 4  # 1-10: up to "comfortable" a longer session is no deviation
+ABOVE_MIN_S = 600  # time above the planned zone ceiling before a session counts as harder
+ABOVE_SHARE = 0.15  # … and its share of the session
+LOW_ZONE = 2  # without an RPE: nearly all heart-rate time in zones 1-2 is a low effort
+LOW_ZONE_SHARE = 0.9
+_ZONE = re.compile(r"\bz(?:one)?\s?([1-7])\b", re.IGNORECASE)
 
-    Duration or distance off by more than 25%, or a different named intensity.
-    A missing number is not a difference.
+
+def zone_ceiling(item: dict[str, Any]) -> int | None:
+    """The highest heart-rate zone the planned session asks for, when the plan says so:
+    the highest "Z<n>" in its title, else zone 1 for a training you give (you run along
+    easy), else zone 2 for a session planned easy. ``None``: no ceiling to judge by."""
+    found = [int(z) for z in _ZONE.findall(str(item.get("title") or ""))]
+    if found:
+        return max(found)
+    if item.get("coached"):
+        return 1
+    if planned_intensity(item) == "easy":
+        return 2
+    return None
+
+
+def _zone_seconds(activity: dict[str, Any]) -> dict[int, float]:
+    out: dict[int, float] = {}
+    for zone, seconds in (activity.get("hr_zones") or {}).items():
+        try:
+            out[int(zone)] = float(seconds)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def seconds_above(item: dict[str, Any], activity: dict[str, Any]) -> float | None:
+    """Heart-rate time above the planned zone ceiling; ``None`` without a ceiling or zones."""
+    ceiling = zone_ceiling(item)
+    zones = _zone_seconds(activity)
+    if ceiling is None or not zones:
+        return None
+    return sum(seconds for zone, seconds in zones.items() if zone > ceiling)
+
+
+def _low_effort(activity: dict[str, Any]) -> bool | None:
+    """Whether the session was a low effort: by RPE when there is one, else by heart-rate
+    zones. ``None`` when neither is known."""
+    rpe = activity.get("rpe")
+    if isinstance(rpe, (int, float)) and not isinstance(rpe, bool):
+        return rpe <= LOW_RPE
+    zones = _zone_seconds(activity)
+    total = sum(zones.values())
+    if total <= 0:
+        return None
+    low = sum(seconds for zone, seconds in zones.items() if zone <= LOW_ZONE)
+    return low / total >= LOW_ZONE_SHARE
+
+
+def deviation(item: dict[str, Any], activity: dict[str, Any]) -> dict[str, Any] | None:
+    """How the matched activity departs from the planned session, or ``None`` when it is
+    that session. ``kind`` is one of:
+
+    - ``harder``: time above the planned zone ceiling (10 minutes and 15% of the session,
+      or more), whatever its length;
+    - ``longer``: over 25% longer and not at a low effort (RPE above 4, or heart rate not
+      nearly all in zones 1-2), or longer with nothing known about the effort;
+    - ``shorter``: over 25% shorter;
+    - ``distance``: the distance is off by more than 25%;
+    - ``intensity``: both sides name an intensity and the names differ.
+
+    A missing number is not a difference. Longer at a low effort is not a deviation.
     """
-    actual_duration = activity.get("moving_s") or activity.get("elapsed_s")
-    if _relative_change(planned_duration_s(item), actual_duration):
-        return True
-    if _relative_change(planned_distance_m(item), activity.get("distance_m")):
-        return True
-    planned = planned_intensity(item)
+    actual = activity.get("moving_s") or activity.get("elapsed_s")
+    planned = planned_duration_s(item)
+    above = seconds_above(item, activity)
+    if above is not None and above >= ABOVE_MIN_S and above >= (actual or 0) * ABOVE_SHARE:
+        return {"kind": "harder", "above_s": round(above), "ceiling": zone_ceiling(item)}
+    if _relative_change(planned, actual):
+        assert planned is not None and actual is not None
+        if float(actual) < float(planned):
+            return {"kind": "shorter", "planned_s": planned, "actual_s": actual}
+        if _low_effort(activity) is not True:
+            return {"kind": "longer", "planned_s": planned, "actual_s": actual}
+        # Longer, at a low effort: the distance is longer too, and that is no deviation.
+    elif _relative_change(planned_distance_m(item), activity.get("distance_m")):
+        return {"kind": "distance"}
+    wanted = planned_intensity(item)
     done = planned_intensity({"title": activity.get("name"), "extra": {}})
     explicit = activity.get("intensity")
     if isinstance(explicit, str) and explicit.strip().lower() in _INTENSITY:
         done = explicit.strip().lower()
-    return bool(planned and done and planned != done)
+    if wanted and done and wanted != done:
+        return {"kind": "intensity", "planned": wanted, "done": done}
+    return None
+
+
+def departs_from_plan(item: dict[str, Any], activity: dict[str, Any]) -> bool:
+    """True when the matched activity is not the session that was planned (``deviation``)."""
+    return deviation(item, activity) is not None
+
+
+def _effort_of(engine: Engine, groups: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """``{activity id: {rpe, hr_zones}}`` for the day's activities (``id``, ``sources``):
+    what the deviation is judged on. Zones are the stored ones (``zone_times``); a session
+    whose zones are not computed yet is judged without them."""
+    from vibesynergy.query import activity_effort
+    from vibesynergy.store.schema import activity_zone_own
+
+    if not groups:
+        return {}
+    try:
+        effort = activity_effort.for_groups(
+            engine, None, [{"group_id": g["id"], "sources": g["sources"]} for g in groups]
+        )
+        with engine.connect() as conn:
+            zones = {
+                row.group_id: row.zones
+                for row in conn.execute(
+                    select(activity_zone_own.c.group_id, activity_zone_own.c.zones).where(
+                        activity_zone_own.c.kind == "hr",
+                        activity_zone_own.c.group_id.in_([g["id"] for g in groups]),
+                    )
+                )
+            }
+    except Exception:  # the plan still answers; the deviation falls back to duration
+        return {}
+    return {
+        group["id"]: {
+            "rpe": ((effort.get(group["id"]) or {}).get("rpe") or {}).get("value"),
+            "hr_zones": zones.get(group["id"]) or {},
+        }
+        for group in groups
+    }
 
 
 def plan(
@@ -205,6 +321,7 @@ def plan(
                 activity_unified.c.distance_m,
                 activity_unified.c.ascent_m,
                 activity_unified.c.kind,
+                activity_unified.c.sources,
             ).where(
                 activity_unified.c.local_date.between(window.start, min(window.end, today)),
             )
@@ -240,18 +357,21 @@ def plan(
     # training you give (its title matches the coaching rules, such as "Groepstraining
     # geven, zelf Z1 60'"), of that sport and day, when nothing of your own matches.
     coached: dict[tuple[date, str | None], list] = {}
-    for day, sport, group_id, name, moving_s, elapsed_s, distance_m, ascent_m, kind in done:
+    matched: list[dict[str, Any]] = []
+    for row in done:
+        day, sport, group_id, name, moving_s, elapsed_s, distance_m, ascent_m, kind, refs = row
         bucket = coached if kind == "coaching" else by_day
-        bucket.setdefault((day, family(sport)), []).append(
-            {
-                "id": group_id,
-                "name": name,
-                "moving_s": moving_s,
-                "elapsed_s": elapsed_s,
-                "distance_m": distance_m,
-                "ascent_m": ascent_m,
-            }
-        )
+        found = {
+            "id": group_id,
+            "name": name,
+            "moving_s": moving_s,
+            "elapsed_s": elapsed_s,
+            "distance_m": distance_m,
+            "ascent_m": ascent_m,
+        }
+        matched.append({"id": group_id, "sources": refs or []})
+        bucket.setdefault((day, family(sport)), []).append(found)
+    effort = _effort_of(engine, matched)
 
     planned_counts = Counter(
         (i["date"], family(i["sport"])) for i in items if i["kind"] in TRAINING_KINDS
@@ -282,7 +402,10 @@ def plan(
         if ambiguous or sport_family is None:
             item["status"] = "uncertain"
         elif matches:
-            item["status"] = "changed" if departs_from_plan(item, matches[0]) else "done"
+            differs = deviation(item, {**matches[0], **effort.get(matches[0]["id"], {})})
+            item["status"] = "changed" if differs else "done"
+            if differs:
+                item["deviation"] = differs
         else:
             item["status"] = "today" if day == today else "missed"
         item["done_by"] = matches[:1] if item["status"] in ("done", "changed") else []

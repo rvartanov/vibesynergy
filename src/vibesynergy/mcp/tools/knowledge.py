@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date as date_type
 from typing import Any, Literal
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -57,18 +58,64 @@ def register(kit: ToolKit) -> None:
             "checkin",
             "insight",
         ],
+        include_context: bool = False,
+        date: str | None = None,
+        activity_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        """The current instructions for one coach routine (morning, evening, weekly review or
-        post-activity insight). The athlete edits them in the portal; read them at the start
-        of every run and follow them. ``version`` changes with every edit."""
+        """The current instructions for one coach task, exactly as the coach inside
+        VibeSynergy gets them. Read them at the start of every run and follow them.
+
+        body_md is the task's prompt (the athlete edits it in the portal; ``version`` changes
+        with every edit). rules_md is the harness rules that go before it wherever they
+        differ: numbered steps, how to decide the safety level, and what to write.
+        contract is the output contract vibesynergy_coach_write enforces for this task
+        (entry type, word limit, target day, whether safety is required and its schema).
+        harness.stamp names the harness, rules, prompt and context versions: pass it as
+        ``harness`` (and the job as ``task``) to vibesynergy_coach_write.
+
+        include_context=true adds ``context``: the same preloaded blocks the built-in coach
+        starts with (athlete, communication rule, safety with the rules' level and reasons,
+        coach memory, then the task's own chain), for ``date`` (default today). Use it
+        instead of collecting the same data tool by tool. activity_ids: for insight and
+        test, the activities the run is about.
+        """
+        from vibesynergy.coach_runner import context, contract, prompts, registry
         from vibesynergy.query import coach_prompts
 
         try:
-            return envelope(
-                coach_prompts.prompt(engine, job, overlay=coach_prompts.overlay_dir(kit.settings))
+            found = coach_prompts.prompt(
+                engine, job, overlay=coach_prompts.overlay_dir(kit.settings)
             )
         except LookupError as exc:
             raise ToolError(str(exc)) from exc
+        task = registry.BY_ID[job]
+        spec = task.contract
+        found = {
+            **found,
+            "rules_md": prompts.rules_for(job, prompts.athlete_name(kit.settings), via="mcp"),
+            "harness": {
+                "version": contract.HARNESS_VERSION,
+                "rules_version": prompts.RULES_VERSION,
+                "context_version": context.VERSION,
+                "stamp": prompts.harness_stamp(kit.settings, job, engine),
+                "chain": list(registry.chain_for(job)),
+            },
+            "contract": {
+                "entry_type": spec.entry_type,
+                "required": list(spec.required),
+                "max_words": spec.max_words,
+                "target_day": spec.target or None,
+                "safety_required": spec.safety,
+                "safety_schema": contract.SAFETY_HELP if spec.safety else None,
+                "enforced": "vibesynergy_coach_write refuses an entry that misses this",
+            },
+        }
+        if include_context:
+            day = date_type.fromisoformat(date) if date else kit.today()
+            found["context"] = context.preload(
+                kit.rt, job, day, activity_ids=[str(i) for i in activity_ids or []]
+            )
+        return envelope(found)
 
     @tool(WRITE, "coach.write")
     def vibesynergy_kb_upsert(

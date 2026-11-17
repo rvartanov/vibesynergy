@@ -115,6 +115,7 @@ def test_safety_partial_checkin(runtime):
                         "summary": "Easy 40 minutes.",
                         "idempotency_key": "partial-checkin-morning",
                         "for_date": day.isoformat(),
+                        "safety": {"level": "ok", "colour": "green", "reasons": ["synthetic"]},
                     },
                 )
         finally:

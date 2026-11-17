@@ -29,6 +29,11 @@ class Contract:
     entry_type: str | None  # the coach entry the task writes, or None (e.g. the insight)
     required: tuple[str, ...] = ()  # fields the entry must carry
     max_words: int | None = None  # the report's summary, for the communication rule
+    # A daily advice carries the structured safety outcome (level, colour, reasons), checked
+    # against the rules' floor when it is written (coach_runner.contract, #88; #89 reads it).
+    safety: bool = False
+    # The day the entry must be about: "today", "today_or_tomorrow", or "" (not checked).
+    target: str = ""
 
 
 @dataclass(frozen=True)
@@ -54,7 +59,9 @@ TASKS: tuple[Task, ...] = (
         id="morning",
         title="Morning advice",
         triggers=(Trigger("schedule", "daily 09:04"), Trigger("manual", "test now")),
-        contract=Contract("morning", ("summary", "for_date"), max_words=70),
+        contract=Contract(
+            "morning", ("summary", "for_date"), max_words=70, safety=True, target="today"
+        ),
         prompt="morning",
         chain=("today", "recovery", "plan_horizon", "weather", "replies", "recent_reports"),
         writes=("report", "fill day 9 of the horizon"),
@@ -64,7 +71,13 @@ TASKS: tuple[Task, ...] = (
         id="evening",
         title="Evening review",
         triggers=(Trigger("schedule", "daily 21:45"), Trigger("manual", "test now")),
-        contract=Contract("evening", ("summary", "for_date"), max_words=70),
+        contract=Contract(
+            "evening",
+            ("summary", "for_date"),
+            max_words=70,
+            safety=True,
+            target="today_or_tomorrow",
+        ),
         prompt="evening",
         chain=("today", "week", "recovery", "plan_horizon", "weather", "replies"),
         writes=("report", "predictions"),
@@ -153,7 +166,9 @@ TASKS: tuple[Task, ...] = (
         id="injury",
         title="Injury check",
         triggers=(Trigger("event", "pain logged"), Trigger("manual", "test now")),
-        contract=Contract("note", ("summary", "for_date"), max_words=70),
+        contract=Contract(
+            "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
+        ),
         prompt="injury",
         chain=("today", "recovery", "plan_horizon", "replies"),
         writes=("report",),
@@ -167,7 +182,9 @@ TASKS: tuple[Task, ...] = (
             Trigger("event", "low check-in after the morning report"),
             Trigger("manual", "test now"),
         ),
-        contract=Contract("note", ("summary", "for_date"), max_words=70),
+        contract=Contract(
+            "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
+        ),
         prompt="checkin",
         chain=("today", "recovery", "plan_horizon", "replies"),
         writes=("report",),
@@ -218,6 +235,11 @@ def chain_for(task_id: str) -> tuple[str, ...]:
     """The task's full context: the fixed base, then its own blocks."""
     task = BY_ID[task_id]
     return BASE_CONTEXT + tuple(b for b in task.chain if b not in BASE_CONTEXT)
+
+
+def daily() -> tuple[str, ...]:
+    """The daily advice tasks: their entry carries the structured safety outcome."""
+    return tuple(t.id for t in TASKS if t.contract.safety)
 
 
 def model_ok(task_id: str, capabilities: set[str]) -> bool:
