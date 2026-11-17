@@ -683,6 +683,8 @@ def _verdict(
     }[color]
     advice = _advice(color, plan, tr, completed_count=completed_count)
     return {
+        # The night may be measured incompletely (#53): the athlete is asked, not told.
+        "sleep_check": journal.sleep_check(checkin, sleep_value),
         "level": color,
         "safety_level": floor["level"],
         "rules": floor["rules"],

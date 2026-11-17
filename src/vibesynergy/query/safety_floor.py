@@ -191,11 +191,15 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
     ):
         hit("deep_fatigue", "refuse", "deep fatigue with low HRV")
 
-    sleep = signals.get("sleep_s")
+    # A night the athlete marked as an incomplete measurement (#53): its short sleep and the
+    # readiness computed from it do not count.
+    checkin_now = signals.get("checkin")
+    incomplete = isinstance(checkin_now, dict) and bool(checkin_now.get("sleep_incomplete"))
+    sleep = None if incomplete else signals.get("sleep_s")
     if sleep is not None and sleep < THRESHOLDS["short_sleep_s"]:
         hit("short_sleep", "flag", "only {time} of sleep", seconds=sleep)
-    ready = signals.get("readiness")
-    ready_z = signals.get("readiness_z")
+    ready = None if incomplete else signals.get("readiness")
+    ready_z = None if incomplete else signals.get("readiness_z")
     if ready is not None and ready <= THRESHOLDS["readiness_low"]:
         hit("low_readiness", "flag", "readiness below normal")
     elif ready_z is not None and ready_z < THRESHOLDS["readiness_z"]:

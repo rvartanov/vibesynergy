@@ -298,6 +298,11 @@ class CheckinRequest(BaseModel):
     note: str | None = None
 
 
+class SleepIncompleteRequest(BaseModel):
+    date: str | None = None
+    incomplete: bool = True
+
+
 class InjuryRequest(BaseModel):
     injury_id: str | None = None
     body_part: str | None = None

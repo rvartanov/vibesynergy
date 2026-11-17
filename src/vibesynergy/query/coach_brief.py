@@ -106,6 +106,9 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
             "ctl": board["load"].get("ctl"),
             "ramp": board["load"].get("ctl_ramp_7d"),
         },
+        # suspect: check-in says good sleep, the watch measured under 5 h; incomplete: the
+        # athlete marked the night so, it does not count for the advice (#53).
+        "sleep_check": (board.get("verdict") or {}).get("sleep_check"),
         "planned_today": today_items[0] if today_items else None,
         "horizon": _horizon(rt, day),
         "today": today_items,

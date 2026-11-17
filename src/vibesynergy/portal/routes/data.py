@@ -17,6 +17,7 @@ from vibesynergy.portal.api import (
     InjuryRequest,
     NoteRequest,
     PortalKit,
+    SleepIncompleteRequest,
     UploadFinish,
     _date,
 )
@@ -194,6 +195,14 @@ def register(kit: PortalKit) -> None:
             raise ValueError("the date is in the future")
         scores = request.model_dump(exclude={"date"})
         return diary_changed(journal.set_checkin(engine, when, **scores))
+
+    @router.post("/diary/sleep-incomplete")
+    def diary_sleep_incomplete(request: SleepIncompleteRequest) -> dict[str, Any]:
+        """Mark the night ending on ``date`` as an incomplete measurement, or undo it (#53)."""
+        when = _date(request.date) if request.date else today()
+        if when > today():
+            raise ValueError("the date is in the future")
+        return diary_changed(journal.set_sleep_incomplete(engine, when, request.incomplete))
 
     @router.post("/diary/injury")
     def diary_injury(request: InjuryRequest) -> dict[str, Any]:

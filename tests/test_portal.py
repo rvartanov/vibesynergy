@@ -1035,3 +1035,19 @@ def test_plan_builder_route_returns_defaults_and_keeps_choices(portal) -> None:
     assert data["settings"]["distance"] == "half" and data["settings"]["type"] == "trail"
     bad = {"plan_builder": {"sport": "run", "distance": "full"}}
     assert client.post("/api/prefs", json={"changes": bad}, headers=write).status_code == 400
+
+
+def test_a_night_can_be_marked_incomplete_and_undone(portal) -> None:
+    """#53: the portal marks the night, the advice drops it, undo puts it back."""
+    _, client, today = portal
+    write = {"x-vibesynergy": "portal", "origin": f"https://{TAILNET}:8447"}
+    marked = client.post(
+        "/api/diary/sleep-incomplete", json={"incomplete": True}, headers=write
+    ).json()["data"]
+    assert marked["sleep_incomplete"] is True and marked["date"] == str(today)
+    undone = client.post(
+        "/api/diary/sleep-incomplete", json={"incomplete": False}, headers=write
+    ).json()["data"]
+    assert undone["sleep_incomplete"] is False
+    future = client.post("/api/diary/sleep-incomplete", json={"date": "2999-01-01"}, headers=write)
+    assert future.status_code == 400
