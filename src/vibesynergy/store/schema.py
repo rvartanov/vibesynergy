@@ -623,6 +623,9 @@ checkin = Table(
     Column("stress", Integer),
     Column("motivation", Integer),
     Column("note", Text),
+    # The night's sleep measurement marked incomplete by the athlete (#53): the short sleep
+    # and the readiness from it no longer count for the day's advice.
+    Column("sleep_incomplete", Boolean),
     Column("updated_at", UTCDateTime, nullable=False),
     PrimaryKeyConstraint("subject_id", "date"),
 )

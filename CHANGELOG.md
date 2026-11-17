@@ -11,6 +11,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **A night the watch cut short**: when your check-in says you slept well (4-5) but the watch
+  measured under 5 hours, Today asks whether the measurement was incomplete instead of
+  calling it a short night. **Yes, ignore this night** keeps that short sleep and the
+  readiness from it out of today's advice; **Undo** puts it back. Garmin's own record is not
+  changed. The coach sees the same in `vibesynergy_today`, and `vibesynergy_explain` shows
+  the mark. (#53)
 - **⚡ in front of every Garmin workout from VibeSynergy** (strength, run, ride, swim and
   brick), so on the watch and in Garmin Connect you see which workouts are VibeSynergy's next
   to Garmin Coach and your own. Upcoming workouts on Garmin are renamed once. (#64)

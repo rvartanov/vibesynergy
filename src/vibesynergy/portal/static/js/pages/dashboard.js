@@ -130,6 +130,7 @@ export async function render(view, { args, query, meta, stale }) {
     html.advice = `<section class="card dash-today verdict ${esc(failed(d.verdict) ? "" : d.verdict?.level || "")}" aria-labelledby="dash-today-title">
           <h2 id="dash-today-title" class="dash-kicker">${t("Advice for today")}</h2>
           <div data-dash-advice>${todayAdviceHtml(d)}</div>
+          ${share ? "" : sleepCheckHtml(d.verdict)}
           <div class="dash-plan">
             ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}
             ${completedHtml(d.completed?.activities, d.completed, share, { editable: true })}
@@ -224,6 +225,7 @@ export async function render(view, { args, query, meta, stale }) {
     </div>` : ""}`;
 
   bindRefresh(view, { args, query, meta, stale });
+  bindSleepCheck(view, date, { args, query, meta, stale });
   bindGroupTrainings(view);
   bindDayPicker(view, today);
   for (const button of view.querySelectorAll("[data-block-retry]")) {
@@ -596,6 +598,32 @@ function todayAdviceHtml(d) {
     ? `<details data-refresh-key="dashboard-guidance-details"><summary>${t("Why this advice")}</summary><p>${esc(reasons.join(". "))}.</p></details>`
     : "";
   return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice)}</p>${details}`;
+}
+
+// A night the watch may have cut short (#53): the check-in says good sleep, the watch measured
+// under 5 h. Asked, not told; marking it keeps the night out of the advice, and can be undone.
+function sleepCheckHtml(verdict) {
+  const check = verdict && !failed(verdict) ? verdict.sleep_check : null;
+  if (!check) return "";
+  if (check.state === "incomplete") {
+    return `<p class="sub sleep-check" data-sleep-check>${esc(t("You marked last night's measurement as incomplete: its short sleep and readiness don't count for today's advice."))} <button class="linkish" type="button" data-sleep-incomplete="false">${esc(t("Undo"))}</button></p>`;
+  }
+  const time = hoursMinutes(check.measured_s);
+  return `<div class="notice sleep-check" data-sleep-check><p>${esc(t("Your watch measured only {time} of sleep, but your check-in says you slept well. Was the measurement incomplete?", { time }))}</p><button class="btn" type="button" data-sleep-incomplete="true">${esc(t("Yes, ignore this night"))}</button></div>`;
+}
+
+function bindSleepCheck(view, date, ctx) {
+  for (const button of view.querySelectorAll("[data-sleep-incomplete]")) {
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await post("diary/sleep-incomplete", { date, incomplete: button.dataset.sleepIncomplete === "true" });
+        if (!ctx.stale()) await render(view, ctx);
+      } catch {
+        button.disabled = false;
+      }
+    });
+  }
 }
 
 function safetyLine(verdict) {

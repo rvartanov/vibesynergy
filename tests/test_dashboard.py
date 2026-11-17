@@ -680,3 +680,19 @@ def test_current_load_matches_dashboard_and_training(runtime) -> None:
     trained = client.get("/api/training").json()["data"]["load"]["current"]
     for key in ("ctl", "atl", "tsb"):
         assert dash[key] == snapshot[key] == trained[key]
+
+
+def test_a_cut_short_night_with_a_good_check_in_is_asked_about() -> None:
+    """#53: 3 h 29 min measured, the check-in says very good: a question, and once marked
+    the short night no longer sets the advice."""
+    short = _recovery(sleep=_b(3 * 3600 + 29 * 60, 7.5 * 3600, 1800))
+    asked = dashboard._verdict(short, LOAD, _plan(), [], sick=False, checkin={"sleep_quality": 5})
+    assert asked["sleep_check"]["state"] == "suspect" and "short_sleep" in asked["rules"]
+    marked = dashboard._verdict(
+        short, LOAD, _plan(), [], sick=False,
+        checkin={"sleep_quality": 5, "sleep_incomplete": True},
+    )  # fmt: skip
+    assert marked["sleep_check"]["state"] == "incomplete"
+    assert "short_sleep" not in marked["rules"] and marked["level"] == "green"
+    agreed = dashboard._verdict(short, LOAD, _plan(), [], sick=False, checkin={"sleep_quality": 2})
+    assert agreed["sleep_check"] is None

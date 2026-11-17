@@ -485,7 +485,9 @@ example queries. Also available as resource `vibesynergy://schema`.
 
 #### `vibesynergy_explain`
 - Params: `metric` + `date`, or `activity_id` + `field`.
-- Returns: provenance (§2.8) and alternative values from other sources.
+- Returns: provenance (§2.8) and alternative values from other sources. A sleep metric or
+  readiness on a night the athlete marked as an incomplete measurement adds
+  `marked_incomplete`: the value stays, it does not count for that day's advice.
 
 ### 3.2 Viewing: days and periods
 
@@ -798,6 +800,9 @@ One call for "how should I train today?".
   the last three days done, the A race and any B race with the phase, the dashboard verdict
   and attention list, the safety floor (level, rules, text), this coach's last entries and
   freshness, and stale-data warnings. `planned_today` is the first session today.
+  `sleep_check`: `suspect` when the check-in rates sleep 4-5 but the watch measured under
+  5 h (ask, don't call it a short night), `incomplete` when the athlete marked the night so
+  (its short sleep and readiness are out of the safety floor), else null.
   `date_label` is `d-m-yyyy`; other dates stay ISO. Items carry `source` and `in_plan`;
   `plan_source` says where the plan comes from (`vibesynergy`, `intervals_icu` or `garmin`),
   and `not_in_plan` lists today's Garmin workouts that are not in the plan (see

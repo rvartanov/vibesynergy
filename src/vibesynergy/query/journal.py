@@ -329,6 +329,41 @@ def set_checkin(engine: Engine, when: date, **scores: Any) -> dict[str, Any]:
     return checkins(engine, Window(when, when))[0]
 
 
+# A night that looks cut short (#53): the check-in says good sleep, the watch measured little.
+SUSPECT_QUALITY = 4
+SUSPECT_SLEEP_S = 5 * 3600
+
+
+def set_sleep_incomplete(engine: Engine, when: date, incomplete: bool) -> dict[str, Any]:
+    """Mark (or unmark) the night ending on ``when`` as an incomplete measurement. Garmin's
+    record is not changed; the mark only keeps that night out of the day's advice."""
+    values: dict[str, Any] = {"sleep_incomplete": bool(incomplete), "updated_at": utc_now()}
+    with engine.begin() as conn:
+        conn.execute(
+            insert(checkin)
+            .values(subject_id=SUBJECT, date=when, **values)
+            .on_conflict_do_update(index_elements=["subject_id", "date"], set_=values)
+        )
+    return checkins(engine, Window(when, when))[0]
+
+
+def sleep_check(day_checkin: dict | None, sleep_s: float | None) -> dict[str, Any] | None:
+    """Whether the night's measurement may be incomplete: ``incomplete`` when marked so,
+    ``suspect`` when the check-in rates sleep 4-5 but under 5 h was measured, else ``None``."""
+    found = day_checkin or {}
+    if found.get("sleep_incomplete"):
+        return {"state": "incomplete", "measured_s": sleep_s}
+    quality = found.get("sleep_quality")
+    if (
+        isinstance(quality, int)
+        and quality >= SUSPECT_QUALITY
+        and sleep_s is not None
+        and sleep_s < SUSPECT_SLEEP_S
+    ):
+        return {"state": "suspect", "measured_s": sleep_s, "sleep_quality": quality}
+    return None
+
+
 def checkins(engine: Engine, window: Window) -> list[dict[str, Any]]:
     rows = _rows(
         engine,
@@ -625,7 +660,9 @@ def context(engine: Engine, when: date) -> dict[str, Any] | None:
         out["notes"] = [{"text": n["text"], "tags": n["tags"]} for n in day["notes"]]
     if day["checkin"]:
         out["checkin"] = {
-            k: v for k, v in day["checkin"].items() if k in CHECKIN_FIELDS or k == "note"
+            k: v
+            for k, v in day["checkin"].items()
+            if k in CHECKIN_FIELDS or k == "note" or (k == "sleep_incomplete" and v)
         }
     pains = [
         {"injury": i["title"], "pain": i["pain"]["pain"]} for i in day["injuries"] if i["pain"]

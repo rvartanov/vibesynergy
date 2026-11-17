@@ -1047,6 +1047,26 @@ def explain(
             "order": rules[rule],
         },
         "definition": KNOWN[metric].to_dict() if metric in KNOWN else None,
+        **_sleep_mark(engine, metric, when),
+    }
+
+
+_MARKED_METRICS = ("sleep.", "recovery.readiness")
+
+
+def _sleep_mark(engine: Engine, metric: str, when: date) -> dict[str, Any]:
+    """A night the athlete marked as an incomplete measurement (#53): the value stays as the
+    source measured it, but it does not count for that day's advice."""
+    if not metric.startswith(_MARKED_METRICS):
+        return {}
+    found = journal.checkins(engine, Window(when, when))
+    if not (found and found[0].get("sleep_incomplete")):
+        return {}
+    return {
+        "marked_incomplete": {
+            "by": "athlete",
+            "note": "marked as an incomplete measurement; not counted for that day's advice",
+        }
     }
 
 
