@@ -1,28 +1,31 @@
 WEBVTT
 
-00:00:01.966 --> 00:00:06.127
+00:00:04.420 --> 00:00:08.852
 Training → Coach: advies, kennis, regels, geheugen en taken van je AI-coach.
 
-00:00:06.177 --> 00:00:09.271
+00:00:08.902 --> 00:00:12.081
 Instellingen: zet de coach aan en kies een AI-aanbieder.
 
-00:00:09.321 --> 00:00:13.784
+00:00:12.131 --> 00:00:15.652
 Plak hier je eigen API-sleutel en kies 'Sleutel opslaan'.
 
-00:00:13.834 --> 00:00:18.545
-Per taak stel je in wanneer de coach werkt, bijvoorbeeld het ochtendadvies om 9 uur.
+00:00:15.702 --> 00:00:21.209
+Nieuwe gegevens maken in de loop van de dag een nieuwe versie van het advies. Kies hoeveel updates per dag hoogstens; je ziet wat dat kost.
 
-00:00:18.595 --> 00:00:23.557
+00:00:21.259 --> 00:00:26.119
+Per taak stel je in wanneer de coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.
+
+00:00:26.169 --> 00:00:31.503
 Geheugen: wat de coach over je onthoudt, en hoe hij praat.
 
-00:00:23.607 --> 00:00:33.382
+00:00:31.553 --> 00:00:41.845
 Notities voor je coach worden vanzelf bewaard.
 
-00:00:33.432 --> 00:00:38.094
+00:00:41.895 --> 00:00:46.693
 Bij 'Wat te onthouden' leg je vaste afspraken vast, zoals wanneer je kunt trainen.
 
-00:00:38.144 --> 00:00:42.592
+00:00:46.743 --> 00:00:51.381
 Kennis: artikelen waarop de coach zich baseert. Wijzigingen keur jij goed.
 
-00:00:42.642 --> 00:00:46.298
+00:00:51.431 --> 00:00:55.086
 Logboek: elke wijziging in wat je coach weet, terug te kijken.

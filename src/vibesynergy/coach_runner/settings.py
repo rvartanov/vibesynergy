@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from vibesynergy.core.secrets import SecretStore
@@ -58,7 +58,9 @@ EFFORTS = ("low", "medium", "high", "xhigh", "max")
 MAX_CAP_USD = 1000.0
 EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
 DEFAULT_SCHEDULE: dict[str, dict[str, Any]] = {
-    "morning": {"on": True, "time": "09:04", "days": EVERY_DAY},
+    # The fixed advice run (#90): 07:00, before the athlete's check-in. New data after it
+    # makes a new version of the advice (coach_runner.triggers).
+    "morning": {"on": True, "time": "07:00", "days": EVERY_DAY},
     "evening": {"on": True, "time": "21:45", "days": EVERY_DAY},
     "weekly": {"on": True, "time": "19:44", "days": [6]},
     # Monthly runs on a day of the month (1-28), not a weekday (task 14). Off by
@@ -73,6 +75,9 @@ DEFAULT_SCHEDULE: dict[str, dict[str, Any]] = {
     # Knowledge-base care on a day of the month (task 18).
     "kb": {"on": True, "time": "10:34", "days": EVERY_DAY, "monthday": 15},
 }
+# Version 2 of the saved schedule (#90): the morning run moved to 07:00. A schedule saved
+# before keeps every choice except the morning time, which follows the new default once.
+SCHEDULE_VERSION = 2
 RACE_DAYS_BEFORE = (7, 1)
 MONTHLY_JOBS = ("monthly", "kb")  # on a day of the month, not a weekday
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -96,6 +101,8 @@ class RunnerSettings:
     tasks: dict[str, dict[str, str]]
     keys: dict[str, bool]
     local_url: str | None
+    # The advice during the day (#90): {"max_runs": automatic updates per day, 0 = off}.
+    advice: dict[str, Any] = field(default_factory=dict)
 
     def usable(self, provider: str) -> bool:
         if provider == "local":
@@ -128,12 +135,22 @@ def load(rt) -> RunnerSettings:
         max_output_tokens=int(_number(cfg.get("max_output_tokens"), DEFAULT_MAX_OUTPUT_TOKENS)),
         effort=effort if effort in EFFORTS else DEFAULT_EFFORT,
         api_key_set=any(api_key(rt, p) for p in PROVIDERS) or bool(saved.get("local_url")),
-        schedule=_schedule(saved.get("schedule")),
+        schedule=_schedule(saved.get("schedule"), saved.get("schedule_version")),
         models=(models := _models(saved.get("models"))),
         tasks=_tasks(saved.get("tasks"), models),
         keys={p: bool(api_key(rt, p)) for p in PROVIDERS},
         local_url=saved.get("local_url") or None,
+        advice=_advice(saved.get("advice")),
     )
+
+
+def _advice(saved: Any) -> dict[str, Any]:
+    from vibesynergy.coach_runner import triggers
+
+    saved = saved if isinstance(saved, dict) else {}
+    found = saved.get("max_runs")
+    ok = isinstance(found, int) and not isinstance(found, bool)
+    return {"max_runs": found if ok else triggers.DEFAULT_MAX_RUNS}
 
 
 def _tasks(saved: Any, models: dict[str, str]) -> dict[str, dict[str, str]]:
@@ -159,13 +176,16 @@ def _models(saved: Any) -> dict[str, str]:
     return {kind: saved.get(kind) if saved.get(kind) in MODELS else MODEL for kind in MODEL_KINDS}
 
 
-def _schedule(saved: Any) -> dict[str, dict[str, Any]]:
-    """The defaults with what was saved on top, per report."""
+def _schedule(saved: Any, version: Any = SCHEDULE_VERSION) -> dict[str, dict[str, Any]]:
+    """The defaults with what was saved on top, per report. A schedule saved before
+    version 2 gets the new morning time (07:00); its other choices stay."""
     saved = saved if isinstance(saved, dict) else {}
     out = {}
     for job, default in DEFAULT_SCHEDULE.items():
         mine = saved.get(job) if isinstance(saved.get(job), dict) else {}
         out[job] = {**default, **mine}
+    if saved and version != SCHEDULE_VERSION:
+        out["morning"]["time"] = DEFAULT_SCHEDULE["morning"]["time"]
     return out
 
 
@@ -239,6 +259,7 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
         "models",
         "tasks",
         "local_url",
+        "advice",
     }
     if unknown:
         raise RunnerSettingsError("Unknown setting.")
@@ -298,8 +319,28 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
             if task in EVENT_TASKS:
                 current[task]["on"] = merged.get("on") is not False
         doc["tasks"] = current
+    if "advice" in changes:
+        from vibesynergy.coach_runner import triggers
+
+        value = changes["advice"]
+        if not isinstance(value, dict) or set(value) - {"max_runs"}:
+            raise RunnerSettingsError("Unknown setting.")
+        runs = value.get("max_runs", _advice(doc.get("advice"))["max_runs"])
+        if isinstance(runs, float) and runs.is_integer():
+            runs = int(runs)
+        if (
+            isinstance(runs, bool)
+            or not isinstance(runs, int)
+            or not 0 <= runs <= triggers.MAX_RUNS_LIMIT
+        ):
+            raise RunnerSettingsError("Choose from 0 to 24 updates a day (0 switches them off).")
+        doc["advice"] = {"max_runs": runs}
+    current_schedule = _schedule(doc.get("schedule"), doc.get("schedule_version"))
     if "schedule" in changes:
-        doc["schedule"] = _check_schedule(changes["schedule"], _schedule(doc.get("schedule")))
+        doc["schedule"] = _check_schedule(changes["schedule"], current_schedule)
+    elif doc.get("schedule"):
+        doc["schedule"] = current_schedule
+    doc["schedule_version"] = SCHEDULE_VERSION
     doc["updated_at"] = utc_now().isoformat()
     store(rt).set(SETTINGS_DOC, doc)
     _audit(rt, "coach_runner.settings", sorted(changes), actor)

@@ -26,6 +26,7 @@ class RunnerChange(BaseModel):
     models: dict[str, str] | None = None
     tasks: dict[str, dict[str, str | bool]] | None = None  # bool: an event task's "on"
     local_url: str | None = None
+    advice: dict[str, int] | None = None  # {"max_runs": automatic updates per day}
 
 
 class TestRun(BaseModel):

@@ -312,6 +312,7 @@ def test_an_mcp_entry_records_the_harness_it_was_written_under(rt, today):
     data = result.structured_content["data"]
     assert data["meta"]["safety"] == OK
     assert data["meta"]["harness"] == {
+        "target": today.isoformat(),  # the day this advice is for (#90)
         "version": contract.HARNESS_VERSION,
         "via": "mcp",
         "task": "morning",

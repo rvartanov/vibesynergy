@@ -44,8 +44,8 @@ const TASK_NAMES = { morning: N("Morning advice"), evening: N("Evening review"),
 // When an event task starts, in one line.
 const EVENT_TEXT = {
   test: N("Starts when a planned test (run test, FTP, CSS) is done and synced. New thresholds come as a proposal you approve."),
-  injury: N("Starts when you log pain of 4 out of 10 or more for today, or pain that affects how you move. At most once a day."),
-  checkin: N("Starts when your check-in after the morning advice shows a hard day: two or more low scores, before 20:00. At most once a day."),
+  injury: N("Starts at once when you log pain or an injury for today, and makes a new version of today's advice. Counts toward the updates per day."),
+  checkin: N("Starts a few minutes after you save your check-in after the morning advice, and makes a new version of today's advice. A check-in saved before it is read by the morning advice. Counts toward the updates per day."),
 };
 // Tasks that run as code, without a model: a switch and what they do.
 const CODE_TASK_TEXT = {
@@ -191,9 +191,13 @@ function scheduleRowHtml(job, spec, canTest) {
     : job === "monthly"
     ? `<label for="${id}-monthday">${esc(t("Day of the month"))}</label>
        <input class="btn" id="${id}-monthday" name="${job}-monthday" type="number" min="1" max="28" step="1" inputmode="numeric" value="${esc(String(spec.monthday || 1))}">`
+    : job === "morning"
+    ? `${dayPicks(job, spec)}<p class="sub">${esc(t("The fixed advice of the day. New data after it updates the advice during the day."))}</p>`
+    : job === "evening"
+    ? `${dayPicks(job, spec)}<p class="sub">${esc(t("Its advice is for tomorrow, and counts until the morning advice."))}</p>`
     : job === "weekly"
     ? `<label>${esc(t("Day"))} <select class="btn" name="${job}-day">${DAYS.map(([, long], i) => `<option value="${i}"${spec.days.includes(i) ? " selected" : ""}>${esc(t(long))}</option>`).join("")}</select></label>`
-    : `<fieldset class="day-picks"><legend>${esc(t("Days"))}</legend>${DAYS.map(([short, long], i) => `<label class="check"><input type="checkbox" name="${job}-days" value="${i}"${spec.days.includes(i) ? " checked" : ""}> <span aria-hidden="true">${esc(t(short))}</span><span class="visually-hidden">${esc(t(long))}</span></label>`).join("")}</fieldset>`;
+    : dayPicks(job, spec);
   return `<fieldset class="coach-task-when">
     <legend>${esc(t("When"))}</legend>
     <label for="${id}-time">${esc(t("Time"))}</label>
@@ -201,6 +205,27 @@ function scheduleRowHtml(job, spec, canTest) {
     ${days}
     <div class="settings-save" data-autosave-skip><button class="btn" type="button" data-runner-test="${job}"${canTest ? "" : " disabled"}>${esc(t("Test now"))}</button></div>
   </fieldset>`;
+}
+
+function dayPicks(job, spec) {
+  return `<fieldset class="day-picks"><legend>${esc(t("Days"))}</legend>${DAYS.map(([short, long], i) => `<label class="check"><input type="checkbox" name="${job}-days" value="${i}"${spec.days.includes(i) ? " checked" : ""}> <span aria-hidden="true">${esc(t(short))}</span><span class="visually-hidden">${esc(t(long))}</span></label>`).join("")}</fieldset>`;
+}
+
+// The advice during the day (#90): new data makes a new version, at most this many a day.
+function adviceUpdatesHtml(data) {
+  const advice = data.advice || {};
+  const cost = advice.cost_per_run_usd == null
+    ? t("The cost shows here after the first advice.")
+    : t("About {each} per update: at most {day} a day, {month} a month.", {
+      each: dollars(advice.cost_per_run_usd),
+      day: dollars(advice.max_cost_per_day_usd),
+      month: dollars(advice.max_cost_per_month_usd),
+    });
+  return `<div class="settings-field">
+    <label for="coach-runner-advice-max">${esc(t("Updates of the advice per day, at most"))}</label>
+    <input class="btn" id="coach-runner-advice-max" name="advice_max_runs" type="number" min="0" max="${esc(String(advice.max_runs_limit ?? 24))}" step="1" inputmode="numeric" aria-describedby="coach-runner-advice-hint" value="${esc(String(advice.max_runs ?? 4))}">
+    <p class="sub" id="coach-runner-advice-hint">${esc(t("New sleep or HRV, your check-in, a workout, a plan change or your reply make a new version of the advice a few minutes later; a note or pain at once. 0 switches this off. At the maximum the fixed rules give the advice."))} ${esc(cost)} ${esc(t("Today: {n}.", { n: number(advice.runs_today ?? 0) }))}</p>
+  </div>`;
 }
 
 function scheduleFrom(el) {
@@ -247,6 +272,7 @@ function cardHtml(data) {
         <input class="btn" id="coach-runner-cap" name="monthly_cap_usd" type="number" min="1" max="1000" step="1" inputmode="numeric" aria-describedby="coach-runner-cap-hint" value="${esc(String(data.monthly_cap_usd))}">
         <p class="sub" id="coach-runner-cap-hint">${esc(t("You get a mail at 80%. At 100% your coach pauses until next month."))}</p>
       </div>
+      ${adviceUpdatesHtml(data)}
       <div class="settings-field" data-autosave-skip>
         <label for="coach-runner-name">${esc(t("Your name"))}</label>
         <input class="btn" id="coach-runner-name" name="athlete_name" maxlength="40" autocomplete="given-name" aria-describedby="coach-runner-name-hint" value="${esc(data.athlete_name && data.athlete_name !== "de atleet" ? data.athlete_name : "")}">
@@ -303,6 +329,7 @@ function draw(el, stale, data) {
           .filter((box) => !el.querySelector(`[name="task-provider-${box.name.slice("task-on-".length)}"]`))
           .map((box) => [box.name.slice("task-on-".length), { on: box.checked }]))),
         local_url: el.querySelector('[name="local_url"]')?.value.trim() ?? "",
+        advice: { max_runs: Number(el.querySelector('[name="advice_max_runs"]').value) },
       };
       if (!toggle.disabled) changes.enabled = toggle.checked;
       try {

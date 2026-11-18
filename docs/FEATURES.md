@@ -169,6 +169,14 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   off until you switch it on: morning advice, evening review, week review, race brief,
   check-in, injury and threshold tasks, each with its own switch, schedule and model, a
   monthly cost cap with warnings.
+- **Continuous advice**: your AI coach gives the day's advice at 07:00 (time in Coach →
+  Settings) and makes a new version when new data comes in: sleep or HRV, your check-in, a
+  note, pain or an injury (at once), a workout, a plan change for today or tomorrow, or your
+  reply. It waits a few minutes so several syncs give one update, up to a daily maximum you
+  set, with its cost shown; at the maximum the fixed rules give the advice. The evening
+  review's advice is for tomorrow. There is one current advice per day: the start page says
+  when it was written and after what, the Coach page lists the earlier versions, and a mail
+  comes only when the colour, the safety level or a session decision changes.
 - **One harness for every coach**: each task has a versioned prompt and rules, a fixed
   context that starts with the safety outcome (the rules' level and reasons, sleep check,
   measurement gaps, check-in, complaints, injuries), and an output contract. An entry that

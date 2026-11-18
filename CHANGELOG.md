@@ -11,6 +11,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Continuous advice** (#90): your AI coach makes the day's advice at 07:00 (adjustable in
+  Coach → Settings) and a new version when new data comes in: sleep or HRV, your check-in,
+  a note, pain or an injury (at once), a workout, a plan change for today or tomorrow, or your
+  reply to a report. It waits a few minutes so several syncs give one update. Set the most
+  updates per day in Coach → Settings, which shows what they cost; at the maximum the fixed
+  rules give the advice and say why.
+- **One current advice per day, with its versions** (#90): the start page says when the
+  advice was written and after what ("Updated at 10:32 after your check-in"), and the Coach
+  page lists the earlier versions. The evening review's advice is for tomorrow, so it is
+  today's advice until the morning advice. A mail comes only when the colour, the safety
+  level or a session decision changes, not for new wording.
 - **Today's advice comes from your AI coach** (#89): its colour, safety level, reasons and
   words, everywhere: the start page, the Coach page, `vibesynergy_today` and the mail show
   the same advice. When there is no valid advice from your AI coach, the fixed rules give it
@@ -206,6 +217,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **The injury check and the check-in reaction now run** (#90). They waited for a check-in
+  after a 09:04 morning report with two low scores, or pain of 4/10 or more, which never
+  happened; now any check-in after the morning advice and any pain or injury for today starts
+  them.
 - **A failed sync no longer stays in the header after the next sync works.** A one-off
   calendar error (HTTP 401) showed "Calendar sync problem" for 24 hours while every later
   sync succeeded; it now goes away once the same data syncs again. This applies to every

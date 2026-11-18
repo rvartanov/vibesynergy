@@ -507,6 +507,18 @@ def register(kit: ToolKit) -> None:
                 floor=floor,
                 autonomous=under is not None,
             )
+            # A runner's daily advice is written on the run's own day; the evening's counts
+            # for tomorrow (#90), which the harness records as its target.
+            if (
+                under is not None
+                and checked["task"] == under["task"]
+                and under.get("target")
+                and day != under["for_date"]
+            ):
+                raise harness_contract.ContractError(
+                    f"Refused by the output contract: for_date must be "
+                    f"{under['for_date'].isoformat()} for this {under['task']} run"
+                )
         except harness_contract.ContractError as exc:
             raise ToolError(str(exc)) from exc
         current = (
@@ -515,7 +527,13 @@ def register(kit: ToolKit) -> None:
             else None
         )
         stamp = harness_contract.harness_meta(
-            task=checked["task"], declared=harness, current=current, floor=floor
+            task=checked["task"],
+            declared=harness,
+            current=current,
+            floor=floor,
+            target=harness_contract.advice_target(
+                entry_type, checked["task"], day, today(), checked["safety"] is not None
+            ),
         )
         extra: dict[str, Any] = {"harness": stamp}
         if model_id:

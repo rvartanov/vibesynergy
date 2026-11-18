@@ -38,6 +38,7 @@ def overview(rt) -> dict[str, Any]:
         "usage": {**used, "share": round(used["cost_usd"] / cap, 4) if cap else None},
         "over_budget": used["cost_usd"] >= cap,
         "schedule": cfg.schedule,
+        "advice": _advice(rt, cfg),
         "timezone": runner.zone(rt).key,
         "jobs": list(JOBS),
         "last_runs": runner.last_runs(rt),
@@ -55,6 +56,24 @@ def overview(rt) -> dict[str, Any]:
             }
             for task in registry.TASKS
         ],
+    }
+
+
+def _advice(rt, cfg) -> dict[str, Any]:
+    """The advice during the day (#90): the daily maximum, how many ran today and what an
+    update costs on average, so the page can show the cost of the maximum."""
+    from vibesynergy.coach_runner import triggers
+
+    most = triggers.max_runs(cfg)
+    each = triggers.cost_per_run(rt)
+    return {
+        "max_runs": most,
+        "max_runs_limit": triggers.MAX_RUNS_LIMIT,
+        "runs_today": triggers.runs_today(rt),
+        "cost_per_run_usd": each,
+        "max_cost_per_day_usd": round(each * most, 2) if each is not None else None,
+        "max_cost_per_month_usd": round(each * most * 30, 2) if each is not None else None,
+        "debounce_minutes": int(triggers.DEBOUNCE.total_seconds() // 60),
     }
 
 
