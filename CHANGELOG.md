@@ -200,6 +200,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **A failed sync no longer stays in the header after the next sync works.** A one-off
+  calendar error (HTTP 401) showed "Calendar sync problem" for 24 hours while every later
+  sync succeeded; it now goes away once the same data syncs again. This applies to every
+  source.
 - Today's advice no longer adds "Review what you have already done before adding training"
   after the activities recorded today: it was unclear and repeated what Plan and done
   shows. The count and what is still on the plan stay. (#85)
