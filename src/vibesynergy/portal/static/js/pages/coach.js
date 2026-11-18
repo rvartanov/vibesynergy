@@ -13,7 +13,7 @@ import {
 } from "../daily_review.js";
 import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
-import { adviceHtml, adviceLevel } from "../daily_advice.js";
+import { adviceHtml, adviceLevel, versionsHtml } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
 
 const COACH_TIMEOUT_MS = 15000;
@@ -212,7 +212,7 @@ export async function render(view, { args = [], query, meta, stale }) {
         if (stale() || !adviceCard.isConnected) return;
         const level = adviceLevel(data);
         if (level) adviceCard.classList.add(level);
-        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = adviceHtml(data, { keyPrefix: "coach" });
+        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = adviceHtml(data, { keyPrefix: "coach" }) + versionsHtml(data);
       })
       .catch(() => {
         if (stale() || !adviceCard.isConnected) return;

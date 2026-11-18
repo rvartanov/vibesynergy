@@ -375,12 +375,48 @@ def start_message(
     replied = _reply_lines(replies or [], prompts.athlete_name(rt.settings))
     return (
         f'{head}\nSchrijf je entry met entry_type "{entry}", idempotency_key "{key}" en '
-        f'for_date "{for_date.isoformat()}".\n\n{replied}'
+        f'for_date "{for_date.isoformat()}".'
+        + _advice_lines(rt, job, for_date, payload)
+        + f"\n\n{replied}"
         + _about(payload)
         + _preloaded(
             rt, job, for_date, harness, activity_ids=(payload or {}).get("activity_ids") or []
         )
     )
+
+
+CHANGE_NAMES = {
+    "sleep": "slaap",
+    "hrv": "HRV",
+    "checkin": "de check-in",
+    "note": "een notitie",
+    "injury": "pijn of een blessure",
+    "activity": "een training (gedaan of gewijzigd)",
+    "plan": "het plan",
+    "reply": "een antwoord van {name}",
+}
+
+
+def _advice_lines(rt, job: str, for_date: date, payload: dict[str, Any] | None) -> str:
+    """For a daily advice: the day it is for, and for a new version what came in (#90)."""
+    target = _advice_target(job, for_date)
+    if target is None:
+        return ""
+    lines = [
+        f"Dit advies (kleur, safety, sessies) geldt voor {format_user_date(target)} "
+        f"({target.isoformat()})."
+    ]
+    changes = (payload or {}).get("changes") or []
+    if changes:
+        name = prompts.athlete_name(rt.settings)
+        what = ", ".join(CHANGE_NAMES.get(c, c).format(name=name) for c in changes)
+        lines.append(
+            f"Dit is een nieuwe versie van het huidige advies: sinds de vorige versie kwam "
+            f"nieuw binnen: {what}. Lees dat eerst. Schrijf het hele advies opnieuw; het "
+            "vervangt de vorige versie. Verandert er niets aan kleur, veiligheid of "
+            "sessies, zeg dat dan kort."
+        )
+    return "\n" + "\n".join(lines)
 
 
 def _about(payload: dict[str, Any] | None) -> str:
@@ -656,7 +692,15 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
         raise RunnerError(f"{model_name} lacks what {job} needs", retry=False)
     # What this run is told and given, as one stamp; every entry it writes carries it.
     stamp = prompts.harness_stamp(rt.settings, job, rt.engine)
-    under = {"task": job, "for_date": for_date, "stamp": stamp}
+    under: dict[str, Any] = {"task": job, "for_date": for_date, "stamp": stamp}
+    advice_target = _advice_target(job, for_date)
+    if advice_target is not None:
+        # A daily advice (#90): the day it is for, and why this version is made.
+        under.update(
+            target=advice_target,
+            trigger=row.get("trigger"),
+            changes=list((payload or {}).get("changes") or []),
+        )
     if job == "insight":
         ids = (payload or {}).get("activity_ids") or []
         box = ToolBox(
@@ -686,6 +730,16 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
         "rules": prompts.RULES_VERSION,
         "prompt": prompts.prompt_version(rt.settings, job, rt.engine),
     }
+    if advice_target is not None:
+        # The inputs this version starts from: new data after this is a change (#90).
+        from vibesynergy.coach_runner import triggers
+
+        harness["target"] = advice_target.isoformat()
+        harness["changes"] = under["changes"]
+        try:
+            harness["inputs"] = triggers.fingerprint(rt, advice_target)
+        except Exception:
+            log.exception("coach runner: reading the advice inputs failed")
     messages: list[dict[str, Any]] = [
         {
             "role": "user",
@@ -806,19 +860,44 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             return result
         coach_replies.mark_read(rt.engine, [r["id"] for r in replies], row["id"])
         _save(rt, row["id"], status="done", entry_id=entry["id"], finished_at=finished)
-        _mail(rt, row, job, for_date, entry, result)
+        if advice_target is not None and not _real_change(rt, advice_target, entry):
+            # A new version that only rewords the advice: no mail (#90).
+            _save(rt, row["id"], harness={**harness, "contract": issues, "mail": "no_change"})
+            return result
+        _mail(rt, row, job, for_date, entry, result, advice_day=advice_target)
         return result
     _save(rt, row["id"], status="done", finished_at=finished)
     return result
 
 
-def _mail(rt, row, job, for_date, entry, result: RunResult) -> None:
+def _advice_target(job: str, for_date: date) -> date | None:
+    """The day a daily advice run is for (the evening run: tomorrow); None otherwise."""
+    from vibesynergy.query import daily_advice
+
+    return daily_advice.target_day(job, for_date) if job in daily_advice.ADVICE_JOBS else None
+
+
+def _real_change(rt, target: date, entry: dict[str, Any]) -> bool:
+    """The new version differs from the previous valid advice for that day in colour,
+    safety level or a session decision. The first advice for a day always counts."""
+    from vibesynergy.query import daily_advice
+
+    try:
+        return daily_advice.real_change(rt, target, entry)
+    except Exception:
+        log.exception("coach runner: comparing the advice versions failed; mailing")
+        return True
+
+
+def _mail(
+    rt, row, job, for_date, entry, result: RunResult, *, advice_day: date | None = None
+) -> None:
     current = get_run(rt, row["job"], row["run_key"]) or {}
     if current.get("mailed_at"):
         result.mailed = True
         return
     try:
-        used = report.send(rt, job, for_date, entry)
+        used = report.send(rt, job, for_date, entry, advice_day=advice_day)
     except Exception as exc:  # the run itself is done; the mail can be resent by hand
         log.exception("coach runner: mailing the %s report failed", job)
         _save(rt, row["id"], mail_error=type(exc).__name__)

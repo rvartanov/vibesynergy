@@ -27,7 +27,6 @@ from vibesynergy.store.schema import (
     coach_decision_log,
     coach_reply,
     coach_run,
-    injury_log,
     job,
 )
 
@@ -211,9 +210,9 @@ def test_schedule_times_and_queue(rt):
     enable(rt)
     # DAY is the 1st; the month report has its own test below.
     runner_settings.save(rt, {"schedule": {"monthly": {"on": False}}})
-    assert schedule.due_runs(rt, local(9, 3)) == []
-    assert [r["job"] for r in schedule.due_runs(rt, local(9, 4))] == ["morning"]
-    assert schedule.due_runs(rt, local(12, 5)) == []  # past the grace window
+    assert schedule.due_runs(rt, local(6, 59)) == []
+    assert [r["job"] for r in schedule.due_runs(rt, local(7, 0))] == ["morning"]  # #90
+    assert schedule.due_runs(rt, local(10, 5)) == []  # past the grace window
     assert [r["job"] for r in schedule.due_runs(rt, local(19, 44))] == ["weekly"]  # Sunday
     assert schedule.due_runs(rt, local(19, 44, DAY + timedelta(days=1))) == []  # Monday
     # The weekly review is still inside its window when the evening run starts.
@@ -973,7 +972,7 @@ def test_catch_up_queues_a_report_that_never_ran(rt):
         with rt.engine.begin() as conn:
             return schedule._catch_up(rt, conn, cfg, missed, now=now)
 
-    assert catch(local(11, 0)) is None  # still inside the window: the schedule runs it
+    assert catch(local(9, 0)) is None  # still inside the window: the schedule runs it
     queued = catch(local(13, 0))
     assert queued is not None and catch(local(13, 5)) is None  # once
     with rt.engine.connect() as conn:
@@ -995,80 +994,8 @@ def test_catch_up_queues_a_report_that_never_ran(rt):
         assert schedule._catch_up(rt, conn, cfg, weekly, now=local(23, 0)) is not None
 
 
-def test_injury_check_starts_on_real_pain_once_a_day(rt):
-    """Task 7: pain of 4+ or pain that affects movement, logged for today."""
-    from vibesynergy.query import journal
-
-    enable(rt)
-    runner_settings.save(rt, {"schedule": {"monthly": {"on": False}}})
-
-    def injury_due(now):
-        return [r for r in schedule.due_runs(rt, now) if r["job"] == "injury"]
-
-    journal.log_injury(
-        rt.engine, today=DAY, body_part="calf", side="left", kind="pain", pain=2, timing="after"
-    )
-    assert injury_due(local(16, 0) + timedelta(hours=1)) == []  # mild: no check
-    journal.log_injury(
-        rt.engine, today=DAY, body_part="calf", side="left", pain=5, timing="after", when=DAY
-    )
-    with rt.engine.begin() as conn:
-        conn.execute(injury_log.update().values(updated_at=local(15, 0)))
-    assert injury_due(local(15, 5)) == []  # still settling
-    (due,) = injury_due(local(15, 20))
-    assert due == {"job": "injury", "run_key": "2026-11-01", "for_date": "2026-11-01"}
-    runner_settings.save(rt, {"tasks": {"injury": {"on": False}}})
-    assert injury_due(local(15, 20)) == []
-
-
-def test_checkin_reaction_after_the_morning_report(rt):
-    """Task 8: a hard check-in after the morning report, before 20:00, once a day."""
-    from vibesynergy.query import journal
-    from vibesynergy.store.schema import checkin
-
-    enable(rt)
-    runner_settings.save(rt, {"schedule": {"monthly": {"on": False}}})
-
-    def checkin_due(now):
-        return [r for r in schedule.due_runs(rt, now) if r["job"] == "checkin"]
-
-    def saved_at(when):
-        with rt.engine.begin() as conn:
-            conn.execute(checkin.update().values(updated_at=when))
-
-    journal.set_checkin(rt.engine, DAY, sleep_quality=2, mood=4)  # one low score
-    saved_at(local(11, 0))
-    assert checkin_due(local(11, 30)) == []
-    journal.set_checkin(rt.engine, DAY, stress=5)  # two now
-    saved_at(local(11, 0))
-    assert checkin_due(local(11, 30)) == []  # no morning report yet: it will read it
-    with rt.engine.begin() as conn:
-        conn.execute(
-            coach_run.insert().values(
-                job="morning",
-                run_key=DAY.isoformat(),
-                for_date=DAY,
-                trigger="schedule",
-                status="done",
-                attempts=1,
-                model=MODEL,
-                started_at=local(9, 4),
-                updated_at=local(9, 10),
-                finished_at=local(9, 10),
-                turns=1,
-                input_tokens=0,
-                output_tokens=0,
-                cache_write_tokens=0,
-                cache_read_tokens=0,
-                cost_usd=0.0,
-            )
-        )
-    assert checkin_due(local(11, 10)) == []  # still settling
-    (due,) = checkin_due(local(11, 30))
-    assert due["run_key"] == DAY.isoformat()
-    assert checkin_due(local(20, 30)) == []  # the evening review takes it from here
-    runner_settings.save(rt, {"tasks": {"checkin": {"on": False}}})
-    assert checkin_due(local(11, 30)) == []
+# The injury check and the check-in reaction start from new data since #90:
+# tests/test_continuous_advice.py.
 
 
 def test_race_brief_runs_seven_days_and_one_day_before(rt, monkeypatch):
@@ -1302,7 +1229,7 @@ def test_the_harness_over_mcp(rt, mail):
         return result.structured_content or json.loads(text)
 
     tasks = {t["id"]: t for t in call("vibesynergy_harness_tasks")["data"]["tasks"]}
-    assert tasks["morning"]["schedule"]["time"] == "09:04" and tasks["morning"]["on"]
+    assert tasks["morning"]["schedule"]["time"] == "07:00" and tasks["morning"]["on"]
     assert tasks["catch_up"]["runs"] == "code" and tasks["monthly"]["on"] is False
     with pytest.raises(ValueError, match="Switch Coach via API on first"):
         call("vibesynergy_harness_run", task="morning")

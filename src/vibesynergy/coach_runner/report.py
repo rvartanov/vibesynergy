@@ -96,10 +96,18 @@ def html(rt, title: str, entry: dict[str, Any], advice: dict[str, Any] | None = 
     return mail_html.render([record], tr, title=title, link=link)
 
 
-def send(rt, job: str, day: date, entry: dict[str, Any]) -> list[str]:
-    """Mail the report; returns the channels used (empty when mail isn't set up)."""
+def send(
+    rt, job: str, day: date, entry: dict[str, Any], *, advice_day: date | None = None
+) -> list[str]:
+    """Mail the report; returns the channels used (empty when mail isn't set up).
+    ``advice_day`` is the day the advice is for (the evening review: tomorrow, #90)."""
+    from vibesynergy.query import daily_advice
+
     title = subject(rt.settings, job, day)
-    advice = advice_for(rt, job, day, i18n.translator(language(rt.settings)))
+    target = advice_day or (
+        daily_advice.target_day(job, day) if job in daily_advice.ADVICE_JOBS else day
+    )
+    advice = advice_for(rt, job, target, i18n.translator(language(rt.settings)))
     return alerts.deliver(
         rt,
         title,

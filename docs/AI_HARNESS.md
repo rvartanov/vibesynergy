@@ -42,6 +42,18 @@ with a reason from a fixed list. The setting "Daily advice" is AI (default), rul
 off. The runner-only hard-rule floor (illness, red-flag note, pain 7+, injury that changes
 movement) is the one fixed exception. Details: [COACH_RUNNER.md](COACH_RUNNER.md#daily-advice-ai-first-the-rules-as-the-fallback-89).
 
+## Continuous advice (#90)
+
+One current advice per target day. The fixed advice run is the morning task at 07:00
+(adjustable); the evening review's advice is for tomorrow. New data after it (sleep or HRV,
+the check-in, a note, pain or an injury, a workout, the plan for that day or the next, a
+reply) makes a new version: compared by value against the inputs the newest run started
+from, after a wait of 5 minutes without changes (a note or pain at once), within a daily
+maximum (default 4, with its cost in Coach → Settings; at the maximum the rules give the
+advice with the reason `limit`). The injury check and check-in reaction run from these
+triggers. Every version stays; only a change of colour, safety level or a session decision
+is mailed. Details: [COACH_RUNNER.md](COACH_RUNNER.md#continuous-advice-90).
+
 ## Layers
 
 1. **Triggers**: when a task runs.
@@ -100,14 +112,14 @@ task.
 
 | # | Task | Trigger | Output | Writes on its own | Needs approval | Now |
 |---|---|---|---|---|---|---|
-| 1 | Morning advice | schedule, daily | report (mail/push/portal) | the report; fill day 9 of the horizon | changing today or tomorrow | API runner |
-| 2 | Evening review | schedule, daily | report | the report; predictions | moving sessions | API runner |
+| 1 | Morning advice | schedule, daily 07:00 (the fixed advice run); event: new data for today (#90) | report (mail/push/portal) | the report; fill day 9 of the horizon | changing today or tomorrow | API runner |
+| 2 | Evening review | schedule, daily; event: new data for tomorrow (#90); its advice is for tomorrow | report | the report; predictions | moving sessions | API runner |
 | 3 | Week review | schedule, Sunday | report + next-week proposal | the report | next week's changes | API runner |
 | 4 | Insight under a public activity | event: activity published | line in the Strava/Garmin text | the insight | – | API runner |
-| 5 | Reply to a report | event: the athlete replies | answer, or execute "akkoord" | the answer | the approved action itself | inside 1–3 |
+| 5 | Reply to a report | event: the athlete replies | answer, or execute "akkoord" | the answer | the approved action itself | a reply makes a new version of the current advice (#90), which reads it |
 | 6 | Horizon fill | schedule, daily | sessions for day 9 | sessions within the week note | changes beyond the note | inside 1 |
-| 7 | Injury check | event: pain ≥4/10 or affecting movement, logged for today (once a day) | advice | the advice | plan changes (proposal + akkoord) | API runner (since 10-11) |
-| 8 | Check-in reaction | event: check-in with 2+ low scores after the morning report, before 20:00 (once a day) | short advice for today | the advice | swapping today's session (proposal + akkoord) | API runner (since 10-11) |
+| 7 | Injury check | event: pain or an injury logged for today, at once (#90; within the daily maximum) | advice | the advice | plan changes (proposal + akkoord) | API runner (since 10-11) |
+| 8 | Check-in reaction | event: check-in saved after the fixed advice run, after the wait (#90; within the daily maximum) | short advice for today | the advice | swapping today's session (proposal + akkoord) | API runner (since 10-11) |
 | 9 | Weather swap | schedule, evening | outdoor ↔ indoor proposal | – | the swap | inside 2 |
 | 10 | Test evaluation | event: planned test (run test, FTP, CSS) done and synced | evaluation + threshold proposal | the evaluation, the proposal | new thresholds (approved in VibeSynergy) | API runner (since 10-11) |
 | 11 | Threshold check | schedule: Monday 09:34, only on a new signal (max HR above, resting HR moved) | evaluation + threshold proposal | the report, the proposal | the change (approved in VibeSynergy) | API runner (since 10-11) |

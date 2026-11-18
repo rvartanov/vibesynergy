@@ -851,8 +851,15 @@ One call for "how should I train today?".
   mail (#89): `source` `ai` (the newest valid AI advice decides `level` (colour),
   `safety_level`, `reasons` and `advice`) or `rules`; `mode` is the athlete's setting (`ai`,
   `rules`, `off`); `fallback` `{reason, text}` says why the rules give it (`no_run`,
-  `run_failed`, `contract`, `ai_off`, `unavailable`, `new_signal`); `updating` says a newer
-  advice is on its way; `rules` and `differences` are the rules' own outcome beside the AI.
+  `run_failed`, `contract`, `ai_off`, `unavailable`, `new_signal`, `limit`: new data and the
+  daily maximum of updates reached, #90); `updating` says a newer advice is on its way
+  (`kind` `waiting` with `changes` for new data, `running`, `new_signal`, or `stale`);
+  `rules` and `differences` are the rules' own outcome beside the AI. `entry` says when the
+  AI advice was written, its `trigger`, what came in before it (`changes`: `sleep`, `hrv`,
+  `checkin`, `note`, `injury`, `activity`, `plan`, `reply`) and what really changed against
+  the version before (`differences`: colour, safety level, sessions). `versions` lists every
+  version of the day's advice, newest first (#90): one current advice per target day; the
+  evening review's advice is for tomorrow.
   `verdict` is its short form. `safety` stays the rules' outcome, which a coach's own
   `safety` is checked against in `vibesynergy_coach_write`.
 

@@ -58,7 +58,12 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="morning",
         title="Morning advice",
-        triggers=(Trigger("schedule", "daily 09:04"), Trigger("manual", "test now")),
+        # The fixed advice run (#90); new data after it makes a new version of today's.
+        triggers=(
+            Trigger("schedule", "daily 07:00"),
+            Trigger("event", "new data for today's advice"),
+            Trigger("manual", "test now"),
+        ),
         contract=Contract(
             "morning", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
@@ -70,7 +75,12 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="evening",
         title="Evening review",
-        triggers=(Trigger("schedule", "daily 21:45"), Trigger("manual", "test now")),
+        # Its advice is for tomorrow (#90); new data after it makes a new version of that.
+        triggers=(
+            Trigger("schedule", "daily 21:45"),
+            Trigger("event", "new data for tomorrow's advice"),
+            Trigger("manual", "test now"),
+        ),
         contract=Contract(
             "evening",
             ("summary", "for_date"),
@@ -165,7 +175,7 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="injury",
         title="Injury check",
-        triggers=(Trigger("event", "pain logged"), Trigger("manual", "test now")),
+        triggers=(Trigger("event", "pain or an injury logged"), Trigger("manual", "test now")),
         contract=Contract(
             "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
@@ -173,13 +183,14 @@ TASKS: tuple[Task, ...] = (
         chain=("today", "recovery", "plan_horizon", "replies"),
         writes=("report",),
         approval=("plan changes",),
-        notes="Pain 4/10 or more, or pain that affects movement, logged for today; once a day.",
+        notes="Pain or an injury logged for today makes a new version of today's advice at "
+        "once (#90), within the daily maximum of updates.",
     ),
     Task(
         id="checkin",
         title="Check-in reaction",
         triggers=(
-            Trigger("event", "low check-in after the morning report"),
+            Trigger("event", "check-in saved after the fixed advice run"),
             Trigger("manual", "test now"),
         ),
         contract=Contract(
@@ -189,7 +200,9 @@ TASKS: tuple[Task, ...] = (
         chain=("today", "recovery", "plan_horizon", "replies"),
         writes=("report",),
         approval=("swapping today's session",),
-        notes="Two or more low scores, after the morning report and before 20:00; once a day.",
+        notes="A check-in saved after the fixed advice run makes a new version of today's "
+        "advice a few minutes later (#90), within the daily maximum of updates. One saved "
+        "before it is read by the fixed run.",
     ),
     Task(
         id="insight",
@@ -224,7 +237,8 @@ TASKS: tuple[Task, ...] = (
         writes=("answer",),
         approval=("the approved action itself",),
         status="planned",
-        notes="Today replies are read by the next morning/evening run.",
+        notes="A reply makes a new version of the current advice (#90), which reads it; "
+        "an answer of its own is not built yet.",
     ),
 )
 

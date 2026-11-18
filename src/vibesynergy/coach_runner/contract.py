@@ -249,12 +249,33 @@ def _target_days(target: str, today: date) -> tuple[date, ...]:
     return (today - timedelta(days=1), today, today + timedelta(days=1))
 
 
+def advice_target(
+    entry_type: str, task: str | None, for_date: date, today: date, has_safety: bool
+) -> date | None:
+    """The day a daily advice is for (#90), stored as ``meta.harness.target``.
+
+    A runner run says it (``current_run()["target"]``: the evening run's advice is for
+    tomorrow). Over MCP: an evening entry written for today is the review of today and its
+    advice is for tomorrow; an evening entry for tomorrow is about tomorrow; every other
+    daily advice is for its ``for_date``. ``None`` for an entry that is no daily advice."""
+    run = current_run()
+    if run and run.get("target") and task == run.get("task"):
+        return run["target"]
+    found = registry.BY_ID.get(task or TASK_OF_ENTRY.get(entry_type, ""))
+    if not has_safety and not (found and found.contract.safety):
+        return None
+    if entry_type == "evening" and for_date <= today:
+        return for_date + timedelta(days=1)
+    return for_date
+
+
 def harness_meta(
     *,
     task: str | None,
     declared: Any,
     current: str | None,
     floor: dict[str, Any] | None,
+    target: date | None = None,
 ) -> dict[str, Any]:
     """What is stored on the entry (``meta.harness``): which harness it was written under.
 
@@ -266,7 +287,15 @@ def harness_meta(
     if run:
         declared = run.get("stamp")
     parsed = parse_stamp(declared)
+    extra: dict[str, Any] = {}
+    if target is not None:
+        extra["target"] = target.isoformat()
+    if run and run.get("target") and task == run.get("task"):
+        # Why this version was made: the trigger and what came in since the last one.
+        extra["trigger"] = run.get("trigger")
+        extra["changes"] = list(run.get("changes") or [])
     return {
+        **extra,
         "version": HARNESS_VERSION,
         "via": via,
         "task": task,

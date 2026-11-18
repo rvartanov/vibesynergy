@@ -66,12 +66,15 @@ REASONS = {
     "today's advice.",
     "new_signal": "Something new came in after your AI coach's advice (pain, illness or a "
     "complaint): the fixed rules give it.",
+    "limit": "New data came in and your AI coach reached today's maximum of updates: the "
+    "fixed rules give the advice.",
 }
 UPDATING = {
     "new_signal": "Something new came in (pain, illness or a complaint); your AI coach is "
     "updating this advice.",
     "running": "New data came in; your AI coach is updating this advice.",
     "stale": "New data came in since this advice was written.",
+    "waiting": "New data came in; your AI coach updates this advice in a few minutes.",
 }
 HEADLINES = {
     "green": "Well recovered",
@@ -127,20 +130,38 @@ def owns_safety(rt, meta: dict | None) -> bool:
 # --- reading ---------------------------------------------------------------------------------
 
 
+def entry_target(entry: dict[str, Any]) -> date | None:
+    """The day a daily-advice entry is for (#90): ``meta.harness.target`` when the harness
+    recorded it, else its ``for_date``, and the day after for an evening entry (the review
+    of a day gives the advice for the next)."""
+    harness = (entry.get("meta") or {}).get("harness") or {}
+    try:
+        if harness.get("target"):
+            return date.fromisoformat(str(harness["target"]))
+    except ValueError:
+        pass
+    day = entry.get("for_date")
+    if isinstance(day, str):
+        day = date.fromisoformat(day)
+    if day is None:
+        return None
+    return day + timedelta(days=1) if entry.get("entry_type") == "evening" else day
+
+
 def _entries(rt, day: date) -> list[dict[str, Any]]:
-    """The day's coach entries that are a daily advice (they carry ``meta.safety`` or
-    claim a daily-advice task), newest first."""
+    """The coach entries that are a daily advice for ``day`` (they carry ``meta.safety``
+    or claim a daily-advice task), newest first: every version of that day's advice."""
     with rt.engine.connect() as conn:
         rows = (
             conn.execute(
                 select(coach_decision_log)
                 .where(
                     coach_decision_log.c.subject_id == 1,
-                    coach_decision_log.c.for_date == day,
+                    coach_decision_log.c.for_date.in_((day, day - timedelta(days=1))),
                     coach_decision_log.c.entry_type.in_(ADVICE_ENTRY_TYPES),
                 )
                 .order_by(desc(coach_decision_log.c.id))
-                .limit(40)
+                .limit(80)
             )
             .mappings()
             .all()
@@ -151,6 +172,8 @@ def _entries(rt, day: date) -> list[dict[str, Any]]:
         task = (meta.get("harness") or {}).get("task")
         if meta.get("safety") is None and task not in ADVICE_JOBS and row["entry_type"] == "note":
             continue  # a plain note is no daily advice
+        if entry_target(dict(row)) != day:
+            continue
         out.append(dict(row))
     return out
 
@@ -267,7 +290,83 @@ def _entry_info(entry: dict[str, Any]) -> dict[str, Any]:
         "via": harness.get("via"),
         "task": harness.get("task"),
         "model": (entry.get("meta") or {}).get("model_id"),
+        # Why this version was made (#90): the trigger and what came in before it.
+        "trigger": harness.get("trigger"),
+        "changes": list(harness.get("changes") or []),
     }
+
+
+# --- versions (#90) ----------------------------------------------------------------------------
+
+
+def _decisions(entry: dict[str, Any]) -> dict[str, str]:
+    sessions = (entry.get("meta") or {}).get("sessions") or []
+    out = {}
+    for item in sessions:
+        if isinstance(item, dict) and item.get("title"):
+            out[str(item["title"]).strip().lower()] = str(item.get("decision") or "")
+    return out
+
+
+def compare(older: dict[str, Any] | None, newer: dict[str, Any]) -> list[dict[str, Any]]:
+    """What really changed between two versions of a day's advice: the colour, the safety
+    level, or a session decision. Wording alone is no change."""
+    if older is None:
+        return []
+    old_safety = ai_safety(older.get("meta")) or {}
+    new_safety = ai_safety(newer.get("meta")) or {}
+    out: list[dict[str, Any]] = []
+    if old_safety.get("colour") != new_safety.get("colour"):
+        out.append(
+            {"field": "colour", "from": old_safety.get("colour"), "to": new_safety.get("colour")}
+        )
+    if old_safety.get("level") != new_safety.get("level"):
+        out.append(
+            {
+                "field": "safety_level",
+                "from": old_safety.get("level"),
+                "to": new_safety.get("level"),
+            }
+        )
+    before, after = _decisions(older), _decisions(newer)
+    changed = sorted(t for t in set(before) | set(after) if before.get(t) != after.get(t))
+    if changed:
+        out.append({"field": "sessions", "sessions": changed})
+    return out
+
+
+def versions(entries: list[dict[str, Any]], tr: Translator = ENGLISH) -> list[dict[str, Any]]:
+    """Every version of a day's advice, newest first, with what really changed against
+    the valid version before it. Invalid versions are listed, marked, and never compared."""
+    valid = [e for e in entries if ai_safety(e.get("meta")) is not None]
+    out = []
+    for entry in entries:
+        safety = ai_safety(entry.get("meta"))
+        older = next((v for v in valid if v["id"] < entry["id"]), None) if safety else None
+        out.append(
+            {
+                **_entry_info(entry),
+                "valid": safety is not None,
+                "colour": (safety or {}).get("colour"),
+                "safety_level": (safety or {}).get("level"),
+                "headline": tr(HEADLINES[safety["colour"]]) if safety else None,
+                "advice": _summary(entry),
+                "differences": compare(older, entry) if safety else [],
+                "first": safety is not None and older is None,
+            }
+        )
+    return out
+
+
+def real_change(rt, day: date, entry: dict[str, Any]) -> bool:
+    """A new version for ``day`` that differs from the previous valid one in colour,
+    safety level or a session decision: worth a mail. The first version always is."""
+    entries = _entries(rt, day)
+    older = next(
+        (e for e in entries if e["id"] < entry["id"] and ai_safety(e.get("meta")) is not None),
+        None,
+    )
+    return older is None or bool(compare(older, entry))
 
 
 def _new_hard(entry: dict[str, Any], rules: dict[str, Any] | None) -> list[str]:
@@ -382,6 +481,7 @@ def resolve(
         "rules": _rules_view(rules),
         "differences": [],
         "override_reason": None,
+        "versions": [],
     }
     if chosen == "off":
         base["off_text"] = tr("Daily advice is off. Turn it on in Settings → System.")
@@ -390,6 +490,7 @@ def resolve(
         return _from_rules(base, rules, None, tr)
 
     entries = _entries(rt, day)
+    base["versions"] = versions(entries, tr)
     valid = next((e for e in entries if ai_safety(e.get("meta")) is not None), None)
     runs = _runs(rt, day)
     active, over = _runner(rt)
@@ -425,14 +526,26 @@ def resolve(
         return _from_rules(base, rules, "new_signal" if signal else _run_reason(newest), tr)
 
     safety = ai_safety(valid.get("meta")) or {}
+    waiting = _waiting(rt, day) if active and not over else None
     if fresh:
         state = _rerun(rt, day, fresh, active=active, over=over, trigger=trigger)
+        if state == "limit":
+            return _from_rules(base, rules, "limit", tr)
         if state in ("failed", "unavailable"):
             return _from_rules(base, rules, "new_signal", tr)
         base["updating"] = {"kind": "new_signal", "text": tr(UPDATING["new_signal"])}
     elif newest is not None and newest["status"] in ("queued", "running"):
         base["updating"] = {"kind": "running", "text": tr(UPDATING["running"])}
-    elif _stale(rt, valid):
+    elif waiting is not None and waiting["limit"]:
+        # New data the AI coach cannot see today: the rules have it (#90).
+        return _from_rules(base, rules, "limit", tr)
+    elif waiting is not None and not waiting["off"]:
+        base["updating"] = {
+            "kind": "waiting",
+            "text": tr(UPDATING["waiting"]),
+            "changes": waiting["changes"],
+        }
+    elif waiting is not None or _stale(rt, valid):
         base["updating"] = {"kind": "stale", "text": tr(UPDATING["stale"])}
 
     colour = safety["colour"]
@@ -447,7 +560,13 @@ def resolve(
         advice=advice,
         reasons=reasons,
         text=_text(headline, reasons, advice),
-        entry=_entry_info(valid),
+        entry={
+            **_entry_info(valid),
+            # What really changed against the version before it (colour, level, sessions).
+            "differences": next(
+                (v["differences"] for v in base["versions"] if v["id"] == valid["id"]), []
+            ),
+        },
         override_reason=safety.get("override_reason"),
     )
     base["differences"] = _differences(base, rules)
@@ -486,6 +605,17 @@ def _stale(rt, entry: dict[str, Any]) -> bool:
     return found in ("needs_revision", "stale")
 
 
+def _waiting(rt, day: date) -> dict[str, Any] | None:
+    """New data since the newest advice run for ``day`` that no run is making a version
+    for yet (``coach_runner.triggers``), unless it waits for the day's fixed run."""
+    from vibesynergy.coach_runner import triggers
+
+    found = triggers.pending(rt, day)
+    if found is None or found["held"] or found["busy"]:
+        return None
+    return found
+
+
 def rerun_key(day: date, rules: list[str]) -> str:
     return f"signal-{day.isoformat()}-{'+'.join(sorted(rules))}"
 
@@ -493,17 +623,23 @@ def rerun_key(day: date, rules: list[str]) -> str:
 def _rerun(rt, day: date, fresh: list[str], *, active: bool, over: bool, trigger: bool) -> str:
     """The new AI run for a hard signal: ``queued``, ``running``, ``done``, ``failed`` or
     ``unavailable`` (it cannot run). Queued at most once per day and set of signals."""
-    from vibesynergy.coach_runner import runner, schedule
+    from vibesynergy.coach_runner import runner, schedule, triggers
+    from vibesynergy.coach_runner import settings as runner_settings
 
     key = rerun_key(day, fresh)
     existing = runner.get_run(rt, RERUN_JOB, key)
     if existing is not None:
         # Done, and the signal is still not seen by a valid entry: the update did not come.
         return "running" if existing["status"] == "running" else "failed"
-    if _pending(rt, day, key):
-        return "queued"
+    if _pending(rt, day):
+        return "queued"  # this run, or an update for new data (#90) that will see it
     if not active or over:
         return "unavailable"
+    try:
+        if triggers.limit_reached(rt, runner_settings.load(rt)):
+            return "limit"
+    except Exception:
+        log.debug("reading the advice limit failed", exc_info=True)
     try:
         today = today_in(rt.settings.timezone)
     except Exception:

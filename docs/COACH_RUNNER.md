@@ -14,8 +14,9 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
 
 | Job | When (Europe/Amsterdam) | Prompt | Writes | Report mail |
 | --- | --- | --- | --- | --- |
-| `morning` | daily 09:04 | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Coach ochtend – zo 1 nov" |
-| `evening` | daily 21:45 | `evening.md` | entry `evening`, key `evening-<date>` | "Coach avond – …" |
+| `morning` | daily 07:00 (the fixed advice run, #90), and on new data for today | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Coach ochtend – zo 1 nov", for a new version only on a real change |
+| `evening` | daily 21:45, and on new data for tomorrow; its advice is for tomorrow | `evening.md` | entry `evening`, key `evening-<date>` | "Coach avond – …" |
+| `injury`, `checkin` | on pain or an injury (at once), on the check-in (after the wait) | `injury.md`, `checkin.md` | entry `note`, key `<task>-<date>-event-…` | only on a real change |
 | `weekly` | Sunday 19:44 | `weekly.md` | entry `note`, key `weekly-<date>`, summary starts "Weekreview <ISO-week>" | "Coach weekreview – …" |
 | `insight` | on `activity.published` | `insight.md` | `activity_assessment` with `public_insight` | none |
 
@@ -81,9 +82,9 @@ from events (`schedule.on_agent_event`), and from Test now / Make again in the p
 | `weekly`, `monthly`, `block`, `race` | yes | yes | yes | yes |
 | `test`, `thresholds`, `kb` | yes | yes | yes | yes; proposals also by their own tools |
 | `insight` | yes | yes | yes (no health in it) | at the write: INS-2 guard and the public-line rules; no entry is allowed |
-| `reply` | planned task, no model call of its own: replies are read by the next run | – | – | – |
+| `reply` | planned task, no model call of its own: a reply makes a new version of the current advice (#90), which reads it | – | – | – |
 | `catch_up` | code, no model | – | – | – |
-| advice run (#89, #90) | not built yet; it must be a registry task | – | – | the `safety` contract is ready for it |
+| advice run (#89, #90) | the `morning` task at 07:00 and, for new data, `morning`, `injury`, `checkin` or `evening` | yes | yes | yes, with `safety` and the target day |
 | Daily review narrative (`query/daily_coach.py`) | no model: `narrative_enabled` is false and the text is fixed | – | – | – |
 | Cloud routine webhooks (`query/agent_events.py`) | outside VibeSynergy: they fire a Claude Code routine, which comes back over MCP | by `vibesynergy_coach_prompt` | by `include_context=true` | yes, at `vibesynergy_coach_write` |
 
@@ -262,6 +263,7 @@ text says so.
 | `ai_off` | The setting is AI but the coach runner is off and no AI app wrote valid advice. |
 | `unavailable` | The monthly budget is used up, or the provider could not be reached or refused the key. |
 | `new_signal` | A hard rule fired after the AI wrote (it was not in `meta.harness.rules_floor`), and the new run failed or could not run. |
+| `limit` | New data came in after the AI's advice and the daily maximum of updates is reached (#90). |
 
 **A hard new signal** (sickness, a red-flag note, pain 7+, an injury that changes movement)
 after the advice queues one new `morning` run at once (`schedule.enqueue_advice`, run key
@@ -271,9 +273,10 @@ which page logged the signal. While that run is queued or running the AI advice 
 marked "updating"; the rules take over only when it fails, cannot run (runner off, budget,
 another day), or ends without a valid advice that saw the signal.
 
-**Updating**: an AI advice whose inputs changed since it was written (`needs_revision`)
-stays on the page with "New data came in since this advice was written"; a run in progress
-for the day shows "updating". Neither is a fallback.
+**Updating**: new data that will make a new version (#90) shows "your AI coach updates this
+advice in a few minutes"; a run in progress for the day shows "updating"; an AI advice whose
+inputs changed with no update coming (`needs_revision`, or updates switched off) shows "New
+data came in since this advice was written". None of these is a fallback.
 
 **Shadow**: the rules keep computing (`verdict` and `safety` on the dashboard stay the
 rules' own outcome, which the contract checks a coach against). Where the AI's colour or
@@ -287,6 +290,86 @@ for today, then one advice run (`morning`, run key `refresh-<time>`, trigger `ma
 waits for those syncs (deferred without using an attempt, at most 10 minutes). Without AI
 (setting, runner off, budget) only the syncs run. A run that fails gives the fallback with
 its reason.
+
+## Continuous advice (#90)
+
+Decided by the athlete on 17-11-2026: the advice is revised all the time, and every view
+shows the newest state. Code: `coach_runner/triggers.py`; tests:
+`tests/test_continuous_advice.py`.
+
+**The fixed advice run is the morning task, moved to 07:00** (Coach → Settings → Tasks →
+Morning advice, time and days adjustable). The issue left two choices: a separate advice run
+next to the morning review, or the morning review moving to it. It moved: one run, one cost
+and one mail at the start of the day, and a check-in or sleep that comes in later makes a new
+version anyway. A schedule saved before #90 (`schedule_version` 1) gets the new morning time
+once; its other choices stay, and a time chosen after that holds.
+
+**One current advice per target day.** The morning advice and every update during the day
+are for today; the evening review's advice is for tomorrow (`daily_advice.target_day`,
+`meta.harness.target` on the entry). The evening entry keeps `for_date` = the day it
+reviews (as before, and as `daily_coach.target_date` reads it); a runner's evening write for
+another day is refused in the run, so the model repairs it. So last night's evening advice is
+today's AI advice until the 07:00 run. Advice for a past day is archive. Every version stays
+in the log; `daily_advice.resolve` gives the newest valid one, `versions` (newest first,
+each with `changes`, `trigger` and what really changed against the version before), and
+`entry.changes` / `entry.differences` for the current one. The dashboard says when the
+advice was written and after what ("Updated at 10:32 after your check-in. Changed: colour
+amber → green."); the Coach page lists the earlier versions under the advice card.
+
+**Triggers.** Every daily-advice run stores a fingerprint of its inputs at its start
+(`coach_run.harness.inputs`: one short hash per kind). On every scheduler tick
+`triggers.due` compares the inputs now with the newest run for the target day:
+
+| Kind | What is compared | Waits |
+| --- | --- | --- |
+| `sleep` | `sleep.*` daily values and the sleep sessions of the target day | yes |
+| `hrv` | `hrv.*` daily values of the target day | yes |
+| `checkin` | the target day's check-in | yes |
+| `note` | notes covering the target day or the day before (illness is a note tagged sick) | no |
+| `injury` | open injuries, and pain logged for the target day or the day before | no |
+| `activity` | workouts of the target day and the day before (sport, duration, distance, purpose, load) | yes |
+| `plan` | planned sessions on the target day and the day after | yes |
+| `reply` | the newest reply to a report | yes |
+
+Values, not `updated_at`, are compared: a sync that rewrites the same night or a rebuild of
+the activity table starts nothing. Because the check reads the data, every write path counts
+(syncs, the portal, the MCP, imports) without a hook in each.
+
+**Wait**: a change waits until nothing changed for 5 minutes (`DEBOUNCE`), so three syncs in
+a row give one run, but at most 30 minutes after the first change (`MAX_WAIT`). A note or an
+injury runs at once. The scheduler checks every 30 seconds and queues the coach schedule at
+most every 5 minutes, so "at once" is within a few minutes. Before the day's fixed run,
+changes for today wait for it (it reads them), except a note or an injury.
+
+**Which task**: for tomorrow (after the evening run) `evening`; for today `injury` when pain
+or an injury came in, `checkin` when the check-in did, else `morning`. Each keeps its own
+model from Coach → Settings. A task switched off falls back to `morning`. The run key is
+`event-<target day>-<hash of the inputs>` (trigger `event`): one run per state of the data.
+Nothing is queued while another advice run for that day is queued or running; it reads the
+new data, and what comes in after its start is the next change. The start message tells the
+model the day the advice is for and, for a new version, what came in (no model or provider
+is named).
+
+**Why the injury and check-in tasks never ran** (`last_run` null): their conditions could
+not be met in the athlete's routine. The check-in reaction needed a check-in saved *after*
+the morning report (09:04) with two or more low scores; the athlete checks in around 08:00
+and had no low check-in, so it never qualified. The injury check needed pain of 4/10 or
+more, and the last logged pains were 0. Now the fixed run is at 07:00, any check-in after it
+starts the check-in task, and any pain or injury for today starts the injury task.
+
+**Limit**: at most 4 automatic runs per local day by default (Coach → Settings → "Updates of
+the advice per day", 0-24; 0 switches them off). Runs with trigger `event` and #89's
+new-signal re-runs (`signal`) count; the scheduled runs and "Update advice" do not. The page
+shows the average cost per advice run over 30 days and what the maximum costs a day and a
+month. When the limit is reached and new data is waiting, the fixed rules give the advice
+with the reason `limit`. With 0 the AI advice stays, marked "New data came in since this
+advice was written".
+
+**Mail only on a real change**: the first advice for a day is mailed; a new version is
+mailed only when its colour, safety level or a session decision differs from the previous
+valid version for that day (`daily_advice.real_change`). Otherwise `coach_run.harness.mail`
+is `no_change`. So the 07:00 advice is mailed when it differs from last night's evening
+advice for today, and the evening review is always mailed (the first advice for tomorrow).
 
 ## Why the Messages API and not the Agent SDK
 
@@ -362,6 +445,8 @@ morning or evening run is roughly 10–20 turns: the cached prefix (tools + prom
 thousand tokens of tool results and one to two thousand tokens of output. That comes to
 roughly $0.40–1.00 per daily run, a little more for the weekly review and $0.10–0.30 per
 insight: around $40–80 a month at two daily runs, a weekly review and one insight a day.
+Updates of the advice during the day (#90) cost like a daily run each; Coach → Settings
+shows what the daily maximum costs at most.
 Coach → Settings shows the real figures for the month. Lowering `[coach_runner] effort` to
 `medium` is the first lever if it runs close to the cap.
 

@@ -4,7 +4,7 @@ The scheduler asks ``due`` on every tick (a cheap read); when a job is due it qu
 ``coach_schedule`` job, which queues one ``coach_run`` job per due run. ``coach_run`` jobs run
 in their own worker lane (``coach``), so a run of several minutes never holds up syncs or
 webhooks. Times are local (``Europe/Amsterdam``) and set in Coach → Settings (default morning
-09:04, evening 21:45, weekly review Sunday 19:44; ``settings.DEFAULT_SCHEDULE``). A run is still
+07:00, evening 21:45, weekly review Sunday 19:44; ``settings.DEFAULT_SCHEDULE``). A run is still
 started up to ``GRACE`` later (after a restart, say), never on the next day. Each job runs once
 per local day (``coach_run`` keeps (job, date) unique). ``enqueue_test`` queues one run now for
 the test button; its run key is its own, so the scheduled run of that day still follows.
@@ -13,6 +13,10 @@ Catch-up (task 16): when ``coach.run_missed`` says today's report is missing, th
 window plus ``GRACE`` has passed and no run of that day exists at all (the service was down,
 say), the report is queued once, late. A run that failed is not retried here; its failure
 notice already went out.
+
+Continuous advice (#90): between the fixed runs, new data makes a new version of the
+current advice (``triggers.due``: the change, the wait, the daily limit). That is also how
+the injury check and the check-in reaction start.
 
 The insight run is not scheduled: ``on_agent_event`` is an internal subscriber of the agent
 events (``query/agent_events.py``) and queues a ``coach_run`` for every ``activity.published``
@@ -28,7 +32,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from vibesynergy.coach_runner import runner
+from vibesynergy.coach_runner import runner, triggers
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import multisport
@@ -81,10 +85,10 @@ def due_runs(rt, now: datetime | None = None) -> list[dict[str, Any]]:
         if existing is not None and existing["status"] != "budget":
             continue
         out.append({"job": name, "run_key": run_key, "for_date": day.isoformat()})
-    if _injury_due(rt, cfg, now, day):
-        out.append({"job": "injury", "run_key": day.isoformat(), "for_date": day.isoformat()})
-    if _checkin_due(rt, cfg, now, day):
-        out.append({"job": "checkin", "run_key": day.isoformat(), "for_date": day.isoformat()})
+    # New data since the current advice (#90): sleep, HRV, check-in, a note, pain or an
+    # injury, a workout, the plan, a reply. The injury and check-in tasks run from here.
+    if (update := triggers.due(rt, cfg, now)) is not None:
+        out.append(update)
     for session_id, ids in tests_done(rt, cfg, day):
         out.append(
             {
@@ -132,70 +136,6 @@ def tests_done(rt, cfg, day: date) -> list[tuple[str, list[str]]]:
     return out
 
 
-CHECKIN_LATEST = time(20, 0)  # after this the evening review covers it
-
-
-def _checkin_low(row) -> int:
-    """How many check-in scores point to a hard day (1-5 scales)."""
-    low = [row["sleep_quality"], row["mood"], row["motivation"]]
-    high = [row["soreness"], row["stress"]]
-    return sum(1 for v in low if v is not None and v <= 2) + sum(
-        1 for v in high if v is not None and v >= 4
-    )
-
-
-def _checkin_due(rt, cfg, now: datetime, day: date) -> bool:
-    """Task 8: today's check-in shows two or more low scores, was saved after the
-    morning report (which already read any earlier one) and before ``CHECKIN_LATEST``, and
-    settled for ``INJURY_SETTLE``. Once a day."""
-    from vibesynergy.store.schema import checkin
-
-    if cfg.tasks.get("checkin", {}).get("on") is False:
-        return False
-    tz = runner.zone(rt)
-    if now.astimezone(tz).time() >= CHECKIN_LATEST:
-        return False
-    with rt.engine.connect() as conn:
-        row = conn.execute(select(checkin).where(checkin.c.date == day)).mappings().first()
-    if row is None or _checkin_low(row) < 2 or row["updated_at"] > now - INJURY_SETTLE:
-        return False
-    morning_spec = cfg.schedule.get("morning", {})
-    if morning_spec.get("on") and day.weekday() in morning_spec.get("days", []):
-        morning = runner.get_run(rt, "morning", day.isoformat())
-        finished = morning and morning.get("finished_at")
-        if not finished or row["updated_at"] <= finished:
-            return False
-    existing = runner.get_run(rt, "checkin", day.isoformat())
-    return existing is None or existing["status"] == "budget"
-
-
-INJURY_PAIN = 4  # 0-10: from here a complaint gets its own check (task 7)
-INJURY_SETTLE = timedelta(minutes=15)  # let the entry settle before the coach reads it
-
-
-def _injury_due(rt, cfg, now: datetime, day: date) -> bool:
-    """Pain of 4/10 or more, or pain that affects movement, logged for today at least
-    ``INJURY_SETTLE`` ago, and no injury check yet today. Stateless: one run per day."""
-    from vibesynergy.store.schema import injury_log
-
-    if cfg.tasks.get("injury", {}).get("on") is False:
-        return False
-    with rt.engine.connect() as conn:
-        found = conn.scalar(
-            select(injury_log.c.injury_id)
-            .where(
-                injury_log.c.date == day,
-                injury_log.c.updated_at <= now - INJURY_SETTLE,
-                (injury_log.c.pain >= INJURY_PAIN) | injury_log.c.affects_movement,
-            )
-            .limit(1)
-        )
-    if found is None:
-        return False
-    existing = runner.get_run(rt, "injury", day.isoformat())
-    return existing is None or existing["status"] == "budget"
-
-
 def due(rt, now: datetime | None = None) -> bool:
     """Asked on every scheduler tick; a failure here never stops the other syncs."""
     try:
@@ -214,7 +154,7 @@ def enqueue_due(rt, now: datetime | None = None) -> list[int]:
     for item in due_runs(rt, now):
         job_id = rt.jobs.enqueue(
             JOB,
-            {**item, "trigger": "schedule"},
+            {"trigger": "schedule", **item},
             dedupe_key=dedupe_key(item["job"], item["run_key"]),
             max_attempts=MAX_ATTEMPTS,
             priority=5,
