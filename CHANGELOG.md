@@ -154,6 +154,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 - **Notes written by an AI app carry the app's id as their source** (`client:<id>`),
   whatever the app is called; older notes with the source `claude` now have `ai`. The
   harness rules are version 3 (the same rules, without a product name).
+- **A new or changed daily advice is a push and a notice, no longer a mail.** The 07:00
+  advice and its updates go where Settings → Alerts sends the new kind "Daily advice": by
+  default a push on your phone and a notice at the top of the portal, only when the advice
+  is new for that day or changed in colour, safety level or a session decision. Tick
+  email there to get it by mail again. Weekly and other reports still come by mail.
 - **A new knowledge-base proposal replaces the same AI's waiting one** for the same article,
   rule or source: the older one becomes "superseded", so Waiting for you only shows the
   latest wording.

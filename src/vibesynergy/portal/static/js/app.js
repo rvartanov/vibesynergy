@@ -387,7 +387,8 @@ async function alertBanner() {
     (a) => !gone.has(a.key) && !String(a.key).startsWith("daily:") && a.kind !== "daily_coach",
   );
   const jobItems = items.filter((a) => a.kind === "job");
-  const warnNotices = items.filter((a) => a.kind !== "job" && a.level === "warn");
+  // A changed daily advice is news worth a notice too, whatever its level (#90).
+  const warnNotices = items.filter((a) => a.kind !== "job" && (a.level === "warn" || a.kind === "advice"));
   const bannerItems = items.filter((a) => a.kind !== "job" && a.level === "stop");
   let chips = header.querySelector(".header-sync-chips");
   if (!jobItems.length) chips?.remove();

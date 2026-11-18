@@ -97,17 +97,38 @@ def html(rt, title: str, entry: dict[str, Any], advice: dict[str, Any] | None = 
 
 
 def send(
-    rt, job: str, day: date, entry: dict[str, Any], *, advice_day: date | None = None
+    rt,
+    job: str,
+    day: date,
+    entry: dict[str, Any],
+    *,
+    advice_day: date | None = None,
+    by_mail: bool = False,
 ) -> list[str]:
-    """Mail the report; returns the channels used (empty when mail isn't set up).
-    ``advice_day`` is the day the advice is for (the evening review: tomorrow, #90)."""
+    """Send the report; returns the channels used (empty when none is set up).
+    ``advice_day`` is the day the advice is for (the evening review: tomorrow, #90).
+    A daily advice follows the alert kind ``advice``; ``by_mail`` (sending a report again
+    by hand) always mails it."""
     from vibesynergy.query import daily_advice
 
     title = subject(rt.settings, job, day)
     target = advice_day or (
         daily_advice.target_day(job, day) if job in daily_advice.ADVICE_JOBS else day
     )
-    advice = advice_for(rt, job, target, i18n.translator(language(rt.settings)))
+    tr = i18n.translator(language(rt.settings))
+    advice = advice_for(rt, job, target, tr)
+    if job in daily_advice.ADVICE_JOBS and not by_mail:
+        # A daily advice goes where Settings → Alerts sends the kind "advice": by default
+        # a push and a notice in the portal, no mail (Robert, 18-11-2026).
+        return alerts.notify_advice(
+            rt,
+            key=f"advice:{target.isoformat()}:{entry['id']}",
+            title=title,
+            short=short(entry, advice, tr),
+            body=body(rt, entry, advice),
+            html=html(rt, title, entry, advice),
+            link="#/coach" if job == "evening" else "#/dashboard",
+        )
     return alerts.deliver(
         rt,
         title,
@@ -115,3 +136,11 @@ def send(
         only=["email"],
         html=html(rt, title, entry, advice),
     )
+
+
+def short(entry: dict[str, Any], advice: dict[str, Any] | None, tr) -> str:
+    """One or two lines for a push or a portal notice: the verdict and the coach's summary."""
+    summary = " ".join((entry.get("text") or "").strip().split("\n\n")[0].split())
+    line = _verdict_line(advice, tr)
+    text = f"{line}. {summary}" if line and summary else line or summary
+    return text[:240]

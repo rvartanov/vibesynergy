@@ -36,6 +36,8 @@ log = logging.getLogger(__name__)
 ALERT_MINUTES = 15
 SECRETS = "alerts"
 STATE = "state"
+ADVICE_STATE = "advice_events"  # portal notices for a changed advice, kept apart from STATE
+ADVICE_KEPT = 10
 CHECKED = "_checked_at"  # in the state: when the previous check ran
 RECENT = "_recent"  # in the state: the latest one-off events, for the portal
 SENT = "_sent"  # when a one-off, or an advice alert, was last mailed (ISO, or ISO|level)
@@ -64,6 +66,9 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     "history": ("A history run finished or got stuck", ["portal", "email"]),
     "import": ("An account export import finished or failed", ["portal", "email"]),
     "daily_coach": ("Messages from your AI coach", ["portal", "push"]),
+    # A new or changed daily advice from the AI coach (#90): only when it changed in colour,
+    # safety level or a session decision. No mail by default (Robert, 18-11-2026).
+    "advice": ("A new or changed daily advice from your AI coach", ["portal", "push"]),
     "token": ("A coach token is about to expire", ["portal", "email"]),
 }
 RECENT_KEPT = 20  # one-off events kept for the portal's list
@@ -818,6 +823,9 @@ def for_portal(settings: Any, engine: Any = None) -> dict[str, list[dict[str, An
         if e.get("kind") in shown
         and not (e.get("kind") == "job" and re.search(r"\bfor icloud\b", e.get("text", ""), re.I))
     ]
+    if "advice" in shown:
+        advice_events = SecretStore(settings.secrets_dir, SECRETS).get(ADVICE_STATE) or []
+        recent = sorted([*recent, *advice_events], key=lambda e: str(e.get("at", "")), reverse=True)
     if engine is not None and any(e.get("kind") == "job" for e in recent):
         synced = _last_successes(engine)
         recent = [e for e in recent if not _recovered(e, synced)]
@@ -910,6 +918,42 @@ def channels(settings: Any, engine: Any = None) -> dict[str, bool]:
         except Exception:  # an old schema without the table: no push
             out["push"] = False
     return out
+
+
+def notify_advice(
+    rt: Any,
+    *,
+    key: str,
+    title: str,
+    short: str,
+    body: str,
+    html: str | None = None,
+    link: str = "#/dashboard",
+) -> list[str]:
+    """A new or changed daily advice, on the channels chosen for the kind ``advice``
+    (Settings → Alerts). Push gets the short text, email the full report, the portal a
+    notice at the top of the page. Returns the channels used."""
+    chosen = routes(rt.settings).get("advice", [])
+    used: list[str] = []
+    if "email" in chosen:
+        used += deliver(rt, title, body, only=["email"], html=html)
+    if "push" in chosen:
+        used += deliver(rt, title, short, only=["push"])
+    if "portal" in chosen:
+        store = SecretStore(rt.settings.secrets_dir, SECRETS)
+        events = [e for e in store.get(ADVICE_STATE) or [] if e.get("key") != key]
+        event = {
+            "key": key,
+            "at": utc_now().isoformat(),
+            "text": f"{title}: {short}"[:300],
+            "level": "info",
+            "link": link,
+            "kind": "advice",
+            "detail": "",
+        }
+        store.set(ADVICE_STATE, [event, *events][:ADVICE_KEPT])
+        used.append("portal")
+    return used
 
 
 def deliver(
