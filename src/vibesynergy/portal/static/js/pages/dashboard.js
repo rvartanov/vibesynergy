@@ -23,6 +23,7 @@ import { arrangedBlocks } from "../start_layout.js";
 import { bindSetupGuide, setupGuideHtml } from "../setup_guide.js";
 import { weatherHtml } from "../weather_day.js";
 import { setWeatherUnits } from "../weather_units.js";
+import { workoutHtml } from "../workout_text.js";
 
 const PHASES = { build: N("Build"), peak: N("Peak"), taper: N("Taper"), recovery: N("Recovery") };
 const CHIP = {
@@ -658,7 +659,7 @@ function combinedTitle(titles) {
   return titles.join(" + ");
 }
 
-function planHtml(sessions, outside, shared, planSource) {
+export function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
   // A planned multisport (#74): the sessions linked by their slot in order (a triathlon, a
   // duathlon, a brick), else a brick run and the ride with it, as one multisport entry.
@@ -686,6 +687,10 @@ function planHtml(sessions, outside, shared, planSource) {
     const link = id && (!shared || shared.has("activities"))
       ? ` · <a href="#/activity/${encodeURIComponent(id)}">${t("Open activity")}</a>`
       : "";
+    // Click a planned workout to open what it is, as in "This week" (18-11-2026).
+    if (session.description) {
+      return `<li><details class="collapsible wp-details dash-workout"><summary>${withSportIcon(session.sport, esc(title))}${chip}</summary>${workoutHtml(session.description)}</details>${link ? `<span class="sub">${link.slice(3)}</span>` : ""}</li>`;
+    }
     return `<li>${withSportIcon(session.sport, esc(title))}${chip}${link}</li>`;
   };
   const parts = new Set(linked.flat());

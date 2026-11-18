@@ -64,6 +64,8 @@ Details: [SOURCES.md](SOURCES.md).
 
 ## The day and the start page
 
+- **Planned workouts open on the start page**: click one under Planned to fold open its
+  steps, as in This week.
 - **Today** (`#/dashboard`): advice for today, the plan and what was done, check-in and
   complaints, recovery and the week, what's coming up, key numbers, last night, body and
   measurements, the timeline, best efforts and the diary. Blocks can be reordered and hidden.

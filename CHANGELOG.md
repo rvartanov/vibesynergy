@@ -11,6 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Open a planned workout on the start page**: click it under Planned and it folds open
+  with its steps, the same as in This week.
 - **Any AI provider works just as well** (#96): the harness names no model or provider in
   what a model reads (the harness rules, the routine instructions' seeds, the coach
   handbook, the tool descriptions) or in the portal's texts. Thinking settings, an effort
