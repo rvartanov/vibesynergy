@@ -84,6 +84,16 @@ def _today(r: Rec):
         3.2,
     )
     r.click(details)
+    updated = advice.locator("[data-advice-updated]")
+    r.check(updated.count() > 0, "the advice should say when it was updated")
+    r.point(updated)
+    r.say(
+        "Komen er nieuwe gegevens binnen, zoals je check-in of een training, dan maakt je "
+        "AI-coach een nieuwe versie. Hier zie je wanneer en waarom.",
+        "When new data comes in, like your check-in or a workout, your AI coach makes a new "
+        "version. This line says when and why.",
+        3.2,
+    )
     update = advice.get_by_role("button", name="Advies bijwerken")
     r.check(update.count() > 0, "the advice card should have Update advice")
     r.point(update)
@@ -426,10 +436,18 @@ def coach(r: Rec):
         "Paste your own API key here and choose 'Save key'.",
         2.6,
     )
+    r.point(r.pg.locator("#coach-runner-advice-max"))
+    r.say(
+        "Nieuwe gegevens maken in de loop van de dag een nieuwe versie van het advies. Kies "
+        "hoeveel updates per dag hoogstens; je ziet wat dat kost.",
+        "New data makes a new version of the advice during the day. Choose how many updates "
+        "a day at most; you see what that costs.",
+        3.4,
+    )
     r.click(r.pg.locator("summary", has_text="Ochtendadvies").first)
     r.say(
-        "Per taak stel je in wanneer de coach werkt, bijvoorbeeld het ochtendadvies om 9 uur.",
-        "Per task you set when the coach runs, for example the morning advice at 9.",
+        "Per taak stel je in wanneer de coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.",
+        "Per task you set when the coach runs, for example the morning advice at 7.",
         2.8,
     )
     r.click(r.pg.get_by_role("link", name="Geheugen"))

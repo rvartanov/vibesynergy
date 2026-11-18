@@ -611,7 +611,7 @@ def _waiting(rt, day: date) -> dict[str, Any] | None:
     from vibesynergy.coach_runner import triggers
 
     found = triggers.pending(rt, day)
-    if found is None or found["held"] or found["busy"]:
+    if found is None or found["held"] or found["busy"] or found["seen"]:
         return None
     return found
 

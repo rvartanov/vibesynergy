@@ -321,7 +321,7 @@ def job_for(cfg, target: date, today: date, changes: list[str]) -> str:
 def check(rt, cfg, now: datetime | None = None, *, remember: bool = False) -> dict[str, Any]:
     """Where the current advice stands against the data now.
 
-    Returns ``{target, today, changes, held, limit, off, busy, due, item}``. ``due`` is true
+    Returns ``{target, today, changes, held, limit, off, busy, seen, due, item}``. ``due`` is true
     when a new version should be made now; ``item`` is then the run for the job queue.
     ``remember`` keeps the debounce state (the scheduler); a read leaves it alone."""
     from vibesynergy.coach_runner import runner
@@ -340,6 +340,7 @@ def check(rt, cfg, now: datetime | None = None, *, remember: bool = False) -> di
         "limit": False,
         "off": max_runs(cfg) <= 0,
         "busy": False,
+        "seen": False,
         "due": False,
         "item": None,
     }
@@ -380,6 +381,7 @@ def check(rt, cfg, now: datetime | None = None, *, remember: bool = False) -> di
     job = job_for(cfg, target, today, changes)
     run_key = f"event-{key}-{digest}"
     if runner.get_run(rt, job, run_key) is not None:
+        out["seen"] = True
         return out  # this state of the data already had its run
     out["due"] = True
     out["item"] = {

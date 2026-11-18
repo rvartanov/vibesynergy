@@ -1,4 +1,7 @@
-"""Put an AI coach's morning advice in the demo for today, or take it out (#89).
+"""Put an AI coach's morning advice in the demo for today, or take it out (#89, #90).
+
+Two versions: the 07:00 advice, and the update after the check-in that replaced it, so the
+start page shows "Updated at … after your check-in" and the Coach page its earlier version.
 
 Only for the help-video demo home (``~/vs-help-home``), never for real data: the scenario
 ``today`` seeds before it records and clears afterwards, so the advice card shows what an
@@ -13,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 from sqlalchemy import delete, insert
@@ -25,6 +29,7 @@ from vibesynergy.store.schema import coach_decision_log
 
 DEMO_HOME = Path.home() / "vs-help-home"
 KEY = "demo-daily-advice"
+EARLIER = "demo-daily-advice-0700"
 
 
 def _guard() -> None:
@@ -35,7 +40,11 @@ def _guard() -> None:
 
 def clear(rt: Runtime) -> None:
     with rt.engine.begin() as conn:
-        conn.execute(delete(coach_decision_log).where(coach_decision_log.c.idempotency_key == KEY))
+        conn.execute(
+            delete(coach_decision_log).where(
+                coach_decision_log.c.idempotency_key.in_((KEY, EARLIER))
+            )
+        )
 
 
 def seed(rt: Runtime) -> None:
@@ -65,7 +74,26 @@ def seed(rt: Runtime) -> None:
             },
         },
     }
+    first = {
+        **meta,
+        "safety": {"level": "ok", "colour": "green", "reasons": ["Je HRV en slaap zijn normaal"]},
+        "harness": {**meta["harness"], "target": day.isoformat(), "trigger": "schedule"},
+    }
+    meta["harness"].update(target=day.isoformat(), trigger="event", changes=["checkin"])
     with rt.engine.begin() as conn:
+        conn.execute(
+            insert(coach_decision_log).values(
+                subject_id=1,
+                at=utc_now() - timedelta(hours=1),
+                kind="coach",
+                author="client:coach-runner",
+                entry_type="morning",
+                idempotency_key=EARLIER,
+                for_date=day,
+                text="Je bent goed hersteld: de duurloop van 60 minuten kan zoals gepland.",
+                meta=first,
+            )
+        )
         conn.execute(
             insert(coach_decision_log).values(
                 subject_id=1,
