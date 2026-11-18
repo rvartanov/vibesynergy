@@ -156,6 +156,13 @@ async function start() {
       await after(await send("/auth/link/use", { token: hash.get("link") }));
       say("");
     } catch (error) {
+      // A link opened a second time (a mail app that opens it twice, a second mail, a tap
+      // on an older link) is refused, but you may already be logged in by the first one:
+      // then go on instead of showing an error (18-11-2026).
+      const state = await fetch("/auth/state", { credentials: "same-origin" })
+        .then((reply) => reply.json())
+        .catch(() => ({}));
+      if (state.logged_in) return location.replace(next());
       say(error.message, true);
     }
     return;
