@@ -620,3 +620,50 @@ def test_alert_mail_goes_to_the_account_address_without_email_to(runtime):
     assert alerts.recipient(bare) is None
     chosen = replace(runtime.settings, alerts={"email_to": "coach@example.com"})
     assert alerts.recipient(chosen, runtime.engine) == "coach@example.com"
+
+
+def test_a_failed_sync_chip_clears_once_the_same_data_syncs_again(mail_rt) -> None:
+    """A one-off 401 on the calendar must not stay in the header after later syncs work."""
+    from vibesynergy.core.secrets import SecretStore
+    from vibesynergy.store.schema import dataset_state
+
+    failed_at = utc_now() - timedelta(hours=2)
+    store = SecretStore(mail_rt.settings.secrets_dir, alerts.SECRETS)
+
+    def event(key, **extra):
+        at = failed_at.isoformat()
+        return {"key": key, "kind": "job", "text": "x", "detail": "401", "at": at, **extra}
+
+    store.set(
+        alerts.STATE,
+        {
+            alerts.RECENT: [
+                event("job-source:caldav:a", source="caldav", dataset="calendar"),
+                event("job-source:garmin:b", source="garmin", dataset="sleep"),
+                event("job-source:withings:c"),  # an older event: no dataset stored
+            ]
+        },
+    )
+
+    def success(source, dataset, at):
+        with mail_rt.engine.begin() as conn:
+            conn.execute(
+                dataset_state.insert().values(source=source, dataset=dataset, last_success_at=at)
+            )
+
+    later, earlier = failed_at + timedelta(minutes=15), failed_at - timedelta(minutes=15)
+    success("caldav", "calendar", later)  # recovered
+    success("garmin", "activities", later)  # another dataset: sleep is still broken
+    success("garmin", "sleep", earlier)
+    success("withings", "weight", later)
+    success("withings", "sleep", earlier)  # not every dataset recovered yet
+    shown = [a["key"] for a in alerts.for_portal(mail_rt.settings, mail_rt.engine)["recent"]]
+    assert shown == ["job-source:garmin:b", "job-source:withings:c"]
+    # Without the engine nothing is dropped (the old behaviour).
+    assert len(alerts.for_portal(mail_rt.settings)["recent"]) == 3
+
+
+def test_a_job_event_keeps_its_source_and_dataset() -> None:
+    alert = alerts.Alert("k", "warn", "t", event=True, kind="job", dedupe="caldav|calendar|http #")
+    assert alerts._job_origin(alert) == {"source": "caldav", "dataset": "calendar"}
+    assert alerts._job_origin(alerts.Alert("k", "warn", "t")) == {}

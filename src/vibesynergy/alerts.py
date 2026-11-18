@@ -676,6 +676,7 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
             "link": a.link,
             "kind": a.kind,
             "detail": a.detail,
+            **_job_origin(a),
         }
         for a in events
     ] + recent
@@ -760,8 +761,54 @@ def open_alerts(settings: Any) -> list[dict[str, Any]]:
     return _open(SecretStore(settings.secrets_dir, SECRETS).get(STATE) or {})
 
 
-def for_portal(settings: Any) -> dict[str, list[dict[str, Any]]]:
-    """What the portal shows: open alerts and recent events of the kinds routed to it."""
+def _job_origin(alert: Alert) -> dict[str, str]:
+    """Source and dataset of a failed sync job, from its dedupe signature."""
+    if alert.kind != "job" or not alert.dedupe:
+        return {}
+    source, _, rest = alert.dedupe.partition("|")
+    dataset = rest.partition("|")[0]
+    return {"source": source, "dataset": dataset}
+
+
+def _job_source(event: dict[str, Any]) -> str | None:
+    if event.get("source"):
+        return event["source"]
+    key = str(event.get("key", ""))
+    return key.split(":")[1] if key.startswith("job-source:") else None
+
+
+def _recovered(event: dict[str, Any], synced: dict[tuple[str, str], datetime]) -> bool:
+    """A failed sync job that a later successful sync of the same data has made moot.
+
+    With a dataset, that dataset must have succeeded after the event; without one (older
+    events), every dataset of the source must have."""
+    source = _job_source(event)
+    if event.get("kind") != "job" or not source or not event.get("at"):
+        return False
+    try:
+        moment = _aware(datetime.fromisoformat(event["at"]))
+    except ValueError:
+        return False
+    dataset = event.get("dataset")
+    times = [t for (s, d), t in synced.items() if s == source and (not dataset or d == dataset)]
+    return bool(times) and all(t > moment for t in times)
+
+
+def _last_successes(engine: Any) -> dict[tuple[str, str], datetime]:
+    from vibesynergy.store.schema import dataset_state
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(dataset_state.c.source, dataset_state.c.dataset, dataset_state.c.last_success_at)
+        ).all()
+    return {(source, dataset): _aware(at) for source, dataset, at in rows if at is not None}
+
+
+def for_portal(settings: Any, engine: Any = None) -> dict[str, list[dict[str, Any]]]:
+    """What the portal shows: open alerts and recent events of the kinds routed to it.
+
+    A failed sync job is dropped once the same data synced successfully afterwards: the
+    problem is gone, so the header chip should be too."""
     state = SecretStore(settings.secrets_dir, SECRETS).get(STATE) or {}
     shown = {kind for kind, channels in routes(settings).items() if "portal" in channels}
     opened = [a for a in _open(state) if a.get("kind", "health") in shown]
@@ -771,6 +818,9 @@ def for_portal(settings: Any) -> dict[str, list[dict[str, Any]]]:
         if e.get("kind") in shown
         and not (e.get("kind") == "job" and re.search(r"\bfor icloud\b", e.get("text", ""), re.I))
     ]
+    if engine is not None and any(e.get("kind") == "job" for e in recent):
+        synced = _last_successes(engine)
+        recent = [e for e in recent if not _recovered(e, synced)]
     tr = i18n.for_settings(settings)
     recent = [
         e
