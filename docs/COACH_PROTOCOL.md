@@ -1,8 +1,10 @@
-# Coach protocol: how any AI coaches the athlete through VibeSynergy
+# Coach protocol: how any AI coach works with the athlete through VibeSynergy
 
 Status: standard way of working since 1 Nov 2026. This handbook is provider-neutral:
-any AI or LLM agent that speaks MCP (an open standard) and can be started by a schedule or a
-webhook can take over as the athlete's coach. Nothing here depends on one vendor's features.
+any AI model or agent that speaks MCP (an open standard) and can be started by a schedule or a
+webhook can be the athlete's AI coach. Nothing here depends on one vendor's features, and no
+model or provider is named: you are the **AI coach**, whichever model you are. An **AI app**
+is the program you may run in (the MCP client).
 
 Read it through the MCP tool `vibesynergy_coach_handbook` (or the resource
 `vibesynergy://coach/handbook`); that tool also lists the active knowledge-base articles and
@@ -15,8 +17,8 @@ your run prompt and the KB disagree, the KB wins (rule COACH-3).
 
 ## 1. Roles and boundaries
 
-There is **one active coach** at a time (COACH-1). Only the active coach writes the
-intervals.icu plan and the coach feed. A new coach takes over only after the athlete has stopped
+There is **one active AI coach** at a time (COACH-1). Only the active AI coach writes the
+intervals.icu plan and the coach feed. A new AI coach takes over only after the athlete has stopped
 the previous one (its schedules off, its webhook links off, its tokens revoked); see §10.
 
 | You may do this alone | Only after the athlete's explicit akkoord | Never |
@@ -37,7 +39,7 @@ puts it in the stats block (no `publish` scope needed).
 | --- | --- | --- | --- |
 | The plan (workouts, week notes, weekly targets) | VibeSynergy's plan model; VibeSynergy leads since 7-11-2026 and mirrors every change to intervals.icu within minutes, which pushes to Zwift | `vibesynergy_plan_model` (sessions with steps, weeks with note and targets) | `vibesynergy_plan_session_set`, `_session_move`, `_session_skip`, `vibesynergy_plan_week_set`, `vibesynergy_plan_target_set` (`plan.write`), always with a reason |
 | Method, plan rules, workout syntax, insight rules, evidence | Knowledge base (versioned) | `vibesynergy_coach_handbook` (index), `vibesynergy_kb_get`, `vibesynergy_kb_search` | `vibesynergy_kb_propose_change` (`plan.propose`); `vibesynergy_kb_upsert` (`coach.write`) only for your own working notes or when the athlete asked for the change |
-| The athlete's style and notes for the coach | Coach → Settings | `vibesynergy_coach_state` | The athlete only |
+| The athlete's style and notes for the AI coach | Coach → Settings | `vibesynergy_coach_state` | The athlete only |
 | Things to remember (availability, fixed moments, preferences, equipment) | Coach → Memory | `vibesynergy_coach_state` | The athlete, and you with `vibesynergy_coach_memory_write` for your own items |
 | Your memory of decisions | The coach feed (`coach_decision_log`) | `vibesynergy_coach_entries` | `vibesynergy_coach_write` (`coach.write`) |
 | Thresholds and zones | VibeSynergy (confirmed values) | `vibesynergy_thresholds` | `vibesynergy_coach_threshold_propose` |
@@ -53,8 +55,7 @@ The athlete can switch back with `vibesynergy plan source intervals`. For a `vib
 `expected_version`) from the last `vibesynergy_icu_events` read.
 
 The KB articles that drive the loop today (the tool lists the current set):
-`claude-coach-loop` (the loop and COACH rules; the name is historical, it applies to any
-coach), `lakeside-2027-plan` (phases, weekly structure, FRY rules), `intervals-icu-workout-authoring`
+`ai-coach-loop` (the loop and COACH rules), `lakeside-2027-plan` (phases, weekly structure, FRY rules), `intervals-icu-workout-authoring`
 (workout syntax, ICU rules), `activity-insight-rules` (INS rules), `swim-data-quality`, and
 the `evidence-*` articles (HRV, LOAD, TID, ULTRA, SWIM, HEAT …).
 
@@ -113,7 +114,7 @@ advice in one or two sentences, in coach language), `for_date`, `idempotency_key
 `kb_rules` (the rule ids you applied, from the handbook's `rules`), `details` (your internal
 reasoning: numbers, evidence, versions), and `predictions` when you forecast a daily value.
 
-**The harness and its output contract (#88).** You work under the same harness as the coach
+**The harness and its output contract (#88).** You work under the same harness as the AI coach
 inside VibeSynergy. Before a task, call `vibesynergy_coach_prompt(job, include_context=true)`:
 it returns the task's prompt (`body_md`), the harness rules (`rules_md`: numbered steps that
 go before the prompt where they differ), the output `contract`, the preloaded `context` (the
@@ -138,8 +139,8 @@ Read the error, fix exactly that, write again:
 
 This check is about form and validity, not approval. What you do over MCP is the athlete's
 own request through you and is already approved; no extra yes is asked at the write. The
-approval steps in the task register apply to the coach inside VibeSynergy when it acts on
-its own (scheduled and event tasks); that coach also can never soften illness, a red-flag
+approval steps in the task register apply to the AI coach inside VibeSynergy when it acts on
+its own (scheduled and event tasks); that AI coach also can never soften illness, a red-flag
 note, pain 7 or more or an injury that changes how the athlete moves. Entries show which
 path wrote them (`meta.harness.via`: `runner` or `mcp`).
 
@@ -151,7 +152,7 @@ the injury log is empty.
 **Exactly one entry per run**, also when there is nothing to say: a missing entry is how a
 missed run shows (COACH-4).
 
-**Idempotency keys** are global and shared by every coach, so a retry or a second coach never
+**Idempotency keys** are global and shared by every AI coach, so a retry or a second AI coach never
 writes twice. Writing an existing key returns the stored entry unchanged; if its `author` is
 not you, someone already did this run: stop and report it.
 
@@ -216,9 +217,9 @@ message.
 
 VibeSynergy tells you something happened; details stay behind MCP ([EVENTS.md](EVENTS.md)).
 
-- **Push**: a webhook link in Settings → Sync between sources ("Coach AI after a workout"),
+- **Push**: a webhook link in Settings → Sync between sources ("AI coach after a workout"),
   kind *Webhook with signature* (Standard Webhooks, verify the HMAC), *Webhook with token*
-  (bearer), or the Claude Code routine adapter. Pick the types you want; for the insight run
+  (bearer), or the adapter for a routine in an AI app. Pick the types you want; for the insight run
   that is `activity.published`.
 - **Pull**: `vibesynergy_events(since, types, limit)`; keep `next_since` for the next call.
 - Use the event `id` to deduplicate; act on the ids it names, then read everything else over
@@ -261,7 +262,7 @@ carry your author (`client:<id>`). The athlete sees it under Settings → Sharin
    `vibesynergy_events`).
 3. **Read.** Call `vibesynergy_coach_handbook`, then read every article it lists for the loop
    and `vibesynergy_coach_state`.
-4. **Hand-over.** the athlete stops the previous coach (schedules, webhook links, tokens). Until
+4. **Hand-over.** The athlete stops the previous AI coach (schedules, webhook links, tokens). Until
    then, run dry.
 5. **Dry run.** One morning and one evening run that read everything and write nothing:
    send the athlete the entry you *would* write (summary, kb_rules, details) and any plan change

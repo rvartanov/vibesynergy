@@ -21,7 +21,7 @@ export function planKind(item) {
 export function outsidePlanHtml(planSource, rows) {
   if (!rows) return "";
   const why = planSource === "vibesynergy"
-    ? t("Your plan is in VibeSynergy. The workouts below are on your Garmin calendar but not in your plan, so they do not count in planned versus done. If one belongs to your plan, ask your coach to add it.")
+    ? t("Your plan is in VibeSynergy. The workouts below are on your Garmin calendar but not in your plan, so they do not count in planned versus done. If one belongs to your plan, ask your AI coach to add it.")
     : t("Your plan comes from intervals.icu. The workouts below are on your Garmin calendar but not in intervals.icu, so they do not count in planned versus done. If one belongs to your plan, add it in intervals.icu.");
   return `<h3>${t("Only on your Garmin calendar")}</h3><p class="sub">${why}</p><ul class="trends">${rows}</ul>`;
 }

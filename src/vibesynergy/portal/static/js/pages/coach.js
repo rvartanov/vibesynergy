@@ -62,7 +62,7 @@ async function profile(el, stale) {
     .map((label) => t(label))
     .join(" · ");
   el.innerHTML = `${style ? `<p>${esc(style)}</p>` : ""}
-    ${p.instructions ? `<h3>${t("Notes for your coach")}</h3><p class="coach-notes">${esc(p.instructions)}</p>` : ""}
+    ${p.instructions ? `<h3>${t("Notes for your AI coach")}</h3><p class="coach-notes">${esc(p.instructions)}</p>` : ""}
     ${remembered.length ? `<h3>${t("What to remember")}</h3><ul>${remembered.map((entry) => `<li>${esc(entry.text)}</li>`).join("")}</ul>` : ""}
     <p><a href="#/coach/memory">${t("Change this under Memory")}</a></p>`;
 }
@@ -74,7 +74,7 @@ async function fillSettings(el, stale) {
     <section class="card" data-coach-runner aria-labelledby="coach-runner-title"><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></section>
     <section class="card" data-sync-agents aria-labelledby="coach-agents-title">
       <h2 id="coach-agents-title">${esc(t("AI coach after a workout"))}</h2>
-      <p class="sub">${esc(t("VibeSynergy tells your AI coach when you make an activity public on Strava, so its insight is there right away. It only sends which activity it is; the AI reads the rest itself."))}</p>
+      <p class="sub">${esc(t("VibeSynergy tells your AI coach when you make an activity public on Strava, so its insight is there right away. It only sends which activity it is; your AI coach reads the rest itself."))}</p>
       <div data-agent-links></div>
     </section>`;
   const settingsEl = el.querySelector("[data-coach-settings]");
@@ -99,7 +99,7 @@ function fillReport(id) {
     if (stale() || !el.isConnected) return;
     const entry = { ...data.entry, replies: data.replies };
     el.innerHTML = `<section class="card coach-section" aria-label="${esc(t("Report"))}"><div class="coach-feed">${coachEntryHtml(entry, {})}</div>
-      <p><a href="#/coach">${esc(t("All messages from your coach"))}</a></p></section>`;
+      <p><a href="#/coach">${esc(t("All messages from your AI coach"))}</a></p></section>`;
     bindReplies(el, () => entry);
   };
 }
@@ -129,7 +129,7 @@ async function renderSection(view, stale, tab, intro, fill, heading) {
   } catch (error) {
     if (!stale() && el.isConnected) {
       el.innerHTML = `<div class="notice error" role="alert"><p>${esc(t(error.message || "This part could not load right now."))}</p>
-        <p><a href="#/coach">${esc(t("All messages from your coach"))}</a></p></div>`;
+        <p><a href="#/coach">${esc(t("All messages from your AI coach"))}</a></p></div>`;
     }
   }
 }
@@ -139,9 +139,9 @@ const SUBPAGES = {
   methods: async (view, ctx) => (await import("../coach_knowledge.js")).renderMethods(view, ctx),
   log: async (view, ctx) => (await import("../coach_log.js")).renderLog(view, ctx),
   memory: (view, { stale }) =>
-    renderSection(view, stale, "memory", t("What your coach keeps about you. It reads this before every piece of advice; only you can change it."), coachMemory),
+    renderSection(view, stale, "memory", t("What your AI coach keeps about you. It reads this before every piece of advice; only you can change it."), coachMemory),
   tasks: (view, { stale }) =>
-    renderSection(view, stale, "tasks", t("What your coach does, when, and when it last did it."), fillTasks),
+    renderSection(view, stale, "tasks", t("What your AI coach does, when, and when it last did it."), fillTasks),
   settings: (view, { stale }) => renderSection(view, stale, "settings", "", fillSettings),
   report: (view, { args, stale }) =>
     args[0] ? renderSection(view, stale, "", "", fillReport(args[0]), t("Report")) : render(view, { stale }),
@@ -189,9 +189,9 @@ export async function render(view, { args = [], query, meta, stale }) {
       ${coachTabsHtml("")}
       ${safety.map((line) => `<p class="notice warning">${esc(line)}</p>`).join("")}
       <section class="card empty-state" aria-labelledby="coach-empty-title">
-        <h2 id="coach-empty-title">${esc(t("No coach set up yet"))}</h2>
+        <h2 id="coach-empty-title">${esc(t("No AI coach set up yet"))}</h2>
         <p>${esc(t("Your AI coach gives advice every morning and evening and reviews your week. Set it up once and its advice shows here."))}</p>
-        <p class="actions"><a class="btn primary" href="#/coach/settings">${esc(t("Set up your coach"))}</a></p>
+        <p class="actions"><a class="btn primary" href="#/coach/settings">${esc(t("Set up your AI coach"))}</a></p>
       </section>`;
     return;
   }
@@ -199,9 +199,9 @@ export async function render(view, { args = [], query, meta, stale }) {
   view.innerHTML = `<div class="page-head"><h1>${t("Coach")}</h1></div>
     ${coachTabsHtml("")}
     ${share ? "" : `<section class="card coach-section dash-today verdict" data-coach-advice aria-labelledby="coach-advice-title"><h2 id="coach-advice-title">${t("Advice for today")}</h2><div data-coach-advice-body>${sectionLoading()}</div></section>`}
-    <section class="card coach-section" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">${t("Messages from your coach")}</h2>
+    <section class="card coach-section" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">${t("Messages from your AI coach")}</h2>
       <div data-coach-feed></div></section>
-    <section class="card coach-section" aria-labelledby="coach-goals"><h2 id="coach-goals">${t("What your coach knows about you")}</h2><div data-profile></div></section>
+    <section class="card coach-section" aria-labelledby="coach-goals"><h2 id="coach-goals">${t("What your AI coach knows about you")}</h2><div data-profile></div></section>
     <section class="card coach-section" aria-labelledby="coach-rhythm"><h2 id="coach-rhythm">${t("Week and training block")}</h2><div data-rhythm></div></section>`;
 
   // The same advice as the start page (#89): one source.
@@ -316,7 +316,7 @@ async function daily(rhythmEl, stale, { dailyCoaching } = {}) {
   const { data } = await (dailyCoaching ? dailyCoaching() : get("daily-coaching", {}, { timeoutMs: COACH_TIMEOUT_MS }));
   if (stale() || !rhythmEl?.isConnected) return;
   if (!data.profile_active) {
-    rhythmEl.innerHTML = `<p>${t("Set up your coaching approach in Settings.")} <a href="#/coach/memory">${t("Set up coach")}</a></p>`;
+    rhythmEl.innerHTML = `<p>${t("Set up your coaching approach in Settings.")} <a href="#/coach/memory">${t("Set up AI coach")}</a></p>`;
     return;
   }
   const rhythmState = captureViewState(rhythmEl);
@@ -403,7 +403,7 @@ function coachEntryHtml(entry, names) {
     : "";
   const coach = `<p>${esc(advice)}</p>${caveat ? `<p class="sub">${esc(caveat)}</p>` : ""}${sessionsHtml(entry.meta?.sessions)}`;
   const body = entry.advice_mode === "safety_override"
-    ? `${safety}<details class="coach-note"><summary>${t("Coach's note")}</summary>${coach}</details>`
+    ? `${safety}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`
     : `${safety}${coach}`;
   return `<article class="coach-entry" data-entry-type="${esc(entry.entry_type || "")}">
     <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span> <span class="sub">${esc(when)}</span>${stale}</header>
@@ -453,7 +453,7 @@ async function coachFeed(
       ? `<label class="sub">${esc(t("Show"))} <select class="btn" data-archive-type><option value="">${esc(t("All messages"))}</option>${types.map((type) => `<option value="${esc(type)}">${esc(t(COACH_ENTRY_TYPES[type] || type))}</option>`).join("")}</select></label>`
       : "";
     const feed = entries.length
-      ? `${current.length ? byDay(current) : `<p class="sub">${esc(t("Nothing new from your coach today or yesterday."))}</p>`}
+      ? `${current.length ? byDay(current) : `<p class="sub">${esc(t("Nothing new from your AI coach today or yesterday."))}</p>`}
         ${archive.length ? `<details class="collapsible coach-archive"><summary>${esc(t("Earlier messages ({n})", { n: archive.length }))}</summary>${filter}<div data-archive-list>${byDay(archive)}</div></details>` : ""}`
       : `<p class="empty">${t("No advice from your AI coach yet for this period.")}</p>`;
     el.innerHTML = `<div class="coach-today" data-coach-today hidden></div><p class="sub" data-coach-status role="status" aria-live="polite"></p>

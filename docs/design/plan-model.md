@@ -57,7 +57,7 @@ New tables (one migration; `store/schema.py` and the revision pin in `tests/test
    - Switch: `vibesynergy plan source intervals|vibesynergy` (kept on the plan itself, `plan.status` `shadow`/`leading`; there is no config setting). Back to `intervals` = stop the mirror and read `icu_event` again.
 4. **Flip readers.** `plan.py`, `training_plan.py`, `week_progress`, the coach brief and the planning page read the model. `icu_event` stays as the mirror's cache and for matching activities.
 
-Each step is its own PR with tests. The coach routines and KB (`claude-coach-loop`, `intervals-icu-workout-authoring`, `docs/COACH_PROTOCOL.md`) change in the same PR as the step that changes their tools.
+Each step is its own PR with tests. The coach routines and KB (`ai-coach-loop`, `intervals-icu-workout-authoring`, `docs/COACH_PROTOCOL.md`) change in the same PR as the step that changes their tools.
 
 ## Exports
 

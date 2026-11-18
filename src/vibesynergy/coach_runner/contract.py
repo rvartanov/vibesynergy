@@ -1,7 +1,7 @@
 """The harness's output contract, enforced where the entry is written (#88).
 
-One contract for every coach: the API runner inside VibeSynergy and any AI that comes in
-over MCP write through ``vibesynergy_coach_write``, and that tool calls ``check_write``
+One contract for every AI coach: the API runner inside VibeSynergy and any AI app that
+comes in over MCP write through ``vibesynergy_coach_write``, and that tool calls ``check_write``
 before anything is stored. An entry that misses the contract is **refused** with a message
 the model can act on (fail closed): it is never stored, mailed or shown. A weaker model, or
 a client that never read the harness rules, cannot get around it.
@@ -16,7 +16,7 @@ What is checked, per entry:
    ``{"level", "colour", "reasons", "override_reason"?}``. The level is one of the floor's
    four, the colour is the one that belongs to the level, there is at least one reason,
    and a level milder than the rules' own needs ``override_reason``: the judgement the
-   coach made, in a sentence. The autonomous runner can never soften illness, a red-flag
+   AI coach made, in a sentence. The autonomous runner can never soften illness, a red-flag
    note or real pain.
 
 This is a check of form and validity, not of approval. A write over MCP is the athlete's
@@ -83,7 +83,7 @@ def current_run() -> dict[str, Any] | None:
 
 
 def stamp(prompt_version: Any, rules_version: int, context_version: int) -> str:
-    """``h<harness>.r<rules>.p<prompt>.c<context>``: what a coach was told and given."""
+    """``h<harness>.r<rules>.p<prompt>.c<context>``: what an AI coach was told and given."""
     return f"h{HARNESS_VERSION}.r{rules_version}.p{prompt_version}.c{context_version}"
 
 

@@ -45,10 +45,11 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 2
+RULES_VERSION = 3
 
-# The rules every coach follows, the API runner and an AI over MCP alike: one text, from
-# here. Written so that any model with tool use can follow them: numbered steps, decision
+# The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
+# from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
+# is written so that any model with tool use can follow them: numbered steps, decision
 # rules, the output as a schema with an example, and where judgement is asked, named.
 HARNESS_RULES = """\
 ## Harnasregels v{version} (gaan voor de werkwijze hierboven)
@@ -135,7 +136,7 @@ SAFETY_FIELD = """\
 RUNNER_RULES = """\
 ### VibeSynergy API-runner
 
-- Je draait in VibeSynergy zelf, niet als Claude Code-routine. Je tools zijn de
+- Je draait in VibeSynergy zelf, niet als routine in een AI-app. Je tools zijn de
   VibeSynergy-tools die je krijgt; er is geen ToolSearch, geen Garmin-connector,
   geen SendUserMessage en geen bestandssysteem. Het plan staat in VibeSynergy: wijzig het met
   vibesynergy_plan_session_set, _move, _skip, vibesynergy_plan_week_set en
@@ -157,11 +158,11 @@ RUNNER_RULES = """\
   vibesynergy_coach_write voordat je stopt. Daarna ben je klaar: antwoord met één korte regel.
 """
 
-# For an AI that coaches over MCP: the same harness, reached through two tools.
+# For an AI coach that works over MCP (in an AI app): the same harness, through two tools.
 MCP_RULES = """\
-### Coach via MCP
+### AI-coach via MCP
 
-- Je volgt hetzelfde harnas als de coach in VibeSynergy. De context die de runner vooraf
+- Je volgt hetzelfde harnas als de AI-coach in VibeSynergy. De context die de runner vooraf
   laadt, haal je op met vibesynergy_coach_prompt(job, include_context=true).
 - Geef aan vibesynergy_coach_write mee: task (de taak, bijvoorbeeld "{job}") en harness (de
   waarde van "harness.stamp" uit vibesynergy_coach_prompt). Zo staat bij de entry onder welke
@@ -169,15 +170,15 @@ MCP_RULES = """\
 - De server controleert elke write tegen het uitvoercontract. Een entry die er niet aan
   voldoet wordt geweigerd, met de reden. Dat is een controle op vorm en geldigheid, geen
   goedkeuring: wat je via MCP doet is een verzoek van {name} zelf en is al akkoord.
-- Stap 2d geldt voor de coach die zelfstandig draait. Vraagt {name} je uitdrukkelijk om
+- Stap 2d geldt voor de AI-coach die zelfstandig draait. Vraagt {name} je uitdrukkelijk om
   een milder niveau, dan mag dat ook daar, met override_reason.
 """
 
 INSIGHT_RULES = """\
 ## Harnasregels v{version} (gaan voor de werkwijze hierboven)
 
-1. Je draait in VibeSynergy zelf, niet als Claude Code-routine. De fire-payload staat in het
-   startbericht. Er is geen rapport en geen bericht aan {name}.
+1. Je draait in VibeSynergy zelf, niet als routine in een AI-app. De fire-payload staat in
+   het startbericht. Er is geen rapport en geen bericht aan {name}.
 2. In deze run kun je alleen activiteiten, het plan en de kennisbank lezen en
    activity_assessment-entries schrijven. De activiteit en wat er gepland stond staan al
    in de vooraf geladen context.
@@ -214,7 +215,7 @@ DEFAULT_NAME = "de atleet"
 
 
 def athlete_name(settings) -> str:
-    """How the coach names the athlete (portal preference ``athlete_name``: nothing in
+    """How the AI coach names the athlete (portal preference ``athlete_name``: nothing in
     the code is about one person)."""
     from vibesynergy.portal import prefs
 

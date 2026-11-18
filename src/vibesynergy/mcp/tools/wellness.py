@@ -113,6 +113,6 @@ def register(kit: ToolKit) -> None:
 
     @tool(READ, "read")
     def vibesynergy_athlete() -> dict[str, Any]:
-        """Profile, thresholds, plan-calendar races, and notes for the coach.
+        """Profile, thresholds, plan-calendar races, and notes for the AI coach.
         The notes are the athlete's own words. This tool cannot change them."""
         return envelope(coach.athlete_for_coach(engine, settings))

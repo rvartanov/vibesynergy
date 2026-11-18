@@ -25,7 +25,7 @@ function noticeText(item) {
   const day = item.date ? longDate(item.date) : "";
   switch (item.kind) {
     case "coach_missed":
-      return t("Your coach skipped the {task} ({day}).", { task: t(item.task).toLowerCase(), day });
+      return t("Your AI coach skipped the {task} ({day}).", { task: t(item.task).toLowerCase(), day });
     case "horizon_missing":
       return t("Not on your Garmin yet: {title} ({day}).", { title: item.title, day });
     case "horizon_duplicates":
@@ -33,7 +33,7 @@ function noticeText(item) {
     case "horizon_outdated":
       return t("Old version on your Garmin: {title} ({day}).", { title: item.title, day });
     case "horizon_behind":
-      return t("Your plan runs only to {day}. Ask your coach to fill it up to {end}.", { day, end: item.end ? longDate(item.end) : "" });
+      return t("Your plan runs only to {day}. Ask your AI coach to fill it up to {end}.", { day, end: item.end ? longDate(item.end) : "" });
     case "screen_alert":
       return item.text;
     default:

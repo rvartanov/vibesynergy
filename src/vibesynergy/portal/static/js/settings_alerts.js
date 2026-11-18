@@ -10,7 +10,7 @@ import { field, saveRow, select } from "./settings_pieces.js";
 export const ALERT_GROUPS = [
   ["health", N("Health warnings"), ["injury", "health"], N("A red day, low HRV or heavy load.")],
   ["sync", N("Sync problems"), ["login", "silent", "job", "history", "import"], N("A login that stopped working, a quiet source, a failed import.")],
-  ["coach", N("Messages from your coach"), ["daily_coach", "token"], N("A new morning note, and a coach token about to expire.")],
+  ["coach", N("Messages from your AI coach"), ["daily_coach", "token"], N("A new morning note, and a coach token about to expire.")],
 ];
 
 export function alertGroupsHtml(a) {

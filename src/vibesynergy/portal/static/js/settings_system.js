@@ -73,7 +73,7 @@ export function regionHtml(s) {
       <label>${t("Wind")} ${select("wind", [["kmh", "km/h"], ["ms", "m/s"], ["kn", t("Knots (kn)")], ["bft", t("Beaufort (Bft)")]], s.user.wind || "kmh")}</label>
     </div>
     <p class="sub">${t("Sex, heart rates and thresholds are under Training.")} <a href="#/zones">${t("Zones & thresholds")}</a>
-      · ${t("Notes for your coach and what to remember are on the Coach page.")} <a href="#/coach/memory">${t("Coach settings")}</a></p>
+      · ${t("Notes for your AI coach and what to remember are on the Coach page.")} <a href="#/coach/memory">${t("Coach settings")}</a></p>
     ${saveRow()}
   </section>`;
 }

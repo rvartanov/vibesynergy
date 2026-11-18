@@ -27,12 +27,14 @@ def register(kit: ToolKit) -> None:
 
     @tool(READ, "read")
     def vibesynergy_kb_search(query: str, topic: str | None = None) -> dict[str, Any]:
-        """Search articles, rules and sources. ``topic`` keeps hits from that subject only."""
+        """Search articles, rules and sources. ``topic`` keeps hits from that subject only.
+        An article is also found by its slug, the one it has now or one it had before."""
         return envelope({"hits": knowledge.search(engine, query, topic=topic)})
 
     @tool(READ, "read")
     def vibesynergy_kb_get(slug: str | None = None, rule_id: str | None = None) -> dict[str, Any]:
-        """One article by slug, or one rule by id (for example HRV-2), with every older version."""
+        """One article by slug, or one rule by id (for example HRV-2), with every older version.
+        A slug an article had before still works (the answer carries the slug it has now)."""
         try:
             if rule_id:
                 return envelope(knowledge.get_rule(engine, rule_id))
@@ -62,7 +64,7 @@ def register(kit: ToolKit) -> None:
         date: str | None = None,
         activity_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        """The current instructions for one coach task, exactly as the coach inside
+        """The current instructions for one coach task, exactly as the AI coach inside
         VibeSynergy gets them. Read them at the start of every run and follow them.
 
         body_md is the task's prompt (the athlete edits it in the portal; ``version`` changes
@@ -136,14 +138,14 @@ def register(kit: ToolKit) -> None:
         Author comes from the connection. ``revert_to`` copies that article version forward.
         Omit rules or sources to leave them as they are.
 
-        The coach's own instructions (topic ``coach-prompts``) are not written here: suggest
+        The AI coach's own instructions (topic ``coach-prompts``) are not written here: suggest
         the change with ``vibesynergy_kb_propose_change`` and the athlete approves it.
         """
         if knowledge.is_prompt_article(engine, slug, topic):
             # These articles are what the unattended coach is told to do. An app that may
             # write messages must not be able to rewrite them on its own.
             raise ToolError(
-                "The coach's instructions change only with the athlete's approval. Suggest "
+                "The AI coach's instructions change only with the athlete's approval. Suggest "
                 "this with vibesynergy_kb_propose_change (kind 'article')."
             )
         try:
@@ -219,4 +221,4 @@ def register(kit: ToolKit) -> None:
             )
         except (LookupError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
-        return envelope(proposal)
+        return envelope(proposal, warnings=knowledge.change_warnings(engine, kind, target, changes))

@@ -27,7 +27,7 @@ Status: alpha (0.0.1). The portal is in Dutch and English.
   `vibesynergy sync demo`: three months of synthetic runs and rides with streams and a route,
   sleep, HRV, resting heart rate, steps and weight.
 - **Get started**: a card on the start page with the three setup steps (a source, your zones,
-  your coach), what is done and a link each; it can be put away.
+  your AI coach), what is done and a link each; it can be put away.
 - **Backups**: `vibesynergy db backup` (online, safe while running).
 - **Reaching it from other devices**: behind HTTPS (a reverse proxy or Tailscale), with the
   name in `[portal] hosts`. The portal itself only listens on the computer it runs on.
@@ -121,7 +121,7 @@ Details: [SOURCES.md](SOURCES.md).
   race predictions), the power curve. Heart-rate TRIMP, TSS and Garmin's load remain
   available to compare.
 - **Zones & thresholds**: FTP, LTHR, max heart rate, threshold pace and CSS per sport, their
-  zones, the history of each value, what Garmin and intervals.icu hold, the coach's
+  zones, the history of each value, what Garmin and intervals.icu hold, the AI coach's
   proposals. A change saves at once; Garmin and intervals.icu only change when you tick them.
 - **Calendar** (`#/schedule`): month or week grid, sessions in their sport's colour with
   their title (week: also time and distance; on a phone the week is a list of days), the day
@@ -165,7 +165,9 @@ Details: [SOURCES.md](SOURCES.md).
 Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 [COACH_PROTOCOL.md](COACH_PROTOCOL.md), [MCP.md](MCP.md).
 
-- **Coach inside VibeSynergy** on your own API key (Anthropic, OpenAI, xAI or a local server),
+- **AI coach inside VibeSynergy** on your own API key (Anthropic, OpenAI, xAI or a local
+  server; any of them works just as well: nothing a model reads names a model or provider,
+  and what a provider lacks, such as thinking settings or prompt caching, is left out),
   off until you switch it on: morning advice, evening review, week review, race brief,
   check-in, injury and threshold tasks, each with its own switch, schedule and model, a
   monthly cost cap with warnings.
@@ -177,23 +179,25 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   review's advice is for tomorrow. There is one current advice per day: the start page says
   when it was written and after what, the Coach page lists the earlier versions, and a mail
   comes only when the colour, the safety level or a session decision changes.
-- **One harness for every coach**: each task has a versioned prompt and rules, a fixed
+- **One harness for every AI coach**: each task has a versioned prompt and rules, a fixed
   context that starts with the safety outcome (the rules' level and reasons, sleep check,
   measurement gaps, check-in, complaints, injuries), and an output contract. An entry that
   misses the contract (wrong day, far too long, a daily advice without level, colour and
-  reasons, or milder than the rules without saying why) is refused, for the built-in coach
+  reasons, or milder than the rules without saying why) is refused, for the built-in AI coach
   and for AI apps over MCP alike. It checks validity, not approval: what you ask through
-  your own AI app is already approved, and approval steps are for the coach acting on its
+  your own AI app is already approved, and approval steps are for the AI coach acting on its
   own, which also can never soften illness or real pain. Every entry records the harness
   version it was written under and which of the two wrote it.
 - **Plan checks**: every plan change is checked for gaps around it (a name that doesn't
   match the length, a strength session without a full warm-up, a reference to a session that
-  is gone, nearby sessions that mention the changed one). The start page and the coach see
+  is gone, nearby sessions that mention the changed one). The start page and the AI coach see
   what the checks find for the next two weeks. A rule proposal can't overwrite an unrelated
   rule by mistake.
 - **Coach page**: advice and the active profile, Knowledge, Methods & rules, Memory, Change log,
   Settings. Changes to planned sessions, thresholds and the knowledge base wait for your
-  approval; a newer knowledge-base proposal from the same AI coach replaces its waiting one.
+  approval; a newer knowledge-base proposal from the same AI coach replaces its waiting one. A
+  routine instruction or COACH rule that names a model or provider gives a warning, and
+  an article's earlier slug keeps working (`claude-coach-loop` is now `ai-coach-loop`).
 - **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,

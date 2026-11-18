@@ -74,7 +74,7 @@ Personal access tokens are made on the same page and always expire (30, 90 or 36
 
 ## The AI coach
 
-The coach runs inside VibeSynergy on your own API key (Anthropic, OpenAI, xAI or a local
+The AI coach runs inside VibeSynergy on your own API key (Anthropic, OpenAI, xAI or a local
 server) and is off until you switch it on in **Coach → Settings**. Each task (morning
 advice, week review, race brief, and more) has its own switch, schedule and model. It
 fills in sessions within the plan you set up; changing planned sessions, thresholds or the

@@ -1,7 +1,8 @@
 # API coach runner
 
-The coach can run inside VibeSynergy on your own API key instead
-of as Claude Code cloud routines. It does the same four jobs as the routines, with the same
+The AI coach can run inside VibeSynergy on your own API key, with the provider and model
+you choose ([AI_HARNESS.md](AI_HARNESS.md#any-provider)), instead of as routines in an AI
+app. It does the same four jobs as the routines, with the same
 prompts and the same VibeSynergy tools, and adds a mailed report with a reply box in the
 portal. It is **off by default**; nothing calls the API until it is switched on in
 Coach → Settings with an API key.
@@ -33,7 +34,7 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
    leading HTML comment stripped and routine-only instructions rewritten (SendUserMessage →
    the entry's summary; ToolSearch and the Garmin connector → the VibeSynergy tools and
    intervals.icu), then **the harness rules** (`coach_runner/prompts.py`, versioned; see
-   [The harness contract](#the-harness-contract)). Edit the article to change the coach; the
+   [The harness contract](#the-harness-contract)). Edit the article to change what the AI coach does; the
    next run uses it. `[coach_runner] prompts_dir` points elsewhere if wanted. The first user
    message holds the date, ISO week, the idempotency key to use, **the athlete's unread
    replies** (or, for an insight, the fire payload `event=… event_id=… activity_ids=…`) and
@@ -42,15 +43,19 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
 4. **Tools.** The same MCP server as `/vibesynergy/mcp`, called in-process
    (`MCPServer.call_tool`), so every call goes through `vibesynergy.query`, checks its scope and
    is audit-logged with client `coach-runner` (author `client:coach-runner`, label
-   "AI coach (API)"). Scopes are those of the Claude coach app: `read`, `coach.write`
+   "AI coach (API)"). Scopes are those of an AI app that coaches: `read`, `coach.write`
    (entries, knowledge base, public insight) and `plan.write` (intervals.icu events). Never
    offered: `sql`, `publish`, `sync` (`vibesynergy_refresh`), `diary.write`, `plan.propose`.
    The insight run only gets the activity, plan and knowledge tools and `vibesynergy_coach_write`
    (no diary, health or earlier entries), may only write `activity_assessment` for the
    event's activities, and a `public_insight` naming health, diary or injury details is
    refused back to the model (INS-2).
-5. **Model loop.** Messages API with tool use, the model chosen per task in Coach →
-   Settings (default `claude-opus-5-5`; #88 changed none of them), adaptive thinking, effort `high` (`[coach_runner] effort`). Prompt
+5. **Model loop.** One request per turn with tool use, through the adapter of the task's
+   provider (the Messages format or the OpenAI format; `coach_runner/model.py`), with the
+   provider and model chosen per task in Coach → Settings (the defaults are in
+   `coach_runner/__init__.py`; #88 and #96 changed none of them). Where the provider has
+   them: adaptive thinking with effort `high` (`[coach_runner] effort`) and prompt caching;
+   elsewhere they are left out and the run is the same otherwise. Prompt
    caching: a breakpoint at the end of the system prompt covers the tool definitions and the
    system (tools render first and are sorted by name, so the prefix is byte-identical
    between runs), and top-level automatic caching moves a second breakpoint to the end of
@@ -86,7 +91,7 @@ from events (`schedule.on_agent_event`), and from Test now / Make again in the p
 | `catch_up` | code, no model | – | – | – |
 | advice run (#89, #90) | the `morning` task at 07:00 and, for new data, `morning`, `injury`, `checkin` or `evening` | yes | yes | yes, with `safety` and the target day |
 | Daily review narrative (`query/daily_coach.py`) | no model: `narrative_enabled` is false and the text is fixed | – | – | – |
-| Cloud routine webhooks (`query/agent_events.py`) | outside VibeSynergy: they fire a Claude Code routine, which comes back over MCP | by `vibesynergy_coach_prompt` | by `include_context=true` | yes, at `vibesynergy_coach_write` |
+| Cloud routine webhooks (`query/agent_events.py`) | outside VibeSynergy: they fire a routine in an AI app, which comes back over MCP | by `vibesynergy_coach_prompt` | by `include_context=true` | yes, at `vibesynergy_coach_write` |
 
 Gaps found and closed in #88:
 
@@ -183,7 +188,7 @@ safety block is the injury log only, as before.
 
 ### The same harness over MCP
 
-An AI that coaches over MCP (a Claude Code routine, another agent) is held to the same
+An AI coach that works over MCP (a routine in an AI app, another agent) is held to the same
 harness:
 
 1. **Same text.** `vibesynergy_coach_prompt(job)` returns the task's prompt and `rules_md`,
@@ -371,24 +376,26 @@ valid version for that day (`daily_advice.real_change`). Otherwise `coach_run.ha
 is `no_change`. So the 07:00 advice is mailed when it differs from last night's evening
 advice for today, and the evening review is always mailed (the first advice for tomorrow).
 
-## Why the Messages API and not the Agent SDK
+## Why a plain model API and not an agent SDK
 
-The Claude Agent SDK is Claude Code as a library: it starts the Claude Code CLI as a
-subprocess and brings its own file, shell and web tools, sessions and permission system.
+An agent SDK (a coding agent as a library) starts its own CLI as a
+subprocess and brings its own file, shell and web tools, sessions and permission system,
+and ties the runner to one provider.
 VibeSynergy needs none of that. It needs exactly its own tools, called in-process with the
 right scopes and audit, a hard per-turn budget check, usage per response for the monthly
 cap, and something that runs inside the existing worker without Node or a CLI. A short
-manual tool loop over the Messages API (`anthropic` SDK) gives all of that in one module,
-and the model client is one small protocol, so tests run on a scripted fake with no network.
+manual tool loop over a model API gives all of that in one module, and the model client is
+one small protocol (`ModelClient.create`) with an adapter per request format, so another
+provider is an adapter and tests run on a scripted fake with no network.
 
 ## Budget and safety
 
 - **Per run:** `max_turns` (default 40) and `max_output_tokens` for all turns together
   (default 60 000; at most 16 000 per response). Set in `[coach_runner]` in config.toml.
 - **Per month:** the cap (default **$95**, `[coach_runner] monthly_cap_usd`, the portal
-  value wins). Cost is computed from every response's `usage` with the published Opus 5.5
-  prices: $4/MTok input, $20/MTok output, $5/MTok 5-minute cache write, $0.20/MTok cache
-  read. Usage is stored after every turn, so a crashed run still counts. The cap is checked
+  value wins). Cost is computed from every response's `usage` with the model's list
+  price (`coach_runner/pricing.py`; a model without a listed price counts at the dearest
+  one, to stop in time, and a local server costs nothing). Usage is stored after every turn, so a crashed run still counts. The cap is checked
   before each turn. At **80 %** and **100 %** VibeSynergy warns once per month by mail and in
   the log; at 100 % runs stop (recorded as `budget`) until the next month or a higher cap.
   The Console's own spend limit on the workspace is the hard backstop.
@@ -422,15 +429,16 @@ still works: a run with "brick" in its name and that day's ride.
 
 ## Switching from the routines to the API
 
-1. claude.ai → Settings → Billing → API credits: link the Console organisation once the
-   option shows.
-2. In the Console: create a workspace "VibeSynergy coach" with a monthly spend limit of $95,
-   and an API key in that workspace.
-3. VibeSynergy → Coach → Settings → Coach via API: paste the key (it is never shown again),
-   check the monthly limit, switch it on.
-4. Turn off the cloud routines that do the same jobs (claude.ai/code/routines: "Coach
+1. With your AI provider: make an API key for VibeSynergy, in its own workspace or project
+   with a monthly spend limit when the provider offers one. A local server needs only its
+   address.
+2. VibeSynergy → Coach → Settings → Coach via API → AI providers: paste the key under its
+   provider (it is never shown again; a key in another provider's form is refused), check
+   the monthly limit, switch it on.
+3. Per task, choose the provider and model when you want another than the default.
+4. Turn off the routines in your AI app that do the same jobs ("Coach
    ochtend", "Coach avond", "Coach weekreview", "Coach na training"), and switch off the
-   "Coach AI after a workout" webhook link in Settings → Sync between sources. Otherwise both
+   "AI coach after a workout" webhook link in Settings → Sync between sources. Otherwise both
    run: the entries stay single (same idempotency keys) but you pay twice and get two
    messages.
 5. Watch the first day: Coach → Settings shows the last run per job and this month's usage.

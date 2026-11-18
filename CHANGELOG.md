@@ -11,6 +11,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Any AI provider works just as well** (#96): the harness names no model or provider in
+  what a model reads (the harness rules, the routine instructions' seeds, the coach
+  handbook, the tool descriptions) or in the portal's texts. Thinking settings, an effort
+  level and prompt caching are used where the provider has them and left out elsewhere;
+  the output contract is checked the same for every model. A key is checked against the
+  form of the provider you save it under, so a key pasted under the wrong provider is
+  refused there.
+- **Knowledge-base warning for model names** (#96): a routine instruction or a COACH rule
+  that names a model or provider gives a warning in the coach handbook and when an AI app
+  proposes such a text, so the instructions stay usable by any model.
 - **Continuous advice** (#90): your AI coach makes the day's advice at 07:00 (adjustable in
   Coach → Settings) and a new version when new data comes in: sleep or HRV, your check-in,
   a note, pain or an injury (at once), a workout, a plan change for today or tomorrow, or your
@@ -133,6 +143,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **"AI coach" everywhere** (#96; Dutch: "AI-coach"): the portal, the mails, the docs and
+  everything a model reads use this one term for the AI that coaches, instead of "your
+  coach", "the AI" or a model's name. "AI app" stays the word for the app that connects
+  over MCP. Coach → Settings no longer speaks of one provider's credits or routines.
+- **The article `claude-coach-loop` is now `ai-coach-loop`** (#96). The old slug keeps
+  working everywhere a slug is read (`vibesynergy_kb_get`, `vibesynergy_kb_search`,
+  proposals, the change log), and proposals that were waiting for it apply to the renamed
+  article. Its text is unchanged.
+- **Notes written by an AI app carry the app's id as their source** (`client:<id>`),
+  whatever the app is called; older notes with the source `claude` now have `ai`. The
+  harness rules are version 3 (the same rules, without a product name).
 - **A new knowledge-base proposal replaces the same AI's waiting one** for the same article,
   rule or source: the older one becomes "superseded", so Waiting for you only shows the
   latest wording.

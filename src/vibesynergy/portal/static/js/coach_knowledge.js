@@ -27,11 +27,11 @@ const ERRORS = {
   stale: N("The text changed since this was suggested. Reject it."),
 };
 const GROUPS = [
-  ["prompts", N("Routine instructions"), N("What each coach routine does: morning, evening, week review and the note after a workout.")],
-  ["method", N("Working method"), N("How your coach works with your plan and intervals.icu.")],
-  ["evidence", N("Scientific basis"), N("What the research says, and the rules your coach takes from it.")],
+  ["prompts", N("Routine instructions"), N("What your AI coach does in each routine: morning, evening, week review and the note after a workout.")],
+  ["method", N("Working method"), N("How your AI coach works with your plan and intervals.icu.")],
+  ["evidence", N("Scientific basis"), N("What the research says, and the rules your AI coach takes from it.")],
 ];
-const STALE_EDIT = N("Your coach changed this in the meantime. Reload to see the latest text before you edit.");
+const STALE_EDIT = N("Your AI coach changed this in the meantime. Reload to see the latest text before you edit.");
 const cleanups = new WeakMap();
 
 export function gradeLabel(code) {
@@ -135,7 +135,7 @@ function ruleEditor(rule, { level = 3, readOnly = false } = {}) {
     ${heading}
     <div class="settings-field settings-wide"><label for="rule-text-${id}">${esc(t("Rule text"))}</label>
       <textarea class="btn" id="rule-text-${id}" name="rule_text" rows="3" maxlength="4000">${esc(rule.text)}</textarea></div>
-    <label class="check"><input type="checkbox" name="rule_active"${rule.active ? " checked" : ""}> ${esc(t("Your coach uses this rule"))}</label>
+    <label class="check"><input type="checkbox" name="rule_active"${rule.active ? " checked" : ""}> ${esc(t("Your AI coach uses this rule"))}</label>
     <p class="sub">${gradeChip(rule.grade, gradeLabel(rule.grade))}</p>
     <p class="sub" data-status role="status" aria-live="polite"></p>
   </article>`;
@@ -218,7 +218,7 @@ export async function renderMethods(view, { args = [], stale, share = null }) {
   const { data } = await get("knowledge/methods");
   if (stale()) return;
   const body = coachShell(view, "methods", {
-    intro: t("How your coach works, and the rules it follows. Change a text here and your coach uses it from the next run."),
+    intro: t("How your AI coach works, and the rules it follows. Change a text here and your AI coach uses it from the next run."),
   });
   body.innerHTML = GROUPS.map(([key, label, hint]) => {
     const articles = data.groups?.[key] || [];

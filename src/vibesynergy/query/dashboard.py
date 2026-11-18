@@ -297,7 +297,7 @@ def _coach_runs(engine, timezone: str, tr) -> list:
             "level": "warn",
             "area": "coach",
             "message": tr(
-                "Your coach skipped the {task} ({day}).", task=tr(task["title"]).lower(), day=day
+                "Your AI coach skipped the {task} ({day}).", task=tr(task["title"]).lower(), day=day
             ),
             "link": "#/coach",
         }
@@ -366,7 +366,7 @@ def _attention_block(
                 "level": "warn" if short else "warning",
                 "area": "plan",
                 "message": tr(
-                    "Your plan runs only to {day}. Ask your coach to fill it up to {end}.",
+                    "Your plan runs only to {day}. Ask your AI coach to fill it up to {end}.",
                     day=through or guard["from"],
                     end=guard["through"],
                 ),

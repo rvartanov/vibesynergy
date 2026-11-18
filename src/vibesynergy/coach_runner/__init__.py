@@ -1,6 +1,6 @@
 """API coach runner (docs/COACH_RUNNER.md).
 
-Runs the coach on the Claude API from inside VibeSynergy instead of Claude Code cloud routines:
+Runs the AI coach on a model API from inside VibeSynergy instead of routines in an AI app:
 the morning, evening and weekly jobs on the scheduler, and the public insight when the
 athlete makes an activity public (``activity.published``). The model gets VibeSynergy's own MCP
 tools in-process, writes its coach entry with ``vibesynergy_coach_write``, and the entry is

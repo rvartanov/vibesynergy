@@ -90,7 +90,7 @@ export function coachAppsHtml(access) {
   return `
     <section class="card" data-coach-apps>
       <h2>${t("Coach apps")}</h2>
-      <p class="sub">${t("Connect a coach here. It uses this address and a passphrase you choose. No command is needed.")}</p>
+      <p class="sub">${t("Connect an AI app here. It uses this address and a passphrase you choose. No command is needed.")}</p>
       <p><label>${t("Coach address")}<br><input class="btn wide" readonly value="${esc(access.mcp_url || t("Set the public address first."))}"></label></p>
       <h3 class="settings-subhead">${t("Passphrase")}</h3>
       <p class="sub" role="status">${access.passphrase_set ? t("A passphrase is set.") : t("No passphrase yet.")}</p>

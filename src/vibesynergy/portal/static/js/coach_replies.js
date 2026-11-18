@@ -14,7 +14,7 @@ function replyHtml(reply) {
   const when = esc(userDateTime(reply.updated_at || reply.at));
   if (reply.read) {
     return `<li class="coach-reply"><p>${esc(reply.text)}</p>
-      <p class="sub">${when} · ${esc(t("Read by your coach"))}</p></li>`;
+      <p class="sub">${when} · ${esc(t("Read by your AI coach"))}</p></li>`;
   }
   return `<li class="coach-reply" data-reply-id="${id}">
     <label class="visually-hidden" for="reply-edit-${id}">${esc(t("Change your reply"))}</label>
@@ -30,9 +30,9 @@ export function repliesHtml(entry) {
   const replies = entry.replies || [];
   return `<div class="coach-replies" data-replies="${id}">
     ${replies.length ? `<ul class="coach-reply-list">${replies.map(replyHtml).join("")}</ul>` : ""}
-    <label for="reply-new-${id}">${esc(t("Reply to your coach"))}</label>
+    <label for="reply-new-${id}">${esc(t("Reply to your AI coach"))}</label>
     <textarea class="btn" id="reply-new-${id}" rows="2" maxlength="4000" aria-describedby="reply-new-${id}-hint"></textarea>
-    <p class="sub" id="reply-new-${id}-hint">${esc(t("Your coach reads this at the next run. Write “akkoord” to approve a proposal."))}</p>
+    <p class="sub" id="reply-new-${id}-hint">${esc(t("Your AI coach reads this at the next run. Write “akkoord” to approve a proposal."))}</p>
     <div class="settings-save"><button class="btn" type="button" data-reply-send>${esc(t("Send reply"))}</button></div>
     <p class="sub" role="status" aria-live="polite" data-reply-status></p>
   </div>`;
@@ -75,7 +75,7 @@ export function bindReplies(root, entryFor) {
         block.replaceWith(next);
         bindReplies(next.parentElement, entryFor);
         const nextStatus = next.querySelector("[data-reply-status]");
-        nextStatus.textContent = t("Sent. Your coach reads it at the next run.");
+        nextStatus.textContent = t("Sent. Your AI coach reads it at the next run.");
         next.querySelector("textarea[id^='reply-new-']")?.focus();
       } catch (error) {
         status.textContent = t(error.message);

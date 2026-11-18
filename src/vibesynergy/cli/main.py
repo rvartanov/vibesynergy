@@ -868,7 +868,7 @@ def mcp_token_create(
     except IntegrityError:
         _fail("name already used")
     console.print(
-        "Connect a coach in the portal: Settings → Sharing → Coach apps. "
+        "Connect an AI app in the portal: Settings → Sharing → Coach apps. "
         f"This token expires in {days} days. It is shown once:"
     )
     print(token)

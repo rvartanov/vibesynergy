@@ -1,7 +1,7 @@
 """MCP tools: the AI harness. Its tasks, its run log, and one run now.
 
-The same as Coach → Settings: another AI (Claude Code, a routine) can see which coach tasks
-exist, how they ran, and start one, without running the coach itself.
+The same as Coach → Settings: an AI app (an assistant, a routine) can see which tasks of
+the AI coach exist, how they ran, and start one, without being the AI coach itself.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ def register(kit: ToolKit) -> None:
 
     @tool(READ, "read")
     def vibesynergy_harness_tasks() -> dict[str, Any]:
-        """The coach's tasks: trigger, context chain, approval, switch, schedule, provider,
+        """The AI coach's tasks: trigger, context chain, approval, switch, schedule, provider,
         model and last run (with what was preloaded and the output-contract result)."""
         return envelope({"tasks": coach_runner.harness_tasks(rt)})
 
@@ -34,7 +34,7 @@ def register(kit: ToolKit) -> None:
     @tool(WRITE, "coach.write")
     def vibesynergy_harness_run(task: str) -> dict[str, Any]:
         """Start one run of a report task now, like Test now in Coach → Settings. It costs
-        like any run and mails the report. The coach must be switched on (Coach via API)."""
+        like any run and mails the report. The AI coach must be switched on (Coach via API)."""
         try:
             coach_runner.test_run(rt, task)
         except coach_runner.TestRunError as exc:

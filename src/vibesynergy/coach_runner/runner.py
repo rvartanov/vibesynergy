@@ -41,6 +41,7 @@ from vibesynergy.coach_runner.model import (
     ModelClient,
     ModelError,
     OpenAICompatClient,
+    request_options,
 )
 from vibesynergy.coach_runner.model import capabilities as model_capabilities
 from vibesynergy.coach_runner.tools import (
@@ -159,7 +160,7 @@ def check_budget(rt, cfg, now: datetime | None = None) -> int | None:
     if level >= 100:
         subject = tr("Coach via API stopped: monthly limit reached")
         text = tr(
-            "Your coach used ${spent} of the ${cap} monthly limit and pauses until next month. "
+            "Your AI coach used ${spent} of the ${cap} monthly limit and pauses until next month. "
             "Raise the limit in Coach → Settings to continue now.",
             spent=f"{spent:.2f}",
             cap=f"{cfg.monthly_cap_usd:.2f}",
@@ -167,7 +168,7 @@ def check_budget(rt, cfg, now: datetime | None = None) -> int | None:
     else:
         subject = tr("Coach via API: {level}% of the monthly limit used", level=level)
         text = tr(
-            "Your coach used ${spent} of the ${cap} monthly limit. It keeps running until the "
+            "Your AI coach used ${spent} of the ${cap} monthly limit. It keeps running until the "
             "limit is reached.",
             spent=f"{spent:.2f}",
             cap=f"{cfg.monthly_cap_usd:.2f}",
@@ -536,7 +537,7 @@ def _client(rt, client: ModelClient | None, provider: str = "anthropic") -> Mode
     key = runner_settings.api_key(rt, provider)
     if provider == "anthropic":
         if not key:
-            raise RunnerError("no Anthropic API key", retry=False)
+            raise RunnerError(f"no {provider} API key", retry=False)
         return AnthropicClient(key)
     if provider == "local":
         url = runner_settings.load(rt).local_url
@@ -632,7 +633,7 @@ def run(
 
 FAILED_SUBJECT = "Coach report failed: {job}, {day}"
 FAILED_TEXT = (
-    "Your coach could not finish the {job} report for {day}, so no report came. "
+    "Your AI coach could not finish the {job} report for {day}, so no report came. "
     "Try again with Test now under Coach → Settings."
 )
 JOB_NAMES = {
@@ -675,13 +676,6 @@ def notify_failure(rt, job: str, for_date: date, error: str) -> list[str]:
     except Exception:  # never let the warning hide the failure itself
         log.exception("coach runner: warning about the failed %s run failed", job)
         return []
-
-
-def _reasoning(model_name: str, effort: str) -> dict[str, Any]:
-    """Adaptive thinking with an effort level; Haiku 4.5 takes a thinking budget instead."""
-    if model_name.startswith("claude-haiku-4-5"):
-        return {"thinking": {"type": "enabled", "budget_tokens": 4000}}
-    return {"thinking": {"type": "adaptive"}, "output_config": {"effort": effort}}
 
 
 def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
@@ -774,10 +768,8 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             "system": system,
             "tools": tools,
             "messages": messages,
-            **(_reasoning(model_name, cfg.effort) if provider == "anthropic" else {}),
-            # Moves a breakpoint to the end of the conversation every turn, so each turn
-            # reads the previous ones from the cache.
-            "cache_control": {"type": "ephemeral"},
+            # Thinking, effort and prompt caching where the provider has them (#96).
+            **request_options(provider, model_name, cfg.effort),
         }
         try:
             response = model.create(request)

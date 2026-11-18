@@ -99,9 +99,9 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 page.keyboard.press("Tab")
                 page.keyboard.press("Enter")
                 sent = (
-                    "Verstuurd. Je coach leest het bij de volgende run."
+                    "Verstuurd. Je AI-coach leest het bij de volgende run."
                     if language == "nl"
-                    else "Sent. Your coach reads it at the next run."
+                    else "Sent. Your AI coach reads it at the next run."
                 )
                 page.get_by_text(sent, exact=True).wait_for()
                 with runtime.engine.connect() as conn:

@@ -96,11 +96,15 @@ everything the MCP can answer, the portal can show and vice versa.
   as Garmin's `css` for swim); not run threshold pace, which Garmin detects itself and has
   no setting for in the Connect API. intervals.icu takes FTP, LTHR, max HR, HR zones and threshold
   pace. Zwift has no API: the page shows a reminder.
-- API coach runner (1 Nov 2026, off by default): VibeSynergy can run the coach itself on the
-  Claude API with these tools in-process; see [COACH_RUNNER.md](COACH_RUNNER.md) and §6.
+- API coach runner (1 Nov 2026, off by default): VibeSynergy can run the AI coach itself on a
+  model API with these tools in-process; see [COACH_RUNNER.md](COACH_RUNNER.md) and §6.
   Its entries are ordinary `vibesynergy_coach_write` rows (author `client:coach-runner`).
 - Knowledge base: `vibesynergy_kb_search` and `vibesynergy_kb_get` (`read`) search and read
-  articles, rules and sources. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
+  articles, rules and sources. A slug an article had before keeps working in both (#96:
+  `claude-coach-loop` is now `ai-coach-loop`; `knowledge.SLUG_ALIASES`), and in proposals
+  and writes, which land on the article under its current slug. A proposal for a routine
+  instruction (topic `coach-prompts`) or a COACH rule that names a model or provider comes
+  back with a warning in `meta.warnings`; the handbook lists such texts in use. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
   or rejects it on the portal (Coach → Knowledge). Nothing in the current text changes
@@ -763,7 +767,7 @@ Planned vs completed training.
   - any other Garmin workout is in `not_in_plan` with `in_plan` false and `status`
     `not_in_plan`. It is not in `items`, `today`, `adherence` or the week.
     (`vibesynergy_icu_resolve_duplicate` and the `dubbel` pair for Garmin Coach sessions
-    were removed on 14-11-2026: Claude is the only coach.)
+    were removed on 14-11-2026: the AI coach is the only coach.)
   Days before `plan_start` keep the Garmin calendar as the plan, with `plan_source`
   `garmin` on each training item.
 - `adherence` also has `changed`, `missed` and `not_in_plan` (Garmin workouts outside the
@@ -1181,7 +1185,7 @@ Prompts only orchestrate the tools; they add no hidden logic.
   same functions.
 - Contract tests: golden JSON snapshots per tool on a fixture dataset; an "LLM usability"
   eval set (natural-language questions → expected tool choices and answers) run against
-  Claude and one other model when tools or descriptions change.
+  at least two models of different providers when tools or descriptions change.
 
 `vibesynergy_activity_assessment(id)` reads the coach feed: `assessment` is the newest
 `activity_assessment` entry written with `vibesynergy_coach_write` about this activity (its

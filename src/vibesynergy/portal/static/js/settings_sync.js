@@ -115,7 +115,7 @@ export function syncTabHtml(s) {
     </section>
     <section class="card">
       <h2>${t("AI coach after a workout")}</h2>
-      <p class="sub">${t("The coach's links (webhooks) and running the coach on the API are under Coach → Settings.")} <a href="#/coach/settings">${t("Open the coach settings")}</a></p>
+      <p class="sub">${t("Your AI coach's links (webhooks) and running your AI coach on the API are under Coach → Settings.")} <a href="#/coach/settings">${t("Open the coach settings")}</a></p>
     </section>
     <section class="card" data-sync-calendar>
       <h2>${t("Garmin → calendar")}</h2>

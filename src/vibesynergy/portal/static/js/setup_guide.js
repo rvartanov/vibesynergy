@@ -9,7 +9,7 @@ import { N, t } from "./i18n.js";
 const STEPS = [
   ["source", N("Connect a source"), N("Garmin, Strava or Withings bring in your training, sleep and weight."), "#/settings/data/sources"],
   ["zones", N("Set your zones and thresholds"), N("Your heart rate, power and pace zones: what an easy or a hard session means for you."), "#/zones"],
-  ["coach", N("Set up your coach"), N("An AI coach reads your data and gives advice every day."), "#/coach/settings"],
+  ["coach", N("Set up your AI coach"), N("An AI coach reads your data and gives advice every day."), "#/coach/settings"],
 ];
 const DEMO_WHY = N("You're looking at demo data. Connect Garmin, Strava or Withings to see your own.");
 

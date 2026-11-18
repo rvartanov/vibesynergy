@@ -291,7 +291,7 @@ def test_ai_switched_off(rt, monkeypatch):
         ("budget", None),
         ("failed", "could not reach the API"),
         ("failed", "API error 529"),
-        ("failed", "no Anthropic API key"),
+        ("failed", "no anthropic API key"),
     ],
 )
 def test_budget_used_up_or_provider_down(rt, status, error):

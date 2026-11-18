@@ -4,7 +4,7 @@ The tool box builds the same server as ``/vibesynergy/mcp`` (``mcp/server.py``) 
 tools directly, so every call runs the same handler, goes through ``vibesynergy.query``, checks
 the same scope and lands in the audit log (``actor="mcp"``, client ``coach-runner``) like a
 call over HTTP, without leaving the process. The model only sees the tools its scopes allow:
-the same as the Claude coach app (read, coach.write with the knowledge base and the public
+the same as an AI app that coaches (read, coach.write with the knowledge base and the public
 insight, plan.write for intervals.icu). The insight run gets a smaller set without diary,
 health or earlier coach entries, so private data never reaches a public line (INS-2).
 """

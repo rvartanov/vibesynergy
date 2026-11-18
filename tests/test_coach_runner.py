@@ -800,8 +800,11 @@ def test_model_choice_per_kind_of_run(rt, mail):
     assert first["model"] == "claude-sonnet-5" and first["thinking"] == {"type": "adaptive"}
     assert run_row(rt)["model"] == "claude-sonnet-5"
     # Haiku 4.5 gets a thinking budget instead of adaptive thinking with an effort level.
-    assert runner._reasoning("claude-haiku-4-5-20251001", "high") == {
-        "thinking": {"type": "enabled", "budget_tokens": 4000}
+    from vibesynergy.coach_runner.model import request_options
+
+    assert request_options("anthropic", "claude-haiku-4-5-20251001", "high")["thinking"] == {
+        "type": "enabled",
+        "budget_tokens": 4000,
     }
     counts = {"input": 1_000_000, "output": 0, "cache_write": 0, "cache_read": 0}
     assert pricing.cost_usd(counts, "claude-sonnet-5") == 3.0
@@ -919,6 +922,7 @@ def test_provider_and_model_per_task(rt, mail) -> None:
     runner.run(rt, "evening", DAY.isoformat(), DAY, client=model)
     first = model.requests[0]
     assert first["model"] == "grok-4" and "thinking" not in first and "output_config" not in first
+    assert "cache_control" not in first
 
 
 def test_insight_task_can_be_switched_off(rt):
@@ -1313,7 +1317,7 @@ def test_a_write_without_safety_is_refused_and_the_model_repairs_it(rt, mail):
     ]
     # The rules the model was given name the steps and the schema.
     system = model.requests[0]["system"][-1]["text"]
-    assert "## Harnasregels v2" in system and "safety (verplicht)" in system
+    assert "## Harnasregels v3" in system and "safety (verplicht)" in system
 
 
 def test_an_entry_for_the_wrong_day_never_becomes_the_report(rt, mail):

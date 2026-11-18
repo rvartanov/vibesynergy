@@ -63,7 +63,7 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     "job": ("A sync job that failed", ALL),
     "history": ("A history run finished or got stuck", ["portal", "email"]),
     "import": ("An account export import finished or failed", ["portal", "email"]),
-    "daily_coach": ("Messages from your coach", ["portal", "push"]),
+    "daily_coach": ("Messages from your AI coach", ["portal", "push"]),
     "token": ("A coach token is about to expire", ["portal", "email"]),
 }
 RECENT_KEPT = 20  # one-off events kept for the portal's list
@@ -481,7 +481,7 @@ def _daily(rt: Any, since: datetime | None, delivery_day: date | None = None) ->
         }
     rows = [r for r in rows if r[0] not in by_runner]
     tr = i18n.for_settings(rt.settings)
-    heading = tr("Messages from your coach")
+    heading = tr("Messages from your AI coach")
     notes = []
     for ident, _at, note, meta in rows:
         raw = str(note or "").strip()

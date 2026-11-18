@@ -1,4 +1,4 @@
-// Coach → Settings → Coach via API: run the coach inside VibeSynergy on your own Claude API
+// Coach → Settings → Coach via API: run the AI coach inside VibeSynergy on your own API
 // credits. Off by default. The API key is write-only: the page sends it once and only ever
 // sees api_key_set. The switch, the monthly limit and the schedule save as you change them;
 // "Test now" makes one real report right away (it costs like any run).
@@ -262,28 +262,28 @@ function cardHtml(data) {
   const share = Math.min(1, data.usage.share || 0);
   return `
     <h2 id="coach-runner-title">${esc(t("Coach via API"))}</h2>
-    <p class="sub">${esc(t("Let your coach run inside VibeSynergy on your own Claude API credits: the morning and evening advice, the Sunday week review and the line under a public activity. Each report comes by mail, and you can reply here."))}</p>
+    <p class="sub">${esc(t("Let your AI coach run inside VibeSynergy on your own API key: the morning and evening advice, the Sunday week review and the line under a public activity. Each report comes by mail, and you can reply here."))}</p>
     <label class="check"><input type="checkbox" role="switch" name="enabled" aria-describedby="coach-runner-switch-hint"${data.enabled ? " checked" : ""}${data.api_key_set ? "" : " disabled"}> ${esc(t("Coach via API"))}</label>
-    <p class="sub" id="coach-runner-switch-hint">${esc(!data.api_key_set ? t("Add an API key first.") : data.enabled ? t("On: your coach runs here on your API credits.") : t("Off until you switch it on."))}</p>
-    ${data.enabled ? `<div class="notice advice" role="note"><p>${esc(t("Turn off the Claude routines for the morning, the evening, the week review and after a workout, and the coach link under Settings → Sync between sources. Otherwise your coach runs twice."))}</p></div>` : ""}
+    <p class="sub" id="coach-runner-switch-hint">${esc(!data.api_key_set ? t("Add an API key first.") : data.enabled ? t("On: your AI coach runs here on your API key.") : t("Off until you switch it on."))}</p>
+    ${data.enabled ? `<div class="notice advice" role="note"><p>${esc(t("Turn off the routines in your AI app for the morning, the evening, the week review and after a workout, and the coach link under Settings → Sync between sources. Otherwise your AI coach runs twice."))}</p></div>` : ""}
     <div class="settings-grid">
       <div class="settings-field">
         <label for="coach-runner-cap">${esc(t("Monthly limit in dollars"))}</label>
         <input class="btn" id="coach-runner-cap" name="monthly_cap_usd" type="number" min="1" max="1000" step="1" inputmode="numeric" aria-describedby="coach-runner-cap-hint" value="${esc(String(data.monthly_cap_usd))}">
-        <p class="sub" id="coach-runner-cap-hint">${esc(t("You get a mail at 80%. At 100% your coach pauses until next month."))}</p>
+        <p class="sub" id="coach-runner-cap-hint">${esc(t("You get a mail at 80%. At 100% your AI coach pauses until next month."))}</p>
       </div>
       ${adviceUpdatesHtml(data)}
       <div class="settings-field" data-autosave-skip>
         <label for="coach-runner-name">${esc(t("Your name"))}</label>
         <input class="btn" id="coach-runner-name" name="athlete_name" maxlength="40" autocomplete="given-name" aria-describedby="coach-runner-name-hint" value="${esc(data.athlete_name && data.athlete_name !== "de atleet" ? data.athlete_name : "")}">
-        <p class="sub" id="coach-runner-name-hint">${esc(t("How your coach addresses you in reports."))}</p>
+        <p class="sub" id="coach-runner-name-hint">${esc(t("How your AI coach addresses you in reports."))}</p>
       </div>
     </div>
     <h3 class="settings-subhead">${esc(t("AI providers"))}</h3>
     <p class="sub">${esc(t("Keys are kept encrypted and never shown again. OpenAI and xAI do not let other apps sign in with your ChatGPT or Grok account, so those take an API key."))}</p>
     <div class="settings-grid">${(data.providers || []).map((p) => providerHtml(p, data)).join("")}</div>
     <h3 class="settings-subhead">${esc(t("Tasks"))}</h3>
-    <p class="sub">${esc(t("Each task can be switched on or off and has its own model. Every task knows you, your injuries and what your coach remembers. Times are in {zone}. Test now makes one real report right away and mails it; it costs like any run.", { zone: data.timezone }))}</p>
+    <p class="sub">${esc(t("Each task can be switched on or off and has its own model. Every task knows you, your injuries and what your AI coach remembers. Times are in {zone}. Test now makes one real report right away and mails it; it costs like any run.", { zone: data.timezone }))}</p>
     <p class="sub"><a href="#/coach/methods">${esc(t("Change what each report does"))}</a></p>
     <div class="settings-grid">${(data.registry || []).map((entry) => taskCardHtml(entry, data)).join("")}</div>
     <datalist id="coach-runner-models">${MODEL_HINTS.map((m) => `<option value="${esc(m)}"></option>`).join("")}</datalist>
