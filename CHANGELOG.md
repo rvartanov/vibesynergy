@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **"Changed" says why** on the start page: under a workout marked changed, one line
+  such as "Harder than planned: 28 min above zone 1" or "Shorter than planned: 30 min
+  instead of 50 min".
 - **Open a planned workout on the start page**: click it under Planned and it folds open
   with its steps, the same as in This week.
 - **Any AI provider works just as well** (#96): the harness names no model or provider in
