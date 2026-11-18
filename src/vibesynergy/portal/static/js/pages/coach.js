@@ -13,6 +13,7 @@ import {
 } from "../daily_review.js";
 import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
+import { adviceHtml, adviceLevel } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
 
 const COACH_TIMEOUT_MS = 15000;
@@ -197,10 +198,27 @@ export async function render(view, { args = [], query, meta, stale }) {
   if (stale()) return;
   view.innerHTML = `<div class="page-head"><h1>${t("Coach")}</h1></div>
     ${coachTabsHtml("")}
+    ${share ? "" : `<section class="card coach-section dash-today verdict" data-coach-advice aria-labelledby="coach-advice-title"><h2 id="coach-advice-title">${t("Advice for today")}</h2><div data-coach-advice-body>${sectionLoading()}</div></section>`}
     <section class="card coach-section" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">${t("Messages from your coach")}</h2>
       <div data-coach-feed></div></section>
     <section class="card coach-section" aria-labelledby="coach-goals"><h2 id="coach-goals">${t("What your coach knows about you")}</h2><div data-profile></div></section>
     <section class="card coach-section" aria-labelledby="coach-rhythm"><h2 id="coach-rhythm">${t("Week and training block")}</h2><div data-rhythm></div></section>`;
+
+  // The same advice as the start page (#89): one source.
+  const adviceCard = view.querySelector("[data-coach-advice]");
+  if (adviceCard) {
+    get("advice", {}, { timeoutMs: COACH_TIMEOUT_MS })
+      .then(({ data }) => {
+        if (stale() || !adviceCard.isConnected) return;
+        const level = adviceLevel(data);
+        if (level) adviceCard.classList.add(level);
+        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = adviceHtml(data, { keyPrefix: "coach" });
+      })
+      .catch(() => {
+        if (stale() || !adviceCard.isConnected) return;
+        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = `<p class="notice error" role="alert">${esc(t("This part could not load right now."))}</p>`;
+      });
+  }
 
   let dailyCoachingPromise = null;
   const dailyCoachingWaiters = new Set();

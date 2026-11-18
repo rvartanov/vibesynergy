@@ -34,13 +34,21 @@ that calls a model (`model.create`), and it runs only tasks from the registry. F
 The stamp `h<harness>.r<rules>.p<prompt>.c<context>` is stored on the run and on every
 entry. Details and the audit of 17-11-2026: [COACH_RUNNER.md](COACH_RUNNER.md#the-harness-contract).
 
+## Daily advice: one source (#89)
+
+What every view shows as today's advice is `query/daily_advice.resolve`: the newest AI advice
+that passes the contract decides colour, safety level and reasons; otherwise the fixed rules,
+with a reason from a fixed list. The setting "Daily advice" is AI (default), rules only or
+off. The runner-only hard-rule floor (illness, red-flag note, pain 7+, injury that changes
+movement) is the one fixed exception. Details: [COACH_RUNNER.md](COACH_RUNNER.md#daily-advice-ai-first-the-rules-as-the-fallback-89).
+
 ## Layers
 
 1. **Triggers**: when a task runs.
    - schedule: time and days;
    - event: activity in or published, check-in, sync done, injury logged, plan changed, run
      missed, reply to a report;
-   - manual: test now, make again.
+   - manual: test now, make again, update advice on the dashboard (#89).
 2. **Task registry**: per task its id, goal, triggers, **output contract**, allowed tools and
    write rights, model requirements (tool use, context length), budget, prompt (KB article),
    provider and model, and on/off.

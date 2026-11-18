@@ -50,6 +50,15 @@ def login(r: Rec):
 
 @scenario("today", "Je dag: advies, herstel en check-in", "Your day: advice, recovery and check-in")
 def today(r: Rec):
+    # An AI coach's advice for today, so the card shows it (cleared again afterwards).
+    _demo("demo_daily_advice.py", "seed")
+    try:
+        _today(r)
+    finally:
+        _demo("demo_daily_advice.py", "clear")
+
+
+def _today(r: Rec):
     r.go("dashboard")
     r.say(
         "De startpagina laat zien hoe je ervoor staat en wat je vandaag doet.",
@@ -57,8 +66,31 @@ def today(r: Rec):
     )
     r.point(card(r, "Advies voor vandaag"))
     r.say(
-        "Bovenaan: het advies voor vandaag, op basis van je plan en je herstel.",
-        "At the top: today's advice, based on your plan and recovery.",
+        "Bovenaan: het advies voor vandaag. Je AI-coach bepaalt de kleur, de veiligheid en de "
+        "redenen; zonder geldig advies geven de vaste regels het, met de reden erbij.",
+        "At the top: today's advice. Your AI coach decides the colour, the safety and the "
+        "reasons; without valid advice the fixed rules give it, and say why.",
+        3.2,
+    )
+    advice = card(r, "Advies voor vandaag")
+    details = advice.locator("summary", has_text="Waarom dit advies").first
+    r.check(details.count() > 0, "the advice should have its details")
+    r.click(details)
+    r.say(
+        "Onder 'Waarom dit advies': de redenen, waar het advies vandaan komt en waar je "
+        "AI-coach en de regels verschillen.",
+        "Under 'Why this advice': the reasons, where the advice comes from and where your AI "
+        "coach and the rules differ.",
+        3.2,
+    )
+    r.click(details)
+    update = advice.get_by_role("button", name="Advies bijwerken")
+    r.check(update.count() > 0, "the advice card should have Update advice")
+    r.point(update)
+    r.say(
+        "Advies bijwerken haalt eerst al je bronnen op en vraagt dan je AI-coach om nieuw advies.",
+        "Update advice first syncs all your sources, then asks your AI coach for new advice.",
+        2.8,
     )
     r.point(card(r, "Herstel"))
     r.say(
@@ -266,8 +298,8 @@ def plan_builder(r: Rec):
     r.scroll(700)
 
 
-def _demo_group_training(action: str) -> None:
-    """Seed or clear the demo's RunSynergy training and "Training geven" session."""
+def _demo(script: str, action: str) -> None:
+    """Seed or clear demo data with a helper next to this file (demo home only)."""
     import os
     import subprocess
 
@@ -276,8 +308,13 @@ def _demo_group_training(action: str) -> None:
         "XDG_CONFIG_HOME": str(H / "config"),
         "XDG_DATA_HOME": str(H / "data"),
     }
-    helper = Path(__file__).with_name("demo_group_training.py")
+    helper = Path(__file__).with_name(script)
     subprocess.run(["uv", "run", "python", str(helper), action], env=env, check=True)
+
+
+def _demo_group_training(action: str) -> None:
+    """Seed or clear the demo's RunSynergy training and "Training geven" session."""
+    _demo("demo_group_training.py", action)
 
 
 @scenario(
@@ -691,8 +728,16 @@ def customize(r: Rec):
     r.say("Zo staat Herstel bovenaan.", "Now Recovery is near the top.", 1.6)
     r.go("settings/system")
     r.say(
-        "Instellingen → Systeem: tijdzone, eenheden, weer, taal en thema.",
-        "Settings → System: time zone, units, weather, language and theme.",
+        "Instellingen → Systeem: tijdzone, eenheden, dagadvies, weer, taal en thema.",
+        "Settings → System: time zone, units, daily advice, weather, language and theme.",
+    )
+    daily = r.pg.locator("[data-daily-advice] select").first
+    r.check(daily.count() > 0, "Settings → System should have Daily advice")
+    r.point(r.pg.locator("[data-daily-advice]").first)
+    r.say(
+        "Dagadvies: van je AI-coach (aanbevolen), alleen de vaste regels, of uit.",
+        "Daily advice: from your AI coach (recommended), the fixed rules only, or off.",
+        2.6,
     )
     theme = r.pg.locator("main select").filter(has=r.pg.locator("option", has_text="Donker")).first
     r.select(theme, "Donker")

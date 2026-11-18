@@ -50,6 +50,17 @@ export function appearanceHtml(prefs) {
   </section>`;
 }
 
+// Daily advice (#89): who decides today's colour, safety and words.
+export function dailyAdviceHtml(prefs) {
+  const chosen = ["ai", "rules", "off"].includes(prefs.daily_advice) ? prefs.daily_advice : "ai";
+  return `<section class="card" data-daily-advice aria-labelledby="daily-advice-title">
+    <h2 id="daily-advice-title">${t("Daily advice")}</h2>
+    <div class="settings-grid"><label>${t("Today's advice comes from")} ${select("daily_advice", [["ai", t("Your AI coach (recommended)")], ["rules", t("The fixed rules only")], ["off", t("Off: no daily advice")]], chosen)}</label></div>
+    <p class="sub">${t("With your AI coach, its advice decides the colour, the safety level and the reasons. When there is no valid advice from it, the fixed rules give the advice and the page says why. One rule stays fixed: on its own, your AI coach can never make illness, a red-flag complaint, pain of 7 or more, or an injury that changes how you move milder than the rules.")}</p>
+    <div class="settings-save"><span class="sub" data-daily-advice-status role="status" aria-live="polite">${t("Saved at once; the same on every device.")}</span></div>
+  </section>`;
+}
+
 // Time zone and units; the athlete's sport values moved to Training → Zones & thresholds.
 export function regionHtml(s) {
   const zones = ZONES.includes(s.user.timezone) ? ZONES : [s.user.timezone, ...ZONES];

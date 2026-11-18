@@ -362,9 +362,14 @@ def collect(rt: Any, today: date, since: datetime | None = None) -> list[Alert]:
         if previous is None or _rank(level) > _rank(previous.level):
             chosen[key] = alert
     out: list[Alert] = list(chosen.values())
-    if "verdict" not in hold and isinstance(verdict, dict) and verdict.get("level") == "red":
-        measured = _measured_red(verdict)
-        text = _red_notice(verdict, measured=measured)
+    # The red day is the advice every view shows (#89): the AI's when it is valid, else
+    # the rules'. Whether a reading (not his own complaint) made it red is the rules'.
+    advice = data.get("advice") or verdict
+    if isinstance(advice, dict) and advice.get("error") == "unavailable":
+        hold.add("verdict")
+    if "verdict" not in hold and isinstance(advice, dict) and advice.get("level") == "red":
+        measured = _measured_red(verdict) if isinstance(verdict, dict) else False
+        text = _red_notice({**verdict, "advice": advice.get("advice")}, measured=measured)
         if text:
             # His own complaint already says why. Mail only when a reading adds a reason.
             out.append(Alert("verdict:red", "warn", text, "#/dashboard", external=measured))

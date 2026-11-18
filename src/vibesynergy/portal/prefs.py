@@ -262,6 +262,9 @@ VALIDATORS = {
     "plan_horizon_days": _horizon_days,
     # The plan builder's settings: goal, sport, method and options.
     "plan_builder": lambda value: _plan_builder(value),
+    # Daily advice (#89): ai (default: the AI coach decides colour, safety and words, the
+    # rules are the fallback with a reason), rules (no AI) or off.
+    "daily_advice": lambda value: _one_of(value, "daily_advice", ("ai", "rules", "off")),
     # Where the calendar's weather forecast is for; absent = where you last trained outside.
     "weather_location": _weather_location,
 }

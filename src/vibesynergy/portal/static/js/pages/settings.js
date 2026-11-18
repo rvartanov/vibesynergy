@@ -12,7 +12,7 @@ import { menuEditor } from "../nav.js";
 import { bindAutosave, reportSaveError } from "../settings_autosave.js";
 import { field, saveRow, select } from "../settings_pieces.js";
 import { syncTabHtml } from "../settings_sync.js";
-import { appearanceHtml, bindPortalHosts, configurationHtml, regionHtml } from "../settings_system.js";
+import { appearanceHtml, bindPortalHosts, configurationHtml, dailyAdviceHtml, regionHtml } from "../settings_system.js";
 import { icuNotesCheck, scheduleHtml, sourcesTabHtml } from "../settings_sources.js";
 import { alertGroupsHtml, alertsHtml, bindAlertGroups, bindRoutes, mailHtml, routesHtml, syncEmailState } from "../settings_alerts.js";
 import { mountPush, pushHtml } from "../push_settings.js";
@@ -212,6 +212,7 @@ function draw(view, ctx, flash = "") {
         <p><button class="btn" type="button" data-bug-report>${t("Report a bug")}</button></p>
       </section>
       ${regionHtml(s)}
+      ${dailyAdviceHtml(prefs)}
       <section class="card settings-section" data-weather-location aria-labelledby="weather-location-title"><h2 id="weather-location-title">${t("Weather on the calendar")}</h2><p class="sub" role="status" aria-busy="true">${t("Loading…")}</p></section>
       ${appearanceHtml(prefs)}
       <details class="card collapsible settings-more"><summary>${t("Change the menu")}</summary><section data-menu></section></details>
@@ -293,6 +294,15 @@ function draw(view, ctx, flash = "") {
       await post("prefs", { changes: { refresh_min: Number(event.target.value) } });
       status.textContent = t("Saved.");
       window.dispatchEvent(new Event("vibesynergy-prefs"));
+    } catch (error) {
+      reportSaveError(status, () => event.target.dispatchEvent(new Event("change")));
+    }
+  });
+  view.querySelector("[data-daily-advice] select")?.addEventListener("change", async (event) => {
+    const status = view.querySelector("[data-daily-advice-status]");
+    try {
+      await post("prefs", { changes: { daily_advice: event.target.value } });
+      status.textContent = t("Saved.");
     } catch (error) {
       reportSaveError(status, () => event.target.dispatchEvent(new Event("change")));
     }

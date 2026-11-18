@@ -224,7 +224,10 @@ def register(kit: ToolKit) -> None:
     @tool(READ, "read")
     def vibesynergy_today(date: str | None = None) -> dict[str, Any]:
         """One day for a coach: check-in, safety, today's session, the race, and the same
-        verdict the dashboard shows. Default today. Prefer this over several smaller reads."""
+        advice the dashboard shows. Default today. Prefer this over several smaller reads.
+        advice (and its short form verdict) is the day's current advice: the AI coach's
+        valid advice (source ai) or the fixed rules' (source rules, with fallback.reason).
+        safety is the rules' own outcome, which a coach's safety is checked against."""
         when = _date(date) if date else today()
         data = coach_brief.today_brief(rt, when)
         return envelope(data, span=Window(when, when), warnings=data["warnings"])

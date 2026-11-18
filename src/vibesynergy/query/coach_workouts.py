@@ -170,7 +170,12 @@ def enrich_coach_entry(
     safety_kind = entry_kind if entry_kind in ("morning", "evening") else "morning"
     # Morning and evening advice stay as the coach wrote them. A flag or refuse day adds
     # one safety line. A plain note is never rewritten.
-    if day and entry_kind in ("morning", "evening"):
+    from vibesynergy.query import daily_advice
+
+    # An AI advice with its own valid safety outcome decides its safety (#89): no rules'
+    # line beside it while the setting is AI.
+    owned = daily_advice.owns_safety(rt, meta)
+    if day and entry_kind in ("morning", "evening") and not owned:
         if safety_by_day is not None and day in safety_by_day:
             safety = safety_by_day[day]
         else:
@@ -194,6 +199,7 @@ def enrich_coach_entry(
         "advice_mode": advice_mode,
         "safety_line": safety_line,
         "safety_rules": safety_rules,
+        "ai_safety": daily_advice.ai_safety(meta) if owned else None,
         "freshness": freshness,
     }
 

@@ -100,6 +100,44 @@ def build_coach_runner_router(rt: Runtime) -> APIRouter:
     def runner_key_clear(body: KeyClear | None = None) -> dict[str, Any]:
         return {"data": runner_q.clear_key(rt, (body or KeyClear()).provider)}
 
+    @router.get("/advice")
+    def current_advice(date: str | None = None, lang: str = "en") -> Any:
+        """The day's current advice (#89): the same as the dashboard, the coach page,
+        vibesynergy_today and the mail. Default today."""
+        from datetime import date as _date
+
+        from vibesynergy.i18n import translator
+        from vibesynergy.query import daily_advice
+
+        try:
+            day = _date.fromisoformat(date) if date else None
+        except ValueError:
+            return _bad("Not a date.")
+        try:
+            return {"data": daily_advice.current(rt, day, tr=translator(lang))}
+        except RuntimeError:
+            return _bad("The advice could not be computed.", 503)
+
+    @router.post("/advice/refresh")
+    def advice_refresh() -> Any:
+        """Sync every source, then one AI advice run (the dashboard's Update advice)."""
+        from vibesynergy.query import daily_advice
+
+        try:
+            return {"data": daily_advice.refresh(rt)}
+        except runner_q.TestRunError as exc:
+            return _bad(str(exc))
+
+    @router.get("/advice/refresh")
+    def advice_refresh_status(key: str, jobs: str = "") -> Any:
+        from vibesynergy.query import daily_advice
+
+        try:
+            ids = [int(i) for i in jobs.split(",") if i.strip()]
+            return {"data": daily_advice.refresh_status(rt, key, ids)}
+        except ValueError:
+            return _bad("Unknown refresh.")
+
     @router.get("/coach/report/{entry_id}")
     def coach_report(entry_id: int) -> Any:
         try:

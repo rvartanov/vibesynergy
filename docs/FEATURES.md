@@ -78,6 +78,16 @@ Details: [SOURCES.md](SOURCES.md).
   Under a safety restriction the text follows its cause: a reported complaint, pain or
   illness points to a physio or doctor; measurements alone are about recovery; load alone
   about load.
+- **Today's advice from your AI coach** (#89): with the setting "Daily advice" on AI (the
+  default), the AI coach's advice decides the colour, the safety level and the reasons. When
+  there is no valid advice from it, the fixed rules give it and the page says why (no advice
+  yet, the run failed, the advice was incomplete, the AI is off, budget or service
+  unavailable, or something new came in after it). Pain, illness or a complaint after the
+  advice starts a new AI run at once. Under "Why this advice": where the AI and the rules differ.
+  **Update advice** syncs every source, then asks the AI coach for new advice, with its
+  progress. The start page, the Coach page, `vibesynergy_today` and the mail show the same
+  advice. On its own, the AI coach can never make illness, a red-flag complaint, pain of 7
+  or more, or an injury that changes how you move milder than the rules.
 - **Any day** (`#/dashboard/<date>`): past days with what happened; days ahead with what is
   planned and the weather forecast.
 - **Quick add** and **Search** (`/`) over activities, notes, coach messages, the knowledge
@@ -200,7 +210,7 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 ## Settings
 
 - **Sources**, **Sync**, **Alerts**, **Sharing**, **Account** and **System** (time zone, units,
-  temperature scale, wind unit, weather place, appearance and colour palette, language, the
+  daily advice (AI, rules only or off), temperature scale, wind unit, weather place, appearance and colour palette, language, the
   menu, schedules, best source per measurement, drop folder, about this version).
   Edits save directly; settings the service reads at start say so with a restart banner.
 

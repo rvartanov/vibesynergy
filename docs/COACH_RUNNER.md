@@ -204,7 +204,7 @@ with its client; they do not record the harness version yet.
 ### The fallback rules
 
 The fixed rules (`query/safety_floor.py`, `query/dashboard.py`) are what the page shows when
-there is no valid AI advice, so they were reviewed against the last 90 days (19-8 to
+there is no valid AI advice ([Daily advice](#daily-advice-ai-first-the-rules-as-the-fallback-89)), so they were reviewed against the last 90 days (19-8 to
 17-11-2026, on a read-only copy of the live data):
 
 - **Deviation from the plan** (`plan.deviation`) looks at intensity and RPE, not at
@@ -224,6 +224,69 @@ there is no valid AI advice, so they were reviewed against the last 90 days (19-
 
 What the review found, with the day it came from, is in the tests
 (`tests/test_harness_safety.py`).
+
+## Daily advice: AI first, the rules as the fallback (#89)
+
+One function decides the advice for a day: `query/daily_advice.resolve` (or `current`,
+which computes the rules first). The dashboard (`advice`), the Coach page (`GET
+/api/advice`), `vibesynergy_today` (`verdict` and `advice`), the red-day alert and the
+report mail all read it, so they give the same text, colour and level
+(`tests/test_daily_advice.py`).
+
+**The setting** "Daily advice" (Settings → System; `daily_advice` in `/api/prefs`):
+
+| Value | What decides |
+| --- | --- |
+| `ai` (default) | The newest **valid** AI advice for the day: colour, safety level, reasons and text. Without one, the rules, with the reason shown. |
+| `rules` | The fixed rules only. The dashboard leaves the coach's messages out of the advice card. |
+| `off` | No daily advice; the card says so and links to the setting. |
+
+**Valid** means: a coach entry for that day (`morning`, `evening`, or a `note` from the
+`injury` or `checkin` task) whose `meta.safety` passes `contract.check_safety` again on
+read, and that the runner did not mark `meta.harness.valid = false`. An AI output that
+misses the contract never counts.
+
+**One fixed exception** to "everything from the AI": the autonomous runner can never
+soften the hard rules (illness, a red-flag note, pain 7/10 or more, an injury that changes
+how you move; `safety_floor.HARD_RULES`). That is checked where the runner writes; a write
+over MCP is the athlete's own request and is exempt. It is not a setting; the setting's help
+text says so.
+
+**The fallback reasons** (`daily_advice.REASONS`, a fixed list, each shown on the page):
+
+| Reason | When |
+| --- | --- |
+| `no_run` | No valid advice and no run for the day yet (or one still queued or running). |
+| `run_failed` | The newest advice run **for that target day** failed, before any valid advice for the day or after it (a refresh, a pain or check-in reaction). A run only counts for its own target day: the evening run prepares tomorrow, so its failure never touches today's advice. |
+| `contract` | The AI output is outside the contract (colour, safety or reasons missing, or marked invalid). |
+| `ai_off` | The setting is AI but the coach runner is off and no AI app wrote valid advice. |
+| `unavailable` | The monthly budget is used up, or the provider could not be reached or refused the key. |
+| `new_signal` | A hard rule fired after the AI wrote (it was not in `meta.harness.rules_floor`), and the new run failed or could not run. |
+
+**A hard new signal** (sickness, a red-flag note, pain 7+, an injury that changes movement)
+after the advice queues one new `morning` run at once (`schedule.enqueue_advice`, run key
+`signal-<day>-<rules>`, at most once per day and set of signals). The check runs where the
+advice is read (the dashboard, the alert check every few minutes), so it does not depend on
+which page logged the signal. While that run is queued or running the AI advice stays,
+marked "updating"; the rules take over only when it fails, cannot run (runner off, budget,
+another day), or ends without a valid advice that saw the signal.
+
+**Updating**: an AI advice whose inputs changed since it was written (`needs_revision`)
+stays on the page with "New data came in since this advice was written"; a run in progress
+for the day shows "updating". Neither is a fallback.
+
+**Shadow**: the rules keep computing (`verdict` and `safety` on the dashboard stay the
+rules' own outcome, which the contract checks a coach against). Where the AI's colour or
+level differs from the rules', the page shows it under "Why this advice" and it is logged once per
+day, entry and rules outcome: `audit_log` action `advice.shadow`, `outcome` `lenient`
+(the AI is milder), `stricter` or `other`, with both outcomes in `detail`.
+
+**Manual refresh** ("Update advice" on the dashboard; `POST /api/advice/refresh`, then
+`GET /api/advice/refresh?key=…&jobs=…` for progress): queues a sync of every enabled source
+for today, then one advice run (`morning`, run key `refresh-<time>`, trigger `manual`) that
+waits for those syncs (deferred without using an attempt, at most 10 minutes). Without AI
+(setting, runner off, budget) only the syncs run. A run that fails gives the fallback with
+its reason.
 
 ## Why the Messages API and not the Agent SDK
 

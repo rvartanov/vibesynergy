@@ -88,9 +88,25 @@ def _lead(text: str) -> str:
     return "".join(out)
 
 
+# The day's colour on a daily advice mail (#89): the same as the dashboard's.
+VERDICT_COLOURS = {
+    "green": ("●", "Green", "#1b5e20", "#e6f4ea"),
+    "amber": ("●", "Amber", "#7a4b00", "#fff3dc"),
+    "red": ("●", "Red", "#8b1a1a", "#fde8e8"),
+}
+
+
 def _coach(record: dict[str, Any], tr: Any) -> str:
     rich = record.get("rich") or {}
-    parts = [_lead(rich.get("text") or "")]
+    parts = []
+    verdict = rich.get("verdict") or {}
+    if verdict.get("level") in VERDICT_COLOURS:
+        symbol, label, ink, wash = VERDICT_COLOURS[verdict["level"]]
+        parts.append(
+            f'<p style="margin:0 0 8px">{_chip(symbol, tr(label), ink, wash)} '
+            f'<b style="color:#111">{html.escape(verdict.get("headline") or "")}</b></p>'
+        )
+    parts.append(_lead(rich.get("text") or ""))
     sessions = rich.get("sessions") or []
     if sessions:
         rows = []

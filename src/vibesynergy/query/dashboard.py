@@ -7,7 +7,9 @@
 - Plan, this week and trends: the coaching plan and race countdown, this week against your
   usual week, and the notable changes of the last four weeks.
 
-No AI: the same inputs always give the same words. It is guidance, not medical advice.
+The rules' verdict uses no AI: the same inputs always give the same words. The advice the
+page shows (``advice``) is ``daily_advice.resolve``: the AI coach's valid advice when the
+setting is AI, else these rules with the reason (#89). It is guidance, not medical advice.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from vibesynergy.core.user_datetime import format_user_date
 from vibesynergy.i18n import ENGLISH, Translator
 from vibesynergy.query import (
     analysis,
+    daily_advice,
     journal,
     latency,
     measurement,
@@ -111,6 +114,7 @@ def dashboard(
     tr: Translator = ENGLISH,
     include_calendar: bool = True,
     rt=None,
+    allow_ai: bool = True,
 ) -> dict[str, Any]:
     if not sources and not _has_athlete_data(engine):
         return {"onboarding": True, "date": str(today), "updated_at": utc_now().isoformat()}
@@ -149,6 +153,13 @@ def dashboard(
             recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap
         )
     )
+    # The advice shown (#89): the AI's when there is a valid one, else the rules' with the
+    # reason. ``verdict`` stays the rules' own outcome (the shadow and the safety floor).
+    advice = _block(
+        lambda: daily_advice.resolve(
+            rt, today, None if _failed(verdict) else verdict, tr=tr, allow_ai=allow_ai
+        )
+    )
     plan_view = _block(lambda: _plan_view(plan, today))
     week = _block(lambda: _week(engine, today, None if _failed(plan) else plan))
     progress = _block(
@@ -167,6 +178,7 @@ def dashboard(
         "delivery": delivery,
         "completed": completed,
         "verdict": verdict,
+        "advice": advice,
         "attention": attention,
         "recovery": recovery,
         "load": load,
@@ -425,6 +437,27 @@ def _verdict_block(
         tags=tags,
         measurement=None if _failed(gap) else gap,
     )
+
+
+def rules_verdict(rt, day: date, *, tr: Translator = ENGLISH, include_calendar: bool = True):
+    """The rules' verdict for ``day`` on its own: the same blocks and the same function as
+    the dashboard, without the rest of the page (``daily_advice.current``)."""
+    engine, settings = rt.engine, rt.settings
+    completed = _completed(engine, day)
+    recovery = _recovery(engine, day, settings.timezone)
+    load = _load(engine, day, settings.athlete, rt)
+    _today_zones(engine, rt, day, settings.athlete)
+    plan = plan_q.plan(
+        engine,
+        Window(day - timedelta(days=day.weekday()), day + timedelta(days=21)),
+        day,
+        include_calendar=include_calendar,
+    )
+    injuries = journal.injuries(engine, day, days=14, tr=tr)
+    sick = journal.tagged_days(engine, Window(day - timedelta(days=2), day), ["sick"])
+    checkin_tags = _checkin_and_tags(engine, day)
+    gap = _block(lambda: measurement.night(engine, getattr(rt, "raw", None), day))
+    return _verdict_block(recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap)
 
 
 def _plan_view(plan: dict, today: date) -> dict:
