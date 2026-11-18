@@ -122,6 +122,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **A new knowledge-base proposal replaces the same AI's waiting one** for the same article,
+  rule or source: the older one becomes "superseded", so Waiting for you only shows the
+  latest wording.
 - **"Even kijken" on Waiting for you is now "Meldingen"** (Notices): the section lists what
   went wrong or needs attention (a skipped coach run, a workout not on your Garmin, a sync
   problem), and the old title did not say so.

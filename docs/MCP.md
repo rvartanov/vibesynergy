@@ -104,7 +104,9 @@ everything the MCP can answer, the portal can show and vice versa.
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
   or rejects it on the portal (Coach → Knowledge). Nothing in the current text changes
-  until then. The athlete can also edit articles and rules directly (Coach → Methods &
+  until then. A new proposal for the same target replaces the same author's proposal that
+  is still waiting (status `superseded`), so the athlete only decides on the latest
+  wording. The athlete can also edit articles and rules directly (Coach → Methods &
   rules); those versions have author `user` and show in Coach → Change log with a diff and
   a revert. Articles with status `retired` are hidden from the portal views but stay
   readable and searchable here.

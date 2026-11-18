@@ -14,6 +14,7 @@ from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query.knowledge import (
     approve_proposal,
     get_article,
+    get_proposal,
     get_rule,
     list_articles,
     pending_proposals,
@@ -390,3 +391,28 @@ def test_an_app_cannot_rewrite_the_coach_instructions(runtime) -> None:
         assert denied.is_error and "vibesynergy_kb_propose_change" in denied.content[0].text
     current = knowledge.get_article(runtime.engine, "coach-prompt-morning")
     assert current["body_md"] == "Give the advice for today." and current["version"] == 1
+
+
+def test_a_new_proposal_supersedes_the_same_authors_waiting_one(runtime) -> None:
+    _article(runtime)
+
+    def propose(author, text):
+        return propose_change(
+            runtime.engine,
+            kind="rule",
+            target="HRV-2",
+            rationale="Wording.",
+            author=author,
+            changes={"text": text},
+        )
+
+    first = propose("client:coach", "Keep the day easy when morning HRV is suppressed.")
+    other = propose("client:other", "Keep the day easy when HRV is low in the morning.")
+    second = propose("client:coach", "Keep the day easy when morning HRV is clearly suppressed.")
+    waiting = {p["id"] for p in pending_proposals(runtime.engine)}
+    assert waiting == {other["id"], second["id"]}
+    old = get_proposal(runtime.engine, first["id"])
+    assert old["status"] == "superseded"
+    assert old["decided_by"] == f"superseded:{second['id']}"
+    with pytest.raises(Exception, match="not pending"):
+        approve_proposal(runtime.engine, first["id"], actor="user")
