@@ -216,8 +216,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 - **In the portal, by mail and by browser push** (Settings → Alerts), per kind: injury
   warning flags, recovery and training warnings, a login that stopped working, a source that
-  stopped syncing, a failed sync job, history runs and imports, coach messages, a coach token
-  about to expire. A failed sync job leaves the portal header as soon as the same data
+  stopped syncing, a failed sync job, history runs and imports, coach messages, a new or
+  changed daily advice from your AI coach (by default push and portal, no email), a coach
+  token about to expire. A failed sync job leaves the portal header as soon as the same data
   syncs successfully again.
 
 ## Settings

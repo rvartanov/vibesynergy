@@ -23,7 +23,7 @@ from test_coach_runner import (
     tool_use,
 )
 
-from vibesynergy import mailer
+from vibesynergy import alerts, mailer
 from vibesynergy.coach_runner import runner, schedule, triggers
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.core.timeutil import today_in, utc_now
@@ -57,6 +57,12 @@ def rt(runtime):
 def mail(monkeypatch):
     sent = []
     monkeypatch.setattr(mailer, "configured", lambda settings: True)
+    # These tests read the advice report as a mail: route the kind "advice" to email too
+    # (by default it is a push and a portal notice, no mail).
+    routes = alerts.routes
+    monkeypatch.setattr(
+        alerts, "routes", lambda settings: {**routes(settings), "advice": ["portal", "email"]}
+    )
     monkeypatch.setattr(
         mailer,
         "send",
@@ -448,3 +454,44 @@ def test_at_the_daily_maximum_the_rules_give_the_advice_with_the_reason(rt):
     found = daily_advice.current(rt, day)
     assert found["source"] == "rules" and found["fallback"]["reason"] == "limit"
     assert found["fallback"]["text"] == daily_advice.REASONS["limit"]
+
+
+def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypatch) -> None:
+    """Robert, 18-11-2026: no 07:00 mail; a notice in the app and on the phone, and a
+    choice under Settings → Alerts (the kind "advice")."""
+    from vibesynergy import webpush
+    from vibesynergy.coach_runner import report
+
+    mails, pushes = [], []
+    monkeypatch.setattr(mailer, "configured", lambda settings: True)
+    monkeypatch.setattr(mailer, "send", lambda *a, **k: mails.append(a))
+    monkeypatch.setattr(webpush, "send_all", lambda rt, t, b, url="/": pushes.append((t, b)) or 1)
+    monkeypatch.setattr(
+        alerts, "channels", lambda settings, engine=None: {"email": True, "push": True}
+    )
+    entry = {"id": 4242, "text": "Robert, vandaag rustig: 30 minuten op praattempo.\n\nDetails."}
+
+    used = report.send(rt, "morning", DAY, entry)
+    assert sorted(used) == ["portal", "push"] and mails == []
+    assert "30 minuten op praattempo" in pushes[0][1] and "Details" not in pushes[0][1]
+    notices = [e for e in alerts.for_portal(rt.settings)["recent"] if e["kind"] == "advice"]
+    assert len(notices) == 1 and notices[0]["link"] == "#/dashboard"
+
+    # Sending the same advice again replaces its notice; a report sent again by hand mails.
+    report.send(rt, "morning", DAY, entry)
+    assert len([e for e in alerts.for_portal(rt.settings)["recent"] if e["kind"] == "advice"]) == 1
+    assert report.send(rt, "morning", DAY, entry, by_mail=True) == ["email"] and len(mails) == 1
+
+    # Email can be chosen for the kind in Settings → Alerts.
+    routes = alerts.routes
+    monkeypatch.setattr(alerts, "routes", lambda s: {**routes(s), "advice": ["email"]})
+    assert report.send(rt, "morning", DAY, entry) == ["email"] and len(mails) == 2
+
+    # Other reports (the weekly review) still go by mail.
+    assert report.send(rt, "weekly", DAY, entry) == ["email"]
+
+
+def test_the_advice_kind_is_in_the_alert_settings() -> None:
+    label, default = alerts.KINDS["advice"]
+    assert default == ["portal", "push"] and "email" not in default
+    assert "AI coach" in label

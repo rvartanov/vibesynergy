@@ -898,7 +898,7 @@ def _mail(
         result.mailed = True
         _save(rt, row["id"], mailed_at=utc_now(), mail_error=None)
     else:
-        _save(rt, row["id"], mail_error="mail is not set up (Settings → Alerts)")
+        _save(rt, row["id"], mail_error="not sent: no channel set up (Settings → Alerts)")
 
 
 def last_runs(rt) -> dict[str, dict[str, Any] | None]:

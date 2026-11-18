@@ -11,6 +11,7 @@ export const ALERT_GROUPS = [
   ["health", N("Health warnings"), ["injury", "health"], N("A red day, low HRV or heavy load.")],
   ["sync", N("Sync problems"), ["login", "silent", "job", "history", "import"], N("A login that stopped working, a quiet source, a failed import.")],
   ["coach", N("Messages from your AI coach"), ["daily_coach", "token"], N("A new morning note, and a coach token about to expire.")],
+  ["advice", N("Daily advice"), ["advice"], N("A new or changed daily advice from your AI coach. By default a push and a notice, no email.")],
 ];
 
 export function alertGroupsHtml(a) {

@@ -117,7 +117,7 @@ def resend(rt, job: str) -> dict[str, Any]:
         )
     if run is None or entry is None:
         raise TestRunError("There is no report to send again yet.")
-    if not report.send(rt, job, run["for_date"], dict(entry)):
+    if not report.send(rt, job, run["for_date"], dict(entry), by_mail=True):
         raise TestRunError("Mail is not set up: see Settings → Alerts.")
     return overview(rt)
 

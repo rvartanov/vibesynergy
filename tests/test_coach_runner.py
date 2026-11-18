@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_evidence import START, activity, put
 
-from vibesynergy import mailer
+from vibesynergy import alerts, mailer
 from vibesynergy.coach_runner import MODEL, prompts, runner, schedule
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.coach_runner.model import ModelError
@@ -115,6 +115,12 @@ def rt(runtime):
 def mail(monkeypatch):
     sent = []
     monkeypatch.setattr(mailer, "configured", lambda settings: True)
+    # These tests read the advice report as a mail: route the kind "advice" to email too
+    # (by default it is a push and a portal notice, no mail).
+    routes = alerts.routes
+    monkeypatch.setattr(
+        alerts, "routes", lambda settings: {**routes(settings), "advice": ["portal", "email"]}
+    )
     monkeypatch.setattr(
         mailer,
         "send",
