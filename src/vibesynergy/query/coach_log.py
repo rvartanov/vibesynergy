@@ -96,6 +96,8 @@ def diff(engine: Engine, kind: str, target: str, version: int) -> dict[str, Any]
     """What one version changed against the version before it, field by field."""
     kind = _kind(kind)
     version = _version(version)
+    if kind == "article":
+        target = knowledge.canonical_slug(target)  # an old slug shows the same history
     with engine.connect() as conn:
         slugs = _article_slugs(conn)
         current = _snapshot(conn, kind, target, version, slugs)
@@ -164,7 +166,7 @@ def _rows(conn: Connection, kind, target, cutoff, limit, slugs) -> list[dict[str
         table = kb_article_revision
         query = select(table)
         if target:
-            query = query.where(table.c.slug == target)
+            query = query.where(table.c.slug == knowledge.canonical_slug(target))
     elif kind == "rule":
         table = kb_rule_revision
         query = select(table)
@@ -205,7 +207,8 @@ def _snapshot(conn: Connection, kind, target, version, slugs) -> dict[str, Any] 
     if version < 1:
         return None
     if kind == "article":
-        article = conn.execute(select(kb_article.c.id).where(kb_article.c.slug == target)).scalar()
+        slug = knowledge.canonical_slug(target)
+        article = conn.execute(select(kb_article.c.id).where(kb_article.c.slug == slug)).scalar()
         if article is None:
             return None
         row = _one(conn, kb_article_revision, "article_id", article, version)

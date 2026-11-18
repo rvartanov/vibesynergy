@@ -96,7 +96,7 @@ def register(kit: ToolKit) -> None:
 
     @tool(READ, "read")
     def vibesynergy_activity_assessment(id: str) -> dict[str, Any]:
-        """The coach's assessment of one activity, read from the coach feed.
+        """The AI coach's assessment of one activity, read from the coach feed.
 
         assessment is the newest activity_assessment entry written with
         vibesynergy_coach_write about this activity (activity_id or an evidence_ref);

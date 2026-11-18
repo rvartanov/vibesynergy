@@ -25,7 +25,7 @@ const STATES = {
 const EVENTS = [
   ["activity.published", N("You make the activity public on Strava")],
   ["activity.ready", N("A new activity is in, right after the workout")],
-  ["coach.run_missed", N("A coach routine did not run (morning, evening, weekly)")],
+  ["coach.run_missed", N("A routine of your AI coach did not run (morning, evening, weekly)")],
 ];
 const WHAT = {
   "vibesynergy.test": N("Test"),

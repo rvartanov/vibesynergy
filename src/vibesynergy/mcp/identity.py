@@ -88,11 +88,6 @@ def current_scopes() -> frozenset[str]:
 
 
 def note_source() -> str:
-    """Diary ``source`` for a note this connection writes.
-
-    The old hardcoded ``claude`` is only used when the app's name is actually Claude.
-    """
-    label = _LABEL.get().strip()
-    if label.casefold() == "claude":
-        return "claude"
+    """Diary ``source`` for a note this connection writes: the app's own author
+    (``client:<id>``), whatever the app is called. No app name is stored (#96)."""
     return _AUTHOR.get()

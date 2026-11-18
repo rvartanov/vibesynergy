@@ -100,7 +100,7 @@ function adviceBodyHtml(kind, entry) {
     ${advice.question ? `<p class="sub">${esc(advice.question)}</p>` : ""}`;
   if (!safetyText || coachIsSafety) return line || coach;
   if (entry.safety?.level === "refuse") {
-    return `${line}<details class="coach-note"><summary>${t("Coach's note")}</summary>${coach}</details>`;
+    return `${line}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`;
   }
   return `${line}${coach}`;
 }

@@ -130,7 +130,7 @@ function draw(view, data, results, stale, profile) {
 function proposalsCard(proposals) {
   if (!proposals.length) return "";
   return `<section class="card zones-proposals" aria-labelledby="zones-proposals-title">
-    <h2 id="zones-proposals-title">${esc(t("Your coach suggests new values"))}</h2>
+    <h2 id="zones-proposals-title">${esc(t("Your AI coach suggests new values"))}</h2>
     <ul class="zones-proposal-list">${proposals.map((p) => `<li>
       <p><strong>${withSportIcon(p.sport, esc(sportLabel(p.sport)))} · ${esc(t(METRIC_NAMES[p.metric] || p.metric))}: ${esc(valueText(p.metric, p.value))}</strong>
         <span class="sub">${esc(methodLine(p))}</span>${activityLink(p.activity_id)}</p>
@@ -309,7 +309,7 @@ function generalCard(data) {
   if (!items.length) return "";
   return `<section class="card" aria-labelledby="zones-general-title"><h2 id="zones-general-title">${esc(t("Recovery markers"))}</h2>
     <ul>${items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-    <p class="sub">${esc(t("Measured by Garmin. Your coach uses them to judge recovery."))}</p></section>`;
+    <p class="sub">${esc(t("Measured by Garmin. Your AI coach uses them to judge recovery."))}</p></section>`;
 }
 
 // Formatting --------------------------------------------------------------------------------

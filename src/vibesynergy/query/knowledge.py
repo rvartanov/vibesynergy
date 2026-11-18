@@ -21,6 +21,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from vibesynergy.core.ids import new_id
 from vibesynergy.core.timeutil import utc_now
+from vibesynergy.query import neutral
 from vibesynergy.store.schema import (
     kb_article,
     kb_article_revision,
@@ -39,6 +40,9 @@ PROMPT_TOPIC = "coach-prompts"
 METHOD_TOPICS = frozenset({"coach-loop", "intervals-icu"})
 PLAN_SUFFIX = "-plan"  # the athlete's plan article (phases, weekly structure), whatever its name
 EVIDENCE_PREFIX = "evidence-"
+# Old slug -> the slug an article has now (#96). An old slug keeps working wherever a slug is
+# read: kb_get, kb_search, proposals, the portal. It can no longer be taken by a new article.
+SLUG_ALIASES = {"claude-coach-loop": "ai-coach-loop"}
 
 _SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _RULE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,39}$")
@@ -75,7 +79,7 @@ class KbRuleInput(BaseModel):
 
 
 class KbSourceInput(BaseModel):
-    """One source nested in an article write. ``id`` is kept when the coach sends it again."""
+    """One source nested in an article write. ``id`` is kept when the AI coach sends it again."""
 
     model_config = ConfigDict(extra="ignore")
     id: str | None = None
@@ -297,6 +301,70 @@ def portal_index(engine: Engine) -> dict[str, Any]:
     }
 
 
+# Rules about how the AI coach works: their ids start with this.
+COACH_RULE_PREFIX = "COACH-"
+
+
+def model_name_warning(kind: str, ref: str, *texts: str | None) -> dict[str, Any] | None:
+    """A lint warning when a text the AI coach is told to follow names a model or provider."""
+    names = neutral.named_models(" ".join(t for t in texts if t))
+    if not names:
+        return None
+    return {
+        "kind": kind,
+        "ref": ref,
+        "check": "model_name",
+        "names": names,
+        "message": (
+            f"{kind} {ref} names a model or provider ({', '.join(names)}). Write 'AI coach' "
+            "(Dutch: 'AI-coach') instead, so any model can follow it."
+        ),
+    }
+
+
+def lint(engine: Engine) -> list[dict[str, Any]]:
+    """Warnings about the knowledge base's own text (#96): an instruction article (topic
+    ``coach-prompts``) or a COACH rule in use that names a model or provider. A warning
+    only; the athlete decides about the text."""
+    out: list[dict[str, Any]] = []
+    with engine.connect() as conn:
+        articles = conn.execute(
+            select(kb_article.c.id, kb_article.c.slug, kb_article.c.title, kb_article.c.body_md)
+            .where(kb_article.c.topic == PROMPT_TOPIC, kb_article.c.status == "active")
+            .order_by(kb_article.c.slug)
+        ).all()
+        for row in articles:
+            found = model_name_warning("article", row.slug, row.title, row.body_md)
+            if found:
+                out.append(found)
+        rules = conn.execute(
+            select(kb_rule.c.id, kb_rule.c.text)
+            .where(kb_rule.c.id.like(f"{COACH_RULE_PREFIX}%"), kb_rule.c.active.is_(True))
+            .order_by(kb_rule.c.id)
+        ).all()
+        for row in rules:
+            found = model_name_warning("rule", row.id, row.text)
+            if found:
+                out.append(found)
+    return out
+
+
+def change_warnings(
+    engine: Engine, kind: str, target: str, changes: Mapping[str, Any]
+) -> list[str]:
+    """Lint messages for one write or proposal, before it is the current text."""
+    if kind == "article":
+        slug = canonical_slug(str(target).strip())
+        if not is_prompt_article(engine, slug, changes.get("topic")):
+            return []
+        found = model_name_warning("article", slug, changes.get("title"), changes.get("body_md"))
+    elif kind == "rule" and str(target).upper().startswith(COACH_RULE_PREFIX):
+        found = model_name_warning("rule", str(target), changes.get("text"))
+    else:
+        return []
+    return [found["message"]] if found else []
+
+
 def archived_articles(engine: Engine) -> list[dict[str, Any]]:
     """Articles out of use (draft or retired): hidden from the normal views, never deleted."""
     return [row for row in list_articles(engine) if row["status"] != "active"]
@@ -307,7 +375,7 @@ def is_prompt_article(engine: Engine, slug: str, topic: str | None = None) -> bo
     if topic == PROMPT_TOPIC:
         return True
     with engine.connect() as conn:
-        article = _one(conn, kb_article, kb_article.c.slug == str(slug).strip())
+        article = _one(conn, kb_article, kb_article.c.slug == canonical_slug(str(slug).strip()))
     return article is not None and article.topic == PROMPT_TOPIC
 
 
@@ -533,7 +601,9 @@ def _apply_proposal(conn: Connection, row: Any) -> None:
     author = row["author"]
     kind, target = row["kind"], row["target"]
     if kind == "article":
-        _apply_article(conn, target, author, **_article_kwargs(changes), revert_to=None)
+        # A proposal made for an old slug (#96) applies to the article under its new one.
+        slug = canonical_slug(target)
+        _apply_article(conn, slug, author, **_article_kwargs(changes), revert_to=None)
     elif kind == "rule":
         _apply_rule(conn, target, author, changes)
     else:
@@ -988,7 +1058,7 @@ def _refuse_unrelated_rule(conn: Connection, target: str, new_text: str) -> None
 
 def _version_of(conn: Connection, kind: str, target: str) -> int:
     if kind == "article":
-        row = _one(conn, kb_article, kb_article.c.slug == target)
+        row = _one(conn, kb_article, kb_article.c.slug == canonical_slug(target))
     elif kind == "rule":
         row = _one(conn, kb_rule, kb_rule.c.id == target)
     else:
@@ -1057,7 +1127,7 @@ def _proposal_view(conn: Connection, row) -> dict[str, Any]:
 
 def _current_snapshot(conn: Connection, kind: str, target: str) -> dict[str, Any] | None:
     if kind == "article":
-        row = _one(conn, kb_article, kb_article.c.slug == target)
+        row = _one(conn, kb_article, kb_article.c.slug == canonical_slug(target))
         if row is None:
             return None
         return {
@@ -1160,7 +1230,15 @@ def _rebuild(conn: Connection) -> None:
             "article",
             article["slug"],
             article["topic"],
-            f"{article['topic']} {article['title']}",
+            # The slug and its old names are searchable, so a search for either finds it.
+            " ".join(
+                [
+                    article["topic"],
+                    article["slug"],
+                    *slug_aliases(article["slug"]),
+                    article["title"],
+                ]
+            ),
             article["body_md"],
         )
     for rule in conn.execute(select(kb_rule)).mappings():
@@ -1216,6 +1294,7 @@ def _revision(conn: Connection, table, parent_id: str, version: int, column: str
 
 
 def _article_by_slug(conn: Connection, slug: str):
+    slug = canonical_slug(slug)
     row = _one(conn, kb_article, kb_article.c.slug == slug)
     if row is None:
         raise LookupError(f"no article {slug}")
@@ -1302,11 +1381,21 @@ def _match(query: str) -> str:
     return " AND ".join(f'"{token}"' for token in tokens)
 
 
+def canonical_slug(slug: str) -> str:
+    """The slug an article has now: an old slug (``SLUG_ALIASES``) gives the new one."""
+    return SLUG_ALIASES.get(slug, slug)
+
+
+def slug_aliases(slug: str) -> list[str]:
+    """The old slugs that still lead to this article."""
+    return sorted(old for old, new in SLUG_ALIASES.items() if new == slug)
+
+
 def _slug(value: str | None) -> str:
     slug = (value or "").strip()
     if not _SLUG.fullmatch(slug) or len(slug) > 80:
         raise ValueError("slug must be lowercase words separated by hyphens")
-    return slug
+    return canonical_slug(slug)
 
 
 def _rule_id(value: str | None) -> str:

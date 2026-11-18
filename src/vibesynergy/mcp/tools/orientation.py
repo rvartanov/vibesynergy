@@ -51,7 +51,7 @@ def register(kit: ToolKit) -> None:
     @tool(READ, "read")
     def vibesynergy_coach_state() -> dict[str, Any]:
         """The athlete's coaching preferences: advice language, detail and tone, notes for
-        the coach, and things to remember (availability, fixed moments, equipment). Plus
+        the AI coach, and things to remember (availability, fixed moments, equipment). Plus
         plan-calendar races with their priority. The training plan and its rules are in
         the knowledge base and intervals.icu.
         """
@@ -68,7 +68,7 @@ def register(kit: ToolKit) -> None:
     @tool(READ, "read")
     def vibesynergy_coach_handbook(include_protocol: bool = True) -> dict[str, Any]:
         """Read this first when you coach. The coach protocol (docs/COACH_PROTOCOL.md) for
-        any AI: roles and what needs the athlete's akkoord, the morning, evening, weekly and
+        any AI coach: roles and what needs the athlete's akkoord, the morning, evening, weekly and
         insight runs, tool order, idempotency keys, privacy rules for public text, replies
         and failure handling. Plus the task register (each coach task with its trigger,
         inputs, output, what you decide alone, last run and missing runs), the active
@@ -571,7 +571,7 @@ def register(kit: ToolKit) -> None:
         return envelope({**row, "harness": stamp}, warnings=warnings)
 
     def _rules_floor(day) -> dict[str, Any] | None:
-        """The rules' safety outcome for ``day``, to hold the coach's own against. ``None``
+        """The rules' safety outcome for ``day``, to hold the AI coach's own against. ``None``
         when it cannot be computed: the shape is still checked, the comparison is not."""
         from vibesynergy.query import coach_brief
 

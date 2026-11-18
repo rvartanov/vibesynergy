@@ -101,7 +101,7 @@ export async function caldavSettings(el, { stale, query }) {
     };
     const shown = (value) => (value === "coaching" || value === "exercise" ? value : "commitment");
     return `<h3 id="caldav-context-title">${t("Calendar context")}</h3>
-      <p class="sub" id="caldav-context-hint">${t("Sets how appointments from each calendar are labelled on the Calendar page and for your coach. None of them counts as training done.")}</p>
+      <p class="sub" id="caldav-context-hint">${t("Sets how appointments from each calendar are labelled on the Calendar page and for your AI coach. None of them counts as training done.")}</p>
       <div class="settings-grid">${status.selected.map((calendar, index) => `<div class="field">
         <label for="caldav-context-${index}">${esc(calendar.name || t("Calendar"))}</label>
         <select class="btn" id="caldav-context-${index}" data-calendar-context="${esc(calendar.url)}" aria-describedby="caldav-context-hint">

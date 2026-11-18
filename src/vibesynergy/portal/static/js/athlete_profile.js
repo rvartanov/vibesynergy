@@ -28,7 +28,7 @@ export async function athleteProfile(el, { stale }) {
         <select class="btn" id="athlete-sex" name="sex">${option("", t("Not set"), u.sex || "")}${option("male", t("Male"), u.sex || "")}${option("female", t("Female"), u.sex || "")}</select></div>
       <div class="settings-field"><label for="athlete-birth-date">${esc(t("Date of birth"))}</label>
         <input class="btn" type="date" id="athlete-birth-date" name="birth_date" min="1900-01-01" max="${esc(new Date().toISOString().slice(0, 10))}" value="${esc(u.birth_date ?? "")}" aria-describedby="athlete-birth-hint">
-        <p class="sub" id="athlete-birth-hint">${esc(t("Your coach only sees your age."))}</p></div>
+        <p class="sub" id="athlete-birth-hint">${esc(t("Your AI coach only sees your age."))}</p></div>
       <div class="settings-field"><label for="athlete-max-hr">${esc(t("Max heart rate"))}</label>
         <input class="btn" type="number" id="athlete-max-hr" name="max_hr" min="100" max="250" step="1" inputmode="numeric" value="${esc(u.max_hr ?? "")}" placeholder="${esc(t("from your zones"))}"></div>
       <div class="settings-field"><label for="athlete-resting-hr">${esc(t("Resting heart rate"))}</label>

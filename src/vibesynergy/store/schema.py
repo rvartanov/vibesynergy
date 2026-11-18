@@ -591,7 +591,7 @@ share_link = Table(
 
 # Your own diary: notes for a day, a span of days or one
 # activity, with tags (sick, travel, alcohol, …); a short morning check-in; and an injury log
-# with a pain score per day. Entered by you (through Claude, the portal or the CLI), or
+# with a pain score per day. Entered by you (through an AI app, the portal or the CLI), or
 # imported from a source (e.g. Strava descriptions), which then sets ``source_ref``.
 note = Table(
     "note",
@@ -603,7 +603,7 @@ note = Table(
     Column("activity_id", String),  # optional: the activity it is about
     Column("text", Text, nullable=False),
     Column("tags", JSON, nullable=False),
-    Column("source", String, nullable=False),  # claude | portal | cli | garmin | strava
+    Column("source", String, nullable=False),  # portal | cli | client:<id> | ai | garmin | strava
     Column("source_ref", String),  # imported notes: the source's id, so re-imports update
     Column("created_at", UTCDateTime, nullable=False),
     Column("updated_at", UTCDateTime, nullable=False),

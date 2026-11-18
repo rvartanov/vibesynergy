@@ -90,7 +90,7 @@ def edit(engine: Engine, reply_id: int, text: str, *, actor: str = "portal") -> 
         if row is None:
             raise LookupError("no such reply")
         if row["read_at"] is not None:
-            raise ReplyError("Your coach has already read this reply. Add a new one instead.")
+            raise ReplyError("Your AI coach has already read this reply. Add a new one instead.")
         conn.execute(
             update(coach_reply)
             .where(coach_reply.c.id == reply_id)

@@ -100,7 +100,7 @@ function formHtml(data) {
   </form>
   <section class="card" aria-labelledby="builder-draft-title">
     <h2 id="builder-draft-title">${esc(t("Draft plan"))}</h2>
-    <p class="sub">${esc(t("A first plan from these settings, to look at. Nothing changes in your plan; your coach fine-tunes it."))}</p>
+    <p class="sub">${esc(t("A first plan from these settings, to look at. Nothing changes in your plan; your AI coach fine-tunes it."))}</p>
     <button class="btn primary" type="button" data-builder-draft>${esc(t("Make a draft"))}</button>
     <p class="sub" role="status" data-draft-status></p>
     <div data-draft></div>

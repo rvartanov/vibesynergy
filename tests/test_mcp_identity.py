@@ -38,10 +38,10 @@ def test_authors_read_as_written() -> None:
     assert read_author(None) is None
 
 
-def test_note_source_is_claude_only_for_that_name() -> None:
+def test_note_source_is_the_app_whatever_its_name() -> None:
     tokens = set_connection("oa-1", label="Claude")
     try:
-        assert note_source() == "claude"
+        assert note_source() == "client:oa-1"  # no app name is stored (#96)
     finally:
         reset_connection(tokens)
     tokens = set_connection("oa-2", label="Hermes")

@@ -606,8 +606,11 @@ def injury_flags(
 
 
 # Notes written by coaches and agents (the old external coach, MCP clients) are working logs,
-# not the athlete's diary. They stay stored; the diary leaves them out.
-_AGENT_SOURCES = ("claude",)
+# not the athlete's diary. They stay stored; the diary leaves them out. ``ai`` is the source
+# of notes an AI wrote before every app had its own ``client:<id>``; ``claude`` is that
+# value's old name (migration 0052 renames the rows; a restored backup may still hold it).
+AGENT_SOURCE = "ai"
+_AGENT_SOURCES = (AGENT_SOURCE, "claude")
 
 
 def own_words(item: dict[str, Any]) -> bool:

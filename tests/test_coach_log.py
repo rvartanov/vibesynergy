@@ -36,7 +36,7 @@ def _client(runtime) -> TestClient:
 
 def test_methods_groups_prompts_method_and_evidence_and_hides_retired(runtime) -> None:
     _article(runtime)
-    _article(runtime, slug="claude-coach-loop", topic="coach-loop", rules=[], sources=[])
+    _article(runtime, slug="ai-coach-loop", topic="coach-loop", rules=[], sources=[])
     _article(runtime, slug="swim-data-quality", topic="swim", rules=[], sources=[])
     # The athlete's plan article counts as method by its slug, whatever the plan is called.
     _article(runtime, slug="example-2027-plan", topic="example-2027", rules=[], sources=[])
@@ -47,7 +47,7 @@ def test_methods_groups_prompts_method_and_evidence_and_hides_retired(runtime) -
     assert [a["slug"] for a in groups["evidence"]] == ["evidence-hrv"]
     assert groups["evidence"][0]["rules"][0]["id"] == "HRV-4"
     assert groups["evidence"][0]["sources"] == 1
-    assert {a["slug"] for a in groups["method"]} == {"claude-coach-loop", "example-2027-plan"}
+    assert {a["slug"] for a in groups["method"]} == {"ai-coach-loop", "example-2027-plan"}
     assert {a["slug"] for a in groups["prompts"]} == {
         f"coach-prompt-{job}" for job in coach_prompts.JOBS
     }

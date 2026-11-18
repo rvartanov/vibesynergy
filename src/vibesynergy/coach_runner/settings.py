@@ -81,7 +81,14 @@ SCHEDULE_VERSION = 2
 RACE_DAYS_BEFORE = (7, 1)
 MONTHLY_JOBS = ("monthly", "kb")  # on a day of the month, not a weekday
 _TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
-KEY_PREFIX = "sk-ant-"
+# What a key of each provider starts with, checked when it is saved so a key pasted under
+# the wrong provider is caught there. A local server has no fixed form.
+KEY_PREFIXES = {"anthropic": "sk-ant-", "openai": "sk-", "xai": "xai-"}
+KEY_ERRORS = {
+    "anthropic": "This does not look like a key for this provider (it should start with sk-ant-).",
+    "openai": "This does not look like a key for this provider (it should start with sk-).",
+    "xai": "This does not look like a key for this provider (it should start with xai-).",
+}
 
 
 class RunnerSettingsError(ValueError):
@@ -154,7 +161,8 @@ def _advice(saved: Any) -> dict[str, Any]:
 
 
 def _tasks(saved: Any, models: dict[str, str]) -> dict[str, dict[str, str]]:
-    """Provider and model per task; without a choice, Anthropic with the kind's model."""
+    """Provider and model per task; without a choice, the default provider with the kind's
+    model."""
     saved = saved if isinstance(saved, dict) else {}
     out = {}
     for task in TASKS:
@@ -314,7 +322,7 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
                 raise RunnerSettingsError("Choose one of the listed providers.")
             model = str(merged["model"] or "").strip()
             if not model or len(model) > 100 or " " in model:
-                raise RunnerSettingsError("Give the model's name, e.g. gpt-5 or claude-opus-5-5.")
+                raise RunnerSettingsError("Give the model's name as the provider writes it.")
             current[task] = {"provider": merged["provider"], "model": model}
             if task in EVENT_TASKS:
                 current[task]["on"] = merged.get("on") is not False
@@ -347,14 +355,23 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
     return load(rt)
 
 
+def key_fits(provider: str, key: str) -> bool:
+    """Does the key have this provider's form? Another provider's key does not."""
+    prefix = KEY_PREFIXES.get(provider)
+    if prefix is None:
+        return True
+    others = [p for name, p in KEY_PREFIXES.items() if name != provider and len(p) > len(prefix)]
+    return key.startswith(prefix) and not any(key.startswith(p) for p in others)
+
+
 def set_api_key(
     rt, key: str, *, provider: str = "anthropic", actor: str = "portal"
 ) -> RunnerSettings:
     if provider not in PROVIDERS:
         raise RunnerSettingsError("Choose one of the listed providers.")
     text = (key or "").strip()
-    if provider == "anthropic" and not text.startswith(KEY_PREFIX):
-        raise RunnerSettingsError("This does not look like a Claude API key (sk-ant-…).")
+    if not key_fits(provider, text):
+        raise RunnerSettingsError(KEY_ERRORS[provider])
     if len(text) < 8 or len(text) > 512 or " " in text:
         raise RunnerSettingsError("This does not look like an API key.")
     store(rt).set(_key_doc(provider), {"key": text, "set_at": utc_now().isoformat()})

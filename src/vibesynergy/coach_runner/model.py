@@ -11,14 +11,42 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-NO_TOOLS = "this model cannot use tools; the coach needs a model that can (pick another)"
+NO_TOOLS = "this model cannot use tools; the AI coach needs a model that can (pick another)"
+
+
+# What the harness may use when the provider has it. Only ``tool_use`` is required (the
+# output contract is checked at the write, whatever the model); the rest makes a run
+# cheaper or better and is left out of the request when the provider lacks it (#96).
+OPTIONAL = ("thinking", "effort", "prompt_cache")
 
 
 def capabilities(provider: str, model: str) -> set[str]:
     """What a model can do, as far as the harness knows before calling it. Every provider
     here speaks tool use; a local model that cannot is caught on its first reply
-    (``NO_TOOLS``)."""
-    return {"tool_use"}
+    (``NO_TOOLS``). Thinking settings, an effort level and prompt caching exist in the
+    Messages format only; the OpenAI format has no counterpart the harness sets."""
+    if provider != "anthropic":
+        return {"tool_use"}
+    if model.startswith("claude-haiku-4-5"):
+        return {"tool_use", "thinking", "prompt_cache"}
+    return {"tool_use", "thinking", "effort", "prompt_cache"}
+
+
+def request_options(provider: str, model: str, effort: str) -> dict[str, Any]:
+    """The request fields for what this model can do beyond tool use; nothing for a
+    provider without them, so the same run works there, only without those extras."""
+    can = capabilities(provider, model)
+    out: dict[str, Any] = {}
+    if "thinking" in can and "effort" in can:
+        out["thinking"] = {"type": "adaptive"}
+        out["output_config"] = {"effort": effort}
+    elif "thinking" in can:  # a thinking budget instead of an effort level
+        out["thinking"] = {"type": "enabled", "budget_tokens": 4000}
+    if "prompt_cache" in can:
+        # Moves a breakpoint to the end of the conversation every turn, so each turn
+        # reads the previous ones from the cache.
+        out["cache_control"] = {"type": "ephemeral"}
+    return out
 
 
 class ModelError(Exception):

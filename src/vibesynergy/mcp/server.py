@@ -95,7 +95,7 @@ def _audit_arguments(arguments: dict, scope: str) -> dict:
 
 GUIDE = """\
 Coaching? Call vibesynergy_coach_handbook first (also the resource vibesynergy://coach/handbook).
-It is the coach protocol for any AI: roles and what needs the athlete's approval, the
+It is the coach protocol for any AI coach: roles and what needs the athlete's approval, the
 morning, evening, weekly and insight runs, which tools to call in which order, idempotency
 keys, privacy rules for public text, and the current knowledge-base articles and rule ids.
 

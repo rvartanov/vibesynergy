@@ -1,6 +1,6 @@
 """The coach's public insight line for an activity's VibeSynergy block.
 
-The coach (Claude over MCP) writes an ``activity_assessment`` entry with
+The AI coach (the runner, or an AI app over MCP) writes an ``activity_assessment`` entry with
 ``vibesynergy_coach_write``. Only a sentence the coach marked as public is ever published:
 
 - ``public_insight`` with ``activity_id`` on the entry (``meta.public_insight`` and

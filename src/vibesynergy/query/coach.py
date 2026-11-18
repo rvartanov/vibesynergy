@@ -24,7 +24,7 @@ from vibesynergy.store.schema import coach_event, coach_head, coach_revision
 SCHEMA_VERSION = 1
 # 2: the method, priorities, phases, sport order, weekly time, event sources, manual
 # races, source priorities and the internal coach's assessment schedule are gone.
-# 3: the Garmin Coach boundary is gone (Claude is the only coach).
+# 3: the Garmin Coach boundary is gone (the AI coach is the only coach).
 POLICY_VERSION = "3"
 BOUNDARIES = [
     "Use measured evidence and confirmed user context; distinguish uncertainty and inference.",
@@ -36,12 +36,12 @@ BOUNDARIES = [
         "shared safety engine before actions."
     ),
 ]
-# Where the coach finds what these settings no longer hold. Returned by vibesynergy_coach_state.
+# Where the AI coach finds what these settings no longer hold. Returned by vibesynergy_coach_state.
 COACH_STATE_NOTE = (
-    "Only the athlete's communication preferences, notes for the coach and things to "
+    "Only the athlete's communication preferences, notes for the AI coach and things to "
     "remember (availability, fixed moments, equipment) live here. The training plan and its "
     "rules are in the knowledge base (the plan article, intervals-icu-workout-authoring, "
-    "claude-coach-loop) and in intervals.icu. Race priorities are the races listed here, "
+    "ai-coach-loop) and in intervals.icu. Race priorities are the races listed here, "
     "from the plan calendar and the intervals.icu RACE_A/B/C category."
 )
 # Keys older stored documents may still hold. They are dropped on read and on the next save;

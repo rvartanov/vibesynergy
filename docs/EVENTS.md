@@ -8,7 +8,7 @@ says *what* happened and *which* ids; the agent reads the details and writes bac
 
 Agents get events in one of three ways:
 
-- **Push**: a webhook link in Settings → Sync between sources ("Coach AI after a workout").
+- **Push**: a webhook link in Settings → Sync between sources ("AI coach after a workout").
 - **Pull**: the MCP tool `vibesynergy_events(since, types, limit)` (`read` scope) returns the
   same events, oldest first, with `next_since` to continue. For agents that can't receive
   webhooks.
@@ -152,7 +152,7 @@ Delivery rules, per link:
 The scheduler checks every few minutes (`agent_events` job, like the automatic Strava
 publication); the debounce starts after every derive.
 
-## Coach after a workout (Claude Code routine)
+## AI coach after a workout (a routine in an AI app)
 
 The routine "Coach na training – AI-inzicht" listens for `activity.published`: it runs when
 The athlete makes the activity public on Strava, reads it over MCP (the athlete's title,
@@ -167,7 +167,7 @@ The link that existed before `activity.published` (a Claude routine listening on
 code (`agent_events.migrate`, audit `events.subscription.update` with actor `vibesynergy`). Set
 it back in the link settings if wanted; the move does not repeat. To connect it: in
 claude.ai/code/routines open the routine → Trigger + → API → Generate token, then in VibeSynergy
-Settings → Sync between sources → Coach AI after a workout → Add a link: kind "Claude Code
+Settings → Sync between sources → AI coach after a workout → Add a link: kind "Claude Code
 routine", address the routine's id or API address, the token; then switch it on and send a
 test.
 

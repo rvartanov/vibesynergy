@@ -125,8 +125,8 @@ def _today(r: Rec):
     r.type(ci.locator("textarea"), "Goed geslapen, benen voelen fris.")
     r.click(ci.locator("button", has_text="Notitie opslaan"))
     r.say(
-        "Een notitie erbij helpt je coach het advies te verfijnen.",
-        "A note helps your coach refine the advice.",
+        "Een notitie erbij helpt je AI-coach het advies te verfijnen.",
+        "A note helps your AI coach refine the advice.",
     )
     r.click(r.pg.get_by_role("link", name="Vorige dag"))
     r.say(
@@ -423,8 +423,8 @@ def coach(r: Rec):
     )
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
     r.say(
-        "Instellingen: zet de coach aan en kies een AI-aanbieder.",
-        "Settings: turn the coach on and choose an AI provider.",
+        "Instellingen: zet je AI-coach aan en kies een AI-aanbieder.",
+        "Settings: turn your AI coach on and choose an AI provider.",
     )
     r.point(
         r.pg.locator("details", has=r.pg.locator("summary", has_text="Anthropic")).first.locator(
@@ -446,21 +446,21 @@ def coach(r: Rec):
     )
     r.click(r.pg.locator("summary", has_text="Ochtendadvies").first)
     r.say(
-        "Per taak stel je in wanneer de coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.",
-        "Per task you set when the coach runs, for example the morning advice at 7.",
+        "Per taak stel je in wanneer je AI-coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.",
+        "Per task you set when your AI coach runs, for example the morning advice at 7.",
         2.8,
     )
     r.click(r.pg.get_by_role("link", name="Geheugen"))
     r.say(
-        "Geheugen: wat de coach over je onthoudt, en hoe hij praat.",
-        "Memory: what the coach remembers about you, and how it talks.",
+        "Geheugen: wat je AI-coach over je onthoudt, en hoe hij praat.",
+        "Memory: what your AI coach remembers about you, and how it talks.",
     )
     ta = r.pg.locator("textarea[name=instructions]")
     ta.fill("")
     r.type(ta, "Houd het kort en concreet.")
     r.say(
-        "Notities voor je coach worden vanzelf bewaard.",
-        "Notes for your coach are saved automatically.",
+        "Notities voor je AI-coach worden vanzelf bewaard.",
+        "Notes for your AI coach are saved automatically.",
     )
     rows = r.pg.locator("textarea[name=constraint_text]")
     before = rows.count()
@@ -482,14 +482,14 @@ def coach(r: Rec):
     )
     r.click(r.pg.get_by_role("link", name="Kennis"))
     r.say(
-        "Kennis: artikelen waarop de coach zich baseert. Wijzigingen keur jij goed.",
-        "Knowledge: the articles the coach relies on. You approve changes.",
+        "Kennis: artikelen waarop je AI-coach zich baseert. Wijzigingen keur jij goed.",
+        "Knowledge: the articles your AI coach relies on. You approve changes.",
         2.6,
     )
     r.click(r.pg.get_by_role("link", name="Logboek"))
     r.say(
-        "Logboek: elke wijziging in wat je coach weet, terug te kijken.",
-        "Log: every change in what your coach knows, to look back on.",
+        "Logboek: elke wijziging in wat je AI-coach weet, terug te kijken.",
+        "Log: every change in what your AI coach knows, to look back on.",
     )
 
 

@@ -43,7 +43,7 @@ function sharePagesHtml(pages, all, chosen, name) {
     .join("");
   return `<label class="check"><input type="checkbox" name="${name}-all" value="${esc(all)}"${everything ? " checked" : ""}> <b>${esc(t("Everything, also pages added later"))}</b></label>
     <div class="share-pages">${boxes}</div>
-    <p class="sub">${esc(t("Never shared: Settings, your coach's memory and settings, secrets and tokens."))}</p>`;
+    <p class="sub">${esc(t("Never shared: Settings, your AI coach's memory and settings, secrets and tokens."))}</p>`;
 }
 
 function chosenPages(root, name) {

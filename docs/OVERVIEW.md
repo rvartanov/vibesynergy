@@ -1,7 +1,7 @@
 # VibeSynergy at a glance
 
 A short map of the code. Details: [MCP.md](MCP.md) (MCP contract), [EVENTS.md](EVENTS.md)
-(agent events), [COACH_PROTOCOL.md](COACH_PROTOCOL.md) (how any AI coaches over MCP),
+(agent events), [COACH_PROTOCOL.md](COACH_PROTOCOL.md) (how any AI coach works over MCP),
 [AI_HARNESS.md](AI_HARNESS.md) and [COACH_RUNNER.md](COACH_RUNNER.md) (the built-in coach),
 [SOURCES.md](SOURCES.md) (sources), [design/README.md](design/README.md) (portal design) and
 [../deploy/README.md](../deploy/README.md) (running it).

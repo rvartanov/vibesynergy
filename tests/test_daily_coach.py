@@ -166,13 +166,13 @@ def test_new_morning_coach_write_raises_an_alert(runtime):
     found = alerts._daily(runtime, since)
     assert len(found) == 1
     assert found[0].kind == "daily_coach"
-    assert found[0].text == "Messages from your coach: Keep today easy."
+    assert found[0].text == "Messages from your AI coach: Keep today easy."
     assert found[0].detail == "Keep today easy."
     assert found[0].link == "#/coach"
     assert found[0].event is True
     prefs.save(runtime.settings.data_dir, {"language": "nl"})
     dutch = alerts._daily(runtime, since)
-    assert dutch[0].text == "Berichten van je coach: Keep today easy."
+    assert dutch[0].text == "Berichten van je AI-coach: Keep today easy."
     assert dutch[0].detail == "Keep today easy."
     view = q.read(runtime, DAY)
     assert view["morning"]["source"] == "coach_decision_log"
@@ -220,7 +220,7 @@ def test_daily_coach_alert_quotes_each_note_and_skips_blanks(runtime):
     assert found[1].detail.endswith("End beta.")
     for item in found:
         heading, _, excerpt = item.text.partition(": ")
-        assert heading == "Messages from your coach"
+        assert heading == "Messages from your AI coach"
         assert 280 <= len(excerpt) <= 300
         assert excerpt.startswith("Take it easy today.")
         assert "End alpha." not in excerpt and "End beta." not in excerpt
@@ -269,7 +269,7 @@ def test_daily_coach_email_keeps_each_note_and_links_to_coach(runtime, monkeypat
     subject, body = sent[0]
     # a short subject, and each note once, without label and excerpt in front.
     assert subject.startswith("VibeSynergy coach: ") and len(subject) <= 90
-    assert "Note:" not in body and "Berichten van je coach:" not in body
+    assert "Note:" not in body and "Berichten van je AI-coach:" not in body
     assert body.count(same) == 2
     assert "https://server.example.ts.net:8447/#/coach" in body
     assert "#/dashboard" not in body

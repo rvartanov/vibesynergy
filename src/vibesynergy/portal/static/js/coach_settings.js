@@ -52,7 +52,7 @@ export async function coachSettings(el, stale) {
       <h2 id="coach-given">${t("Trainings you give")}</h2>
       <p class="sub">${t("A session you give as a trainer doesn't count as your own training. A title with \"training geven\" is recognised by itself; otherwise choose the purpose \"Coached by me\" on the activity.")}</p>
     </section>
-    <p class="sub">${t("How your coach talks to you and what it should remember are under Memory.")} <a href="#/coach/memory">${t("Open Memory")}</a></p>`;
+    <p class="sub">${t("How your AI coach talks to you and what it should remember are under Memory.")} <a href="#/coach/memory">${t("Open Memory")}</a></p>`;
 }
 
 function draw(el, stale, data) {
@@ -61,12 +61,12 @@ function draw(el, stale, data) {
   const constraints = data.context.active?.payload?.constraints || [];
   el.innerHTML = `
     <section class="card" data-coach-kind="policy" aria-labelledby="coach-style">
-      <h2 id="coach-style">${t("How your coach talks to you")}</h2>
-      <p class="sub">${t("Your coach reads this before giving advice. Your training plan and its rules stay with your coach and in VibeSynergy's plan.")}</p>
+      <h2 id="coach-style">${t("How your AI coach talks to you")}</h2>
+      <p class="sub">${t("Your AI coach reads this before giving advice. Your training plan and its rules stay with your AI coach and in VibeSynergy's plan.")}</p>
       <div class="settings-grid">${STYLE.map((key) => `<div class="settings-field"><label for="coach-${key}">${esc(t(LABELS[key]))}</label>${select(key, CHOICES[key], p[key], `coach-${key}`)}</div>`).join("")}</div>
-      <div class="settings-field settings-wide"><label for="coach-instructions">${t("Notes for your coach")}</label>
+      <div class="settings-field settings-wide"><label for="coach-instructions">${t("Notes for your AI coach")}</label>
         <textarea class="btn" id="coach-instructions" name="instructions" maxlength="2000" rows="4" aria-describedby="coach-notes-hint">${esc(p.instructions || "")}</textarea>
-        <p class="sub" id="coach-notes-hint">${t("Your coach can read this. Only you can change it.")}</p></div>
+        <p class="sub" id="coach-notes-hint">${t("Your AI coach can read this. Only you can change it.")}</p></div>
       <div data-conflicts></div>
       <p class="sub" data-status role="status" aria-live="polite"></p>
     </section>
@@ -169,9 +169,9 @@ function constraintsPayload(root) {
 
 function provenanceText(entry) {
   if (entry.source === "coach") {
-    return entry.origin === "coach_inference" ? t("Your coach wrote this: its own conclusion.") : t("Your coach wrote this from what you said.");
+    return entry.origin === "coach_inference" ? t("Your AI coach wrote this: its own conclusion.") : t("Your AI coach wrote this from what you said.");
   }
-  if (entry.origin === "coach_inference") return t("A coach conclusion, not a measurement.");
+  if (entry.origin === "coach_inference") return t("A conclusion of your AI coach, not a measurement.");
   if (entry.origin === "measurement") return t("This follows a measurement you already have.");
   if (entry.source === "verified_migration") return t("From notes you confirmed earlier.");
   return t("You wrote this.");

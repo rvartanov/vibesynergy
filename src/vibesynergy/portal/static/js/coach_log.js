@@ -11,7 +11,7 @@ const KINDS = {
   article: N("Article"),
   rule: N("Rule"),
   source: N("Source"),
-  policy: N("How your coach talks to you"),
+  policy: N("How your AI coach talks to you"),
   context: N("What to remember"),
 };
 const FILTERS = [
@@ -27,7 +27,7 @@ const FIELDS = {
   body_md: N("Text"),
   text: N("Text"),
   citation: N("Citation"),
-  instructions: N("Notes for your coach"),
+  instructions: N("Notes for your AI coach"),
   constraints: N("What to remember"),
   topic: N("Topic"),
   evidence_grade: N("Evidence"),
@@ -135,7 +135,7 @@ export async function renderLog(view, { query, stale }) {
   const names = clientReply.data?.names || {};
   const archive = archiveReply.data.articles || [];
   const body = coachShell(view, "log", {
-    intro: t("Every change to what your coach knows and remembers. Open one to see what changed or to go back."),
+    intro: t("Every change to what your AI coach knows and remembers. Open one to see what changed or to go back."),
   });
   const filter = target
     ? `<p>${esc(t("Changes to {name}", { name: target }))} · <a href="#/coach/log">${esc(t("Show everything"))}</a></p>`

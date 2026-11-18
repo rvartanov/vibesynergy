@@ -6,7 +6,7 @@ import { language, t } from "./i18n.js";
 
 function cardHtml(chosen) {
   return `<h2 id="weather-location-title">${esc(t("Weather on the calendar"))}</h2>
-    <p class="sub">${esc(t("The forecast for the coming days on the calendar and for your coach."))}</p>
+    <p class="sub">${esc(t("The forecast for the coming days on the calendar and for your AI coach."))}</p>
     <fieldset class="settings-field">
       <legend class="visually-hidden">${esc(t("Weather on the calendar"))}</legend>
       <label class="check"><input type="radio" name="weather-where" value="last"${chosen ? "" : " checked"}> ${esc(t("Where I last trained outside"))}</label>
