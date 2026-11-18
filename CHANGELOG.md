@@ -122,6 +122,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **"Even kijken" on Waiting for you is now "Meldingen"** (Notices): the section lists what
+  went wrong or needs attention (a skipped coach run, a workout not on your Garmin, a sync
+  problem), and the old title did not say so.
 - **`vibesynergy_today`'s `verdict` is the current advice** (#89): the AI coach's when it is
   valid, else the rules' (`verdict.source`, `verdict.fallback`); the full advice is in
   `advice`. `safety` stays the rules' own outcome. The coach's message that is today's advice
