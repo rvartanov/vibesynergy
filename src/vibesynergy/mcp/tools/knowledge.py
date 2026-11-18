@@ -188,7 +188,9 @@ def register(kit: ToolKit) -> None:
 
         For a rule, pass ``target`` as the rule id and the replacement in ``new_text``. A new
         rule needs a free id: text unrelated to an existing rule under that id is refused
-        (the error names the next free id) unless ``replace`` is true.
+        (the error names the next free id) unless ``replace`` is true. Proposing again for
+        the same target replaces your own proposal that is still waiting (it becomes
+        superseded), so send the full new wording.
         """
         changes = {
             "title": title,

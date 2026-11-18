@@ -224,6 +224,10 @@ def propose_change(
 ) -> dict[str, Any]:
     """Store a change for the athlete to approve. The current text stays as it is.
 
+    A new proposal replaces the same author's proposal for the same target that is still
+    waiting: the older one becomes ``superseded``, so the athlete only sees the latest
+    wording. Proposals from other authors stay.
+
     A rule text that has little in common with the rule it would replace is refused unless
     ``replace`` is set (#60): a new rule proposed under an id that is already taken would
     otherwise overwrite an unrelated rule once approved."""
@@ -241,6 +245,16 @@ def propose_change(
             _refuse_unrelated_rule(conn, target, str(cleaned["text"]))
         proposal_id = new_id("kbprop")
         now = utc_now()
+        conn.execute(
+            kb_proposal.update()
+            .where(
+                kb_proposal.c.kind == kind,
+                kb_proposal.c.target == target,
+                kb_proposal.c.author == author,
+                kb_proposal.c.status == "pending",
+            )
+            .values(status="superseded", decided_at=now, decided_by=f"superseded:{proposal_id}")
+        )
         conn.execute(
             kb_proposal.insert().values(
                 id=proposal_id,
