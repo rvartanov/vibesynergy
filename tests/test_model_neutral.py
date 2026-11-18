@@ -24,7 +24,7 @@ import anyio
 import pytest
 from sqlalchemy import select, text, update
 
-from vibesynergy import mailer
+from vibesynergy import alerts, mailer
 from vibesynergy.coach_runner import context, contract, prompts, registry, runner
 from vibesynergy.coach_runner import model as runner_model
 from vibesynergy.coach_runner import settings as runner_settings
@@ -686,6 +686,11 @@ def test_a_coach_run_through_a_second_provider_passes_the_contract(runtime, monk
     no thinking, effort or cache settings on the wire, and the entry meets the contract."""
     sent = []
     monkeypatch.setattr(mailer, "configured", lambda settings: True)
+    # The daily advice is a push and a portal notice by default; read it here as a mail.
+    routes = alerts.routes
+    monkeypatch.setattr(
+        alerts, "routes", lambda settings: {**routes(settings), "advice": ["portal", "email"]}
+    )
     monkeypatch.setattr(
         mailer, "send", lambda settings, to, subject, body, html=None: sent.append((subject, body))
     )
