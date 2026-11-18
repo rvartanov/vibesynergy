@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc, insert, select
@@ -155,16 +155,25 @@ def _entries(rt, day: date) -> list[dict[str, Any]]:
     return out
 
 
+def target_day(job: str, run_day: date) -> date:
+    """The day a daily-advice run is about: the evening run prepares tomorrow, every other
+    advice run (morning, a refresh, a pain or check-in reaction, a new signal) its own day.
+    A run's failure only ever affects the advice for this day."""
+    return run_day + timedelta(days=1) if job == "evening" else run_day
+
+
 def _runs(rt, day: date) -> list[dict[str, Any]]:
+    """The daily-advice runs whose target day is ``day``, newest first."""
     with rt.engine.connect() as conn:
-        return [
-            dict(r)
-            for r in conn.execute(
-                select(coach_run)
-                .where(coach_run.c.for_date == day, coach_run.c.job.in_(ADVICE_JOBS))
-                .order_by(desc(coach_run.c.started_at), desc(coach_run.c.id))
-            ).mappings()
-        ]
+        rows = conn.execute(
+            select(coach_run)
+            .where(
+                coach_run.c.for_date.in_((day, day - timedelta(days=1))),
+                coach_run.c.job.in_(ADVICE_JOBS),
+            )
+            .order_by(desc(coach_run.c.started_at), desc(coach_run.c.id))
+        ).mappings()
+        return [dict(r) for r in rows if target_day(r["job"], r["for_date"]) == day]
 
 
 def _pending(rt, day: date, run_key: str | None = None) -> bool:
@@ -181,7 +190,12 @@ def _pending(rt, day: date, run_key: str | None = None) -> bool:
         ).all()
     for (payload,) in rows:
         payload = payload or {}
-        if payload.get("for_date") != day.isoformat() or payload.get("job") not in ADVICE_JOBS:
+        name = payload.get("job")
+        try:
+            run_day = date.fromisoformat(str(payload.get("for_date")))
+        except ValueError:
+            continue
+        if name not in ADVICE_JOBS or target_day(name, run_day) != day:
             continue
         if run_key is None or payload.get("run_key") == run_key:
             return True

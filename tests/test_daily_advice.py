@@ -310,6 +310,50 @@ def test_a_newer_run_that_failed_hands_back_to_the_rules(rt):
     assert _fallback(rt) == "run_failed"
 
 
+def test_a_failed_evening_run_only_touches_tomorrow(rt):
+    """The evening run prepares tomorrow: its failure never replaces today's valid
+    morning advice, and tomorrow shows the rules with the reason."""
+    _write(rt)
+    _run(
+        rt,
+        "failed",
+        job_name="evening",
+        error="no coach entry written",
+        started=utc_now() + timedelta(seconds=5),
+    )
+    today = _board(rt)["advice"]
+    assert today["source"] == "ai" and today["fallback"] is None and today["updating"] is None
+    tomorrow = daily_advice.current(rt, _day(rt) + timedelta(days=1), trigger=False)
+    assert tomorrow["source"] == "rules" and tomorrow["fallback"]["reason"] == "run_failed"
+
+
+def test_a_run_for_another_day_never_counts(rt):
+    _write(rt)
+    # Yesterday's morning run failed: it was about yesterday, not today.
+    with rt.engine.begin() as conn:
+        conn.execute(
+            insert(coach_run).values(
+                job="morning",
+                run_key="old",
+                for_date=_day(rt) - timedelta(days=1),
+                trigger="schedule",
+                status="failed",
+                attempts=1,
+                model="m",
+                started_at=utc_now() + timedelta(seconds=5),
+                updated_at=utc_now(),
+                turns=0,
+                input_tokens=0,
+                output_tokens=0,
+                cache_write_tokens=0,
+                cache_read_tokens=0,
+                cost_usd=0.0,
+                error="boom",
+            )
+        )
+    assert _board(rt)["advice"]["source"] == "ai"
+
+
 def test_a_run_in_progress_keeps_the_ai_advice_updating(rt):
     _write(rt)
     _run(rt, "running", started=utc_now() + timedelta(seconds=5))

@@ -257,7 +257,7 @@ text says so.
 | Reason | When |
 | --- | --- |
 | `no_run` | No valid advice and no run for the day yet (or one still queued or running). |
-| `run_failed` | The day's newest advice run failed, before any valid advice or after it. |
+| `run_failed` | The newest advice run **for that target day** failed, before any valid advice for the day or after it (a refresh, a pain or check-in reaction). A run only counts for its own target day: the evening run prepares tomorrow, so its failure never touches today's advice. |
 | `contract` | The AI output is outside the contract (colour, safety or reasons missing, or marked invalid). |
 | `ai_off` | The setting is AI but the coach runner is off and no AI app wrote valid advice. |
 | `unavailable` | The monthly budget is used up, or the provider could not be reached or refused the key. |
