@@ -716,7 +716,9 @@ def test_15_11_a_shorter_session_is_named_as_shorter():
 
 def test_distance_and_named_intensity_still_count():
     tempo = {"title": "Tempoloop 13.5 km", "sport": "running", "extra": {}}
-    assert plan.deviation(tempo, {"distance_m": 31000, "moving_s": 10800})["kind"] == "distance"
+    found = plan.deviation(tempo, {"distance_m": 31000, "moving_s": 10800})
+    # The figures go along, so the start page can say why the session is "changed".
+    assert found == {"kind": "distance", "planned_m": 13500, "actual_m": 31000}
     easy = {"title": "Easy", "sport": "running", "extra": {"intensity": "easy"}}
     found = plan.deviation(easy, {"name": "Tempo run", "moving_s": 3000})
     assert found == {"kind": "intensity", "planned": "easy", "done": "hard"}

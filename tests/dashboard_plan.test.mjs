@@ -42,3 +42,25 @@ test("a done workout keeps its link to the activity", () => {
   );
   assert.match(html, /href="#\/activity\/garmin%3A1"/);
 });
+
+test("a changed workout says why, without opening it", async () => {
+  const { deviationText } = await import("../src/vibesynergy/portal/static/js/pages/dashboard.js");
+  const html = planHtml(
+    [{
+      title: "Training geven 1u15",
+      sport: "running",
+      status: "changed",
+      description: "- 75m Z1",
+      deviation: { kind: "harder", above_s: 1680, ceiling: 1 },
+      done_by: [{ id: "garmin:2" }],
+    }],
+    [],
+    null,
+    "vibesynergy",
+  );
+  assert.match(html, /dash-why">Harder than planned: 28 min above zone 1\./);
+  assert.equal(deviationText({ kind: "shorter", planned_s: 3000, actual_s: 1800 }).startsWith("Shorter than planned"), true);
+  assert.match(deviationText({ kind: "distance", planned_m: 10000, actual_m: 13000 }), /13/);
+  assert.match(deviationText({ kind: "intensity", planned: "easy", done: "hard" }), /hard instead of easy/);
+  assert.equal(deviationText(null), "Done differently from the plan.");
+});

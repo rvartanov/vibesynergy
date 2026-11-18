@@ -659,6 +659,32 @@ function combinedTitle(titles) {
   return titles.join(" + ");
 }
 
+const INTENSITY = { easy: N("easy"), moderate: N("moderate"), hard: N("hard"), race: N("race pace") };
+
+// Why a done session is "changed" against the plan (plan.deviation): one plain sentence.
+export function deviationText(dev) {
+  if (!dev) return t("Done differently from the plan.");
+  const time = (s) => (isNum(s) ? hoursMinutes(s) : "?");
+  switch (dev.kind) {
+    case "harder":
+      return isNum(dev.ceiling)
+        ? t("Harder than planned: {n} min above zone {z}.", { n: Math.round(dev.above_s / 60), z: dev.ceiling })
+        : t("Harder than planned: {n} min above the planned zone.", { n: Math.round(dev.above_s / 60) });
+    case "longer":
+      return t("Longer than planned: {done} instead of {planned}.", { done: time(dev.actual_s), planned: time(dev.planned_s) });
+    case "shorter":
+      return t("Shorter than planned: {done} instead of {planned}.", { done: time(dev.actual_s), planned: time(dev.planned_s) });
+    case "distance":
+      return isNum(dev.actual_m) && isNum(dev.planned_m)
+        ? t("Another distance than planned: {done} instead of {planned}.", { done: km(dev.actual_m), planned: km(dev.planned_m) })
+        : t("Another distance than planned.");
+    case "intensity":
+      return t("Another intensity than planned: {done} instead of {planned}.", { done: t(INTENSITY[dev.done] || dev.done), planned: t(INTENSITY[dev.planned] || dev.planned) });
+    default:
+      return t("Done differently from the plan.");
+  }
+}
+
 export function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
   // A planned multisport (#74): the sessions linked by their slot in order (a triathlon, a
@@ -687,11 +713,14 @@ export function planHtml(sessions, outside, shared, planSource) {
     const link = id && (!shared || shared.has("activities"))
       ? ` · <a href="#/activity/${encodeURIComponent(id)}">${t("Open activity")}</a>`
       : "";
+    // "Changed": say why, right under the line, so it is clear without opening it.
+    const why = session.status === "changed" ? deviationText(session.deviation) : "";
+    const reason = why ? `<span class="sub dash-why">${esc(why)}</span>` : "";
     // Click a planned workout to open what it is, as in "This week" (18-11-2026).
     if (session.description) {
-      return `<li><details class="collapsible wp-details dash-workout"><summary>${withSportIcon(session.sport, esc(title))}${chip}</summary>${workoutHtml(session.description)}</details>${link ? `<span class="sub">${link.slice(3)}</span>` : ""}</li>`;
+      return `<li><details class="collapsible wp-details dash-workout"><summary>${withSportIcon(session.sport, esc(title))}${chip}</summary>${workoutHtml(session.description)}</details>${reason}${link ? `<span class="sub">${link.slice(3)}</span>` : ""}</li>`;
     }
-    return `<li>${withSportIcon(session.sport, esc(title))}${chip}${link}</li>`;
+    return `<li>${withSportIcon(session.sport, esc(title))}${chip}${link}${reason}</li>`;
   };
   const parts = new Set(linked.flat());
   const multi = linked.map((g) => `<li>${withSportIcon("brick", esc(combinedTitle(g.map((x) => x.title || ""))))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${g.map(one).join("")}</ul></li>`).join("");

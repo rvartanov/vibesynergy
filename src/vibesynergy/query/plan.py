@@ -218,7 +218,11 @@ def deviation(item: dict[str, Any], activity: dict[str, Any]) -> dict[str, Any] 
             return {"kind": "longer", "planned_s": planned, "actual_s": actual}
         # Longer, at a low effort: the distance is longer too, and that is no deviation.
     elif _relative_change(planned_distance_m(item), activity.get("distance_m")):
-        return {"kind": "distance"}
+        return {
+            "kind": "distance",
+            "planned_m": planned_distance_m(item),
+            "actual_m": activity.get("distance_m"),
+        }
     wanted = planned_intensity(item)
     done = planned_intensity({"title": activity.get("name"), "extra": {}})
     explicit = activity.get("intensity")
