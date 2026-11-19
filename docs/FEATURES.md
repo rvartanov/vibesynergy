@@ -232,7 +232,8 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   gives the daily advice; a plan change needs your approval) or an advisory AI coach (a
   second opinion and proposals only). VibeSynergy enforces it for every write, whatever
   the app or model. Plan changes an AI coach may not make by itself wait under Waiting for
-  you with Approve and Reject; approving carries them out. An advisory AI coach's advice
+  you with Approve and Reject; approving carries them out. The primary AI coach may still
+  fill the horizon by itself: a new session in a free slot of a week that has its note. An advisory AI coach's advice
   shows as "Second opinion" with the day's advice on the start page and the Coach page,
   flagged where it differs from your AI coach in safety level or a session decision.
 

@@ -6,6 +6,9 @@ A plan write is carried out at once only when it is approved:
 - the primary AI coach with an **approval reference**: ``proposal:<id>`` (a proposal the
   athlete approved) or ``reply:<id>`` (his 'akkoord' reply to a coach entry), not older
   than ``APPROVAL_HOURS``;
+- the primary AI coach **adding** a session in a slot that never held one, in a plan week
+  that has its (approved) note: the standing approval for filling the horizon
+  (``is_horizon_fill``);
 - anything else (the primary without a reference, an advisory AI coach always) is stored
   as a **proposal**: the tool call as it came in. The athlete approves or rejects it under
   Waiting for you; approving carries it out, in the proposer's name.
@@ -41,7 +44,8 @@ _NO = re.compile(r"\b(niet|geen|not|no|nee|don't|do not|never|nooit)\b", re.IGNO
 APPROVAL_HELP = (
     "approval_id is 'proposal:<id>' (a proposal the athlete approved under Waiting for "
     "you) or 'reply:<id>' (the athlete's 'akkoord' reply to a coach entry), not older than "
-    f"{APPROVAL_HOURS} hours. Without approval_id the change is stored as a proposal."
+    f"{APPROVAL_HOURS} hours. Without approval_id the change is stored as a proposal; only "
+    "adding a new session in a free slot of a week that has its note needs none."
 )
 
 
@@ -330,6 +334,42 @@ def propose(
         return _row(row)
 
 
+def is_horizon_fill(engine: Engine, tool: str, arguments: dict[str, Any]) -> bool:
+    """The standing approval (the athlete's decision of 19-11-2026): the primary AI coach
+    may **add** a session where there was none, within a week whose note is approved,
+    without a separate approval (filling the horizon, the morning run's "day 9").
+
+    True only for ``vibesynergy_plan_session_set`` without ``session_id``, when the slot
+    it would fill (that day and slot, or that day and sport) never held a session (a
+    skipped one counts: putting it back is a change) and the plan week of that day has a
+    note. A week note is written by the athlete or with his approval, so a note that is
+    there is approved. Changing, moving or skipping a session, a week note and a target are
+    never a fill."""
+    from vibesynergy.query import plan_model
+    from vibesynergy.store.schema import plan_session, plan_week
+
+    if tool != "vibesynergy_plan_session_set" or arguments.get("session_id"):
+        return False
+    plan_id = plan_model.current_plan_id(engine)
+    if plan_id is None:
+        return False
+    try:
+        day = _day(arguments.get("date"))
+    except ValueError:
+        return False
+    slot = arguments.get("slot") or (arguments.get("sport") or "session").lower()
+    ident = f"{plan_id}:{day.isoformat()}:{slot}"  # the id plan_model.set_session gives it
+    monday = day - timedelta(days=day.weekday())
+    with engine.connect() as conn:
+        taken = conn.execute(select(plan_session.c.id).where(plan_session.c.id == ident)).first()
+        note = conn.execute(
+            select(plan_week.c.note).where(
+                plan_week.c.plan_id == plan_id, plan_week.c.monday == monday
+            )
+        ).scalar()
+    return taken is None and bool((note or "").strip())
+
+
 def gate(
     engine: Engine,
     tool: str,
@@ -349,6 +389,8 @@ def gate(
     if role == roles.PRIMARY and (approval_id or "").strip():
         check_approval(engine, approval_id or "")
         return None
+    if role == roles.PRIMARY and is_horizon_fill(engine, tool, arguments):
+        return None  # the standing approval: a new session in a free slot of an approved week
     found = propose(
         engine,
         tool=tool,

@@ -155,7 +155,8 @@ connection"), enforced by the server:
   approval reference (`approval_id`: `reply:<id>`, the athlete's 'akkoord' reply, whose id
   is in the start message, or `proposal:<id>`, a proposal he approved, listed in the
   context block `coach_team`); without one the write is stored as a proposal under Waiting
-  for you. It can never soften illness or real pain.
+  for you. One standing approval: a new session in a slot that held none, in a plan week
+  that has its note (filling the horizon), is written directly. It can never soften illness or real pain.
 - **The athlete's own agent** over MCP acts on his request: its writes are approved.
 - **An advisory AI coach** over MCP gives a second opinion: its daily entries are shown
   beside the advice, its plan changes are always proposals, and where it differs from the

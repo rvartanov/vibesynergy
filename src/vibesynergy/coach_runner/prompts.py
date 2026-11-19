@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 5
+RULES_VERSION = 6
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -163,6 +163,11 @@ RUNNER_RULES = """\
   wijziging als voorstel (written: false): {name} keurt het goed onder Wacht op jou en
   VibeSynergy voert het dan zelf uit. Schrijf het daarna niet opnieuw; noem het voorstel in
   je rapport.
+- Eén ding mag zonder approval_id: de horizon aanvullen. Een NIEUWE sessie
+  (vibesynergy_plan_session_set zonder session_id) op een plek waar nog niets stond, in een
+  week die een weeknotitie heeft, schrijft VibeSynergy direct door. Blijf binnen de
+  weeknotitie en de weekdoelen van die week. Een bestaande sessie wijzigen, verplaatsen of
+  overslaan, een weeknotitie en een weekdoel hebben altijd approval_id nodig.
 - Antwoorden van {name} op eerdere rapporten staan in het startbericht. Een expliciet
   "akkoord" of "ja" op een concreet voorstel geldt als akkoord (ICU-4): voer alleen dat
   voorstel uit, met approval_id "reply:<id>" van dat antwoord en een reden die ernaar
@@ -190,7 +195,9 @@ MCP_RULES = """\
     Vraagt hij uitdrukkelijk om een milder niveau, dan mag dat ook bij stap 2d, met
     override_reason.
   - primaire AI-coach: jouw advies is het dagadvies. Een planwijziging heeft approval_id
-    nodig ("proposal:<id>" of "reply:<id>"); zonder wordt het een voorstel.
+    nodig ("proposal:<id>" of "reply:<id>"); zonder wordt het een voorstel. Alleen een
+    nieuwe sessie op een lege plek in een week met weeknotitie (de horizon aanvullen) mag
+    zonder.
   - adviserende AI-coach: je geeft een second opinion. Je ochtend- en avondentry staan
     naast het dagadvies, niet in plaats ervan; je planwijzigingen worden altijd een
     voorstel dat {name} goedkeurt. Een write buiten je rol wordt geweigerd, met de reden.

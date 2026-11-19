@@ -691,3 +691,86 @@ def test_a_second_opinion_is_no_day_decision_and_no_message(rt) -> None:
     own = _data(_morning(rt, OWN_AGENT, SUGGEST, safety=EASE, summary="Rustig aan."))
     assert [a.key for a in alerts._daily(rt, since)] == [f"coach:{own['id']}"]
     assert "Rustig aan." in str(daily_coach.read(rt, _today(rt))["morning"])
+
+
+# --- the standing approval: filling the horizon ------------------------------------------------
+
+
+def _runner_add(rt, day: date, **extra):
+    import json
+
+    text, is_error = ToolBox(rt, RUNNER_SCOPES).call(
+        "vibesynergy_plan_session_set",
+        {
+            "reason": "Horizon aanvullen volgens de weeknotitie",
+            "date": day.isoformat(),
+            "name": "Duurloop Z2 40'",
+            "sport": "Run",
+            "description": "- 40m Z2 HR",
+            **extra,
+        },
+    )
+    assert not is_error, text
+    return json.loads(text)["data"]
+
+
+def _week_note(rt, day: date) -> None:
+    start = _today(rt) - timedelta(days=_today(rt).weekday())
+    plan_model.set_week(
+        rt.engine,
+        week=(day - start).days // 7 + 1,
+        note="Rustige week: drie duurtrainingen.",
+        reason="plan",
+        author="athlete",
+    )
+
+
+def test_the_primary_fills_a_free_slot_of_an_approved_week_without_approval(rt) -> None:
+    session = _plan(rt)  # a ride tomorrow
+    day = _today(rt) + timedelta(days=8)
+    # No week note yet: the week is not approved, so the fill is a proposal.
+    held = _runner_add(rt, day)
+    assert held["written"] is False and held["proposal"]["summary"]["action"] == "add"
+    plan_proposals.reject(rt.engine, held["proposal"]["id"])
+    _week_note(rt, day)
+    added = _runner_add(rt, day)
+    assert "proposal" not in added and added["session_id"].endswith(f"{day.isoformat()}:run")
+    # The slot is taken now: writing it again is a change and needs approval.
+    again = _runner_add(rt, day, name="Duurloop Z2 60'")
+    assert again["written"] is False
+    # Another slot on the same day is still free.
+    assert "proposal" not in _runner_add(rt, day, sport="Swim", description="- 30m Z2 Pace")
+    # Changing, moving or skipping an existing session is never a fill.
+    _week_note(rt, _session_day(rt, session))
+    changed = _runner_add(rt, _session_day(rt, session), session_id=session, sport="Ride")
+    assert changed["written"] is False
+    text, is_error = _runner_move(rt, session, day.isoformat())
+    assert not is_error and '"written":false' in text
+    # A skipped session's slot is not free: putting it back is a change.
+    plan_model.skip_session(
+        rt.engine, session_id=added["session_id"], reason="ziek", author="athlete"
+    )
+    assert _runner_add(rt, day)["written"] is False
+    # A week note or a target is never a fill.
+    text, is_error = box_week(rt)
+    assert not is_error and '"written":false' in text
+
+
+def test_an_advisory_ai_coach_never_fills_the_horizon_itself(rt) -> None:
+    _plan(rt)
+    day = _today(rt) + timedelta(days=8)
+    _week_note(rt, day)
+    held = _data(
+        _call(
+            rt,
+            ADVISOR,
+            FULL,
+            "vibesynergy_plan_session_set",
+            reason="Aanvullen",
+            date=day.isoformat(),
+            name="Duurloop Z2 40'",
+            sport="Run",
+            description="- 40m Z2 HR",
+        )
+    )
+    assert held["written"] is False and held["proposal"]["role"] == "advisory"

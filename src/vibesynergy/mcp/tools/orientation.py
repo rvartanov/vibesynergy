@@ -218,7 +218,8 @@ def register(kit: ToolKit) -> None:
         that day's sessions into one multisport in that order: a triathlon, duathlon or
         brick, one Garmin multisport workout. approval_id: the athlete's approval, see
         vibesynergy_coach_handbook (connection); without it an AI coach's change is stored
-        as a proposal (written: false)."""
+        as a proposal (written: false). Only the primary AI coach adding a new session (no
+        session_id) in a slot that held none, in a week that has its note, needs none."""
         return _plan_write(
             "vibesynergy_plan_session_set",
             {

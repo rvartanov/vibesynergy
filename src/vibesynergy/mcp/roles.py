@@ -7,7 +7,8 @@ provider or model, and the server enforces them for every write tool:
   writes count as approved.
 - ``primary``: the one AI coach that gives the daily advice. A plan change needs an
   approval reference (an approved proposal or the athlete's 'akkoord' reply); without one
-  it becomes a proposal.
+  it becomes a proposal. Only filling the horizon (a new session in a free slot of a week
+  with its approved note) has a standing approval.
 - ``advisory``: an AI coach that gives a second opinion. Notes and proposals only: its
   plan changes always become proposals, its daily entries are shown as a second opinion and
   are never the daily advice.
@@ -58,7 +59,10 @@ ROLE_MAY: dict[str, str] = {
     PRIMARY: (
         "You write the daily advice. A plan change needs approval_id (an approved proposal, "
         "'proposal:<id>', or the athlete's 'akkoord' reply, 'reply:<id>'); without one it "
-        "is stored as a proposal the athlete approves under Waiting for you."
+        "is stored as a proposal the athlete approves under Waiting for you. One standing "
+        "approval: adding a new session (vibesynergy_plan_session_set without session_id) in "
+        "a slot that held none, in a plan week that has its note, is written directly; keep "
+        "it within that week's note and targets."
     ),
     ADVISORY: (
         "You give a second opinion: notes, assessments and proposals. Your morning and "

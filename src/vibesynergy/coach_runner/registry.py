@@ -77,10 +77,10 @@ TASKS: tuple[Task, ...] = (
             "coach_team",
             "recent_reports",
         ),
-        # A plan write needs the athlete's approval reference (#118); without one the
-        # horizon fill arrives as a proposal under Waiting for you.
-        writes=("report", "propose day 9 of the horizon"),
-        approval=("change today or tomorrow", "fill day 9 of the horizon"),
+        # The standing approval (#118): a new session in a free slot of a week that has
+        # its note is written directly; every other plan write needs an approval reference.
+        writes=("report", "fill day 9 of the horizon"),
+        approval=("change today or tomorrow",),
     ),
     Task(
         id="evening",

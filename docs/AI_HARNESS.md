@@ -92,6 +92,11 @@ The harness is provider- and model-agnostic in operation too: rights and contrac
   reference in `query/plan_proposals.py`). A new write tool must be given a policy: a test
   fails otherwise.
 - **Proposals** wait under Waiting for you; approving carries the stored tool call out.
+- **Standing approval for horizon fills** (the athlete's decision of 19-11-2026): the
+  primary AI coach may add a new session without a separate approval when the slot (that
+  day and slot or sport) never held a session and the plan week of that day has its note
+  (`plan_proposals.is_horizon_fill`). Changing, moving or skipping a session, a week note
+  and a target always need the approval reference.
 - **Keys per author** (`morning-<date>-<author>`): two AI coaches never collide or get each
   other's entry.
 - **Conflicting advice**: where a second opinion differs from the primary in the safety
@@ -165,12 +170,12 @@ task.
 
 | # | Task | Trigger | Output | Writes on its own | Needs approval | Now |
 |---|---|---|---|---|---|---|
-| 1 | Morning advice | schedule, daily 07:00 (the fixed advice run); event: new data for today (#90) | report (mail/push/portal) | the report; day 9 of the horizon as a proposal (#118) | changing today or tomorrow; filling day 9 | API runner |
+| 1 | Morning advice | schedule, daily 07:00 (the fixed advice run); event: new data for today (#90) | report (mail/push/portal) | the report; fill day 9 of the horizon (standing approval, #118) | changing today or tomorrow | API runner |
 | 2 | Evening review | schedule, daily; event: new data for tomorrow (#90); its advice is for tomorrow | report | the report; predictions | moving sessions | API runner |
 | 3 | Week review | schedule, Sunday | report + next-week proposal | the report | next week's changes | API runner |
 | 4 | Insight under a public activity | event: activity published | line in the Strava/Garmin text | the insight | – | API runner |
 | 5 | Reply to a report | event: the athlete replies | answer, or execute "akkoord" | the answer | the approved action itself | a reply makes a new version of the current advice (#90), which reads it |
-| 6 | Horizon fill | schedule, daily | sessions for day 9 | a proposal per session (#118: a plan write needs an approval reference) | every plan write | inside 1 |
+| 6 | Horizon fill | schedule, daily | sessions for day 9 | new sessions in free slots of a week that has its note (standing approval, #118) | changing, moving or skipping a session; week notes and targets | inside 1 |
 | 7 | Injury check | event: pain or an injury logged for today, at once (#90; within the daily maximum) | advice | the advice | plan changes (proposal + akkoord) | API runner (since 10-11) |
 | 8 | Check-in reaction | event: check-in saved after the fixed advice run, after the wait (#90; within the daily maximum) | short advice for today | the advice | swapping today's session (proposal + akkoord) | API runner (since 10-11) |
 | 9 | Weather swap | schedule, evening | outdoor ↔ indoor proposal | – | the swap | inside 2 |

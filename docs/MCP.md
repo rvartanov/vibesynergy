@@ -22,7 +22,7 @@ provider or model, and the server enforces them for every write tool
 | Role | Coach entries | Plan tools (`vibesynergy_plan_*`) | intervals.icu writes (`vibesynergy_icu_*`) | KB, memory, publish, harness run, race priority |
 | --- | --- | --- | --- | --- |
 | `own`: the athlete's own agent | approved; a daily entry is the daily advice | written directly (`plan.write`) | written directly | allowed |
-| `primary`: the primary AI coach (exactly one; by default `coach-runner`, the AI coach inside VibeSynergy) | its daily entry is the daily advice | with `approval_id`: written; without: stored as a proposal | need `approval_id`, else refused | allowed |
+| `primary`: the primary AI coach (exactly one; by default `coach-runner`, the AI coach inside VibeSynergy) | its daily entry is the daily advice | with `approval_id`: written; without: stored as a proposal, except a horizon fill (below) | need `approval_id`, else refused | allowed |
 | `advisory`: an advisory AI coach | notes and assessments; a daily entry is a **second opinion**; no `public_insight` | always stored as a proposal (`plan.propose` is enough) | refused | refused (use `vibesynergy_kb_propose_change`, a note) |
 
 - **Defaults.** A local caller (stdio, the portal) is the athlete. Apps and tokens that
@@ -39,6 +39,12 @@ provider or model, and the server enforces them for every write tool
   carries the stored call out in the proposer's name and copies it to intervals.icu. A
   proposal that could never be carried out (unknown session, steps not understood) is
   refused when it is made. The same open proposal is not stored twice.
+- **Standing approval: filling the horizon.** The primary AI coach's
+  `vibesynergy_plan_session_set` without `session_id` is written directly, without
+  `approval_id`, when the slot it fills (that day and `slot`, or that day and sport) never
+  held a session (a skipped one counts as held) and the plan week of that day has a note
+  (a week note is written by the athlete or with his approval). Everything else (changing,
+  moving, skipping, week notes, targets) needs the reference. Not for an advisory AI coach.
 - **Approval reference.** `approval_id` on the plan and intervals.icu write tools:
   `proposal:<id>` (approved by the athlete) or `reply:<id>` (his reply to a coach entry
   with an explicit yes such as 'akkoord' and no 'niet'/'no'), not older than 48 hours. A

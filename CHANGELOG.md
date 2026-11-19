@@ -23,9 +23,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   needs an approval reference (`approval_id`: a proposal you approved or your 'akkoord'
   reply, at most 48 hours old). Without one, and always for an advisory AI coach, the
   change is stored as a proposal under Waiting for you, with Approve and Reject; approving
-  carries it out. **This changes behaviour**: the AI coach inside VibeSynergy no longer
-  writes the plan by itself, also not to fill day 9 of the horizon; those sessions arrive
-  as proposals.
+  carries it out. One standing approval: the primary AI coach may add a new session in a
+  slot that held none, in a plan week that has its note (filling the horizon, "day 9"),
+  without a separate approval. **This changes behaviour**: the AI coach inside VibeSynergy
+  no longer changes, moves or skips a session, or writes a week note or target, by itself;
+  those arrive as proposals.
 - **Second opinion** (#118): an advisory AI coach's morning or evening entry is never the
   daily advice. It shows under "Second opinion" with the day's advice on the start page
   and the Coach page, and in the Coach page's messages with its own chip. Where it differs
