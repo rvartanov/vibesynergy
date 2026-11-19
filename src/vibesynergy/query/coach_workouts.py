@@ -200,6 +200,8 @@ def enrich_coach_entry(
         "safety_line": safety_line,
         "safety_rules": safety_rules,
         "ai_safety": daily_advice.ai_safety(meta) if owned else None,
+        # Written by an advisory AI coach (#118): a second opinion, not the advice.
+        "second_opinion": daily_advice.is_second_opinion({"meta": meta}),
         "freshness": freshness,
     }
 
@@ -295,15 +297,7 @@ def coach_write(
     now = utc_now()
     with engine.begin() as conn:
         if idempotency_key:
-            existing = (
-                conn.execute(
-                    select(coach_decision_log).where(
-                        coach_decision_log.c.idempotency_key == idempotency_key
-                    )
-                )
-                .mappings()
-                .first()
-            )
+            existing, idempotency_key = _own_key(conn, idempotency_key, resolved_author)
             if existing:
                 return _published_coach_row(conn, existing)
         try:
@@ -324,15 +318,7 @@ def coach_write(
         except IntegrityError:
             if not idempotency_key:
                 raise
-            existing = (
-                conn.execute(
-                    select(coach_decision_log).where(
-                        coach_decision_log.c.idempotency_key == idempotency_key
-                    )
-                )
-                .mappings()
-                .first()
-            )
+            existing, _key = _own_key(conn, idempotency_key, resolved_author)
             if existing:
                 return _published_coach_row(conn, existing)
             raise
@@ -344,6 +330,34 @@ def coach_write(
             .one()
         )
         return _published_coach_row(conn, row)
+
+
+def _own_key(conn, key: str, author: str) -> tuple[Any, str]:
+    """An idempotency key belongs to its author (#118): ``(existing row, key to store)``.
+
+    The author's own row under the key is returned as it is (a retry writes nothing). A
+    key another author already used never returns that author's entry and never collides:
+    this author's entry is stored under ``<key>-<author>`` (``morning-<date>-<author>``).
+    """
+    from vibesynergy.mcp import roles
+
+    def find(value: str):
+        return (
+            conn.execute(
+                select(coach_decision_log).where(coach_decision_log.c.idempotency_key == value)
+            )
+            .mappings()
+            .first()
+        )
+
+    found = find(key)
+    if found is None or found["author"] == author:
+        return found, key
+    own = f"{key}-{roles.key_suffix(author)}"
+    found = find(own)
+    if found is not None and found["author"] != author:
+        raise ValueError(f"idempotency_key {key!r} is taken; use one that ends in your author")
+    return found, own
 
 
 def _published_coach_row(conn, row) -> dict[str, Any]:

@@ -22,6 +22,7 @@ from pydantic_core import to_jsonable_python
 
 from vibesynergy import __version__
 from vibesynergy.core.timeutil import Window, today_in, utc_now
+from vibesynergy.mcp import roles
 from vibesynergy.mcp.identity import current_connection, current_scopes
 from vibesynergy.mcp.scopes import READ_SCOPES, scope_denied
 from vibesynergy.query import (
@@ -215,23 +216,36 @@ def build_server(rt: Runtime) -> MCPServer:
         messages are written for the model, so they are passed on as ToolError.
         Anything else stays a crash whose details remain in the server log.
         A local caller with no token (stdio, tests) has every scope.
+
+        A write tool is also held against the connection's role (``mcp.roles``, #118): a
+        write outside the role is refused with a message the model can act on.
         """
 
         def register(fn: Callable) -> Callable:
             tool_scopes[fn.__name__] = scope
+            policy = roles.WRITE_POLICY.get(fn.__name__)
 
             @functools.wraps(fn)
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 started, outcome = time.monotonic(), "ok"
                 try:
-                    if scope not in current_scopes():
+                    granted = current_scopes()
+                    # A plan tool is open to a connection that may only suggest: its
+                    # call is then stored as a proposal (query.plan_proposals.gate).
+                    suggests = policy == roles.PLAN and "plan.propose" in granted
+                    if scope not in granted and not suggests:
                         outcome = "denied"
                         raise ToolError(scope_denied(scope))
+                    if policy is not None:
+                        roles.check_tool(fn.__name__, roles.current(engine))
                     return fn(*args, **kwargs)
                 except ToolError as exc:
                     if outcome == "ok":
                         outcome = f"error: {exc}"
                     raise
+                except roles.RoleError as exc:
+                    outcome = f"refused: {exc}"
+                    raise ToolError(str(exc)) from exc
                 except ValueError as exc:
                     outcome = f"error: {exc}"
                     raise ToolError(str(exc)) from exc

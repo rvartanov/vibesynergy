@@ -152,6 +152,11 @@ class RevokeRequest(BaseModel):
     client_id: str
 
 
+class RoleRequest(BaseModel):
+    client_id: str = Field(min_length=1, max_length=200)
+    role: str
+
+
 class HostChange(BaseModel):
     action: str  # add | remove
     host: str
@@ -985,11 +990,24 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 names[f"client:{row['client_id']}"] = label
         for row in tokens:
             names[f"client:pat:{row['id']}"] = row["display_name"] or row["name"]
+        # The role of each connection among the AI coaches (#118).
+        from vibesynergy.mcp import roles
+
+        found = roles.stored(rt.engine)
+        for row in rows:
+            row["role"] = roles.role_of(rt.engine, row["client_id"], found)
+        for row in tokens:
+            row["role"] = roles.role_of(rt.engine, f"pat:{row['id']}", found)
         store = SecretStore(settings.secrets_dir, "mcp")
         return {
             "clients": rows,
             "tokens": tokens,
             "names": names,
+            "roles": [{"id": role, "label": roles.ROLE_LABELS[role]} for role in roles.ROLES],
+            "runner": {
+                "client_id": roles.RUNNER_CLIENT,
+                "role": roles.role_of(rt.engine, roles.RUNNER_CLIENT, found),
+            },
             "passphrase_set": bool(store.get("passphrase")),
             "scopes": [{"id": scope, "label": SCOPE_LABELS[scope]} for scope in SCOPES],
             "coach_scopes": list(COACH_SCOPES),
@@ -1010,6 +1028,20 @@ def build_settings_router(rt: Runtime) -> APIRouter:
     def rename_client(request: ClientRename) -> dict[str, Any]:
         if not mcp_oauth.rename_oauth_client(rt.engine, request.client_id, request.display_name):
             raise ValueError("No app with that id.")
+        return {"data": _mcp_payload()}
+
+    @router.post("/mcp/role")
+    def set_role(request: RoleRequest) -> dict[str, Any]:
+        """The role of one connection among the AI coaches (#118). ``client_id`` is an
+        app's id, ``pat:<id>`` for a token, or ``coach-runner``."""
+        from vibesynergy.mcp import roles
+
+        known = {roles.RUNNER_CLIENT}
+        known |= {row["client_id"] for row in mcp_oauth.list_clients(rt.engine)}
+        known |= {f"pat:{row['id']}" for row in mcp_oauth.list_personal_access_tokens(rt.engine)}
+        if request.client_id not in known:
+            raise ValueError("No app or token with that id.")
+        roles.set_role(rt.engine, request.client_id, request.role)
         return {"data": _mcp_payload()}
 
     @router.get("/mcp/pats")

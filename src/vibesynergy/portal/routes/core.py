@@ -274,6 +274,22 @@ def register(kit: PortalKit) -> None:
 
         return envelope(inbox.inbox(rt, today()))
 
+    @router.post("/plan_proposals/{proposal_id}/{decision}")
+    def plan_proposal_decide(proposal_id: int, decision: str):
+        """Approve (and carry out) or reject a plan change an AI coach proposed (#118)."""
+        from vibesynergy.query import inbox, plan_proposals
+
+        try:
+            if decision == "approve":
+                found = plan_proposals.approve(rt, proposal_id)
+            elif decision == "reject":
+                found = plan_proposals.reject(engine, proposal_id)
+            else:
+                return JSONResponse(status_code=404, content={"error": "not_found"})
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        return envelope({"proposal": found, "inbox": inbox.inbox(rt, today())})
+
     @router.get("/inbox/count")
     def inbox_count_route() -> dict[str, Any]:
         from vibesynergy.query import inbox

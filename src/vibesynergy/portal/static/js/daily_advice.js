@@ -1,7 +1,8 @@
 // The day's advice (#89), the same on the start page and the Coach page: the AI coach's
 // advice when it is valid, else the fixed rules' with the reason. The current version says
 // when it was written and what came in before it; the Coach page lists the earlier
-// versions (#90). Under "Why this advice":
+// versions (#90). An advisory AI coach's entry for the day is listed under "Second
+// opinion", flagged where it differs from the primary AI coach (#118). Under "Why this advice":
 // the reasons, where it came from and where the AI and the rules differ. The update button
 // syncs every source and then asks the AI coach for new advice, with its progress.
 import { get, post } from "./api.js";
@@ -122,6 +123,50 @@ export function versionsHtml(advice) {
     <ol>${items}</ol></details>`;
 }
 
+const DECISIONS = {
+  keep: N("keep"),
+  adjust: N("adjust"),
+  skip: N("skip"),
+  done: N("done"),
+  missed: N("missed"),
+  proposal: N("proposal"),
+};
+
+/** Where a second opinion differs from the primary AI coach, one line per difference. */
+export function disagreementLines(differences) {
+  return (differences || []).flatMap((d) => {
+    if (d.field === "safety_level") {
+      return [t("Safety level: your AI coach “{mine}”, second opinion “{theirs}”.", { mine: t(LEVELS[d.primary] || d.primary || "—"), theirs: t(LEVELS[d.advisory] || d.advisory || "—") })];
+    }
+    return (d.changes || []).map((c) => t("{title}: your AI coach “{mine}”, second opinion “{theirs}”.", { title: capital(String(c.title || "").trim()), mine: t(DECISIONS[c.primary] || c.primary || "—"), theirs: t(DECISIONS[c.advisory] || c.advisory || "—") }));
+  });
+}
+
+/** The advisory AI coaches' entries for the day (#118), in the same thread as the advice:
+ * never the advice itself, flagged where one differs from the primary AI coach. */
+export function secondOpinionsHtml(advice, { keyPrefix = "dashboard" } = {}) {
+  const all = advice?.second_opinions || [];
+  if (!all.length) return "";
+  const flagged = all.some((o) => o.disagrees);
+  const items = all.map((o) => {
+    const time = o.at ? userTime(o.at) : "";
+    const who = o.author_name ? t("{name}, advisory AI coach", { name: o.author_name }) : t("Advisory AI coach");
+    const colour = o.colour ? `<span class="chip ${TONES[o.colour] || ""}">${esc(t(COLOURS[o.colour] || o.colour))}</span> ` : "";
+    const lines = disagreementLines(o.differences);
+    const differs = lines.length
+      ? `<p class="notice warning" data-second-opinion-differs><strong>${esc(t("Differs from your AI coach"))}</strong> ${esc(lines.join(" "))}</p>`
+      : `<p class="sub">${esc(t("Agrees with your AI coach on the safety level and the sessions."))}</p>`;
+    return `<li data-second-opinion="${esc(String(o.id))}"><span class="advice-version-head">${colour}<span class="sub">${esc(who)}${time ? ` · <time datetime="${esc(o.at)}">${esc(time)}</time>` : ""}</span></span>
+      <span>${esc(o.advice || "")}</span>${differs}</li>`;
+  }).join("");
+  const flag = flagged ? ` <span class="chip warning">${esc(t("Differs"))}</span>` : "";
+  const last = flagged
+    ? `<p class="sub">${esc(t("Your AI coach has the last word and weighs this in its next advice, unless you choose otherwise."))}</p>`
+    : "";
+  return `<details class="advice-versions second-opinions" data-refresh-key="${esc(keyPrefix)}-second-opinions" data-second-opinions${flagged ? " open" : ""}><summary>${esc(t("Second opinion ({n})", { n: all.length }))}${flag}</summary>
+    <ol>${items}</ol>${last}</details>`;
+}
+
 function differencesHtml(advice) {
   const rules = advice.rules;
   if (advice.source !== "ai" || !rules) return "";
@@ -169,7 +214,7 @@ export function adviceHtml(advice, { keyPrefix = "dashboard", refresh = false } 
   const status = updated || updating || fallback || refresh
     ? `<p class="sub advice-status${fallback ? " advice-fallback" : ""}">${updated}${updating}${fallback}${refresh ? refreshButtonHtml() : ""}</p>`
     : "";
-  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}`;
+  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}${secondOpinionsHtml(advice, { keyPrefix })}`;
 }
 
 export function refreshButtonHtml() {

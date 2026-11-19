@@ -208,9 +208,10 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   misses the contract (wrong day, far too long, a daily advice without level, colour and
   reasons, or milder than the rules without saying why) is refused, for the built-in AI coach
   and for AI apps over MCP alike. It checks validity, not approval: what you ask through
-  your own AI app is already approved, and approval steps are for the AI coach acting on its
-  own, which also can never soften illness or real pain. Every entry records the harness
-  version it was written under and which of the two wrote it.
+  your own agent is already approved, and approval steps are for an AI coach acting on its
+  own (the primary and any advisory AI coach), which also can never soften illness or real
+  pain. Every entry records the harness version it was written under, how it came in and
+  the role that wrote it.
 - **Plan checks**: every plan change is checked for gaps around it (a name that doesn't
   match the length, a strength session without a full warm-up, a reference to a session that
   is gone, nearby sessions that mention the changed one). The start page and the AI coach see
@@ -226,6 +227,15 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,
   `publish`, `sql`). OAuth with your passphrase, or personal access tokens that expire.
 - **Coach apps** (Settings → Sharing): the connected apps, their scopes and activity, revoke.
+- **More than one AI coach, with roles** (Settings → Sharing → Coach apps): each app and
+  token is your own agent (writes count as approved), the primary AI coach (exactly one;
+  gives the daily advice; a plan change needs your approval) or an advisory AI coach (a
+  second opinion and proposals only). VibeSynergy enforces it for every write, whatever
+  the app or model. Plan changes an AI coach may not make by itself wait under Waiting for
+  you with Approve and Reject; approving carries them out. The primary AI coach may still
+  fill the horizon by itself: a new session in a free slot of a week that has its note. An advisory AI coach's advice
+  shows as "Second opinion" with the day's advice on the start page and the Coach page,
+  flagged where it differs from your AI coach in safety level or a session decision.
 
 ## Publishing
 

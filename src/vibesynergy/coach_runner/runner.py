@@ -330,7 +330,9 @@ def _reply_lines(replies: list[dict[str, Any]], name: str = prompts.DEFAULT_NAME
         when = reply["at"][:16].replace("T", " ")
         about = reply["entry_first_line"].replace('"', "'")
         lines.append(
-            f"- op entry #{reply['entry_id']} ({reply['entry_type']}, {reply['for_date']}, "
+            f'- antwoord #{reply["id"]} (approval_id "reply:{reply["id"]}" als het een '
+            f"akkoord is) op entry #{reply['entry_id']} ({reply['entry_type']}, "
+            f"{reply['for_date']}, "
             f'"{about}") om {when} UTC:\n  """{reply["text"]}"""'
         )
     return "\n".join(lines)
@@ -505,7 +507,12 @@ def find_entry(
     with rt.engine.connect() as conn:
         row = (
             conn.execute(
-                select(coach_decision_log).where(coach_decision_log.c.idempotency_key == key)
+                # Its own entry only: a key belongs to its author (#118), and a key
+                # another AI coach used first is stored for the runner with its suffix.
+                select(coach_decision_log).where(
+                    coach_decision_log.c.idempotency_key.in_((key, f"{key}-coach-runner")),
+                    coach_decision_log.c.author == RUNNER_AUTHOR,
+                )
             )
             .mappings()
             .first()

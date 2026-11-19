@@ -239,7 +239,7 @@ def _call(runtime, scopes: frozenset[str] | None, tool: str, arguments: dict):
     async def go():
         tokens = None
         if scopes is not None:
-            tokens = set_connection("coach-app", scopes=scopes, label="Coach")
+            tokens = set_connection("coach-app", scopes=scopes, label="Coach", role="own")
         try:
             async with Client(build_server(runtime)) as client:
                 return await client.call_tool(tool, arguments)

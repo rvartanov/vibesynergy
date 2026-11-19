@@ -68,7 +68,17 @@ TASKS: tuple[Task, ...] = (
             "morning", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
         prompt="morning",
-        chain=("today", "recovery", "plan_horizon", "weather", "replies", "recent_reports"),
+        chain=(
+            "today",
+            "recovery",
+            "plan_horizon",
+            "weather",
+            "replies",
+            "coach_team",
+            "recent_reports",
+        ),
+        # The standing approval (#118): a new session in a free slot of a week that has
+        # its note is written directly; every other plan write needs an approval reference.
         writes=("report", "fill day 9 of the horizon"),
         approval=("change today or tomorrow",),
     ),
@@ -89,7 +99,7 @@ TASKS: tuple[Task, ...] = (
             target="today_or_tomorrow",
         ),
         prompt="evening",
-        chain=("today", "week", "recovery", "plan_horizon", "weather", "replies"),
+        chain=("today", "week", "recovery", "plan_horizon", "weather", "replies", "coach_team"),
         writes=("report", "predictions"),
         approval=("move sessions",),
     ),
@@ -99,7 +109,7 @@ TASKS: tuple[Task, ...] = (
         triggers=(Trigger("schedule", "weekly sun 19:44"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=150),
         prompt="weekly",
-        chain=("week", "fitness", "plan_next_week", "replies", "recent_reports"),
+        chain=("week", "fitness", "plan_next_week", "replies", "coach_team", "recent_reports"),
         writes=("report",),
         approval=("next week's changes",),
     ),
@@ -180,7 +190,7 @@ TASKS: tuple[Task, ...] = (
             "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
         prompt="injury",
-        chain=("today", "recovery", "plan_horizon", "replies"),
+        chain=("today", "recovery", "plan_horizon", "replies", "coach_team"),
         writes=("report",),
         approval=("plan changes",),
         notes="Pain or an injury logged for today makes a new version of today's advice at "
@@ -197,7 +207,7 @@ TASKS: tuple[Task, ...] = (
             "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
         prompt="checkin",
-        chain=("today", "recovery", "plan_horizon", "replies"),
+        chain=("today", "recovery", "plan_horizon", "replies", "coach_team"),
         writes=("report",),
         approval=("swapping today's session",),
         notes="A check-in saved after the fixed advice run makes a new version of today's "
@@ -233,7 +243,7 @@ TASKS: tuple[Task, ...] = (
         triggers=(Trigger("event", "reply"),),
         contract=Contract(None),
         prompt="evening",
-        chain=("replies", "recent_reports", "plan_horizon"),
+        chain=("replies", "coach_team", "recent_reports", "plan_horizon"),
         writes=("answer",),
         approval=("the approved action itself",),
         status="planned",

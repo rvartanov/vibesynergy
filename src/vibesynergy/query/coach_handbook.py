@@ -179,6 +179,7 @@ def handbook(
     scopes: frozenset[str] | set[str],
     include_protocol: bool = True,
     timezone: str | None = None,
+    connection: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """The handbook for one connection, and warnings for the envelope."""
     warnings: list[str] = []
@@ -207,6 +208,9 @@ def handbook(
             "missing": missing,
         },
     }
+    if connection is not None:
+        # Who this connection is among the AI coaches, and what that role may write (#118).
+        data["connection"] = connection
     if include_protocol:
         data["protocol_md"] = text
     return data, warnings

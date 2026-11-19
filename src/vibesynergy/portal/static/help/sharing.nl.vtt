@@ -1,13 +1,19 @@
 WEBVTT
 
-00:00:02.044 --> 00:00:08.719
+00:00:02.042 --> 00:00:08.645
 Instellingen → Delen: geef iemand of een app toegang, zonder je wachtwoord.
 
-00:00:08.769 --> 00:00:12.857
+00:00:08.695 --> 00:00:12.742
 Een deellink: kies een naam, hoe lang hij werkt en welke pagina's.
 
-00:00:12.907 --> 00:00:17.384
+00:00:12.792 --> 00:00:15.868
 De link staat klaar om te kopiëren; intrekken kan altijd.
 
-00:00:17.434 --> 00:00:24.642
+00:00:15.918 --> 00:00:20.604
+Elke app en elk token krijgt een rol: je eigen agent, de primaire AI-coach die je dagadvies geeft, of een adviserende AI-coach voor een second opinion en voorstellen.
+
+00:00:20.654 --> 00:00:25.669
+Er is altijd precies één primaire AI-coach. Een nieuwe app begint als adviserend, tot jij kiest.
+
+00:00:25.719 --> 00:00:32.857
 Een token geeft een AI-app (MCP) toegang. Kies wat het mag.

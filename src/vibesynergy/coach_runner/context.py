@@ -20,8 +20,9 @@ from vibesynergy.core.timeutil import Window
 
 log = logging.getLogger(__name__)
 
-# Bump when the chain format or a base block changes shape (2: the safety block, #88).
-VERSION = 2
+# Bump when the chain format or a base block changes shape (2: the safety block, #88;
+# 3: replies carry their id and the daily advice gets ``coach_team``, #118).
+VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -217,9 +218,56 @@ def _replies(rt, day, cache):
     from vibesynergy.query import coach_replies
 
     return [
-        {"entry_id": r["entry_id"], "at": r["at"], "text": r["text"]}
+        {"reply_id": r["id"], "entry_id": r["entry_id"], "at": r["at"], "text": r["text"]}
         for r in coach_replies.unread(rt.engine)
     ]
+
+
+def _coach_team(rt, day, cache):
+    """More than one AI coach (#118): the advisory AI coaches' second opinions for the day
+    this run's advice is for, with where each differs from the current advice, and the
+    plan proposals that wait for the athlete or were decided in the last two days."""
+    from vibesynergy.core.timeutil import utc_now
+    from vibesynergy.query import daily_advice, plan_proposals
+    from vibesynergy.store.schema import plan_proposal
+
+    target = daily_advice.target_day(str(cache.get("task") or ""), day)
+    opinions = [
+        {
+            "from": "adviserende AI-coach",
+            "entry_id": o["id"],
+            "at": o["at"],
+            "advice": str(o["advice"] or "")[:400],
+            "safety_level": o["safety_level"],
+            "reasons": o["reasons"],
+            "sessions": o["sessions"],
+            "differs_from_your_advice": o["differences"],
+        }
+        for o in daily_advice.thread_opinions(rt, target)
+    ]
+    since = utc_now() - timedelta(hours=plan_proposals.APPROVAL_HOURS)
+    with rt.engine.connect() as conn:
+        rows = conn.execute(
+            plan_proposal.select()
+            .where(
+                (plan_proposal.c.status == plan_proposals.OPEN)
+                | (plan_proposal.c.decided_at >= since)
+            )
+            .order_by(plan_proposal.c.id)
+        ).mappings()
+        proposals = [
+            {
+                "approval_id": f"proposal:{r['id']}",
+                "status": r["status"],
+                "by": "jij" if r["role"] == "primary" else "adviserende AI-coach",
+                "change": r["summary"],
+                "reason": str(r["reason"])[:200],
+            }
+            for r in rows
+        ]
+    if not opinions and not proposals:
+        return None
+    return {"second_opinions": opinions, "plan_proposals": proposals}
 
 
 def _recent_reports(rt, day, cache):
@@ -392,8 +440,14 @@ BLOCKS: dict[str, Block] = {
         Block("plan_next_week", "Plan volgende week", 2500, _plan_next_week),
         Block("week", "Deze week", 6000, _week),
         Block("weather", "Weer", 2000, _weather),
-        Block("replies", "Antwoorden op eerdere rapporten", 3000, _replies),
+        Block("replies", "Antwoorden op eerdere rapporten", 3000, _replies, version=2),
         Block("recent_reports", "Recente rapporten", 3000, _recent_reports),
+        Block(
+            "coach_team",
+            "Second opinions van adviserende AI-coaches en planvoorstellen",
+            3000,
+            _coach_team,
+        ),
         Block("fitness", "Fitheid", 2500, _fitness),
         Block("activity", "Activiteit", 4000, _activity),
         Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),

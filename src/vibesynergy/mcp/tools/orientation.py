@@ -9,7 +9,7 @@ from typing import Any, Literal
 from mcp.server.mcpserver.exceptions import ToolError
 
 from vibesynergy.core.timeutil import Window, today_in
-from vibesynergy.mcp.identity import current_author, current_scopes
+from vibesynergy.mcp.identity import current_author, current_label, current_scopes
 from vibesynergy.mcp.server import (
     ICU_DELETE,
     ICU_WRITE,
@@ -73,15 +73,30 @@ def register(kit: ToolKit) -> None:
         and failure handling. Plus the task register (each coach task with its trigger,
         inputs, output, what you decide alone, last run and missing runs), the active
         knowledge-base articles (slugs to read with vibesynergy_kb_get), the active rule ids
-        (cite them in kb_rules), and this connection's scopes against what the coach loop
-        needs. include_protocol=false
+        (cite them in kb_rules), this connection's scopes against what the coach loop
+        needs, and connection: your role next to other AI coaches (the athlete's own agent,
+        primary AI coach or advisory AI coach), what that role may write, and the author
+        suffix for your idempotency keys. include_protocol=false
         returns only the index and protocol_version, for later runs.
         """
+        from vibesynergy.mcp import roles
+
+        role, author = roles.current(engine), current_author()
+        suffix = roles.key_suffix(author)
         data, warnings = coach_handbook.handbook(
             engine,
             scopes=current_scopes(),
             include_protocol=include_protocol,
             timezone=settings.timezone,
+            connection={
+                "role": role,
+                "role_name": roles.ROLE_NAMES[role],
+                "may": roles.ROLE_MAY[role],
+                "author": author,
+                "key_suffix": suffix,
+                "idempotency_key_example": f"morning-{today().isoformat()}-{suffix}",
+                "writes_daily_advice": role != roles.ADVISORY,
+            },
         )
         return envelope(data, warnings=warnings)
 
@@ -157,6 +172,32 @@ def register(kit: ToolKit) -> None:
         last = _date(end) if end else first + timedelta(days=13)
         return envelope(plan_model.view(engine, first, last), span=Window(first, last))
 
+    def _plan_write(
+        name: str, arguments: dict[str, Any], reason: str, approval_id: str | None
+    ) -> dict[str, Any]:
+        """One plan tool call: written when it is approved for this connection's role,
+        else stored as a proposal (query.plan_proposals, #118)."""
+        from vibesynergy.mcp.scopes import scope_denied
+        from vibesynergy.query import plan_model, plan_proposals
+
+        author = current_author() or "mcp"
+        held = plan_proposals.gate(
+            engine,
+            name,
+            arguments,
+            reason=reason,
+            approval_id=approval_id,
+            author=author,
+            author_name=current_label(),
+        )
+        if held is not None:
+            return envelope(held)
+        if "plan.write" not in current_scopes():
+            raise ToolError(scope_denied("plan.write"))
+        out = plan_proposals.execute(engine, name, arguments, author=author, reason=reason)
+        plan_model.mirror_soon(rt.jobs)
+        return envelope(out)
+
     @tool(ICU_WRITE, "plan.write")
     def vibesynergy_plan_session_set(
         reason: str,
@@ -166,6 +207,7 @@ def register(kit: ToolKit) -> None:
         sport: str | None = None,
         session_id: str | None = None,
         slot: str | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
         """Create or change one session in VibeSynergy's plan (only when vibesynergy_plan_model says
         source vibesynergy). description is intervals.icu step text (cue first, then steps);
@@ -174,88 +216,62 @@ def register(kit: ToolKit) -> None:
         week note and week targets in step (COACH-5). slot names a new session's id; slots
         ms1-swim, ms2-ride, ms3-run (ms<n>-<sport>, msb1-... for a second one that day) link
         that day's sessions into one multisport in that order: a triathlon, duathlon or
-        brick, one Garmin multisport workout."""
-        from vibesynergy.query import plan_model
-
-        if plan_model.current_plan_id(engine) is None:
-            raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
-        try:
-            out = plan_model.set_session(
-                engine,
-                session_id=session_id,
-                day=_date(date),
-                name=name,
-                sport=sport,
-                description=description,
-                reason=reason,
-                author=current_author() or "mcp",
-                slot=slot,
-            )
-            plan_model.mirror_soon(rt.jobs)
-            return envelope(out)
-        except ValueError as exc:
-            raise ToolError(str(exc)) from exc
-
-    def _vibesynergy_leads() -> None:
-        from vibesynergy.query import plan_model
-
-        if plan_model.current_plan_id(engine) is None:
-            raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
+        brick, one Garmin multisport workout. approval_id: the athlete's approval, see
+        vibesynergy_coach_handbook (connection); without it an AI coach's change is stored
+        as a proposal (written: false). Only the primary AI coach adding a new session (no
+        session_id) in a slot that held none, in a week that has its note, needs none."""
+        return _plan_write(
+            "vibesynergy_plan_session_set",
+            {
+                "date": date,
+                "name": name,
+                "description": description,
+                "sport": sport,
+                "session_id": session_id,
+                "slot": slot,
+            },
+            reason,
+            approval_id,
+        )
 
     @tool(ICU_WRITE, "plan.write")
-    def vibesynergy_plan_session_move(reason: str, session_id: str, date: str) -> dict[str, Any]:
+    def vibesynergy_plan_session_move(
+        reason: str, session_id: str, date: str, approval_id: str | None = None
+    ) -> dict[str, Any]:
         """Move one planned session in VibeSynergy's plan to another day (only when
         vibesynergy_plan_model says source vibesynergy). Its intervals.icu copy moves within
-        minutes. Keep the week's note and targets in step (COACH-5)."""
-        from vibesynergy.query import plan_model
-
-        _vibesynergy_leads()
-        try:
-            out = plan_model.move_session(
-                engine,
-                session_id=session_id,
-                day=_date(date),
-                reason=reason,
-                author=current_author() or "mcp",
-            )
-            plan_model.mirror_soon(rt.jobs)
-            return envelope(out)
-        except ValueError as exc:
-            raise ToolError(str(exc)) from exc
+        minutes. Keep the week's note and targets in step (COACH-5). approval_id: the
+        athlete's approval; without it an AI coach's move is stored as a proposal."""
+        return _plan_write(
+            "vibesynergy_plan_session_move",
+            {"session_id": session_id, "date": date},
+            reason,
+            approval_id,
+        )
 
     @tool(ICU_WRITE, "plan.write")
-    def vibesynergy_plan_session_skip(reason: str, session_id: str) -> dict[str, Any]:
+    def vibesynergy_plan_session_skip(
+        reason: str, session_id: str, approval_id: str | None = None
+    ) -> dict[str, Any]:
         """Take one planned session out of VibeSynergy's plan (only when vibesynergy_plan_model
         says source vibesynergy). Its intervals.icu copy is removed within minutes; the
-        session stays in the plan's history."""
-        from vibesynergy.query import plan_model
-
-        _vibesynergy_leads()
-        try:
-            out = plan_model.skip_session(
-                engine, session_id=session_id, reason=reason, author=current_author() or "mcp"
-            )
-            plan_model.mirror_soon(rt.jobs)
-            return envelope(out)
-        except ValueError as exc:
-            raise ToolError(str(exc)) from exc
+        session stays in the plan's history. approval_id: the athlete's approval; without
+        it an AI coach's change is stored as a proposal."""
+        return _plan_write(
+            "vibesynergy_plan_session_skip", {"session_id": session_id}, reason, approval_id
+        )
 
     @tool(ICU_WRITE, "plan.write")
-    def vibesynergy_plan_week_set(reason: str, week: int, note: str) -> dict[str, Any]:
+    def vibesynergy_plan_week_set(
+        reason: str, week: int, note: str, approval_id: str | None = None
+    ) -> dict[str, Any]:
         """Change the note of one week in VibeSynergy's plan (its intent and structure; only
         when vibesynergy_plan_model says source vibesynergy). It reaches intervals.icu within
-        minutes. Change the week's sessions and targets with it (COACH-5)."""
-        from vibesynergy.query import plan_model
-
-        _vibesynergy_leads()
-        try:
-            out = plan_model.set_week(
-                engine, week=week, note=note, reason=reason, author=current_author() or "mcp"
-            )
-            plan_model.mirror_soon(rt.jobs)
-            return envelope(out)
-        except ValueError as exc:
-            raise ToolError(str(exc)) from exc
+        minutes. Change the week's sessions and targets with it (COACH-5). approval_id: the
+        athlete's approval; without it an AI coach's change is stored as a proposal."""
+        return _plan_write(
+            "vibesynergy_plan_week_set", {"week": week, "note": note}, reason, approval_id
+        )
 
     @tool(ICU_WRITE, "plan.write")
     def vibesynergy_plan_target_set(
@@ -265,28 +281,32 @@ def register(kit: ToolKit) -> None:
         time_s: float | None = None,
         distance_m: float | None = None,
         load: float | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
         """Set one weekly target in VibeSynergy's plan: sport (run, ride, swim, …) with time in
         seconds, distance in metres and/or load; none of them removes the target. Only when
-        vibesynergy_plan_model says source vibesynergy; it reaches intervals.icu within minutes."""
-        from vibesynergy.query import plan_model
+        vibesynergy_plan_model says source vibesynergy; it reaches intervals.icu within minutes.
+        approval_id: the athlete's approval; without it an AI coach's change is stored as a
+        proposal."""
+        return _plan_write(
+            "vibesynergy_plan_target_set",
+            {
+                "week": week,
+                "sport": sport,
+                "time_s": time_s,
+                "distance_m": distance_m,
+                "load": load,
+            },
+            reason,
+            approval_id,
+        )
 
-        _vibesynergy_leads()
-        try:
-            out = plan_model.set_target(
-                engine,
-                week=week,
-                sport=sport,
-                time_s=time_s,
-                distance_m=distance_m,
-                load=load,
-                reason=reason,
-                author=current_author() or "mcp",
-            )
-            plan_model.mirror_soon(rt.jobs)
-            return envelope(out)
-        except ValueError as exc:
-            raise ToolError(str(exc)) from exc
+    def _approved(name: str, approval_id: str | None) -> None:
+        """An intervals.icu write: the athlete's own agent, or the primary AI coach with
+        an approval reference (#118)."""
+        from vibesynergy.query import plan_proposals
+
+        plan_proposals.require_approval(engine, name, approval_id)
 
     @tool(ICU_WRITE, "plan.write")
     def vibesynergy_icu_create_event(
@@ -301,13 +321,17 @@ def register(kit: ToolKit) -> None:
         for_week: bool = False,
         tags: list[str] | None = None,
         targets: dict[str, float] | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
         """Add one event to intervals.icu only. A reason is required. Not a bulk upsert.
         It is not in VibeSynergy's plan and never becomes a planned session or a race there:
         plan with vibesynergy_plan_session_set and friends instead.
 
         targets (TARGET events): time_target (s), load_target, distance_target (m).
+        approval_id: required for the primary AI coach ('proposal:<id>' or 'reply:<id>');
+        an advisory AI coach cannot use this tool.
         """
+        _approved("vibesynergy_icu_create_event", approval_id)
         return _icu(
             lambda client: icu_plan.create_event(
                 engine,
@@ -338,12 +362,15 @@ def register(kit: ToolKit) -> None:
         category: str | None = None,
         sport: str | None = None,
         tags: list[str] | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
         """Change one plan event by its id. external_id only finds that id in the cache.
 
         expected_version is the version from the last read. The write is refused when
-        the cached event, or intervals.icu, has moved on.
+        the cached event, or intervals.icu, has moved on. approval_id: required for the
+        primary AI coach; an advisory AI coach cannot use this tool.
         """
+        _approved("vibesynergy_icu_update_event", approval_id)
         changes = {
             "name": name,
             "description": description,
@@ -371,8 +398,11 @@ def register(kit: ToolKit) -> None:
         start_date: str,
         event_id: str | None = None,
         external_id: str | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
-        """Move one plan event to another date, by its event id."""
+        """Move one plan event to another date, by its event id. approval_id: required for
+        the primary AI coach; an advisory AI coach cannot use this tool."""
+        _approved("vibesynergy_icu_move_event", approval_id)
         return _icu(
             lambda client: icu_plan.move_event(
                 engine,
@@ -392,8 +422,12 @@ def register(kit: ToolKit) -> None:
         expected_version: str,
         event_id: str | None = None,
         external_id: str | None = None,
+        approval_id: str | None = None,
     ) -> dict[str, Any]:
-        """Delete one plan event by its id, after the version check. A reason is required."""
+        """Delete one plan event by its id, after the version check. A reason is required.
+        approval_id: required for the primary AI coach; an advisory AI coach cannot use
+        this tool."""
+        _approved("vibesynergy_icu_delete_event", approval_id)
         return _icu(
             lambda client: icu_plan.delete_event(
                 engine,
@@ -407,8 +441,12 @@ def register(kit: ToolKit) -> None:
         )
 
     @tool(ICU_DELETE, "plan.write")
-    def vibesynergy_icu_revert(audit_id: int, reason: str) -> dict[str, Any]:
-        """Undo one plan write. Restores the before snapshot through the API."""
+    def vibesynergy_icu_revert(
+        audit_id: int, reason: str, approval_id: str | None = None
+    ) -> dict[str, Any]:
+        """Undo one plan write. Restores the before snapshot through the API. approval_id:
+        required for the primary AI coach; an advisory AI coach cannot use this tool."""
+        _approved("vibesynergy_icu_revert", approval_id)
         return _icu(
             lambda client: icu_plan.revert(
                 engine, client, audit_id=audit_id, reason=reason, author=current_author()
@@ -448,8 +486,16 @@ def register(kit: ToolKit) -> None:
         one sentence, required when your level is milder than the rules' level}. colour
         follows level: ok=green, ease=amber, flag=amber, refuse=red. The rules' level is
         safety.floor in vibesynergy_coach_prompt(job, include_context=true) and
-        safety.level in vibesynergy_today. This is a check of validity, not of approval:
-        a write over MCP is the athlete's own request and needs no further yes.
+        safety.level in vibesynergy_today. This is a check of validity, not of approval.
+        Role (#118, see connection in vibesynergy_coach_handbook): only the primary AI
+        coach's entry (and the athlete's own agent's) is the daily advice. An advisory AI
+        coach's morning or evening entry is stored as a second opinion, shown beside the
+        advice in the same day thread; where it differs in safety level or a session
+        decision, the athlete sees it flagged and the primary AI coach gets it in its next
+        run. An advisory AI coach cannot write public_insight.
+        idempotency_key: one per author, e.g. morning-2026-11-19-<author> (your author
+        suffix is connection.key_suffix). Keys never collide between AI coaches: a key
+        another author used is stored for you as <key>-<suffix>.
         task: the harness task this entry belongs to (morning, evening, weekly, monthly,
         block, race, test, thresholds, kb, injury, checkin); its contract then applies.
         harness: the harness.stamp from vibesynergy_coach_prompt, so the entry records which
@@ -480,6 +526,18 @@ def register(kit: ToolKit) -> None:
         from vibesynergy.coach_runner import contract as harness_contract
         from vibesynergy.coach_runner import prompts as harness_prompts
         from vibesynergy.coach_runner import registry
+        from vibesynergy.mcp import roles
+
+        role = roles.current(engine)
+        if role == roles.ADVISORY and public_insight and public_insight.strip():
+            raise roles.RoleError(
+                roles.refusal(
+                    "vibesynergy_coach_write",
+                    role,
+                    "with public_insight publishes a line on Strava/Garmin, and an advisory "
+                    "AI coach does not publish. Write the entry without public_insight.",
+                )
+            )
 
         under = harness_contract.current_run()
         if under:
@@ -499,7 +557,9 @@ def register(kit: ToolKit) -> None:
                 task=task,
                 safety=safety,
                 floor=floor,
-                autonomous=under is not None,
+                # Only the athlete's own agent acts on his request; an AI coach on its own
+                # (the runner, a scheduled routine of an app) never softens a hard rule.
+                autonomous=under is not None or role != roles.OWN,
             )
             # A runner's daily advice is written on the run's own day; the evening's counts
             # for tomorrow (#90), which the harness records as its target.
@@ -528,12 +588,19 @@ def register(kit: ToolKit) -> None:
             target=harness_contract.advice_target(
                 entry_type, checked["task"], day, today(), checked["safety"] is not None
             ),
+            role=role,
         )
         extra: dict[str, Any] = {"harness": stamp}
         if model_id:
             extra["model_id"] = model_id
         if checked["safety"]:
             extra["safety"] = checked["safety"]
+        if role == roles.ADVISORY:
+            # An advisory entry always carries its author in the key, so the primary AI
+            # coach's key for the day stays its own (morning-<date>-<author>).
+            suffix = "-" + roles.key_suffix(current_author())
+            if not idempotency_key.strip().endswith(suffix):
+                idempotency_key = idempotency_key.strip() + suffix
         meta = coach_workouts.write_meta(rt, entry_type=entry_type, for_date=day, meta=extra)
         try:
             row = coach_workouts.coach_write(
@@ -561,6 +628,11 @@ def register(kit: ToolKit) -> None:
                 "This entry was not written under the current harness "
                 f"({current}). Read vibesynergy_coach_prompt(job) first and pass its "
                 "harness.stamp as harness."
+            )
+        if role == roles.ADVISORY and stamp.get("target"):
+            warnings.append(
+                "Stored as a second opinion: the daily advice is the primary AI coach's. "
+                "The athlete sees yours beside it, flagged where it differs."
             )
         return envelope({**row, "harness": stamp}, warnings=warnings)
 
@@ -698,7 +770,11 @@ def register(kit: ToolKit) -> None:
             )
         except harness_contract.ContractError as exc:
             raise ToolError(str(exc)) from exc
-        stamp = harness_contract.harness_meta(task=None, declared=None, current=None, floor=None)
+        from vibesynergy.mcp import roles
+
+        stamp = harness_contract.harness_meta(
+            task=None, declared=None, current=None, floor=None, role=roles.current(engine)
+        )
         row = coach_workouts.coach_write(
             engine,
             entry_type="note",

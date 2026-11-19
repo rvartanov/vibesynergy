@@ -147,13 +147,25 @@ within the same run. Nothing invalid is stored, mailed or shown.
 
 **Validity, not approval.** The contract checks form and validity: the schema, a consistent
 safety outcome, the target day, and the idempotency key that keeps a retry from writing
-twice. It asks for no approval. The two paths stay distinct:
+twice. Approval follows from the writer's **role** (#118, docs/MCP.md "Roles per
+connection"), enforced by the server:
 
-- **The runner** acts on its own (scheduled and event tasks). The registry's `approval`
-  applies to it: what a task may not do without the athlete's yes becomes a proposal, and
-  it can never soften illness or real pain.
-- **An MCP client** acts for the athlete: the request is his own, through his AI app, and
-  is already approved. Its writes get the same validity checks and nothing more.
+- **The runner** is the **primary AI coach** (client `coach-runner`) and acts on its own
+  (scheduled and event tasks). Its daily entry is the daily advice. A plan write needs an
+  approval reference (`approval_id`: `reply:<id>`, the athlete's 'akkoord' reply, whose id
+  is in the start message, or `proposal:<id>`, a proposal he approved, listed in the
+  context block `coach_team`); without one the write is stored as a proposal under Waiting
+  for you. One standing approval: a new session in a slot that held none, in a plan week
+  that has its note (filling the horizon), is written directly. It can never soften illness or real pain.
+- **The athlete's own agent** over MCP acts on his request: its writes are approved.
+- **An advisory AI coach** over MCP gives a second opinion: its daily entries are shown
+  beside the advice, its plan changes are always proposals, and where it differs from the
+  primary in safety level or a session decision the runner gets it in `coach_team` and
+  says in its reasons whether it follows it. The primary has the last word unless the
+  athlete chooses.
+
+When the athlete gives the primary role to another connection, the runner becomes an
+advisory AI coach and its entries second opinions.
 
 `meta.harness.via` (`runner` or `mcp`) and the author (`client:coach-runner` or the app's
 own client id) say which path wrote an entry.

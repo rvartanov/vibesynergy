@@ -555,6 +555,38 @@ mcp_pat = Table(
     Column("display_name", String),
 )
 
+# The role of each MCP connection (#118): ``own`` (the athlete's own agent, writes count as
+# approved), ``primary`` (the one AI coach that gives the daily advice) or ``advisory``
+# (notes and proposals only). ``client_id`` is the connection's id: an OAuth client id,
+# ``pat:<id>`` or ``coach-runner`` (the AI coach inside VibeSynergy).
+coach_role = Table(
+    "coach_role",
+    metadata,
+    Column("client_id", String, primary_key=True),
+    Column("role", String, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+)
+
+# A plan change an AI coach may not make by itself (#118): the tool call is kept as it
+# came in and carried out when the athlete approves it under Waiting for you.
+plan_proposal = Table(
+    "plan_proposal",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("author", String, nullable=False),
+    Column("author_name", String),
+    Column("role", String, nullable=False),
+    Column("tool", String, nullable=False),
+    Column("arguments", JSON, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("summary", JSON, nullable=False),
+    Column("status", String, nullable=False),  # open | approved | rejected
+    Column("decided_at", UTCDateTime),
+    Column("result", JSON),
+    Index("ix_plan_proposal_status", "status"),
+)
+
 audit_log = Table(
     "audit_log",
     metadata,

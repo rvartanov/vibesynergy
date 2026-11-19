@@ -18,6 +18,9 @@ _AUTHOR: ContextVar[str] = ContextVar("mcp_author", default="user")
 # None means a local caller (stdio, tests): every scope. A token sets an explicit set.
 _SCOPES: ContextVar[frozenset[str] | None] = ContextVar("mcp_scopes", default=None)
 _LABEL: ContextVar[str] = ContextVar("mcp_label", default="")
+# The connection's role (#118), when the caller fixes it. ``None`` (the normal case) means
+# the stored role is read where it is needed (``mcp.roles.current``).
+_ROLE: ContextVar[str | None] = ContextVar("mcp_role", default=None)
 
 
 @dataclass(frozen=True)
@@ -49,13 +52,15 @@ def set_connection(
     author: str | None = None,
     scopes: frozenset[str] | None = None,
     label: str = "",
-) -> tuple[object, object, object, object]:
+    role: str | None = None,
+) -> tuple[object, ...]:
     resolved = author if author is not None else author_for_client(client)
     return (
         _CLIENT.set(client),
         _AUTHOR.set(resolved),
         _SCOPES.set(scopes),
         _LABEL.set(label or ""),
+        _ROLE.set(role),
     )
 
 
@@ -66,6 +71,8 @@ def reset_connection(tokens: tuple[object, ...]) -> None:
         _SCOPES.reset(tokens[2])
     if len(tokens) > 3:
         _LABEL.reset(tokens[3])
+    if len(tokens) > 4:
+        _ROLE.reset(tokens[4])  # pyright: ignore[reportArgumentType]
 
 
 def current_connection() -> McpConnection:
@@ -78,6 +85,16 @@ def current_author() -> str:
 
 def current_label() -> str:
     return _LABEL.get()
+
+
+def current_role() -> str | None:
+    """A role fixed by the caller, else ``None``: read the stored one (``mcp.roles``)."""
+    return _ROLE.get()
+
+
+def raw_scopes() -> frozenset[str] | None:
+    """The token's scopes, or ``None`` for a local caller without a token."""
+    return _SCOPES.get()
 
 
 def current_scopes() -> frozenset[str]:

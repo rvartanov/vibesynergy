@@ -19,10 +19,10 @@ What is checked, per entry:
    AI coach made, in a sentence. The autonomous runner can never soften illness, a red-flag
    note or real pain.
 
-This is a check of form and validity, not of approval. A write over MCP is the athlete's
-own request through his AI app and is already approved; the approval steps of the task
-registry apply to the runner acting on its own (scheduled and event tasks). The two paths
-stay distinct on the entry: ``meta.harness.via`` is ``runner`` or ``mcp``.
+This is a check of form and validity, not of approval. What a connection may write, and
+what needs the athlete's approval, follows from its role (``mcp.roles``, #118): the
+athlete's own agent, the primary AI coach or an advisory AI coach. The entry records both:
+``meta.harness.via`` is ``runner`` or ``mcp`` and ``meta.harness.role`` the role.
 
 Every stored entry also gets ``meta.harness``: the harness, rules, prompt and context
 versions it was written under, how it came in (runner or MCP) and the rules' outcome at
@@ -134,9 +134,10 @@ def check_safety(
     comparison with the rules is skipped, the shape is still checked.
 
     ``autonomous`` is the coach runner acting on its own (a scheduled or event task): it
-    may never soften illness or real pain. A write over MCP is the athlete's own request
-    through his AI app and is checked for validity only: a level milder than the rules'
-    needs its reason, whatever the rule.
+    may never soften illness or real pain; the same holds for an AI coach over MCP that is
+    not the athlete's own agent (#118). The athlete's own agent acts on his request and is
+    checked for validity only: a level milder than the rules' needs its reason, whatever
+    the rule.
     """
     if not isinstance(safety, dict):
         raise ContractError("safety is required for a daily advice. " + SAFETY_HELP)
@@ -276,8 +277,12 @@ def harness_meta(
     current: str | None,
     floor: dict[str, Any] | None,
     target: date | None = None,
+    role: str | None = None,
 ) -> dict[str, Any]:
     """What is stored on the entry (``meta.harness``): which harness it was written under.
+
+    ``role`` is the writing connection's role at that moment (``mcp.roles``, #118): an
+    ``advisory`` entry is a second opinion and never the daily advice.
 
     ``declared`` is the stamp the writer says it followed (from ``vibesynergy_coach_prompt``;
     the runner's is set by the harness itself). ``follows_current`` is true only when that
@@ -288,6 +293,8 @@ def harness_meta(
         declared = run.get("stamp")
     parsed = parse_stamp(declared)
     extra: dict[str, Any] = {}
+    if role:
+        extra["role"] = role
     if target is not None:
         extra["target"] = target.isoformat()
     if run and run.get("target") and task == run.get("task"):
