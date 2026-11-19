@@ -363,6 +363,12 @@ function rememberDismiss(key) {
   }
 }
 
+// A notice that has versions (the day's advice, #108) is dismissed per version: a new version
+// is news again, so an older dismissal does not hide it.
+function dismissKey(alert) {
+  return alert.version ? `${alert.key}#${alert.version}` : alert.key;
+}
+
 function jobChipLabel(alert) {
   if (alert.link?.includes("calendar")) {
     return t("Calendar sync problem · Fix");
@@ -384,7 +390,7 @@ async function alertBanner() {
     ...data.open.filter((a) => a.level !== "info"),
     ...data.recent.filter((e) => Date.parse(e.at) > dayAgo),
   ].filter(
-    (a) => !gone.has(a.key) && !String(a.key).startsWith("daily:") && a.kind !== "daily_coach",
+    (a) => !gone.has(dismissKey(a)) && !String(a.key).startsWith("daily:") && a.kind !== "daily_coach",
   );
   const jobItems = items.filter((a) => a.kind === "job");
   // A changed daily advice is news worth a notice too, whatever its level (#90).
@@ -411,7 +417,7 @@ async function alertBanner() {
       .map(
         (a) => `<span class="header-sync-chip warn">
           <a href="${esc(a.link || "#/settings/data/sources")}">${esc(jobChipLabel(a))}</a>
-          <button type="button" class="btn small" data-dismiss="${esc(a.key)}" aria-label="${esc(t("Dismiss"))}">×</button>
+          <button type="button" class="btn small" data-dismiss="${esc(dismissKey(a))}" aria-label="${esc(t("Dismiss"))}">×</button>
         </span>`,
       )
       .join("");
@@ -437,7 +443,7 @@ async function alertBanner() {
       .map(
         (a) => `<span class="header-sync-chip warn">
           ${a.link ? `<a href="${esc(a.link)}">${esc(a.text)}</a>` : `<span>${esc(a.text)}</span>`}
-          <button type="button" class="btn small" data-dismiss="${esc(a.key)}" aria-label="${esc(t("Dismiss"))}">×</button>
+          <button type="button" class="btn small" data-dismiss="${esc(dismissKey(a))}" aria-label="${esc(t("Dismiss"))}">×</button>
         </span>`,
       )
       .join("");
@@ -463,7 +469,7 @@ async function alertBanner() {
     .slice(0, 3)
     .map(
       (a) => `<div class="alert-item ${esc(a.level)}"><div>${a.link ? `<a href="${esc(a.link)}">${esc(a.text)}</a>` : esc(a.text)}</div>
-        <button type="button" class="btn small" data-dismiss="${esc(a.key)}" aria-label="${esc(t("Dismiss"))}">×</button></div>`,
+        <button type="button" class="btn small" data-dismiss="${esc(dismissKey(a))}" aria-label="${esc(t("Dismiss"))}">×</button></div>`,
     )
     .join("");
 }

@@ -365,7 +365,13 @@ def test_mail_only_on_a_real_change_and_the_versions_on_the_coach_page(rt, mail)
         "Doe het rustig aan vandaag.",
         "Rustig aan.",
     ]
-    assert history[1]["differences"] == [{"field": "sessions", "sessions": ["duurloop"]}]
+    assert history[1]["differences"] == [
+        {
+            "field": "sessions",
+            "sessions": ["Duurloop"],
+            "changes": [{"title": "Duurloop", "from": "keep", "to": "skip"}],
+        }
+    ]
     assert history[2]["differences"] == [] and history[3]["first"] is True
     client = TestClient(create_portal_app(rt), base_url=f"https://{TAILNET}:8447")
     api = client.get("/api/advice", params={"date": DAY.isoformat()}).json()["data"]
@@ -465,7 +471,9 @@ def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypat
     mails, pushes = [], []
     monkeypatch.setattr(mailer, "configured", lambda settings: True)
     monkeypatch.setattr(mailer, "send", lambda *a, **k: mails.append(a))
-    monkeypatch.setattr(webpush, "send_all", lambda rt, t, b, url="/": pushes.append((t, b)) or 1)
+    monkeypatch.setattr(
+        webpush, "send_all", lambda rt, t, b, url="/", tag=None: pushes.append((t, b)) or 1
+    )
     monkeypatch.setattr(
         alerts, "channels", lambda settings, engine=None: {"email": True, "push": True}
     )
@@ -489,6 +497,32 @@ def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypat
 
     # Other reports (the weekly review) still go by mail.
     assert report.send(rt, "weekly", DAY, entry) == ["email"]
+
+
+def test_two_versions_on_one_day_are_one_notice_and_one_push_tag(rt, monkeypatch) -> None:
+    """#108: one notice per target day, the newest; a later version says so and carries a
+    version marker; the push has a per-day tag so the phone replaces the earlier one."""
+    from vibesynergy import webpush
+
+    pushes = []
+    monkeypatch.setattr(
+        webpush, "send_all", lambda rt, t, b, url="/", tag=None: pushes.append((t, tag)) or 1
+    )
+    monkeypatch.setattr(
+        alerts, "channels", lambda settings, engine=None: {"email": False, "push": True}
+    )
+    first = _advice_run(rt, DAY.isoformat(), AMBER, "Rustpols hoger.", trigger="schedule")
+    second = _advice_run(rt, "event-1", SAFE, "Rustpols weer normaal.")
+    assert first.mailed and second.mailed  # each version went out: push and notice
+
+    notices = [e for e in alerts.for_portal(rt.settings)["recent"] if e["kind"] == "advice"]
+    assert len(notices) == 1
+    assert notices[0]["key"] == f"advice:{DAY.isoformat()}"
+    assert notices[0]["version"] == str(second.entry_id)
+    assert notices[0]["text"].startswith(("Bijgewerkt:", "Updated:"))
+    assert [tag for _, tag in pushes] == [f"advice-{DAY.isoformat()}"] * 2
+    assert not pushes[0][0].startswith(("Bijgewerkt:", "Updated:"))
+    assert pushes[1][0].startswith(("Bijgewerkt:", "Updated:"))
 
 
 def test_the_advice_kind_is_in_the_alert_settings() -> None:

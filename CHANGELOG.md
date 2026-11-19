@@ -252,6 +252,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **One daily-advice notice per day** (#108): a new version of the day's advice replaces the
+  earlier notice instead of adding a second one that contradicts it, comes back at the top
+  also when you dismissed the earlier version, and starts with "Updated:". On the phone a
+  push for a new version replaces the earlier one (one push tag per day).
+- **The "Changed" line on the start page** reads as normal text: each changed session by its
+  title as written, with what changed ("Easy ride Z2 1h: dropped").
 - **An activity insight no longer uses up the day's advice updates.** The AI coach's
   insight after a workout (started by the same activity event) counted toward the daily
   maximum (Coach → Settings, default 4), so the maximum was reached too early.

@@ -103,6 +103,18 @@ def test_send_all_counts_and_drops_gone_devices(runtime) -> None:
         and left["https://push.example/ok"]["last_ok"]
     )
 
+    tagged = {}
+
+    def http_tagged(url, data, headers, timeout):
+        ua_key, ua_public, auth, _ = keys[url]
+        tagged[url] = json.loads(_decrypt(data, ua_key, ua_public, auth))
+        return _Reply(201)
+
+    webpush.send_all(runtime, "Advies", "Nieuw.", tag="advice-2026-11-19", http=http_tagged)
+    assert tagged["https://push.example/ok"]["tag"] == "advice-2026-11-19"
+    assert tagged["https://push.example/ok"]["renotify"] is True
+    assert "tag" not in seen["https://push.example/ok"]
+
 
 def test_alerts_use_push_once_a_device_is_subscribed(runtime, monkeypatch) -> None:
     assert alerts.channels(runtime.settings, runtime.engine)["push"] is False

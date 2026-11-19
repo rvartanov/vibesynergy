@@ -163,23 +163,32 @@ def subscriptions(engine: Engine) -> list[dict[str, Any]]:
 
 
 def send_all(
-    rt: Any, title: str, body: str, *, url: str = "/", http=requests.post, now: float | None = None
+    rt: Any,
+    title: str,
+    body: str,
+    *,
+    url: str = "/",
+    tag: str | None = None,
+    http=requests.post,
+    now: float | None = None,
 ) -> int:
-    """Send one notification to every subscribed device; returns how many took it."""
+    """Send one notification to every subscribed device; returns how many took it.
+    A ``tag`` makes the device replace an earlier notification with the same tag (and alert
+    again) instead of piling them up (#108)."""
     subs = subscriptions(rt.engine)
     if not subs:
         return 0
     key = vapid_key(rt.settings)
     vapid = b64u(_point(key.public_key()))
     text = body.strip().replace("\n\n", "\n")
-    payload = json.dumps(
-        {
-            "title": title[:120],
-            "body": text if len(text) <= MAX_BODY else text[: MAX_BODY - 1] + "…",
-            "url": url,
-        },
-        ensure_ascii=False,
-    ).encode()
+    message = {
+        "title": title[:120],
+        "body": text if len(text) <= MAX_BODY else text[: MAX_BODY - 1] + "…",
+        "url": url,
+    }
+    if tag:
+        message.update(tag=tag, renotify=True)
+    payload = json.dumps(message, ensure_ascii=False).encode()
     sent = 0
     moment = now or time.time()
     for sub in subs:

@@ -37,6 +37,8 @@ self.addEventListener("push", (event) => {
       icon: "/static/brand/icon-192.png",
       badge: "/static/brand/icon-192.png",
       data: { url: data.url || "/" },
+      // One notification per tag (a new version of the day's advice replaces the old one).
+      ...(data.tag ? { tag: data.tag, renotify: true } : {}),
     }),
   );
 });
