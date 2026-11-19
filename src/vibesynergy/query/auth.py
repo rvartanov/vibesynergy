@@ -315,6 +315,20 @@ def locked(engine: Engine, email: str, client: str) -> bool:
         )
 
 
+def clear_lockout(engine: Engine, email: str) -> int:
+    """Forget the failed logins that lock this address and every client (the mail counters
+    stay). For the command line, where shell access already proves ownership."""
+    with engine.begin() as conn:
+        gone = conn.execute(
+            delete(auth_attempt).where(
+                auth_attempt.c.ok.is_(False),
+                (auth_attempt.c.key == f"email:{_norm(email)}")
+                | auth_attempt.c.key.like("client:%"),
+            )
+        )
+    return gone.rowcount
+
+
 MAX_MAILS_CLIENT = 3
 MAX_MAILS_ALL = 6
 
@@ -547,7 +561,9 @@ def clean(engine: Engine, now: datetime | None = None) -> None:
         conn.execute(delete(auth_session).where(auth_session.c.expires_at < now))
 
 
-def audit(engine: Engine, action: str, client: str, outcome: str = "ok") -> None:
+def audit(
+    engine: Engine, action: str, client: str, outcome: str = "ok", *, actor: str = "portal"
+) -> None:
     """Every login, refusal, link and change in the audit log (no secrets, no email)."""
     from vibesynergy.store.schema import audit_log
 
@@ -555,7 +571,7 @@ def audit(engine: Engine, action: str, client: str, outcome: str = "ok") -> None
         conn.execute(
             audit_log.insert().values(
                 at=utc_now(),
-                actor="portal",
+                actor=actor,
                 action=action,
                 detail={"client": client},
                 outcome=outcome,

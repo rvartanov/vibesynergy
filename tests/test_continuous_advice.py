@@ -529,3 +529,15 @@ def test_the_advice_kind_is_in_the_alert_settings() -> None:
     label, default = alerts.KINDS["advice"]
     assert default == ["portal", "push"] and "email" not in default
     assert "AI coach" in label
+
+
+def test_an_activity_insight_does_not_use_up_the_daily_updates(rt):
+    """19-11-2026: an insight run (started by the activity event) counted as an advice
+    update, so the limit was reached one update too early."""
+    runner_settings.save(rt, {"advice": {"max_runs": 1}})
+    base_run(rt)
+    base_run(rt, job_name="insight", key="evt_activity", trigger="event", started=at(8, 0))
+    assert triggers.runs_today(rt, at(9, 0)) == 0
+    assert triggers.limit_reached(rt, runner_settings.load(rt), at(9, 0)) is False
+    base_run(rt, key="event-earlier", trigger="event", started=at(8, 30))
+    assert triggers.runs_today(rt, at(9, 0)) == 1

@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Reset the password from the terminal** (#105): `vibesynergy password-reset` mails a
+  one-time link (15 minutes) to choose a new password without the old one, also with a second
+  step on, and clears the login lockout. `--show` prints the link too; `--reset-mfa` turns the
+  second step off when its phone and backup codes are lost. Command line only.
 - **"Changed" says why** on the start page: under a workout marked changed, one line
   such as "Harder than planned: 28 min above zone 1" or "Shorter than planned: 30 min
   instead of 50 min".
@@ -254,6 +258,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   push for a new version replaces the earlier one (one push tag per day).
 - **The "Changed" line on the start page** reads as normal text: each changed session by its
   title as written, with what changed ("Easy ride Z2 1h: dropped").
+- **An activity insight no longer uses up the day's advice updates.** The AI coach's
+  insight after a workout (started by the same activity event) counted toward the daily
+  maximum (Coach → Settings, default 4), so the maximum was reached too early.
 - **A login link opened twice no longer ends on an error.** When a mail app opens the
   link a second time, or an older link is tapped after a newer one worked, the login page
   said "This link has expired or was used" although you were already logged in; it now
