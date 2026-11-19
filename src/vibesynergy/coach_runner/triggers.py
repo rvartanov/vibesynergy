@@ -244,6 +244,7 @@ def day_start(rt, local_day: date) -> datetime:
 def runs_today(rt, now: datetime | None = None) -> int:
     """Automatic advice runs started today (local): what counts against the limit."""
     from vibesynergy.coach_runner import runner
+    from vibesynergy.query import daily_advice
     from vibesynergy.store.schema import coach_run
 
     now = now or utc_now()
@@ -252,7 +253,11 @@ def runs_today(rt, now: datetime | None = None) -> int:
         return int(
             conn.scalar(
                 select(func.count()).where(
-                    coach_run.c.trigger.in_(AUTO_TRIGGERS), coach_run.c.started_at >= start
+                    coach_run.c.trigger.in_(AUTO_TRIGGERS),
+                    # Only advice runs: an activity insight (also started by an event) is no
+                    # advice update and does not use up the day's updates (19-11-2026).
+                    coach_run.c.job.in_(daily_advice.ADVICE_JOBS),
+                    coach_run.c.started_at >= start,
                 )
             )
             or 0
