@@ -929,16 +929,24 @@ def notify_advice(
     body: str,
     html: str | None = None,
     link: str = "#/dashboard",
+    version: str | int | None = None,
+    prefix: str = "",
+    tag: str | None = None,
 ) -> list[str]:
     """A new or changed daily advice, on the channels chosen for the kind ``advice``
     (Settings → Alerts). Push gets the short text, email the full report, the portal a
-    notice at the top of the page. Returns the channels used."""
+    notice at the top of the page. Returns the channels used.
+
+    ``key`` is one per target day (#108): a new version replaces the day's notice and its
+    push (``tag``). ``version`` is stored with the notice so the portal's dismissal of an
+    older version does not hide the new one; ``prefix`` ("Updated: ") marks a later version."""
+    title = f"{prefix}{title}"
     chosen = routes(rt.settings).get("advice", [])
     used: list[str] = []
     if "email" in chosen:
         used += deliver(rt, title, body, only=["email"], html=html)
     if "push" in chosen:
-        used += deliver(rt, title, short, only=["push"])
+        used += deliver(rt, title, short, only=["push"], tag=tag)
     if "portal" in chosen:
         store = SecretStore(rt.settings.secrets_dir, SECRETS)
         events = [e for e in store.get(ADVICE_STATE) or [] if e.get("key") != key]
@@ -950,6 +958,7 @@ def notify_advice(
             "link": link,
             "kind": "advice",
             "detail": "",
+            "version": None if version is None else str(version),
         }
         store.set(ADVICE_STATE, [event, *events][:ADVICE_KEPT])
         used.append("portal")
@@ -957,7 +966,12 @@ def notify_advice(
 
 
 def deliver(
-    rt: Any, subject: str, body: str, only: list[str] | None = None, html: str | None = None
+    rt: Any,
+    subject: str,
+    body: str,
+    only: list[str] | None = None,
+    html: str | None = None,
+    tag: str | None = None,
 ) -> list[str]:
     """Send on every configured channel (or those in ``only``); returns the channels used.
     A failure is logged, not raised."""
@@ -975,7 +989,8 @@ def deliver(
         from vibesynergy import webpush
 
         try:
-            if webpush.send_all(rt, subject, body, url="/#/inbox"):
+            extra_push = {"tag": tag} if tag else {}
+            if webpush.send_all(rt, subject, body, url="/#/inbox", **extra_push):
                 used.append("push")
         except Exception:  # a push problem never stops the other channels
             log.exception("sending the alert push failed")

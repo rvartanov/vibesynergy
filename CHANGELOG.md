@@ -248,6 +248,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **One daily-advice notice per day** (#108): a new version of the day's advice replaces the
+  earlier notice instead of adding a second one that contradicts it, comes back at the top
+  also when you dismissed the earlier version, and starts with "Updated:". On the phone a
+  push for a new version replaces the earlier one (one push tag per day).
+- **The "Changed" line on the start page** reads as normal text: each changed session by its
+  title as written, with what changed ("Easy ride Z2 1h: dropped").
 - **A login link opened twice no longer ends on an error.** When a mail app opens the
   link a second time, or an older link is tapped after a newer one worked, the login page
   said "This link has expired or was used" although you were already logged in; it now

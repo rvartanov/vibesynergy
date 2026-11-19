@@ -52,12 +52,35 @@ function changesText(changes) {
   return (changes || []).map((c) => t(CHANGES[c] || c)).join(", ");
 }
 
+// What a version did to one session (#108), said per session: "Easy ride Z2 1h: dropped".
+const SESSION_CHANGES = {
+  skip: N("{title}: dropped"),
+  adjust: N("{title}: adjusted"),
+  keep: N("{title}: kept"),
+  done: N("{title}: done"),
+  missed: N("{title}: missed"),
+  proposal: N("{title}: proposed"),
+};
+
+const capital = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : text);
+
+/** One line per changed session, with its title as written and a normal capital. */
+export function sessionChangeText(change) {
+  const title = capital(String(change.title || "").trim());
+  if (change.to == null) return t("{title}: removed", { title });
+  if (change.from == null) return t("{title}: added", { title });
+  return t(SESSION_CHANGES[change.to] || "{title}: changed", { title });
+}
+
 /** What really changed against the version before (colour, safety level, sessions). */
-function versionDiffText(differences) {
+export function versionDiffText(differences) {
   return (differences || []).map((d) => {
     if (d.field === "colour") return t("colour {from} → {to}", { from: t(COLOURS[d.from] || d.from || "—").toLowerCase(), to: t(COLOURS[d.to] || d.to || "—").toLowerCase() });
     if (d.field === "safety_level") return t("now: {level}", { level: t(LEVELS[d.to] || d.to || "—") });
-    return t("session decision changed: {sessions}", { sessions: (d.sessions || []).join(", ") });
+    const changes = d.changes?.length
+      ? d.changes
+      : (d.sessions || []).map((title) => ({ title, from: "?", to: "?" }));
+    return changes.map(sessionChangeText).join("; ");
   }).join("; ");
 }
 

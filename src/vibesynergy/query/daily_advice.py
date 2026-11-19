@@ -299,12 +299,14 @@ def _entry_info(entry: dict[str, Any]) -> dict[str, Any]:
 # --- versions (#90) ----------------------------------------------------------------------------
 
 
-def _decisions(entry: dict[str, Any]) -> dict[str, str]:
+def _decisions(entry: dict[str, Any]) -> dict[str, tuple[str, str]]:
+    """Per session (lower-cased title): the title as written and the decision."""
     sessions = (entry.get("meta") or {}).get("sessions") or []
     out = {}
     for item in sessions:
         if isinstance(item, dict) and item.get("title"):
-            out[str(item["title"]).strip().lower()] = str(item.get("decision") or "")
+            title = str(item["title"]).strip()
+            out[title.lower()] = (title, str(item.get("decision") or ""))
     return out
 
 
@@ -329,9 +331,29 @@ def compare(older: dict[str, Any] | None, newer: dict[str, Any]) -> list[dict[st
             }
         )
     before, after = _decisions(older), _decisions(newer)
-    changed = sorted(t for t in set(before) | set(after) if before.get(t) != after.get(t))
+
+    def decision(found: dict[str, tuple[str, str]], key: str) -> str | None:
+        return found[key][1] if key in found else None
+
+    changed = sorted(
+        t for t in set(before) | set(after) if decision(before, t) != decision(after, t)
+    )
     if changed:
-        out.append({"field": "sessions", "sessions": changed})
+        # The titles as written and, per session, what it was and what it is now (#108).
+        out.append(
+            {
+                "field": "sessions",
+                "sessions": [(after.get(t) or before[t])[0] for t in changed],
+                "changes": [
+                    {
+                        "title": (after.get(t) or before[t])[0],
+                        "from": decision(before, t),
+                        "to": decision(after, t),
+                    }
+                    for t in changed
+                ],
+            }
+        )
     return out
 
 
@@ -367,6 +389,11 @@ def real_change(rt, day: date, entry: dict[str, Any]) -> bool:
         None,
     )
     return older is None or bool(compare(older, entry))
+
+
+def is_update(rt, day: date, entry: dict[str, Any]) -> bool:
+    """``entry`` is a later version of ``day``'s advice: an earlier one exists (#108)."""
+    return any(e["id"] < entry["id"] for e in _entries(rt, day))
 
 
 def _new_hard(entry: dict[str, Any], rules: dict[str, Any] | None) -> list[str]:

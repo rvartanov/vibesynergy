@@ -120,9 +120,15 @@ def send(
     if job in daily_advice.ADVICE_JOBS and not by_mail:
         # A daily advice goes where Settings → Alerts sends the kind "advice": by default
         # a push and a notice in the portal, no mail (Robert, 18-11-2026).
+        # One notice and one push per target day (#108): a new version replaces the old
+        # ones; its id is the version, so an older dismissal does not hide it.
+        update = daily_advice.is_update(rt, target, entry)
         return alerts.notify_advice(
             rt,
-            key=f"advice:{target.isoformat()}:{entry['id']}",
+            key=f"advice:{target.isoformat()}",
+            version=entry["id"],
+            tag=f"advice-{target.isoformat()}",
+            prefix=tr("Updated:") + " " if update else "",
             title=title,
             short=short(entry, advice, tr),
             body=body(rt, entry, advice),
