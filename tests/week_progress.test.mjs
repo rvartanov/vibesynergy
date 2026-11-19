@@ -40,3 +40,35 @@ test("the card escapes plan text and has one row per sport", () => {
   assert.ok(html.includes("Wk 1 &lt;b&gt;"));
   assert.equal(html.match(/class="wp-sport"/g).length, 2);
 });
+
+test("a session in the plan shows Planned and Done (#116)", () => {
+  const html = weekProgressHtml({
+    days_left: 2,
+    counts: {},
+    sports: [sport("run", 3272, 3600)],
+    sessions: [{
+      date: "2026-07-20",
+      family: "run",
+      title: "Korte duurloop 40'",
+      in_plan: true,
+      status: "changed",
+      deviation: { kind: "structure", planned: "25' Z2", done: "4x5'" },
+      comparison: { check: "differs", planned: "25' Z2", done: "4x5'" },
+      actual: { id: "garmin:1", sport: "running", duration_s: 3272, distance_m: 9044 },
+      rpe: 6,
+    }, {
+      date: "2026-07-21",
+      family: "run",
+      title: "Lange duurloop",
+      in_plan: true,
+      status: "done",
+      comparison: { check: "not_checked", planned: "100' Z2" },
+      actual: { id: "garmin:2", sport: "running", duration_s: 3881, distance_m: 9114 },
+    }],
+    totals: {},
+  });
+  assert.match(html, /Another workout than planned: 4x5&#39; instead of 25&#39; Z2\./);
+  assert.match(html, /Planned:<\/b> Korte duurloop 40&#39; — 25&#39; Z2/);
+  assert.match(html, /Done:<\/b> Running 9[.,]04 km, 55&#39; — 4x5&#39; · RPE 6/);
+  assert.match(html, /done, not checked/);
+});

@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 3
+RULES_VERSION = 4
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -114,7 +114,11 @@ SAFETY_STEPS = """\
       nacht is later bijgewerkt; de readiness is van na de training of van een halve
       nacht): een getal uit een meetgat is geen signaal. Zeg dat je het niet meetelt.
    c. Wat vandaag al gedaan is en hoe: zwaarder dan gepland telt, langer op lage
-      inspanning niet.
+      inspanning niet. Per sessie staan planned (gepland) en done (gedaan) er naast elkaar.
+      Een sessie met status changed is niet gedaan zoals voorgeschreven, ook niet bij
+      deviation kind structure (een andere training: andere sets, intervallen in plaats
+      van duur): noem gepland tegenover gedaan. check not_checked: gedaan, maar of het
+      volgens plan ging is niet te zien; zeg dat niet stellig.
    d. Klachten en pijn, ook als het blessurelog leeg is.
    Alleen de regeluitkomst herhalen is geen afweging.
 """

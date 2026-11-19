@@ -271,6 +271,7 @@ def _actual(act: dict[str, Any], icu_row: dict[str, Any] | None) -> dict[str, An
     return {
         "id": act["group_id"],
         "name": act.get("name"),
+        "sport": act.get("sport"),
         "duration_s": round(_seconds(act), 1) or None,
         "distance_m": act.get("distance_m") or None,
         "load": act.get("own_load"),
@@ -297,6 +298,10 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
     optional = horizon.optional(item.get("title"))
     if optional and status == "missed":
         status = "optional"
+    comparison = item.get("comparison")
+    if comparison and match and gid != match.get("id"):
+        # intervals.icu paired another activity: the check was on the day's first match.
+        comparison = {"check": None, "planned": comparison.get("planned"), "done": None}
     compliance, compliance_source = compliance_of(
         plan_q.planned_duration_s(item), _seconds(act) if act else None
     )
@@ -309,6 +314,9 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
         "description": item.get("description"),
         "optional": optional,
         "status": status,
+        # Planned against done by content (#116): the main sets, the check, and why changed.
+        "comparison": comparison,
+        "deviation": item.get("deviation") if status == "changed" else None,
         "match": method,
         "compliance": compliance,
         "compliance_source": compliance_source,

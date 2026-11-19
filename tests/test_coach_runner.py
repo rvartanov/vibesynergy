@@ -1323,7 +1323,7 @@ def test_a_write_without_safety_is_refused_and_the_model_repairs_it(rt, mail):
     ]
     # The rules the model was given name the steps and the schema.
     system = model.requests[0]["system"][-1]["text"]
-    assert "## Harnasregels v3" in system and "safety (verplicht)" in system
+    assert "## Harnasregels v4" in system and "safety (verplicht)" in system
 
 
 def test_an_entry_for_the_wrong_day_never_becomes_the_report(rt, mail):

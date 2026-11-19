@@ -12,6 +12,7 @@ import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
 import { bindGroupTrainings, groupTrainingsHtml } from "../group_training.js";
 import { outsidePlanHtml } from "../plan_labels.js";
+import { deviationText, planLinesHtml, statusWord } from "../plan_lines.js";
 import { mountQuickLog } from "../quicklog.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
@@ -659,31 +660,8 @@ function combinedTitle(titles) {
   return titles.join(" + ");
 }
 
-const INTENSITY = { easy: N("easy"), moderate: N("moderate"), hard: N("hard"), race: N("race pace") };
-
-// Why a done session is "changed" against the plan (plan.deviation): one plain sentence.
-export function deviationText(dev) {
-  if (!dev) return t("Done differently from the plan.");
-  const time = (s) => (isNum(s) ? hoursMinutes(s) : "?");
-  switch (dev.kind) {
-    case "harder":
-      return isNum(dev.ceiling)
-        ? t("Harder than planned: {n} min above zone {z}.", { n: Math.round(dev.above_s / 60), z: dev.ceiling })
-        : t("Harder than planned: {n} min above the planned zone.", { n: Math.round(dev.above_s / 60) });
-    case "longer":
-      return t("Longer than planned: {done} instead of {planned}.", { done: time(dev.actual_s), planned: time(dev.planned_s) });
-    case "shorter":
-      return t("Shorter than planned: {done} instead of {planned}.", { done: time(dev.actual_s), planned: time(dev.planned_s) });
-    case "distance":
-      return isNum(dev.actual_m) && isNum(dev.planned_m)
-        ? t("Another distance than planned: {done} instead of {planned}.", { done: km(dev.actual_m), planned: km(dev.planned_m) })
-        : t("Another distance than planned.");
-    case "intensity":
-      return t("Another intensity than planned: {done} instead of {planned}.", { done: t(INTENSITY[dev.done] || dev.done), planned: t(INTENSITY[dev.planned] || dev.planned) });
-    default:
-      return t("Done differently from the plan.");
-  }
-}
+// Why a session is "changed", and the Gepland/Gedaan lines (#103, #116): plan_lines.js.
+export { deviationText };
 
 export function planHtml(sessions, outside, shared, planSource) {
   if (sessions === null) return errorHtml();
@@ -706,16 +684,24 @@ export function planHtml(sessions, outside, shared, planSource) {
   const one = (session) => {
     const title = session.title || sportName(session.sport) || t("Workout");
     const [tone, label] = CHIP[session.status] || ["", ""];
-    const chip = label && session.status !== "upcoming" && session.status !== "today"
-      ? ` <span class="chip ${tone}">${esc(t(label))}</span>`
+    const word = label ? statusWord(session.status, session.comparison, t(label)) : "";
+    const chip = word && session.status !== "upcoming" && session.status !== "today"
+      ? ` <span class="chip ${tone}">${esc(word)}</span>`
       : "";
     const id = session.done_by?.[0]?.id;
     const link = id && (!shared || shared.has("activities"))
       ? ` · <a href="#/activity/${encodeURIComponent(id)}">${t("Open activity")}</a>`
       : "";
-    // "Changed": say why, right under the line, so it is clear without opening it.
-    const why = session.status === "changed" ? deviationText(session.deviation) : "";
-    const reason = why ? `<span class="sub dash-why">${esc(why)}</span>` : "";
+    // Done or changed: what was planned and what was done, two short lines; "changed"
+    // says why on top (#103, #116), so it is clear without opening it.
+    const reason = planLinesHtml({
+      title,
+      sport: session.sport,
+      status: session.status,
+      comparison: session.comparison,
+      deviation: session.deviation,
+      actual: session.done_by?.[0],
+    });
     // Click a planned workout to open what it is, as in "This week" (18-11-2026).
     if (session.description) {
       return `<li><details class="collapsible wp-details dash-workout"><summary>${withSportIcon(session.sport, esc(title))}${chip}</summary>${workoutHtml(session.description)}</details>${reason}${link ? `<span class="sub">${link.slice(3)}</span>` : ""}</li>`;

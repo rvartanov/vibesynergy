@@ -2000,7 +2000,6 @@
  "goal: the plan's weekly time ({title})": "goal: the plan's weekly time ({title})",
  "goal: the planned workouts added up": "goal: the planned workouts added up",
  "no goal this week": "no goal this week",
- "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, or another intensity.": "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, or another intensity.",
  "Goal reached": "Goal reached",
  "{time} short of the goal": "{time} short of the goal",
  "{workouts} planned, {time}": "{workouts} planned, {time}",
@@ -3129,5 +3128,13 @@
  "This does not look like a key for this provider (it should start with xai-).": "This does not look like a key for this provider (it should start with xai-).",
  "Time as planned": "Time as planned",
  "Workouts as planned: of the planned workouts whose day has passed, the share done as planned. Time as planned: the time you trained against the time planned, for the workouts you did.": "Workouts as planned: of the planned workouts whose day has passed, the share done as planned. Time as planned: the time you trained against the time planned, for the workouts you did.",
- "No plan yet. Your AI coach makes one with you.": "No plan yet. Your AI coach makes one with you."
+ "No plan yet. Your AI coach makes one with you.": "No plan yet. Your AI coach makes one with you.",
+ "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, another intensity, or another workout: other sets or intervals than the planned steps, read from the laps. Done, not checked: the laps are too thin to compare the workout.": "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, another intensity, or another workout: other sets or intervals than the planned steps, read from the laps. Done, not checked: the laps are too thin to compare the workout.",
+ "done, not checked": "done, not checked",
+ "steady": "steady",
+ "Another workout than planned: {done} instead of {planned}.": "Another workout than planned: {done} instead of {planned}.",
+ "Another workout than planned.": "Another workout than planned.",
+ "Planned:": "Planned:",
+ "Done:": "Done:",
+ "RPE {n}": "RPE {n}"
 }

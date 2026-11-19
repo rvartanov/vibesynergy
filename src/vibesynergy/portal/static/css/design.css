@@ -438,6 +438,8 @@ a.week-day:hover { background: var(--wash); }
 .wp-session .chip { flex-shrink: 0; }
 .wp-day { font-weight: 600; margin-right: 4px; }
 .wp-actual { display: block; }
+/* Planned against done, and why changed (#103, #116): one line each. */
+.plan-line, .dash-why { display: block; }
 .wp-next { margin: var(--space-3) 0 0; }
 .wp-more { margin-top: var(--space-2); }
 .wp-note { white-space: pre-line; }

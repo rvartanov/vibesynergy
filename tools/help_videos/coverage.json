@@ -15,6 +15,7 @@
     "start_layout.js",
     "setup_guide.js",
     "week_progress.js",
+    "plan_lines.js",
     "daily_review.js",
     "recovery_summary.js",
     "daily_advice.js"
@@ -34,6 +35,8 @@
   ],
   "planning": [
     "pages/planning.js",
+    "week_progress.js",
+    "plan_lines.js",
     "plan_labels.js",
     "compliance.js",
     "race_phase.js",

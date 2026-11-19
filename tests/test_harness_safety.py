@@ -191,7 +191,7 @@ def test_the_rules_are_versioned():
         )
     )
     digest = hashlib.sha256(text.encode()).hexdigest()[:12]
-    assert (prompts.RULES_VERSION, digest) == (3, RULES_DIGEST), digest
+    assert (prompts.RULES_VERSION, digest) == (4, RULES_DIGEST), digest
     assert contract.parse_stamp(contract.stamp(14, 2, 2)) == {
         "harness": contract.HARNESS_VERSION,
         "rules": 2,
@@ -201,7 +201,7 @@ def test_the_rules_are_versioned():
     assert contract.parse_stamp("latest") is None
 
 
-RULES_DIGEST = "ee5f9bc25235"
+RULES_DIGEST = "1a3979d0e3fa"
 
 
 @pytest.mark.parametrize("job", [t for t in registry.live() if t != "insight"])
@@ -919,6 +919,7 @@ def test_the_plan_marks_a_longer_easy_session_done_and_a_harder_one_changed(runt
     assert run["deviation"] == {"kind": "harder", "above_s": 1200, "ceiling": 2}
     assert set(run["done_by"][0]) == {
         "id",
+        "sport",
         "name",
         "moving_s",
         "elapsed_s",

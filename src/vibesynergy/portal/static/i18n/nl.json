@@ -2000,7 +2000,6 @@
  "goal: the plan's weekly time ({title})": "doel: de weektijd uit het plan ({title})",
  "goal: the planned workouts added up": "doel: de geplande workouts bij elkaar opgeteld",
  "no goal this week": "geen doel deze week",
- "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, or another intensity.": "Een workout telt als gedaan als je die dag een activiteit van die sport deed, of als intervals.icu ze aan elkaar koppelde; dan staat de score van intervals.icu erbij. Aangepast betekent meer dan een kwart langer of korter, of een andere intensiteit.",
  "Goal reached": "Doel gehaald",
  "{time} short of the goal": "Nog {time} tot het doel",
  "{workouts} planned, {time}": "{workouts} gepland, {time}",
@@ -3129,5 +3128,13 @@
  "This does not look like a key for this provider (it should start with xai-).": "Dit lijkt geen sleutel van deze aanbieder (hij hoort met xai- te beginnen).",
  "Time as planned": "Tijd volgens plan",
  "Workouts as planned: of the planned workouts whose day has passed, the share done as planned. Time as planned: the time you trained against the time planned, for the workouts you did.": "Trainingen volgens plan: van de geplande trainingen waarvan de dag voorbij is, het deel dat volgens plan ging. Tijd volgens plan: de tijd die je trainde tegenover de geplande tijd, voor de trainingen die je deed.",
- "No plan yet. Your AI coach makes one with you.": "Nog geen plan. Je AI-coach maakt er een met je."
+ "No plan yet. Your AI coach makes one with you.": "Nog geen plan. Je AI-coach maakt er een met je.",
+ "A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, another intensity, or another workout: other sets or intervals than the planned steps, read from the laps. Done, not checked: the laps are too thin to compare the workout.": "Een workout telt als gedaan als je die dag een activiteit van die sport deed, of als intervals.icu ze aan elkaar koppelde; dan staat de score van intervals.icu erbij. Aangepast betekent meer dan een kwart langer of korter, een andere intensiteit, of een andere training: andere sets of intervallen dan de geplande stappen, gelezen uit de ronden. Gedaan, niet gecontroleerd: de ronden zeggen te weinig om de training te vergelijken.",
+ "done, not checked": "gedaan, niet gecontroleerd",
+ "steady": "doorlopend",
+ "Another workout than planned: {done} instead of {planned}.": "Andere training dan gepland: {done} in plaats van {planned}.",
+ "Another workout than planned.": "Andere training dan gepland.",
+ "Planned:": "Gepland:",
+ "Done:": "Gedaan:",
+ "RPE {n}": "RPE {n}"
 }
