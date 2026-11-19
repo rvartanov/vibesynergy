@@ -2,8 +2,8 @@
 
 Since the policy holds only how the coach talks to the athlete and the athlete's own
 notes; the context holds only what the coach should remember (availability, fixed moments,
-preferences, equipment). The training plan and its rules live in the knowledge base and in
-intervals.icu; races and their priorities come from the plan calendar.
+preferences, equipment). The training plan lives in VibeSynergy's plan model, its rules in
+the knowledge base; races and their priorities are VibeSynergy's own (``races``, #111).
 """
 
 from __future__ import annotations
@@ -41,8 +41,9 @@ COACH_STATE_NOTE = (
     "Only the athlete's communication preferences, notes for the AI coach and things to "
     "remember (availability, fixed moments, equipment) live here. The training plan and its "
     "rules are in the knowledge base (the plan article, intervals-icu-workout-authoring, "
-    "ai-coach-loop) and in intervals.icu. Race priorities are the races listed here, "
-    "from the plan calendar and the intervals.icu RACE_A/B/C category."
+    "ai-coach-loop) and in VibeSynergy's plan (vibesynergy_plan_model). Race priorities are "
+    "the races listed here: VibeSynergy's own race list; the primary race is the next A race. "
+    "intervals.icu only holds a copy of the plan and is never read as the plan."
 )
 # Keys older stored documents may still hold. They are dropped on read and on the next save;
 # nothing reads them any more. Any other unknown key is still an error.
@@ -589,8 +590,8 @@ def coaching_race_context(
 ) -> dict:
     """Next race, plan phase and tune-ups from the plan calendar.
 
-    The same projection the start page uses: Garmin and intervals.icu races with their
-    stored or RACE_A/B/C priority. ``subject_id``, ``raw`` and ``profile`` are accepted for
+    The same projection the start page uses: VibeSynergy's own races with their A/B/C
+    priority (#111). ``subject_id``, ``raw`` and ``profile`` are accepted for
     older callers and not read.
     """
     from vibesynergy.query import plan

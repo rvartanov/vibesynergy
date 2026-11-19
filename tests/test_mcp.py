@@ -381,8 +381,8 @@ def test_icu_events_reads_the_cache(rt) -> None:
         call(rt, "vibesynergy_icu_events", start="2026-03-03", end="2026-03-01")
 
 
-def test_plan_writes_are_refused_without_a_plan_and_while_intervals_leads(rt) -> None:
-    """the coach writes the model only when there is a plan and VibeSynergy leads it."""
+def test_plan_writes_are_refused_without_a_plan(rt) -> None:
+    """the coach writes the model only when there is a plan; VibeSynergy always leads it."""
     from datetime import date as day
 
     from vibesynergy.query import plan_model
@@ -404,7 +404,7 @@ def test_plan_writes_are_refused_without_a_plan_and_while_intervals_leads(rt) ->
 
     refused(r"there is no plan yet")
     view = call(rt, "vibesynergy_plan_model")["data"]
-    assert view["source"] == "intervals" and view["sessions"] == []
+    assert view["source"] == "vibesynergy" and view["sessions"] == []
 
     plan_model.create_plan(
         rt.engine,
@@ -414,5 +414,13 @@ def test_plan_writes_are_refused_without_a_plan_and_while_intervals_leads(rt) ->
         reason="test",
         author="test",
     )
-    plan_model.set_source(rt.engine, "intervals")
-    refused(r"intervals\.icu still leads")
+    # With a plan, a write goes through (intervals.icu never leads, #111).
+    out = call(
+        rt,
+        "vibesynergy_plan_session_set",
+        reason="test",
+        date="2026-11-18",
+        name="Duurloop",
+        description="- 40m Z2 HR",
+    )
+    assert out["data"]["session_id"].startswith("test:")

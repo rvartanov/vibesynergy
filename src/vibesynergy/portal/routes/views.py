@@ -64,13 +64,11 @@ def register(kit: PortalKit) -> None:
         return envelope({"places": activity_weather.places(q, language)})
 
     def _own_plan_leads() -> None:
-        """Sessions change here only in VibeSynergy's own plan; say which case it is not."""
+        """Sessions change here in VibeSynergy's plan; without one there is nothing to change."""
         from vibesynergy.query import plan_model
 
         if plan_model.current_plan_id(engine) is None:
             raise ValueError("There is no plan yet.")
-        if plan_model.source(engine) != "vibesynergy":
-            raise ValueError("intervals.icu leads the plan: change it there")
 
     @router.post("/plan/session/move")
     def plan_session_move(request: PlanSessionChange) -> dict[str, Any]:
@@ -171,7 +169,7 @@ def register(kit: PortalKit) -> None:
         data["horizon"] = guard if on_garmin else None
         from vibesynergy.query import plan_model
 
-        data["plan_source"] = plan_model.source(engine)  # who leads the plan
+        data["plan_source"] = plan_model.source(engine)  # always vibesynergy (#111)
         return envelope(data)
 
     @router.get("/race-predictions")

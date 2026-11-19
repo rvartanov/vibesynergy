@@ -90,6 +90,10 @@ def _planned(rt, source_id, day, kind, title, *, sport=None, is_race=False):
                 "updated_at": now,
             },
         )
+    if is_race:
+        from vibesynergy.query import races
+
+        races.adopt(rt.engine)  # Garmin's races moved into VibeSynergy once (#111)
 
 
 @pytest.fixture

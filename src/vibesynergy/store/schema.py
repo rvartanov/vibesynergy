@@ -304,9 +304,8 @@ planned_item = Table(
     PrimaryKeyConstraint("source", "source_id"),
 )
 
-# Chosen race priority (A, B or C). Calendar sync rewrites planned_item and does not
-# touch this table, so a choice survives a re-sync. No row means unset, except a Garmin
-# primary event, which is read as A.
+# Race priority (A, B or C) chosen for a Garmin event, before races moved into VibeSynergy
+# (``race``, migration 0053). Kept for the record; nothing reads it any more.
 race_priority = Table(
     "race_priority",
     metadata,
@@ -1140,10 +1139,10 @@ coach_reply = Table(
     Index("ix_coach_reply_read_at", "read_at"),
 )
 
-# The training plan as VibeSynergy's own model (docs/design/plan-model.md). In shadow
-# (plan.status) it follows intervals.icu and the readers use icu_event; when VibeSynergy leads
-# the readers use these tables and intervals.icu gets a copy. Every write is a plan_version;
-# rows keep the version that last changed them.
+# The training plan as VibeSynergy's own model (docs/design/plan-model.md): the only plan the
+# readers use (#111). intervals.icu gets a one-way copy; ``status`` is ``leading`` (a
+# ``shadow`` plan, once filled from intervals.icu, was moved to ``leading`` by 0053). Every
+# write is a plan_version; rows keep the version that last changed them.
 plan = Table(
     "plan",
     metadata,
@@ -1228,6 +1227,34 @@ plan_link = Table(
     Column("synced_at", UTCDateTime),
     Column("last_error", Text),
     PrimaryKeyConstraint("session_id", "target"),
+)
+
+# Races VibeSynergy owns (#91, #111): the only source of races and their A/B/C priority for
+# the advice, the reports and the AI coach. Garmin and intervals.icu events are not read as
+# races; ``links`` names their copies there ({"garmin": source_id, "intervals": event id}).
+# Migration 0053 moved the races those calendars held into this table, once. ``origin`` is
+# where a race came from (``vibesynergy``, ``migrated`` or ``import``). A deleted race keeps
+# its row (``deleted_at``), so a delete can be undone.
+race = Table(
+    "race",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("subject_id", Integer, nullable=False),
+    Column("name", String, nullable=False),
+    Column("date", Date, nullable=False, index=True),
+    Column("sport", String),
+    Column("distance_m", Float),
+    Column("priority", String),
+    Column("start_time", String),
+    Column("location", String),
+    Column("url", String),
+    Column("goal_time", String),
+    Column("notes", Text),
+    Column("links", JSON, nullable=False),
+    Column("origin", String, nullable=False),
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+    Column("deleted_at", UTCDateTime),
 )
 
 # Own settings per gear item, keyed by the gear ref ("strava:g123"): status

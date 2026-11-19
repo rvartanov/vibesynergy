@@ -72,7 +72,8 @@ def plan_import(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="report only")] = False,
     config: ConfigOpt = None,
 ) -> None:
-    """Fill the plan model from intervals.icu (shadow: nothing is written to intervals.icu)."""
+    """Copy a plan from intervals.icu into VibeSynergy, once. VibeSynergy leads it from then
+    on and intervals.icu only gets a copy; a plan VibeSynergy leads already is left alone."""
     import json as _json
 
     from vibesynergy.query import plan_model
@@ -155,16 +156,21 @@ def plan_booklet(
         console.print(f"wrote {out}")
 
 
-@plan_app.command("source")
-def plan_source(
-    value: Annotated[str | None, typer.Argument(help="intervals or vibesynergy")] = None,
+@plan_app.command("import-races")
+def plan_import_races(
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="report only")] = False,
     config: ConfigOpt = None,
 ) -> None:
-    """Who leads the plan: intervals (now) or vibesynergy (one-way mirror to intervals.icu)."""
-    from vibesynergy.query import plan_model
+    """Copy races from Garmin events and intervals.icu RACE_A/B/C into VibeSynergy, once.
 
-    engine = _runtime(config).engine
-    typer.echo(plan_model.set_source(engine, value) if value else plan_model.source(engine))
+    Only races VibeSynergy has not got yet are added; it never changes or removes one. After
+    that VibeSynergy owns them: a change in Garmin or intervals.icu changes nothing."""
+    import json as _json
+
+    from vibesynergy.query import races
+
+    out = races.adopt(_runtime(config).engine, dry_run=dry_run)
+    typer.echo(_json.dumps(out, indent=2, ensure_ascii=False))
 
 
 @plan_app.command("mirror")

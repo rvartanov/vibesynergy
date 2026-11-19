@@ -7,6 +7,7 @@ from datetime import date
 
 import pytest
 from sqlalchemy import select
+from tests_helpers import adopt_icu_plan
 
 from vibesynergy.model import PlannedItem
 from vibesynergy.normalize.normaliser import write_records
@@ -195,6 +196,7 @@ def _event(runtime, event: dict) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
 
 
 def _garmin_copy(runtime, scheduled_id: int, title: str, workout_id: int) -> None:

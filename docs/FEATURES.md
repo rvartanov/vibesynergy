@@ -47,8 +47,11 @@ Details: [SOURCES.md](SOURCES.md).
 - **Withings**: weight and body composition, blood pressure.
 - **Strava**: activities, gear with mileage; history from the account archive.
 - **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach
-  Zwift and the other services connected there. Read: plan events, the workout library, and which plan
-  workout an activity was paired with. Not read: fitness, load, zones, RPE/Feel.
+  Zwift and the other services connected there. A one-way mirror: its events are never read
+  as the plan, the week notes, the targets or the races, and a change made there changes
+  nothing in the advice, the reports or the AI coach (#111). Read: the workout library, which
+  plan workout an activity was paired with, and its calendar to check the copy. Not read:
+  fitness, load, zones, RPE/Feel, compliance.
 - **RunSynergy** (the running-group app): the group trainings you give, read from your personal
   calendar link (Settings → Sources → RunSynergy). Each becomes a workout proposal for the
   plan's "Training geven" session that day: warm-up and cool-down until lap, the core on time
@@ -137,12 +140,19 @@ Details: [SOURCES.md](SOURCES.md).
 - **Planning & progress**: the week against the plan per sport and per workout, plan against
   done over the weeks and phases, form, the next nine days; download the plan as Excel or PDF.
 - **Training plan**: the plan lives in VibeSynergy (weeks, phases, targets, sessions with
-  steps) and every page reads it there; started in VibeSynergy (`vibesynergy plan create`)
-  or taken over from intervals.icu, a plan builder (goal race, sport and distance, method,
+  steps) and every page, the advice and the AI coach read it there and only there; started in
+  VibeSynergy (`vibesynergy plan create`) or copied once from intervals.icu
+  (`vibesynergy plan import`), a plan builder (goal race, sport and distance, method,
   hours, rhythm, rest days, fixed sessions), delivery of the plan's workouts to Garmin (per
   sport, with a mark in front of the name: one for all, ⚡ by default, one per workout type with multisport joining its sports' marks, or none) and to intervals.icu;
   a triathlon, duathlon or brick is one session per sport linked by slot (`ms1-swim`,
-  `ms2-ride`, `ms3-run`), one entry in the calendar and one Garmin multisport workout.
+  `ms2-ride`, `ms3-run`), one entry in the calendar and one Garmin multisport workout. A
+  Garmin calendar workout that is not in the plan (Garmin Coach's "Basis", "Drempel" and so
+  on) is listed apart as not in the plan and never counts as planned.
+- **Races**: VibeSynergy's own race list with an A/B/C priority per race (Calendar page,
+  `vibesynergy_race_set_priority`); the next A race is the primary race and sets the taper.
+  Garmin and intervals.icu events are no races; the races they held moved into VibeSynergy
+  once, and `vibesynergy plan import-races` copies new ones on request.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport.

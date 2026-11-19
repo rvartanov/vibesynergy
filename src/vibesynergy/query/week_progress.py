@@ -1,13 +1,14 @@
 """One Monday-to-Sunday week against the plan, per sport (first part).
 
-For each sport: the plan's weekly TARGET time (or, without one, the planned workouts), what
+For each sport: the plan's weekly target time (or, without one, the planned workouts), what
 was done so far, and what is still planned. For each planned workout: planned against
-actual, with intervals.icu's compliance when intervals.icu paired the activity with that
-workout, and RPE/Feel. Activities that were not in the plan are listed as extra. Plus the
-season and the week's note, and next week's note and targets.
+actual (the time done against the time planned) and RPE/Feel. Activities that were not in
+the plan are listed as extra. Plus the season (the plan itself) and the week's note, and
+next week's note and targets. All of it from VibeSynergy's own plan (#111).
 
 The start page shows this week; the planning page can ask for any Monday. Matching starts
-from ``plan.plan`` (same day and sport); an intervals.icu pairing overrides it.
+from ``plan.plan`` (same day and sport). When intervals.icu paired the activity with its copy
+of a session, that pairing names the activity; what the copy says is never read.
 """
 
 from __future__ import annotations
@@ -18,22 +19,18 @@ from typing import Any
 from sqlalchemy import Engine, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import activity_effort, horizon, icu_plan, training
+from vibesynergy.query import activity_effort, horizon, training
 from vibesynergy.query import plan as plan_q
 from vibesynergy.store.schema import activity_unified
 
 # Triathlon order first, then the rest.
 SPORT_ORDER = ("swim", "ride", "run", "strength", "walk", None)
-# A paired session within this compliance band (percent) went as planned.
-COMPLIANCE_OK = (75.0, 125.0)
 
 
-def compliance_of(planned_s, actual_s, icu_value=None) -> tuple[float | None, str | None]:
-    """How much of the planned workout was done, in percent (every planned
-    workout needs it). intervals.icu's own compliance when it paired the activity, else the
-    time done against the time planned."""
-    if icu_value:
-        return round(float(icu_value), 1), "intervals"
+def compliance_of(planned_s, actual_s) -> tuple[float | None, str | None]:
+    """How much of the planned workout was done, in percent (every planned workout needs
+    it): the time done against VibeSynergy's planned time. intervals.icu's own compliance is
+    not used: it measures against intervals.icu's copy of the session (#111)."""
     if planned_s and actual_s:
         return round(float(actual_s) / float(planned_s) * 100, 1), "time"
     return None, None
@@ -88,8 +85,11 @@ def week_progress(
 
     used: set[str] = set()
     sessions: list[dict[str, Any]] = []
+    loads = _planned_loads(engine, planned, today)
     for item in planned:
         session = _planned_session(item, today, by_id, paired, icu, effort)
+        if item.get("session_id") in loads:
+            session["planned"]["load"] = loads[item["session_id"]]
         if session["activity_id"]:
             used.add(session["activity_id"])
         sessions.append(session)
@@ -120,7 +120,7 @@ def week_progress(
         )
     }
     nxt = weeks.get((monday + timedelta(days=7)).isoformat())
-    season = icu_plan.season(engine, sunday)
+    season = _season(engine, sunday)
     return {
         "start": lo,
         "end": hi,
@@ -142,6 +142,44 @@ def week_progress(
         },
         "next_week": _next_week(nxt),
     }
+
+
+def _season(engine: Engine, day: date) -> dict[str, Any] | None:
+    """The season: VibeSynergy's plan that runs on ``day`` (not intervals.icu's SEASON_START)."""
+    from vibesynergy.query import plan_model
+
+    found = plan_model.summary(engine)
+    if not found or not found.get("start") or found["start"] > day.isoformat():
+        return None
+    if found.get("end") and found["end"] < (day - timedelta(days=6)).isoformat():
+        return None
+    return {"id": found["id"], "start": found["start"], "name": found["name"], "text": None}
+
+
+def _planned_loads(engine: Engine, sessions: list[dict], today: date) -> dict[str, float]:
+    """Planned load per session id, from the session's own steps (``planned_load``), in the
+    units of the own load. Not intervals.icu's estimate: that is its copy's figure."""
+    from vibesynergy.query import plan_model, planned_load
+
+    wanted = [s for s in sessions if s.get("session_id")]
+    own = plan_model.leading_plan(engine)
+    if not wanted or not own:
+        return {}
+    days = [date.fromisoformat(str(s["date"])[:10]) for s in wanted]
+    try:
+        inputs = training.ThresholdTimeline(engine).on(today)
+        steps_of = plan_model.session_steps(engine, own, min(days), max(days))
+    except Exception:  # the week still answers without loads
+        return {}
+    out: dict[str, float] = {}
+    for item in wanted:
+        steps = steps_of.get(item["session_id"]) or []
+        found = planned_load.planned_load(
+            steps, plan_q.family(item.get("sport")) or "other", inputs
+        )
+        if found is not None:
+            out[item["session_id"]] = round(float(found[0]), 1)
+    return out
 
 
 # Activities ----------------------------------------------------------------------------
@@ -251,14 +289,8 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
         gid, method = paired[icu_id], "paired"
     act = by_id.get(gid) if gid else None
     icu_row = icu.get(gid) if gid else None
-    compliance = None
-    if method == "paired" and icu_row:
-        compliance = icu_row.get("compliance")
-        if compliance:
-            low, high = COMPLIANCE_OK
-            status = "done" if low <= compliance <= high else "changed"
-        elif status not in ("done", "changed"):
-            status = "changed" if plan_q.departs_from_plan(item, act or {}) else "done"
+    if method == "paired" and icu_row and status not in ("done", "changed"):
+        status = "changed" if plan_q.departs_from_plan(item, act or {}) else "done"
     # An optional session ("optie", "(optioneel)") is no debt and does not count towards
     # the week's goal. Not done, it is just "option": not "skipped", since rest
     # is often one of its choices ("rust, pilates of zwemmen").
@@ -266,7 +298,7 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
     if optional and status == "missed":
         status = "optional"
     compliance, compliance_source = compliance_of(
-        plan_q.planned_duration_s(item), _seconds(act) if act else None, compliance
+        plan_q.planned_duration_s(item), _seconds(act) if act else None
     )
     session = {
         "date": item["date"],

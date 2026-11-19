@@ -227,6 +227,9 @@ def test_current_state_rechecks_date_without_database_write(runtime, monkeypatch
         "garmin",
         PlannedItem("race", START.date() + timedelta(days=9), "event", is_race=True),
     )
+    from vibesynergy.query import races
+
+    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
     monkeypatch.setattr(assessments, "today_in", lambda _: START.date())
     first = assessments.current_state(runtime)
     monkeypatch.setattr(assessments, "today_in", lambda _: START.date() + timedelta(days=1))

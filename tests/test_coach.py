@@ -500,6 +500,9 @@ def add_race(runtime, day, title="Example triathlon"):
                 "updated_at": now,
             },
         )
+    from vibesynergy.query import races
+
+    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
 
 
 def test_race_context_comes_from_the_plan_calendar(runtime):

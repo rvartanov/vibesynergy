@@ -44,13 +44,15 @@ puts it in the stats block (no `publish` scope needed).
 | Your memory of decisions | The coach feed (`coach_decision_log`) | `vibesynergy_coach_entries` | `vibesynergy_coach_write` (`coach.write`) |
 | Thresholds and zones | VibeSynergy (confirmed values) | `vibesynergy_thresholds` | `vibesynergy_coach_threshold_propose` |
 | Data: recovery, activities, diary | VibeSynergy | `vibesynergy_today`, `vibesynergy_recovery`, `vibesynergy_activity`, `vibesynergy_notes`, `vibesynergy_injuries`, … | — |
-| The intervals.icu copy (and races, anything outside the plan) | intervals.icu | `vibesynergy_icu_events` | `vibesynergy_icu_*` only for what is outside the plan and on the athlete's request; a change to a plan session there is put back by the mirror |
+| Races and their A/B/C priority | VibeSynergy's own race list (#111); the primary race is the next A race. Garmin and intervals.icu events are copies at most and are never read as races | `vibesynergy_coach_state` (`races`), `vibesynergy_plan` (`races`, `next_race`) | `vibesynergy_race_set_priority` (`plan.propose`) |
+| The intervals.icu copy | intervals.icu, a one-way copy of the plan for other services; never read as the plan, the week notes, the targets or the races | `vibesynergy_icu_events` (only to check the copy) | `vibesynergy_icu_*` only for what is outside the plan and on the athlete's request; it never becomes part of the plan, and a change to a plan session there is put back by the mirror |
 | Workouts on Garmin | VibeSynergy's own copies (switch intervals.icu's own Garmin push off, so there is one copy) | `vibesynergy_today.horizon` (are the coming days on Garmin) | VibeSynergy builds them from the plan; you only write the plan. Strength: `[garmin]` block with `weight=` per exercise |
 
-`vibesynergy_plan` and `vibesynergy_week` show planned against done. VibeSynergy leads the plan
-since 7-11-2026 (`vibesynergy_plan_model.source` = `vibesynergy`): the sync is one way, from
-VibeSynergy, and a change made in intervals.icu to a plan session is put back.
-The athlete can switch back with `vibesynergy plan source intervals`. For a `vibesynergy_icu_*` write
+`vibesynergy_plan` and `vibesynergy_week` show planned against done. VibeSynergy is the only
+source of the plan (#111): the sync is one way, from VibeSynergy, and a change made in
+intervals.icu to a plan session is put back. Nothing in intervals.icu (a workout added
+there, a week note, a target, a race) is advice input. There is no switch back. For a
+`vibesynergy_icu_*` write
 (outside the plan), never guess an `event_id`: take it and the `version` (as
 `expected_version`) from the last `vibesynergy_icu_events` read.
 

@@ -5,11 +5,9 @@ Nothing bulk-upserts. Every write stores a before and after snapshot on
 ``audit_log`` and a line on the coach feed. Revert puts the before snapshot
 back through the API.
 
-While intervals.icu leads, its calendar is the plan (``plan_layer``; merged in
-``query/plan.py``). When VibeSynergy leads, the plan is its own model and these events are
-its copy. A Garmin calendar workout whose name and date match a plan workout is the copy
-intervals.icu pushed and is folded into that workout. Any other Garmin workout is not in
-the plan.
+intervals.icu is never the plan (#111): the plan is VibeSynergy's own model, and these
+events are its copy, which intervals.icu passes on to other services. An event written here
+that is not in VibeSynergy's plan never becomes a planned session or a race.
 """
 
 from __future__ import annotations
@@ -19,7 +17,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine, select
 
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.mcp.identity import current_author, current_connection
@@ -55,111 +53,9 @@ def versions_match(expected: str, actual: str) -> bool:
     return parsed is not None and version_token(parsed, None) == actual
 
 
-PLAN_CATEGORIES = ("WORKOUT", "NOTE", "TARGET")
-RACE_PRIORITY = {"RACE_A": "A", "RACE_B": "B", "RACE_C": "C"}
-
-
-def plan_layer(engine: Engine, start: date, end: date) -> dict[str, Any]:
-    """The intervals.icu events that make the plan between ``start`` and ``end``, while
-    intervals.icu leads (``plan_model.plan_layer`` is its twin for VibeSynergy's own plan).
-
-    ``workouts`` are WORKOUT events in the window. ``notes`` and ``targets`` are the weekly
-    NOTE and TARGET events from the Monday of ``start`` on. ``plan_start`` is the first day
-    of any plan workout (one with an external_id), across the whole cache: from that day on
-    the intervals.icu calendar is the plan.
-    """
-    monday = start - timedelta(days=start.weekday())
-    with engine.connect() as conn:
-        rows = [
-            dict(row)
-            for row in conn.execute(
-                select(icu_event)
-                .where(
-                    icu_event.c.category.in_(PLAN_CATEGORIES),
-                    icu_event.c.date >= monday,
-                    icu_event.c.date <= end,
-                )
-                .order_by(icu_event.c.date, icu_event.c.id)
-            ).mappings()
-        ]
-        plan_start = conn.execute(
-            select(func.min(icu_event.c.date)).where(
-                icu_event.c.category == "WORKOUT", icu_event.c.source == "plan"
-            )
-        ).scalar()
-    return {
-        "workouts": [r for r in rows if r["category"] == "WORKOUT" and r["date"] >= start],
-        "notes": [r for r in rows if r["category"] == "NOTE" and r["for_week"]],
-        "targets": [r for r in rows if r["category"] == "TARGET"],
-        "plan_start": plan_start,
-    }
-
-
-def races(engine: Engine, since: date) -> list[dict[str, Any]]:
-    """RACE_A/B/C events from ``since`` on, shaped like a ``planned_item`` event row."""
-    with engine.connect() as conn:
-        rows = [
-            dict(row)
-            for row in conn.execute(
-                select(icu_event)
-                .where(icu_event.c.category.in_(tuple(RACE_PRIORITY)), icu_event.c.date >= since)
-                .order_by(icu_event.c.date)
-            ).mappings()
-        ]
-    out = []
-    for row in rows:
-        raw = row.get("raw") or {}
-        distance = raw.get("distance")
-        out.append(
-            {
-                "source": "intervals_icu",
-                "source_id": row["id"],
-                "date": row["date"],
-                "kind": "event",
-                "title": row.get("name"),
-                "sport": row.get("type"),
-                "plan_id": None,
-                "is_race": True,
-                "primary": False,
-                "extra": {
-                    "icu_id": row["id"],
-                    "external_id": row.get("external_id"),
-                    "category": row["category"],
-                    "icu_priority": RACE_PRIORITY[row["category"]],
-                    "description": row.get("description"),
-                    **(
-                        {"distance": float(distance)}
-                        if isinstance(distance, (int, float)) and distance >= 100
-                        else {}
-                    ),
-                    "ownership": "intervals_plan" if row["source"] == "plan" else "intervals",
-                },
-            }
-        )
-    return out
-
-
-def season(engine: Engine, day: date) -> dict[str, Any] | None:
-    """The intervals.icu season (latest SEASON_START on or before ``day``), if any."""
-    with engine.connect() as conn:
-        row = (
-            conn.execute(
-                select(icu_event.c.id, icu_event.c.date, icu_event.c.name, icu_event.c.description)
-                .where(icu_event.c.category == "SEASON_START", icu_event.c.date <= day)
-                .order_by(icu_event.c.date.desc())
-                .limit(1)
-            )
-            .mappings()
-            .first()
-        )
-    if row is None:
-        return None
-    return {
-        "id": row["id"],
-        "start": str(row["date"]),
-        "name": row["name"],
-        "text": row["description"],
-    }
+# The plan, its week notes, targets and races are read from VibeSynergy only (#111): the
+# readers that took them from this cache (``plan_layer``, ``races``, ``season``) are gone.
+# What is left here writes intervals.icu's copy and lists the cache for checking it.
 
 
 def create_event(

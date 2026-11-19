@@ -1,11 +1,15 @@
 """The training plan as VibeSynergy's own model (docs/design/plan-model.md).
 
-A plan is ``shadow`` or ``leading``. In shadow intervals.icu leads: ``import_from_intervals``
-rebuilds the model from the intervals.icu plan cache (``icu_event``) after every sync, and
-the readers use that cache. When VibeSynergy leads, the model is the plan: the writes here
-change it, the readers (``query/plan.py`` and what builds on it) read it through
-``plan_layer``, and ``mirror`` copies each change one way to intervals.icu. A plan made with
-``create_plan`` leads from the start and needs no intervals.icu at all.
+VibeSynergy is the only source of the plan (#111). The model is the plan: the writes here
+change it, the readers (``query/plan.py`` and what builds on it: the advice, the reports,
+the dashboard, the AI coach) read it through ``plan_layer`` and ``view``, and ``mirror``
+copies each change one way to intervals.icu, which passes it on to other services. A change
+made in intervals.icu is put back and never read as the plan.
+
+``import_from_intervals`` is an explicit, one-time import (``vibesynergy plan import``): it
+copies a plan that lives in intervals.icu into the model, after which VibeSynergy leads it.
+It never runs by itself and never touches a plan VibeSynergy leads. ``shadow`` is the status
+of a plan from before #111 that followed intervals.icu; migration 0053 made those lead.
 """
 
 from __future__ import annotations
@@ -33,7 +37,7 @@ from vibesynergy.store.schema import (
 )
 
 SUBJECT = 1
-SHADOW = "shadow"  # intervals.icu leads; the model follows it after every sync
+SHADOW = "shadow"  # before #111: the model followed intervals.icu (0053 made these lead)
 LEADING = "leading"  # VibeSynergy leads; intervals.icu is a one-way mirror
 log = logging.getLogger(__name__)
 
@@ -159,7 +163,10 @@ def import_from_intervals(
     author: str = "import:intervals.icu",
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    """Fill the plan model from intervals.icu (shadow). Returns what was found and done."""
+    """Copy a plan from intervals.icu into the model, once; VibeSynergy leads it from then on.
+
+    Explicit only (``vibesynergy plan import``), never after a sync. A plan VibeSynergy
+    leads already is left alone. Returns what was found and done."""
     found = _read(engine, prefix)
     digest = _digest(found)
     dates = [s["date"] for s in found["sessions"]] + [w["monday"] for w in found["weeks"].values()]
@@ -210,7 +217,7 @@ def import_from_intervals(
                 n=n,
                 created_at=now,
                 author=author,
-                reason="import from intervals.icu (shadow)",
+                reason="one-time import from intervals.icu",
                 summary=summary,
             )
         )
@@ -219,7 +226,7 @@ def import_from_intervals(
             "method": method,
             "start": start,
             "end": end,
-            "status": SHADOW,
+            "status": LEADING,
             "current_version": n,
             "updated_at": now,
         }
@@ -346,16 +353,14 @@ def summary(engine: Engine, plan_id: str | None = None) -> dict[str, Any] | None
 
 
 def shadow_refresh(engine: Engine) -> dict[str, Any] | None:
-    """After a sync: keep the model in step with intervals.icu. Never breaks the sync."""
+    """After a sync: copy the plan to intervals.icu again (it never reads the plan from
+    there, #111). Never breaks the sync."""
     try:
-        plan_id = current_plan_id(engine)
-        if not plan_id:
-            return None  # no plan yet: nothing to keep in step
-        if source(engine, plan_id) == "vibesynergy":
-            return run_mirror(engine)
-        return import_from_intervals(engine, prefix=plan_id)
-    except Exception:  # shadow mode must not stop the sync
-        log.warning("plan model shadow refresh failed", exc_info=True)
+        if not current_plan_id(engine):
+            return None  # no plan yet: nothing to copy
+        return run_mirror(engine)
+    except Exception:  # the mirror must not stop the sync
+        log.warning("plan mirror after sync failed", exc_info=True)
         return None
 
 
@@ -405,26 +410,9 @@ def session_text(row: dict[str, Any]) -> str:
 
 
 def source(engine: Engine, plan_id: str | None = None) -> str:
-    plan_id = plan_id or current_plan_id(engine) or ""
-    with engine.connect() as conn:
-        status = conn.execute(select(plan.c.status).where(plan.c.id == plan_id)).scalar()
-    return "vibesynergy" if status == LEADING else "intervals"
-
-
-def set_source(engine: Engine, value: str, plan_id: str | None = None) -> str:
-    """Switch who leads. Back to intervals.icu: the model follows it again on the next sync."""
-    plan_id = _required_plan(engine, plan_id)
-    if value not in ("intervals", "vibesynergy"):
-        raise ValueError("source is intervals or vibesynergy")
-    with engine.begin() as conn:
-        done = conn.execute(
-            update(plan)
-            .where(plan.c.id == plan_id)
-            .values(status=LEADING if value == "vibesynergy" else SHADOW, updated_at=utc_now())
-        ).rowcount
-    if not done:
-        raise ValueError(f"no plan {plan_id!r}")
-    return value
+    """Who leads the plan: always ``vibesynergy`` (#111). intervals.icu is never a source;
+    kept so callers and the MCP keep one answer."""
+    return "vibesynergy"
 
 
 def set_session(
@@ -1028,7 +1016,7 @@ def view(engine: Engine, start: date, end: date, plan_id: str | None = None) -> 
             }
             for w in weeks
         ],
-        "source": "vibesynergy" if row and row["status"] == LEADING else "intervals",
+        "source": "vibesynergy",  # the only plan source (#111)
         "version": row["current_version"] if row else None,
         "sessions": [
             {
@@ -1137,13 +1125,13 @@ def week_rows(
 
 
 def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str, Any]:
-    """The model's sessions, week notes and week targets between ``start`` and ``end``, with
-    the keys ``icu_plan.plan_layer`` has, so one calendar merge serves both.
+    """The model's sessions, week notes and week targets between ``start`` and ``end``: the
+    plan layer the calendar merge in ``plan.plan`` reads.
 
     ``workouts`` are the planned sessions (a skipped one is out of the plan) with their step
-    text. ``icu_id`` is the id of a session's copy in intervals.icu and ``icu_event`` that
-    event as cached, when it has one: Garmin delivery, the activity pairing and the Garmin
-    Coach duplicate pair are still keyed by that event.
+    text. ``icu_id`` is the id of a session's copy in intervals.icu, when it has one: Garmin
+    delivery and the activity pairing are keyed by it. Nothing of that copy is read: what
+    it says in intervals.icu never changes the plan (#111).
     ``plan_start`` is the first day with a planned session.
     """
 
@@ -1157,12 +1145,6 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
                 )
             ).all()
         )
-        events = {
-            r["id"]: dict(r)
-            for r in conn.execute(
-                select(icu_event).where(icu_event.c.id.in_(list(links.values())))
-            ).mappings()
-        }
         plan_start = conn.execute(
             select(func.min(plan_session.c.date)).where(_planned(plan_id))
         ).scalar()
@@ -1180,7 +1162,6 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
                 "distance_m": s["distance_m"],
                 "external_id": s["id"],
                 "icu_id": links.get(s["id"]),
-                "icu_event": events.get(links.get(s["id"])),
             }
             for s in sessions
         ],
@@ -1188,6 +1169,46 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
         "targets": targets,
         "plan_start": plan_start,
     }
+
+
+def delivery_rows(engine: Engine, start: date, end: date) -> list[Any]:
+    """The plan's sessions between ``start`` and ``end`` that have a copy in intervals.icu,
+    for Garmin delivery and its check (``garmin_strength`` / ``garmin_endurance``).
+
+    Keyed by that copy's id (the delivery ledger is), but with VibeSynergy's own day, name,
+    sport and step text: what the copy says in intervals.icu is never read (#111). A
+    workout that is only in intervals.icu is not in the plan and is not delivered.
+    """
+    from types import SimpleNamespace
+
+    plan_id = leading_plan(engine)
+    if not plan_id:
+        return []
+    with engine.connect() as conn:
+        sessions = _planned_sessions(conn, plan_id, start, end)
+        links = dict(
+            conn.execute(
+                select(plan_link.c.session_id, plan_link.c.remote_id).where(
+                    plan_link.c.target == "intervals",
+                    plan_link.c.session_id.in_([s["id"] for s in sessions]),
+                    plan_link.c.remote_id.is_not(None),
+                )
+            ).all()
+        )
+    rows = [
+        SimpleNamespace(
+            id=str(links[s["id"]]),
+            date=s["date"],
+            name=s["name"],
+            description=session_text(s),
+            type=s["sport"],
+            external_id=s["id"],
+            brick_part=s["slot"] if s.get("slot") in ("fiets", "loop") else None,
+        )
+        for s in sessions
+        if s["id"] in links
+    ]
+    return sorted(rows, key=lambda r: (r.date, r.id))
 
 
 def planned_seconds(engine: Engine, plan_id: str, start: date, end: date) -> float:

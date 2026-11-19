@@ -1,4 +1,5 @@
-"""The plan model's shadow import from intervals.icu."""
+"""The plan model: the one-time import from intervals.icu, after which VibeSynergy leads and
+intervals.icu only gets a copy (#111)."""
 
 from __future__ import annotations
 
@@ -71,13 +72,15 @@ def test_import_builds_weeks_targets_and_sessions_and_versions_only_on_change(ru
     assert (first["weeks"], first["targets"], first["sessions"], first["version"]) == (1, 1, 1, 1)
     assert first["unparsed"] == {}
     held = plan_model.summary(runtime.engine)
-    assert held and (held["weeks"], held["sessions"], held["status"]) == (1, 1, "shadow")
-    again = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    assert again["changed"] is False and again["version"] == 1
+    # The import is a one-time copy: VibeSynergy leads the plan from then on.
+    assert held and (held["weeks"], held["sessions"], held["status"]) == (1, 1, "leading")
     changed = [dict(e) for e in EVENTS]
     changed[2]["description"] = changed[2]["description"].replace("30m", "35m")
     _put(runtime, changed)
-    assert plan_model.import_from_intervals(runtime.engine, prefix="lake27")["version"] == 2
+    again = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    assert again["leading"] is True and again["version"] == 1  # intervals.icu changes nothing
+    (session,) = plan_model.view(runtime.engine, date(2026, 11, 17), date(2026, 11, 17))["sessions"]
+    assert "30m Z4-Z5 HR" in session["description"]
 
 
 def test_dry_run_writes_nothing(runtime) -> None:
@@ -86,7 +89,7 @@ def test_dry_run_writes_nothing(runtime) -> None:
     assert out["changed"] is True and plan_model.summary(runtime.engine) is None
 
 
-def test_other_workouts_in_the_plan_period_join_and_shadow_refresh_follows(runtime) -> None:
+def test_other_workouts_in_the_plan_period_join_and_a_sync_never_imports(runtime) -> None:
     group = {
         "id": 9,
         "category": "WORKOUT",
@@ -96,12 +99,17 @@ def test_other_workouts_in_the_plan_period_join_and_shadow_refresh_follows(runti
         "description": "- 55m Z1 HR",
         "updated": "2026-11-03T08:00:00Z",
     }
-    _put(runtime, EVENTS)
-    assert plan_model.shadow_refresh(runtime.engine) is None  # nothing imported yet
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
     _put(runtime, [*EVENTS, group])
-    out = plan_model.shadow_refresh(runtime.engine)
-    assert out and out["sessions"] == 2 and out["version"] == 2
+    assert plan_model.shadow_refresh(runtime.engine) is None  # no plan yet: nothing at all
+    out = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    assert out["sessions"] == 2 and out["version"] == 1
+    # After a sync the plan is only copied to intervals.icu; a workout added there later
+    # never joins it (#111).
+    later = {**group, "id": 10, "start_date_local": "2026-11-20T00:00:00"}
+    _put(runtime, [*EVENTS, group, later])
+    plan_model.shadow_refresh(runtime.engine)
+    held = plan_model.summary(runtime.engine)
+    assert held and held["sessions"] == 2 and held["current_version"] == 1
 
 
 def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
@@ -113,7 +121,7 @@ def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
 
     _put(runtime, EVENTS)
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    assert plan_model.source(runtime.engine) == "intervals"
+    assert plan_model.source(runtime.engine) == "vibesynergy"
     calls: list[tuple] = []
     monkeypatch.setattr(
         icu_plan,
@@ -132,7 +140,6 @@ def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
     )
     # Nothing changed: the mirror writes nothing.
     assert plan_model.mirror(runtime.engine, None)["unchanged"] == 1 and calls == []
-    plan_model.set_source(runtime.engine, "vibesynergy")
     # The coach changes the test in VibeSynergy and adds a session: one update, one create.
     plan_model.set_session(
         runtime.engine,
@@ -179,9 +186,7 @@ def test_no_hardcoded_plan(runtime: Any) -> None:
     # without a plan nothing is assumed; the first import names it after its tag.
     _put(runtime, EVENTS)
     assert plan_model.current_plan_id(runtime.engine) is None
-    assert plan_model.source(runtime.engine) == "intervals"
-    with pytest.raises(ValueError):
-        plan_model.set_source(runtime.engine, "vibesynergy")
+    assert plan_model.leading_plan(runtime.engine) is None
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
     assert plan_model.current_plan_id(runtime.engine) == "lake27"
     held = plan_model.summary(runtime.engine)
@@ -194,7 +199,6 @@ def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monke
 
     _put(runtime, EVENTS)
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    plan_model.set_source(runtime.engine, "vibesynergy")
     calls: list[tuple] = []
     monkeypatch.setattr(
         icu_plan,
@@ -270,7 +274,6 @@ def test_move_and_skip_a_session_reach_intervals(runtime, monkeypatch) -> None:
 
     _put(runtime, EVENTS)
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    plan_model.set_source(runtime.engine, "vibesynergy")
     calls: list[tuple] = []
     monkeypatch.setattr(
         icu_plan,
@@ -315,7 +318,6 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
 
     _put(runtime, EVENTS)
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    plan_model.set_source(runtime.engine, "vibesynergy")
 
     async def go(name, args):
         async with Client(build_server(runtime)) as client:
@@ -338,8 +340,8 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
         staticmethod(lambda: None),
     )
     assert plan_model.run_mirror(runtime.engine) == {"drift": []} and ran == ["lake27"]
-    plan_model.set_source(runtime.engine, "intervals")
-    assert plan_model.run_mirror(runtime.engine) is None
+    # There is no switch back to intervals.icu (#111).
+    assert not hasattr(plan_model, "set_source")
 
 
 def test_view_has_the_weeks_with_note_and_targets(runtime) -> None:

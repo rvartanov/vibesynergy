@@ -380,7 +380,8 @@ BLOCKS: dict[str, Block] = {
         Block("activity", "Activiteit", 4000, _activity),
         Block("plan_match", "Gepland op die dag", 2500, _plan_match),
         Block("month", "Vorige maand", 4000, _month),
-        Block("races", "Wedstrijden", 1500, _races),
+        # Version 2 (#111): VibeSynergy's own races; the primary race is the next A race.
+        Block("races", "Wedstrijden", 1500, _races, version=2),
         Block("kb_due", "Kennisbank: te controleren", 3000, _kb_due),
         Block("threshold_signals", "Drempelsignalen", 4000, _threshold_signals),
         Block("block", "Blok dat eindigt", 6000, _block),

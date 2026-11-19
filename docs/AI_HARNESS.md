@@ -46,7 +46,9 @@ that calls a model (`model.create`), and it runs only tasks from the registry. F
 2. **A versioned prompt and rules**: the task's prompt is a knowledge-base article with a
    version; the harness rules have `RULES_VERSION` (a test pins the text to the number).
 3. **A fixed context chain**: `BASE_CONTEXT` (athlete, communication rule, safety, coach
-   memory), then the task's own blocks, each with a version.
+   memory), then the task's own blocks, each with a version. The plan, the week notes, the
+   targets and the races in those blocks are VibeSynergy's own, never intervals.icu's copy
+   (#111, [COACH_RUNNER.md](COACH_RUNNER.md#the-plan-in-the-context-vibesynergy-only-111)).
 4. **An output contract that is validated and fails closed** (`coach_runner/contract.py`):
    checked when the entry is written, for the runner and for MCP clients alike, and again
    when the run ends.

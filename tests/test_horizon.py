@@ -19,7 +19,7 @@ def _fake(monkeypatch, items):
 
 def _item(day, title, sport, copies):
     return {
-        "source": "intervals_icu",
+        "source": "vibesynergy",
         "kind": "plan_workout",
         "date": day,
         "title": title,
@@ -74,7 +74,7 @@ def test_compare_tells_both_copies_apart(monkeypatch) -> None:
     day = date(2026, 11, 10)
     items = [
         {
-            "source": plan_q.INTERVALS,
+            "source": plan_q.VIBESYNERGY,
             "kind": "workout",
             "date": day,
             "sport": "running",
@@ -82,7 +82,7 @@ def test_compare_tells_both_copies_apart(monkeypatch) -> None:
             "garmin_copies": [{"title": "Duurloop Z2 30'"}, {"title": "🏃 Duurloop Z2 30'"}],
         },
         {
-            "source": plan_q.INTERVALS,
+            "source": plan_q.VIBESYNERGY,
             "kind": "workout",
             "date": day,
             "sport": "cycling",
@@ -91,7 +91,7 @@ def test_compare_tells_both_copies_apart(monkeypatch) -> None:
         },
         {
             # Since 7-11 VibeSynergy's copy has no emoji: the delivery ledger says it is ours.
-            "source": plan_q.INTERVALS,
+            "source": plan_q.VIBESYNERGY,
             "kind": "workout",
             "date": day,
             "sport": "strength_training",

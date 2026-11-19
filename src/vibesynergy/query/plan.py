@@ -2,14 +2,19 @@
 planned sessions compare with what was done. Used by the MCP tool vibesynergy_plan and the
 portal's Dashboard.
 
-The plan is VibeSynergy's own model when VibeSynergy leads it (``plan_model.plan_layer``),
-else the intervals.icu calendar (``icu_plan.plan_layer``). From the first plan workout on,
-a Garmin scheduled workout that is a copy of a plan workout (same day, sport family and
-name, or a title carrying the plan's tag such as ``(lake27)``) is folded into that workout
-as ``garmin_copies``. Any other Garmin workout from that day on is not in the plan: it goes
-to ``not_in_plan`` and is never counted as planned. Earlier days keep the Garmin calendar
-as the plan. Races and the season still come from intervals.icu and Garmin in both cases
-(a later step)."""
+The plan is VibeSynergy's own model (``plan_model.plan_layer``), and only that (#111):
+intervals.icu holds a one-way copy and is never read as the plan. Its events (workouts, week
+notes, targets, races) are not planned sessions, and a change made there changes nothing
+here. From the first plan workout on, a Garmin scheduled workout that is a copy of a plan
+workout (same day, sport family and name, or a title carrying the plan's tag such as
+``(lake27)``) is folded into that workout as ``garmin_copies``. Any other Garmin workout
+from that day on (Garmin Coach's "Basis", "Drempel" and so on) is not in the plan: it goes
+to ``not_in_plan`` and is never counted as planned. Earlier days, and an install without a
+plan, keep the Garmin calendar as the plan.
+
+Races come from VibeSynergy's own race list (``races``). A Garmin event is a copy at most:
+one on the day of a race folds into that race (``extra.garmin``), any other is not in the
+plan."""
 
 from __future__ import annotations
 
@@ -25,15 +30,14 @@ from sqlalchemy import Engine, or_, select
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.query import coaching, multisport
-from vibesynergy.query.race_priority import effective_priority, stored_priorities
 from vibesynergy.query.safety_floor import title_band
 from vibesynergy.query.views import sync_status
 from vibesynergy.store.schema import activity_unified, planned_item, training_plan
 
 INTERVALS = "intervals_icu"
 VIBESYNERGY = "vibesynergy"
-# ``source`` of a calendar row that is a plan workout, whoever leads the plan.
-PLAN_SOURCES = (INTERVALS, VIBESYNERGY)
+# ``source`` of a calendar row that is a plan workout: VibeSynergy's own plan only (#111).
+PLAN_SOURCES = (VIBESYNERGY,)
 
 # Sport families, to match a planned session with the activity that did it.
 _FAMILIES = (
@@ -306,14 +310,6 @@ def plan(
                 .order_by(planned_item.c.date, planned_item.c.kind)
             )
         ]
-        upcoming = [
-            dict(r._mapping)
-            for r in conn.execute(
-                select(planned_item)
-                .where(planned_item.c.kind == "event", planned_item.c.date >= today)
-                .order_by(planned_item.c.date)
-            )
-        ]
         done = conn.execute(
             select(
                 activity_unified.c.local_date,
@@ -334,17 +330,19 @@ def plan(
     if not include_calendar:
         items = [i for i in items if i["source"] != "caldav"]
     items = _combine_mirrors(items)
-    from vibesynergy.query import calendar_mirror, icu_plan, plan_model
+    from vibesynergy.query import calendar_mirror, plan_model, races
 
     own = plan_model.leading_plan(engine)
-    if own:
-        layer = plan_model.plan_layer(engine, own, window.start, window.end)
-    else:
-        layer = icu_plan.plan_layer(engine, window.start, window.end)
-    icu_races = icu_plan.races(engine, min(window.start, today))
-    items = _merge_races(items, [r for r in icu_races if window.start <= r["date"] <= window.end])
-    upcoming = _merge_races(upcoming, [r for r in icu_races if r["date"] >= today])
-    items, not_in_plan = _merge_plan(items, layer, _model_item if own else _icu_item)
+    layer = plan_model.plan_layer(engine, own, window.start, window.end) if own else NO_PLAN
+    own_races = races.rows(engine, today)
+    upcoming = [r for r in own_races if r["date"] >= today]
+    items, outside_events = _fold_events(
+        items, [r for r in own_races if window.start <= r["date"] <= window.end]
+    )
+    items, not_in_plan = _merge_plan(items, layer, _model_item)
+    not_in_plan = sorted(
+        not_in_plan + outside_events, key=lambda i: (_as_day(i["date"]), i["kind"])
+    )
     # A training you give (coaching rules) is no hard session for you, whatever its title
     # says ("Ext. interval kort"): you run along easy.
     for item in items:
@@ -437,12 +435,7 @@ def plan(
             text = (item.get("extra") or {}).get("description")
             if text:
                 item["description"] = text
-    saved = stored_priorities(engine)
-    race_rows = [
-        _event_row(event, today, saved)
-        for event in upcoming
-        if event["is_race"] or event["primary"]
-    ]
+    race_rows = [_event_row(event, today) for event in upcoming]
     return {
         "active_plans": active,
         "calendar_sync": sync_status(engine, "caldav")
@@ -452,12 +445,12 @@ def plan(
         "calendar_mirror": calendar_mirror.summary(engine),
         "today": [i for i in items if i["date"] == str(today) and i["kind"] in TRAINING_KINDS],
         "commitments": [i for i in items if i["kind"] == "commitment"],
-        "next_event": _event_row(upcoming[0], today, saved) if upcoming else None,
+        "next_event": race_rows[0] if race_rows else None,
         "races": race_rows[:5],
-        **race_phase_from_events(upcoming, today, saved),
+        **race_phase_from_events(upcoming, today),
         "items": items,
         "not_in_plan": not_in_plan,
-        "plan_source": (VIBESYNERGY if own else INTERVALS)
+        "plan_source": VIBESYNERGY
         if layer["plan_start"] is not None and layer["plan_start"] <= window.end
         else "garmin",
         "plan_start": str(layer["plan_start"]) if layer["plan_start"] else None,
@@ -467,7 +460,9 @@ def plan(
             "done": sum(i["status"] == "done" for i in planned_past),
             "changed": sum(i["status"] == "changed" for i in planned_past),
             "missed": sum(i["status"] == "missed" for i in planned_past),
-            "not_in_plan": sum(i["date"] <= str(today) for i in not_in_plan),
+            "not_in_plan": sum(
+                i["date"] <= str(today) and i["kind"] in TRAINING_KINDS for i in not_in_plan
+            ),
         },
     }
 
@@ -510,44 +505,6 @@ def _positive(value: Any) -> float | None:
     return None
 
 
-def _icu_item(row: dict[str, Any]) -> dict[str, Any]:
-    """An intervals.icu WORKOUT event as a calendar row."""
-    from vibesynergy.query.icu_plan import version_token
-
-    raw = row.get("raw") or {}
-    sport_family = family(row.get("type")) or family(row.get("name"))
-    extra: dict[str, Any] = {
-        "icu_id": row["id"],
-        "external_id": row.get("external_id"),
-        "brick_part": row.get("brick_part"),
-        "multi_part": multisport.event_part(row.get("external_id"), row.get("brick_part")),
-        "icu_type": row.get("type"),
-        "description": row.get("description"),
-        "tags": row.get("tags") or [],
-        "version": version_token(row.get("updated"), raw),
-        "ownership": "intervals_plan" if row.get("source") == "plan" else "intervals",
-    }
-    if duration := _positive(raw.get("moving_time")):
-        extra["duration_s"] = duration
-    if distance := _positive(raw.get("distance")):
-        extra["distance_m"] = distance
-    if load := _positive(raw.get("icu_training_load")):
-        extra["load"] = load
-    return {
-        "source": INTERVALS,
-        "source_id": row["id"],
-        "date": row["date"],
-        "kind": "workout",
-        "title": row.get("name"),
-        "sport": _SPORT.get(sport_family or "", row.get("type")),
-        "plan_id": None,
-        "is_race": False,
-        "primary": False,
-        "extra": extra,
-        "plan_source": INTERVALS,
-    }
-
-
 def _model_item(row: dict[str, Any]) -> dict[str, Any]:
     """A session of VibeSynergy's own plan as a calendar row."""
     sport_family = family(row.get("type")) or family(row.get("name"))
@@ -561,10 +518,6 @@ def _model_item(row: dict[str, Any]) -> dict[str, Any]:
     if row.get("icu_id"):
         # Garmin delivery and the activity pairing are keyed by the intervals.icu copy.
         extra["icu_id"] = row["icu_id"]
-    # The planned load is intervals.icu's estimate until the model plans load itself.
-    copy = (row.get("icu_event") or {}).get("raw") or {}
-    if load := _positive(copy.get("icu_training_load")):
-        extra["load"] = load
     if duration := _positive(row.get("duration_s")):
         extra["duration_s"] = duration
     if distance := _positive(row.get("distance_m")):
@@ -667,34 +620,41 @@ def _merge_plan(
     return merged, outside
 
 
-def _merge_races(items: list[dict], icu_races: list[dict], *, add: bool = True) -> list[dict]:
-    """Add intervals.icu races. One on the day of a Garmin race is that race, linked."""
-    if not icu_races:
-        return items
-    garmin: dict[date, list[dict]] = defaultdict(list)
+NO_PLAN: dict[str, Any] = {"workouts": [], "notes": [], "targets": [], "plan_start": None}
+
+
+def _fold_events(items: list[dict], own_races: list[dict]) -> tuple[list[dict], list[dict]]:
+    """VibeSynergy's races join the calendar; Garmin events are copies at most.
+
+    A Garmin event linked to a race, or on the day of one, folds into that race as
+    ``extra.garmin``. Any other Garmin event is not in the plan: it is listed, never read as
+    a race. Returns the calendar rows and those other events.
+    """
+    by_link = {
+        str((r["extra"].get("links") or {}).get("garmin")): r
+        for r in own_races
+        if (r["extra"].get("links") or {}).get("garmin")
+    }
+    by_day: dict[date, list[dict]] = defaultdict(list)
+    for r in own_races:
+        by_day[_as_day(r["date"])].append(r)
+    kept: list[dict] = []
+    outside: list[dict] = []
     for item in items:
-        if item["kind"] == "event" and (item.get("is_race") or item.get("primary")):
-            garmin[_as_day(item["date"])].append(item)
-    added = []
-    for race in icu_races:
-        same = garmin.get(_as_day(race["date"])) or []
-        if not same:
-            # A copy: the window rows and the upcoming rows are formatted separately.
-            added.append({**race, "extra": dict(race["extra"])})
+        if item["kind"] != "event" or item["source"] == VIBESYNERGY:
+            kept.append(item)
             continue
-        extra = race["extra"]
-        same[0]["extra"] = {
-            **(same[0].get("extra") or {}),
-            "icu_priority": extra["icu_priority"],
-            "intervals": {
-                "id": extra["icu_id"],
-                "category": extra["category"],
-                "title": race.get("title"),
-            },
-        }
-    if not added or not add:
-        return items
-    return sorted(items + added, key=lambda i: (_as_day(i["date"]), i["kind"]))
+        target = by_link.get(str(item["source_id"])) or next(
+            iter(by_day.get(_as_day(item["date"])) or []), None
+        )
+        if target is not None:
+            target["extra"]["garmin"] = {"source_id": item["source_id"], "title": item.get("title")}
+            continue
+        item["in_plan"] = False
+        item["plan_source"] = item["source"]
+        outside.append(item)
+    added = [{**r, "extra": dict(r["extra"])} for r in own_races]
+    return sorted(kept + added, key=lambda i: (_as_day(i["date"]), i["kind"])), outside
 
 
 def _weeks(
@@ -803,25 +763,16 @@ def _plan_row(p: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _priority_of(
-    event: dict[str, Any], saved: dict[tuple[str, str], str]
-) -> tuple[str | None, str]:
-    source = event.get("source")
-    source_id = event.get("source_id")
-    stored = saved.get((source, source_id)) if source and source_id else None
-    letter, origin = effective_priority(bool(event.get("primary")), stored)
-    if letter is None:
-        # The intervals.icu race category (RACE_A/B/C) when nothing else sets it.
-        icu = (event.get("extra") or {}).get("icu_priority")
-        if icu in ("A", "B", "C"):
-            return icu, "intervals"
-    return letter, origin
+def _priority_of(event: dict[str, Any]) -> tuple[str | None, str]:
+    """VibeSynergy's own A/B/C letter: ``saved`` when set, else ``unset`` (#111)."""
+    letter = event.get("priority")
+    if letter in ("A", "B", "C"):
+        return letter, "saved"
+    return None, "unset"
 
 
-def _event_row(
-    e: dict[str, Any], today: date, saved: dict[tuple[str, str], str] | None = None
-) -> dict[str, Any]:
-    priority, origin = _priority_of(e, saved or {})
+def _event_row(e: dict[str, Any], today: date) -> dict[str, Any]:
+    priority, origin = _priority_of(e)
     return {
         "date": str(e["date"]),
         "days_away": (e["date"] - today).days,
@@ -834,8 +785,10 @@ def _event_row(
         "priority_origin": origin,
         "location": (e["extra"] or {}).get("location"),
         "target": (e["extra"] or {}).get("completionTarget"),
-        "intervals_id": (e["extra"] or {}).get("icu_id")
-        or ((e["extra"] or {}).get("intervals") or {}).get("id"),
+        "sport": e.get("sport"),
+        "race_id": e.get("race_id"),
+        # The id of the race's copy in intervals.icu, for a link; never read back.
+        "intervals_id": (e["extra"] or {}).get("icu_id"),
     }
 
 
@@ -848,22 +801,17 @@ def _event_day(event: dict[str, Any]) -> date:
     return date.fromisoformat(str(value)[:10])
 
 
-def race_phase_from_events(
-    events: list[dict[str, Any]],
-    today: date,
-    saved: dict[tuple[str, str], str] | None = None,
-) -> dict[str, Any]:
+def race_phase_from_events(events: list[dict[str, Any]], today: date) -> dict[str, Any]:
     """The next A race sets the phase. An earlier race is a tune-up, not the taper.
 
-    A is the stored race priority when one exists. Otherwise a Garmin primary event is A.
-    With no A race, Garmin's primary event still leads, then the soonest race.
+    ``events`` are VibeSynergy's races (``races.rows``); the priority is their own letter.
+    The primary race is the next A race (#120). With no A race the soonest race leads.
     """
-    saved = saved or {}
     races = [event for event in events if event.get("is_race") or event.get("primary")]
     races.sort(key=_event_day)
     ranked: list[tuple[dict[str, Any], str | None, str]] = []
     for event in races:
-        letter, origin = _priority_of(event, saved)
+        letter, origin = _priority_of(event)
         ranked.append((event, letter, origin))
     chosen = next((item for item in ranked if item[1] == "A"), None)
     if chosen is None:
@@ -916,58 +864,23 @@ def race_phase_from_events(
 
 
 def calendar_races(engine: Engine, today: date) -> list[dict[str, Any]]:
-    """Upcoming races on the plan calendar, whether or not a coach event source is on.
+    """Upcoming races: VibeSynergy's own race list, with its A/B/C priority (#111)."""
+    from vibesynergy.query import races
 
-    Priority is VibeSynergy's own A/B/C choice when one is stored. Otherwise a Garmin
-    primary race is A, and every other race is unset.
-    """
-    saved = stored_priorities(engine)
-    with engine.connect() as conn:
-        events = [
-            dict(row._mapping)
-            for row in conn.execute(
-                select(planned_item)
-                .where(
-                    planned_item.c.kind == "event",
-                    planned_item.c.date >= today,
-                    or_(planned_item.c.is_race, planned_item.c.primary),
-                )
-                .order_by(planned_item.c.date)
-            )
-        ]
-    from vibesynergy.query import icu_plan
-
-    # An intervals.icu race links to its Garmin twin (its category fills an unset priority).
-    # One only in intervals.icu is listed too, but only Garmin races can store a priority.
-    events = _merge_races(events, icu_plan.races(engine, today))
-    races = []
-    for event in events:
-        row = _event_row(event, today, saved)
+    out = []
+    for event in races.rows(engine, today, since=today):
+        row = _event_row(event, today)
         row["name"] = event["title"]
-        row["editable"] = event.get("source") != INTERVALS
-        races.append(row)
-    return races
+        row["editable"] = True
+        out.append(row)
+    return out
 
 
 def race_phase(engine: Engine, today: date) -> dict[str, Any]:
     """Cheap shared projection for daily reads that do not need a full calendar."""
-    with engine.connect() as conn:
-        events = [
-            dict(row._mapping)
-            for row in conn.execute(
-                select(planned_item)
-                .where(
-                    planned_item.c.kind == "event",
-                    planned_item.c.date >= today,
-                    or_(planned_item.c.is_race, planned_item.c.primary),
-                )
-                .order_by(planned_item.c.date)
-            )
-        ]
-    from vibesynergy.query import icu_plan
+    from vibesynergy.query import races
 
-    events = _merge_races(events, icu_plan.races(engine, today))
-    return race_phase_from_events(events, today, stored_priorities(engine))
+    return race_phase_from_events(races.rows(engine, today, since=today), today)
 
 
 def _mirror_title_key(item: dict) -> tuple[date, str] | None:
@@ -1045,26 +958,12 @@ def _overlaps_start(item: dict, day: date) -> bool:
 
 
 def planned_moving_s(engine: Any, window: Window) -> float | None:
-    """Planned workout time in the window from the plan (VibeSynergy's own when it leads,
-    else intervals.icu's), or None without a plan.
+    """Planned workout time in the window from VibeSynergy's plan, or None without a plan.
 
     The safety floor compares the last 7 days with this: a build week that follows
     the plan is no load spike, even after a quiet block."""
-    from sqlalchemy import func
-
     from vibesynergy.query import plan_model
-    from vibesynergy.store.schema import icu_event
 
     if own := plan_model.leading_plan(engine):
         return plan_model.planned_seconds(engine, own, window.start, window.end) or None
-
-    moving = func.json_extract(icu_event.c.raw, "$.moving_time")
-    with engine.connect() as conn:
-        rows = conn.execute(
-            select(moving).where(
-                icu_event.c.category == "WORKOUT",
-                icu_event.c.date.between(window.start, window.end),
-            )
-        ).all()
-    total = sum(float(r[0]) for r in rows if isinstance(r[0], (int, float)) and r[0] > 0)
-    return total or None
+    return None

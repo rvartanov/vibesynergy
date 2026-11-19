@@ -16,10 +16,7 @@ import copy
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import select
-
 from vibesynergy.query import evidence, garmin_strength, thresholds, workout_model
-from vibesynergy.store.schema import icu_event
 
 # Indoor rides (VirtualRide) stay with intervals.icu, which also feeds Zwift.
 SPORTS = ("swim", "run", "ride")
@@ -340,20 +337,9 @@ def _bricks(
 
 def _linked_groups(engine, today: date, lookahead: int) -> list[list[str]]:
     """The planned multisports in the window, as event ids in order, whatever the sports."""
-    from vibesynergy.query import multisport
+    from vibesynergy.query import multisport, plan_model
 
-    with engine.connect() as conn:
-        rows = conn.execute(
-            select(
-                icu_event.c.id, icu_event.c.date, icu_event.c.external_id, icu_event.c.brick_part
-            )
-            .where(
-                icu_event.c.category == "WORKOUT",
-                icu_event.c.date >= today,
-                icu_event.c.date <= today + timedelta(days=lookahead),
-            )
-            .order_by(icu_event.c.date, icu_event.c.id)
-        ).all()
+    rows = plan_model.delivery_rows(engine, today, today + timedelta(days=lookahead))
     by_day: dict[date, list[Any]] = {}
     for row in rows:
         by_day.setdefault(row.date, []).append(row)
@@ -372,31 +358,19 @@ def desired(
     lookahead: int,
     mark: garmin_strength.Marks = garmin_strength.MARK,
 ) -> dict[str, dict]:
-    """Upcoming plan workouts of the switched-on sports, by intervals.icu event id."""
-    from vibesynergy.query import threshold_push
+    """Upcoming sessions of VibeSynergy's plan in the switched-on sports, by the id of
+    their intervals.icu copy. The content is the plan's own (#111), not the copy's."""
+    from vibesynergy.query import plan_model, threshold_push
 
     out: dict[str, dict] = {}
     seen: dict[str, Any] = {}
     for sport in (s for s in sports if s in SPORTS):
         values, _ids, _zones = threshold_push.plan_for(engine, _THRESHOLD_SPORT[sport])
-        with engine.connect() as conn:
-            rows = conn.execute(
-                select(
-                    icu_event.c.id,
-                    icu_event.c.date,
-                    icu_event.c.name,
-                    icu_event.c.description,
-                    icu_event.c.external_id,
-                    icu_event.c.brick_part,
-                )
-                .where(
-                    icu_event.c.category == "WORKOUT",
-                    icu_event.c.type.in_(_ICU_TYPES[sport]),
-                    icu_event.c.date >= today,
-                    icu_event.c.date <= today + timedelta(days=lookahead),
-                )
-                .order_by(icu_event.c.date)
-            ).all()
+        rows = [
+            r
+            for r in plan_model.delivery_rows(engine, today, today + timedelta(days=lookahead))
+            if r.type in _ICU_TYPES[sport]
+        ]
         for row in rows:
             parsed = workout_model.parse_intervals(row.description)
             if parsed.unparsed or not parsed.steps:

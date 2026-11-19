@@ -1,6 +1,6 @@
 # Plan in VibeSynergy: design
 
-Status: built. Steps 1 to 4 of the change-over below are in the code: the pages and the coach read VibeSynergy's own plan since [#26](https://github.com/rvartanov/vibesynergy/pull/26), and `vibesynergy plan source` says who leads. This is the design it was built from (5-11-2026); commands and tool names below are the ones that exist now. Part of the grand plan, phase 1. Feeds (Garmin delivery) (horizon guard) (planning page) and (planner).
+Status: built. Steps 1 to 4 of the change-over below are in the code: the pages and the coach read VibeSynergy's own plan since [#26](https://github.com/rvartanov/vibesynergy/pull/26). Since #111 VibeSynergy is the only source: there is no shadow mode and no `vibesynergy plan source` any more (migration 0053 made a shadow plan lead), `vibesynergy plan import` is an explicit one-time copy, and races live in VibeSynergy's `race` table. The switch-back steps below are history. This is the design it was built from (5-11-2026); commands and tool names below are the ones that exist now. Part of the grand plan, phase 1. Feeds (Garmin delivery) (horizon guard) (planning page) and (planner).
 
 ## Goal
 

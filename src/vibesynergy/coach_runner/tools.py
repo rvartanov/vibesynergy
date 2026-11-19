@@ -30,7 +30,8 @@ COACH_SCOPES = frozenset({"read", "coach.write", "plan.write"})
 # ``publish`` because the insight run writes the one public line; its tools are limited to
 # INSIGHT_TOOLS, so it cannot publish anything else.
 INSIGHT_SCOPES = frozenset({"read", "coach.write", "publish"})
-# The insight run reads the activity, the plan and the rules; nothing private.
+# The insight run reads the activity, the plan and the rules; nothing private. The plan is
+# VibeSynergy's own (vibesynergy_plan, vibesynergy_week), never intervals.icu's copy (#111).
 INSIGHT_TOOLS = frozenset(
     {
         "vibesynergy_kb_get",
@@ -38,7 +39,6 @@ INSIGHT_TOOLS = frozenset(
         "vibesynergy_activity_insights",
         "vibesynergy_activity",
         "vibesynergy_intervals",
-        "vibesynergy_icu_events",
         "vibesynergy_week",
         "vibesynergy_plan",
         "vibesynergy_thresholds",

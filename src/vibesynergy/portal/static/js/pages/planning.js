@@ -56,7 +56,7 @@ export async function render(view, ctx) {
   const progress = d.week;
   view.innerHTML = `
     <div class="page-head"><div><h1>${t("Planning & progress")}</h1>
-      <p class="sub">${esc(d.plan_source === "vibesynergy" ? t("Your AI coach changes the plan; you can move or skip a session in the calendar.") : t("Read-only. The plan is changed in intervals.icu or through your AI coach."))} ${esc(t("Download the plan:"))} <a href="${esc(url(`plan/export.xlsx?lang=${language()}`))}" download>Excel</a> · <a href="${esc(url(`plan/export.pdf?lang=${language()}`))}" download>PDF</a> · <a href="${esc(url("plan/export.csv"))}" download>CSV</a> · <a href="${esc(url("plan/booklet"))}" target="_blank" rel="noopener">${esc(t("Coach booklet (print)"))}</a></p></div>
+      <p class="sub">${esc(d.plan_source === "vibesynergy" ? t("Your AI coach changes the plan; you can move or skip a session in the calendar.") : t("No plan yet. Your AI coach makes one with you."))} ${esc(t("Download the plan:"))} <a href="${esc(url(`plan/export.xlsx?lang=${language()}`))}" download>Excel</a> · <a href="${esc(url(`plan/export.pdf?lang=${language()}`))}" download>PDF</a> · <a href="${esc(url("plan/export.csv"))}" download>CSV</a> · <a href="${esc(url("plan/booklet"))}" target="_blank" rel="noopener">${esc(t("Coach booklet (print)"))}</a></p></div>
       ${pickerHtml(plan.phases || [], weeks, progress.start, d.today)}</div>
     ${tabsHtml("")}
     ${weeks.length || plan.races?.length || progress.has_plan ? "" : noPlanHtml()}
@@ -225,7 +225,7 @@ function trendHtml(trend) {
   const phaseRows = phases.map((p) => `<tr><th scope="row">${esc(p.phase)}<div class="sub">${esc(`${shortDate(p.start)} – ${shortDate(p.end)}`)}</div></th>
       <td>${isNum(p.goal_s) ? esc(hoursMinutes(p.goal_s)) : "–"}</td><td>${esc(hoursMinutes(p.done_s || 0))}</td>
       <td>${esc(pct(p.done_pct))}</td><td>${esc(pct(p.sessions_done_pct))}</td><td>${esc(pct(p.compliance_avg))}</td></tr>`).join("");
-  const head = `<thead><tr><th scope="col">${t("Week")}</th><th scope="col">${t("Planned")}</th><th scope="col">${t("Done")}</th><th scope="col">${t("Of plan")}</th><th scope="col">${t("Workouts as planned")}</th><th scope="col">${t("intervals.icu compliance")}</th></tr></thead>`;
+  const head = `<thead><tr><th scope="col">${t("Week")}</th><th scope="col">${t("Planned")}</th><th scope="col">${t("Done")}</th><th scope="col">${t("Of plan")}</th><th scope="col">${t("Workouts as planned")}</th><th scope="col">${t("Time as planned")}</th></tr></thead>`;
   const phaseHead = head.replace(`>${t("Week")}<`, `>${t("Phase")}<`);
   return `<section class="card" aria-labelledby="plan-trend-title">
     <h2 id="plan-trend-title">${t("Plan against done")}</h2>
@@ -234,7 +234,7 @@ function trendHtml(trend) {
     <details class="details"><summary>${t("Per week and phase")}</summary>
       <div class="table-wrap"><table>${head}<tbody>${rows}</tbody></table></div>
       ${phaseRows ? `<h3>${t("Per phase")}</h3><div class="table-wrap"><table>${phaseHead}<tbody>${phaseRows}</tbody></table></div>` : ""}
-      <p class="sub">${esc(t("Workouts as planned: of the planned workouts whose day has passed, the share done as planned. intervals.icu compliance: its own score for workouts it paired with an activity."))}</p>
+      <p class="sub">${esc(t("Workouts as planned: of the planned workouts whose day has passed, the share done as planned. Time as planned: the time you trained against the time planned, for the workouts you did."))}</p>
     </details>
   </section>`;
 }

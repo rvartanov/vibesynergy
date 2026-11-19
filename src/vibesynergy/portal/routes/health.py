@@ -308,7 +308,7 @@ def register(kit: PortalKit) -> None:
 
     @router.post("/race-priority")
     def save_race_priority(request: RacePriorityRequest) -> dict[str, Any]:
-        """Store A, B or C for one race. Null clears the choice. Sync does not overwrite it."""
+        """Store A, B or C on one of VibeSynergy's races. Null clears it. No sync changes it."""
         from vibesynergy.query.race_priority import set_priority
 
         try:
