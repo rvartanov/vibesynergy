@@ -1,13 +1,19 @@
 WEBVTT
 
-00:00:02.044 --> 00:00:08.719
+00:00:02.042 --> 00:00:08.645
 Settings → Sharing: give someone or an app access, without your password.
 
-00:00:08.769 --> 00:00:12.857
+00:00:08.695 --> 00:00:12.742
 A share link: choose a name, how long it works and which pages.
 
-00:00:12.907 --> 00:00:17.384
+00:00:12.792 --> 00:00:15.868
 The link is ready to copy; you can revoke it any time.
 
-00:00:17.434 --> 00:00:24.642
+00:00:15.918 --> 00:00:20.604
+Each app and token gets a role: your own agent, the primary AI coach that gives your daily advice, or an advisory AI coach for a second opinion and proposals.
+
+00:00:20.654 --> 00:00:25.669
+There is always exactly one primary AI coach. A new app starts as advisory, until you choose.
+
+00:00:25.719 --> 00:00:32.857
 A token gives an AI app (MCP) access. Choose what it may do.

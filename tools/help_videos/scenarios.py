@@ -102,7 +102,10 @@ def _today(r: Rec):
         advice.locator("[data-second-opinion-differs]").count() > 0,
         "a second opinion that differs should be flagged",
     )
-    r.point(second)
+    if second.get_attribute("open") is None:
+        r.click(second.locator("summary"))
+    else:
+        r.point(second)
     r.say(
         "Werkt er een tweede AI-coach mee, dan staat zijn second opinion erbij. Wijkt die af "
         "van je AI-coach, dan zie je dat meteen. Je eigen AI-coach heeft het laatste woord.",
