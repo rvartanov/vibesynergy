@@ -228,9 +228,7 @@ function raceRow(race) {
   const current = race.priority || "";
   const options = [["", t("Not set")], ["A", "A"], ["B", "B"], ["C", "C"]];
   const choices = options.map(([value, label]) => `<option value="${esc(value)}"${value === current ? " selected" : ""}>${esc(label)}</option>`).join("");
-  const priority = race.editable === false
-    ? `<span class="sub">${esc(race.priority ? t("{letter} race", { letter: race.priority }) : t("Not set"))} · ${esc(t("set in intervals.icu"))}</span>`
-    : `<label>${esc(t("Priority for {name}", { name }))} <select class="btn" name="race_priority">${choices}</select></label>`;
+  const priority = `<label>${esc(t("Priority for {name}", { name }))} <select class="btn" name="race_priority">${choices}</select></label>`;
   return `<li class="ds-icon-item ds-icon-item--race" data-source="${esc(race.source)}" data-source-id="${esc(race.source_id)}">${messageIcon("race")}<span><a href="#/dashboard/${esc(race.date)}">${esc(shortDate(race.date))}</a> ${esc(name)} ${priority}</span></li>`;
 }
 

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from test_mcp_today import call
 from test_plan_intervals import EVENTS, MONDAY, _event, _seed
 from test_week_progress import WEDNESDAY, _more
+from tests_helpers import adopt_icu_plan
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.normalize.normaliser import write_records
@@ -38,6 +39,14 @@ def _future_workout(runtime) -> None:
             description="Main set\n- 60m 85%",
         ),
         _event(
+            62,
+            "2026-11-09",
+            "NOTE",
+            "Wk 2 · Instap",
+            external_id="lake27:week:02",
+            for_week=True,
+        ),
+        _event(
             61,
             "2026-11-09",
             "TARGET",
@@ -63,6 +72,7 @@ def _future_workout(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
 
 
 def test_plan_vs_done_per_week_and_phase(runtime) -> None:
@@ -75,8 +85,8 @@ def test_plan_vs_done_per_week_and_phase(runtime) -> None:
     assert week["number"] == 1 and week["phase"] == "Instap"
     ride = next(s for s in week["sports"] if s["family"] == "ride")
     assert ride["goal_s"] == 11700 and ride["basis"] == "target"
-    # Monday's long ride was paired by intervals.icu at 95.2 % compliance.
-    assert week["compliance_avg"] == 95.2
+    # Time done against time planned in VibeSynergy's plan, not intervals.icu's 95.2 (#111).
+    assert week["compliance_avg"] == 96.2
     assert week["counts"]["done"] >= 1
     assert week["done_pct"] == round(week["done_s"] / week["goal_s"] * 100, 1)
     # The week before has plan workouts but no weekly note, so no phase name.
@@ -154,7 +164,7 @@ def test_planning_api_and_old_addresses(runtime, monkeypatch) -> None:
         # Planning shows whether the coming days are on the Garmin.
         assert data["horizon"] is not None and {"missing", "fill"} <= set(data["horizon"])
         assert data["horizon"]["has_plan"] is True
-        assert data["plan_source"] == "intervals"  # the page's text follows who leads
+        assert data["plan_source"] == "vibesynergy"  # the only plan source (#111)
         assert data["trend"]["weeks"][-1]["start"] == "2026-11-02"
         assert data["fitness"]["columns"][7] == "source"
         assert data["projection"]["label"] == "projection"
@@ -191,7 +201,7 @@ def test_mcp_plan_vs_done_and_projection(runtime, monkeypatch) -> None:
     _more(runtime)
     done = call(runtime, "vibesynergy_plan_vs_done", start="2026-11-02", end="2026-11-08")["data"]
     assert [w["start"] for w in done["weeks"]] == ["2026-11-02"]
-    assert done["weeks"][0]["compliance_avg"] == 95.2
+    assert done["weeks"][0]["compliance_avg"] == 96.2
     projected = call(runtime, "vibesynergy_projection")["data"]
     assert projected["label"] == "projection" and "assumptions" in projected
 

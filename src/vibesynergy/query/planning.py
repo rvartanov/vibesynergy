@@ -3,8 +3,9 @@ plan leads.
 
 - ``plan_vs_done``: per Monday-to-Sunday week (the same ``week_progress`` the start page's
   week card uses), the goal per sport (the plan's weekly target time, else the planned
-  workouts) against time done, the workouts done / changed / missed, and intervals.icu's
-  compliance for the paired ones; plus the same per training phase (from the weekly notes).
+  workouts) against time done, the workouts done / changed / missed, and their compliance
+  (the time done against the time planned in VibeSynergy's plan, never intervals.icu's own
+  score, #111); plus the same per training phase (from the weekly notes).
 - ``projection``: fitness, fatigue and form from today to the last upcoming race if the plan
   is done as written, run through VibeSynergy's model (``fitness_model.project``) from
   today's values. A session's planned load comes from its steps (``planned_load``); one
@@ -105,11 +106,11 @@ def _pct(part: float | None, whole: float | None) -> float | None:
 def _week_row(progress: dict[str, Any], plan_week: dict | None, today: date) -> dict[str, Any]:
     counts = progress["counts"]
     judged = counts["done"] + counts["changed"] + counts["missed"]
-    # The column is intervals.icu's compliance: the time-based fallback (8-11) stays out.
+    # Compliance of the planned workouts that were done: time done against time planned.
     paired = [
         s["compliance"]
         for s in progress["sessions"]
-        if s.get("compliance") and s.get("compliance_source") == "intervals"
+        if s.get("compliance") and s.get("in_plan") and s.get("status") in ("done", "changed")
     ]
     sports = []
     for sport in progress["sports"]:
@@ -274,8 +275,8 @@ def projection(
     inputs = training.ThresholdTimeline(engine, athlete).on(today)
     rates = family_rates(engine, today, athlete, parquet=parquet)
     plan = plan_q.plan(engine, Window(today, horizon), today, include_sync_status=False)
-    # VibeSynergy's own plan holds each session's steps; an intervals.icu workout has them
-    # in its text only.
+    # VibeSynergy's plan holds each session's steps; a Garmin-only workout (before the plan
+    # starts) has them in its text at most.
     own = plan_model.leading_plan(engine)
     own_steps = plan_model.session_steps(engine, own, today, horizon) if own else {}
     daily: dict[date, float] = defaultdict(float)

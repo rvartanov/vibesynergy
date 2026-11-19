@@ -8,6 +8,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from fastapi import Request
+from tests_helpers import add_race
 
 from vibesynergy.core.timeutil import today_in
 from vibesynergy.mcp.server import build_server
@@ -18,6 +19,7 @@ from vibesynergy.query import assessments, plan, views
 
 
 def _race(runtime, day):
+    # A Garmin event of the same race is a copy at most: the race is VibeSynergy's (#111).
     raw = runtime.raw.put(
         source="garmin",
         dataset="scheduled_workouts",
@@ -28,20 +30,18 @@ def _race(runtime, day):
     with runtime.engine.begin() as conn:
         write_records(
             conn,
-            [
-                PlannedItem(
-                    "event:synthetic-race",
-                    day,
-                    "event",
-                    title="Synthetic Ultra",
-                    is_race=True,
-                    primary=True,
-                    extra={"completionTarget": {"unitType": "distance", "value": 75}},
-                )
-            ],
+            [PlannedItem("event:synthetic-race", day, "event", title="Ultra", is_race=True)],
             source="garmin",
             raw_item_id=raw.id,
         )
+    return add_race(
+        runtime.engine,
+        "Synthetic Ultra",
+        day,
+        "A",
+        distance_m=75000.0,
+        links={"garmin": "event:synthetic-race"},
+    )
 
 
 def test_no_race_is_null_in_shared_and_mcp_outputs(runtime):
@@ -76,16 +76,16 @@ def test_taper_starts_fourteen_days_before_race():
 
 def test_race_in_nine_days_reaches_mcp_portal_and_coaching_state(runtime):
     today = today_in(runtime.settings.timezone)
-    _race(runtime, today + timedelta(days=9))
+    race_id = _race(runtime, today + timedelta(days=9))
     expected_race = {
         "name": "Synthetic Ultra",
         "date": str(today + timedelta(days=9)),
         "days_to_go": 9,
         "distance_m": 75000,
-        "source": "garmin",
-        "source_id": "event:synthetic-race",
+        "source": "vibesynergy",
+        "source_id": race_id,
         "priority": "A",
-        "priority_origin": "derived",
+        "priority_origin": "saved",
         "is_primary": True,
     }
     expected_phase = {"phase": "taper", "days_left": 9}

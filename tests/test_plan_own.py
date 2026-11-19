@@ -181,20 +181,19 @@ def test_a_session_with_a_copy_carries_the_intervals_event_id(runtime) -> None:
     from test_plan_model import EVENTS, _put
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
     day = date(2026, 11, 17)
+    # Before the one-time import intervals.icu's events are no plan at all (#111).
     before = plan.plan(runtime.engine, Window(day, day), day)
-    plan_model.set_source(runtime.engine, "vibesynergy")
+    assert _sessions(before) == [] and before["plan_source"] == "garmin"
+    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
     after = plan.plan(runtime.engine, Window(day, day), day)
-    (old,), (new,) = _sessions(before), _sessions(after)
-    assert (old["source"], before["plan_source"]) == ("intervals_icu", "intervals_icu")
+    (new,) = _sessions(after)
     assert (new["source"], after["plan_source"]) == ("vibesynergy", "vibesynergy")
-    assert new["session_id"] == "lake27:2026-11-17:run-test" and "session_id" not in old
-    assert new["extra"]["icu_id"] == old["extra"]["icu_id"] == "3"
-    for key in ("title", "sport", "date", "status"):
-        assert new[key] == old[key]
-    assert new["extra"]["duration_s"] == old["extra"]["duration_s"] == 2520
-    assert after["weeks"][0]["note"]["text"] == before["weeks"][0]["note"]["text"]
+    assert new["session_id"] == "lake27:2026-11-17:run-test"
+    assert new["extra"]["icu_id"] == "3"
+    assert (new["title"], new["sport"]) == ("Looptest 30'", "running")
+    assert new["extra"]["duration_s"] == 2520
+    assert after["weeks"][0]["note"]["text"] == "Tests: looptest 30'."
     assert [(t["family"], t["time_s"]) for t in after["weeks"][0]["targets"]] == [("run", 16200)]
 
 
@@ -290,7 +289,6 @@ def test_a_plan_change_dates_from_the_session_not_from_the_intervals_copy(runtim
 
     _put(runtime, EVENTS)
     plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    plan_model.set_source(runtime.engine, "vibesynergy")
     moved = plan_model.move_session(
         runtime.engine,
         session_id="lake27:2026-11-17:run-test",

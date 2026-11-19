@@ -11,7 +11,7 @@ from vibesynergy.core.timeutil import Window
 from vibesynergy.derive import unify
 from vibesynergy.model import Activity, CalendarSpan, PlannedItem
 from vibesynergy.normalize.normaliser import write_records
-from vibesynergy.query import plan
+from vibesynergy.query import plan, races
 from vibesynergy.sources.garmin.mappers import map_calendar, map_training_plans
 from vibesynergy.store.raw import RawRecord
 
@@ -168,6 +168,7 @@ def test_plan_compares_planned_with_done(runtime) -> None:
     )
     with runtime.engine.begin() as conn:
         write_records(conn, [*records, run], source="garmin", raw_item_id=stored.id)
+    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
     unify.rebuild(runtime.engine)
 
     out = plan.plan(
@@ -313,22 +314,25 @@ def test_primary_race_wins(runtime):
             source="garmin",
             raw_item_id=raw.id,
         )
+    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
     phase = plan.race_phase(runtime.engine, today)
     assert phase["next_race"]["name"] == "Veluwe Ultra Trail 75 km"
     assert phase["next_race"]["days_to_go"] == 43
     assert phase["plan_phase"] == {"phase": "build", "days_left": 43 - plan.TAPER_DAYS}
-    assert phase["next_race"]["source_id"] == "event:a-race"
+    # Garmin's primary race became an A race in VibeSynergy; primary is the next A race.
+    assert phase["next_race"]["source"] == "vibesynergy"
+    assert phase["next_race"]["source_id"] == "2026-11-28-veluwe-ultra-trail-75-km"
     assert phase["next_race"]["priority"] == "A"
-    assert phase["next_race"]["priority_origin"] == "derived"
+    assert phase["next_race"]["priority_origin"] == "saved"
     assert phase["next_race"]["is_primary"] is True
     assert phase["supporting"][0] == {
         "name": "Sallandse 30 km",
         "date": "2026-10-31",
         "days_to_go": 15,
-        "source": "garmin",
-        "source_id": "event:b-race",
+        "source": "vibesynergy",
+        "source_id": "2026-10-31-sallandse-30-km",
         "priority": None,
-        "priority_origin": "derived",
+        "priority_origin": "unset",
         "is_primary": False,
     }
     later = dashboard.dashboard(

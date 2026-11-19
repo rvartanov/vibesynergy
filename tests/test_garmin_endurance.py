@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
+from tests_helpers import adopt_icu_plan
+
 from vibesynergy.normalize.normaliser import write_records
 from vibesynergy.query import garmin_endurance as ge
 from vibesynergy.query import garmin_strength as gs
@@ -71,6 +73,7 @@ def _swim_event(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
 
 
 def test_swim_is_delivered_only_when_switched_on(runtime) -> None:
@@ -156,6 +159,7 @@ def _events(runtime, events) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
 
 
 def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> None:

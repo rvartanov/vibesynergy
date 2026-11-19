@@ -253,11 +253,12 @@ def register(kit: ToolKit) -> None:
         """Plan against done per Monday-to-Sunday week and per training phase, the
         same numbers as the Planning & progress page. Per week: goal_s per sport
         (the plan's weekly target time, else the planned workouts; basis says which),
-        done_s, done_pct, planned_load (intervals.icu's estimate of the planned workouts) and
+        done_s, done_pct, planned_load (from the planned sessions' own steps) and
         done_load (VibeSynergy's own load of the activities), counts of done / changed /
         missed / extra workouts, sessions_done_pct (done of the planned workouts
-        whose day passed) and compliance_avg (intervals.icu's compliance of the paired
-        ones). start/end are dates (their Mondays count); default the ``weeks`` weeks
+        whose day passed) and compliance_avg (time done against time planned, of the
+        planned workouts that were done). All from VibeSynergy's plan, never
+        intervals.icu's copy. start/end are dates (their Mondays count); default the ``weeks`` weeks
         ending with this one (at most 52). Per-workout detail of one week: vibesynergy_week."""
         first = _date(start) if start else None
         last = _date(end) if end else None
@@ -300,19 +301,19 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_plan(
         period: str | None = None, start: str | None = None, end: str | None = None
     ) -> dict[str, Any]:
-        """The training calendar. From plan_start on, the plan is VibeSynergy's own
-        (plan_source vibesynergy; items carry session_id) or, while intervals.icu leads,
-        the intervals.icu calendar (plan_source intervals_icu): its workouts are the items,
-        a Garmin workout that is a copy of one is folded into it as garmin_copies, and any
-        other Garmin workout is listed under not_in_plan and never counted. Earlier days
-        use Garmin (and its coaching plan). Each planned workout says whether it was done
-        (matched to an activity of the same sport that day), changed, or missed; also
-        today's session, adherence, weeks (the week's note and time targets per sport, with
-        time done), and upcoming events and races with days to go. An intervals.icu race on
-        the day of a Garmin race is that race (intervals_id). Race priority: a stored
-        choice, else a Garmin primary race is A, else the intervals.icu RACE_A/B/C letter;
-        priority_origin is saved, derived or intervals. this_week and week are Monday to
-        Sunday. Default: the last 7 days and the next 28."""
+        """The training calendar. The plan is VibeSynergy's own and only that
+        (plan_source vibesynergy; items carry session_id): intervals.icu holds a one-way
+        copy and is never read as the plan. A Garmin workout that is a copy of a plan
+        session is folded into it as garmin_copies; any other Garmin workout or event
+        (Garmin Coach sessions too) is listed under not_in_plan and never counted. Before
+        plan_start, or without a plan, the Garmin calendar is used. Each planned workout
+        says whether it was done (matched to an activity of the same sport that day),
+        changed, or missed; also today's session, adherence, weeks (the week's note and time
+        targets per sport, with time done), and upcoming races with days to go. Races are
+        VibeSynergy's own (source vibesynergy, race_id) with their A/B/C priority
+        (priority_origin saved or unset); the primary race is the next A race; extra.garmin
+        names a Garmin copy and intervals_id the intervals.icu copy. this_week and week are
+        Monday to Sunday. Default: the last 7 days and the next 28."""
         named = (period or "").strip().lower()
         if named in {"this_week", "week"} and not start and not end:
             span = plan_q.calendar_week_window(today())

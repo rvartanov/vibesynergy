@@ -1,20 +1,19 @@
 """Plan horizon guard: is every planned session of the coming days on Garmin?
 
-Deterministic and read-only. A plan workout (of VibeSynergy's own plan when it leads, else
-of intervals.icu) counts as on Garmin when the calendar merge in ``plan.plan`` folded at
-least one Garmin copy into it (intervals.icu's push, VibeSynergy's own strength workout, a
-brick's multisport copy). Two copies matched by name are fine for strength and pilates
-(VibeSynergy's emoji copy next to intervals.icu's); for other sports they are a duplicate.
+Deterministic and read-only. A workout of VibeSynergy's plan (the only plan, #111) counts as
+on Garmin when the calendar merge in ``plan.plan`` folded at least one Garmin copy into it
+(intervals.icu's push, VibeSynergy's own strength workout, a brick's multisport copy). Two
+copies matched by name are fine for strength and pilates (VibeSynergy's emoji copy next to
+intervals.icu's); for other sports they are a duplicate.
 
 The window is ``DAYS``: intervals.icu pushes about six days ahead (today + 5). It grows to
 9 to 14 days when VibeSynergy delivers every sport itself.
 
 Two more checks:
 - content: a workout VibeSynergy delivers itself must carry the plan's current content (the
-  delivery fingerprint equals the plan's). A plan change (the session's plan version, or
-  intervals.icu's ``updated`` while it leads) older than an hour that is still not on Garmin
-  is ``outdated`` (the delivery job runs every few minutes). Delivery itself still reads the
-  intervals.icu copy of a session.
+  delivery fingerprint equals the plan's). A plan change (the session's plan version) older
+  than an hour that is still not on Garmin is ``outdated`` (the delivery job runs every few
+  minutes). Delivery reads the plan's own content; a change in intervals.icu is no change.
 - fill: the coach keeps the plan filled up to the last day of the window. Single rest
   days are normal, so the plan is ``behind`` when the last planned workout is two or more
   days before the window's end. Without a plan (nothing planned in the last four weeks or
@@ -27,11 +26,11 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from vibesynergy.core.timeutil import Window, utc_now
 from vibesynergy.query import plan as plan_q
-from vibesynergy.store.schema import garmin_strength_delivery, icu_event
+from vibesynergy.store.schema import garmin_strength_delivery
 
 DAYS = 6
 # intervals.icu pushes about six days ahead; sessions it still delivers (indoor rides for
@@ -147,19 +146,10 @@ def _outdated(
                 )
             )
         }
-        changed = {
-            r.id: r.updated or r.fetched_at
-            for r in conn.execute(
-                select(icu_event.c.id, icu_event.c.updated, icu_event.c.fetched_at).where(
-                    icu_event.c.id.in_(
-                        [p for w in wanted.values() for p in (w.get("parts") or [w["event_id"]])]
-                    )
-                )
-            )
-        }
-    if plan_model.leading_plan(engine):
-        # The plan changed when its session did, not when the copy in intervals.icu did.
-        changed.update(plan_model.changed_at(engine, list(changed)))
+    # The plan changed when its session did, not when the copy in intervals.icu did.
+    changed = plan_model.changed_at(
+        engine, [p for w in wanted.values() for p in (w.get("parts") or [w["event_id"]])]
+    )
     out = []
     for event_id, want in wanted.items():
         row = rows.get(event_id)
@@ -187,17 +177,8 @@ def _fill(engine: Any, today: date, end: date) -> dict[str, Any]:
         return {"planned_through": None, "behind": False}
     from vibesynergy.query import plan_model
 
-    if own := plan_model.leading_plan(engine):
-        last = plan_model.last_planned_day(engine, own, today, end)
-    else:
-        with engine.connect() as conn:
-            last = conn.execute(
-                select(func.max(icu_event.c.date)).where(
-                    icu_event.c.category == "WORKOUT",
-                    icu_event.c.date >= today,
-                    icu_event.c.date <= end,
-                )
-            ).scalar()
+    own = plan_model.leading_plan(engine)
+    last = plan_model.last_planned_day(engine, own, today, end) if own else None
     if isinstance(last, str):
         last = date.fromisoformat(last)
     behind = last is None or (end - last).days >= 2
@@ -214,15 +195,8 @@ def _has_plan(engine: Any, today: date) -> bool:
         return False
     from vibesynergy.query import plan_model
 
-    if own := plan_model.leading_plan(engine):
-        return plan_model.last_planned_day(engine, own, today - PLAN_MEMORY) is not None
-    with engine.connect() as conn:
-        found = conn.execute(
-            select(icu_event.c.id)
-            .where(icu_event.c.category == "WORKOUT", icu_event.c.date >= today - PLAN_MEMORY)
-            .limit(1)
-        ).first()
-    return found is not None
+    own = plan_model.leading_plan(engine)
+    return bool(own) and plan_model.last_planned_day(engine, own, today - PLAN_MEMORY) is not None
 
 
 def for_runtime(rt: Any, day: date) -> dict[str, Any] | None:

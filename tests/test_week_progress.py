@@ -7,6 +7,7 @@ import json
 from datetime import UTC, date, datetime
 
 from test_plan_intervals import MONDAY, SATURDAY, _seed
+from tests_helpers import adopt_icu_plan
 
 from vibesynergy.derive import unify
 from vibesynergy.model import Activity, PlannedItem
@@ -83,6 +84,7 @@ def _more(runtime) -> None:
             source="garmin",
             raw_item_id=garmin.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     # intervals.icu paired Monday's long ride with plan workout 3, at 95% compliance.
     runtime.raw.put(
         source="intervals_icu",
@@ -118,7 +120,8 @@ def test_per_sport_target_done_and_still_planned(runtime) -> None:
     out = _progress(runtime)
     assert out["start"] == "2026-11-02" and out["end"] == "2026-11-08"
     assert out["days_left"] == 4
-    assert out["season"]["name"] == "Example triathlon 2027"
+    # The season is VibeSynergy's plan, not intervals.icu's SEASON_START (#111).
+    assert out["season"]["name"] == "lake27"
     assert out["note"]["title"] == "Wk 1 · Instap"
     assert out["note"]["focus"] == "Rustig instappen."
     sports = {s["family"]: s for s in out["sports"]}
@@ -266,6 +269,7 @@ def test_an_optional_session_is_no_debt(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     out = _progress(runtime)
     ride = {s["family"]: s for s in out["sports"]}["ride"]
     assert ride["target_s"] == 11700 and ride["optional_s"] == 1800
@@ -298,7 +302,7 @@ def test_planned_sessions_carry_their_workout_text(runtime) -> None:
             "start_date_local": "2026-11-07T00:00:00",
             "name": "Duurloop Z2 30'",
             "type": "Run",
-            "description": "Rustig.\n\n- 30m Z2",
+            "description": "Rustig.\n\n- 30m Z2 HR",
             "moving_time": 1800,
             "updated": "2026-10-30T20:08:13.000Z",
         }
@@ -317,16 +321,18 @@ def test_planned_sessions_carry_their_workout_text(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     session = next(s for s in _progress(runtime)["sessions"] if s["title"] == "Duurloop Z2 30'")
-    assert session["description"] == "Rustig.\n\n- 30m Z2"
+    # VibeSynergy's own text of the session (its copy in intervals.icu is not read).
+    assert session["description"] == "Rustig.\n\nMain set\n- 30m Z2 HR"
     nov7 = date(2026, 11, 7)
     day = schedule.calendar(runtime.engine, nov7, nov7, WEDNESDAY)["days"][0]
     planned = next(p for p in day["planned"] if p["title"] == "Duurloop Z2 30'")
-    assert planned["description"] == "Rustig.\n\n- 30m Z2"
+    assert planned["description"] == "Rustig.\n\nMain set\n- 30m Z2 HR"
 
 
 def test_compliance_falls_back_to_time_done_against_time_planned() -> None:
-    """every done planned workout shows its compliance."""
-    assert week_progress.compliance_of(3600, 3300, 102.73) == (102.7, "intervals")
+    """every done planned workout shows its compliance: time done against time planned in
+    VibeSynergy's plan; intervals.icu's own score is not used (#111)."""
     assert week_progress.compliance_of(3600, 655) == (18.2, "time")
     assert week_progress.compliance_of(None, 655) == (None, None)

@@ -1,9 +1,8 @@
 """The whole training plan for the Training plan page (read-only).
 
-Weeks come from VibeSynergy's own plan when it leads (``plan_model.week_rows``), else from
-intervals.icu's weekly NOTE events (``Wk 7 · Base 1 · raceweek · ~6u``) and weekly TARGET
-events (time per sport). The next nine days list the plan workouts in full. Races are the
-same merged list ``plan`` uses (intervals.icu and Garmin, whoever leads the plan).
+Weeks come from VibeSynergy's own plan (``plan_model.week_rows``) and only from there
+(#111). The next nine days list the plan workouts in full. Races are VibeSynergy's own race
+list (``races``), as in ``plan``.
 """
 
 from __future__ import annotations
@@ -13,13 +12,11 @@ from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import Engine, or_, select
+from sqlalchemy import Engine, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import icu_plan
 from vibesynergy.query import plan as plan_q
-from vibesynergy.query.race_priority import stored_priorities
-from vibesynergy.store.schema import activity_unified, icu_event, planned_item
+from vibesynergy.store.schema import activity_unified
 
 UPCOMING_DAYS = 9
 # The kind of week, from the note title, in the plan's own words (Dutch or English).
@@ -58,42 +55,13 @@ def parse_title(title: str | None) -> dict[str, Any]:
     return {"number": number, "phase": phase, "kind": kind, "hours_label": hours}
 
 
-def _icu_weeks(engine: Engine) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """intervals.icu's weekly NOTE and TARGET events."""
-    with engine.connect() as conn:
-        rows = [
-            dict(row)
-            for row in conn.execute(
-                select(icu_event)
-                .where(icu_event.c.category.in_(("NOTE", "TARGET")), icu_event.c.for_week)
-                .order_by(icu_event.c.date, icu_event.c.id)
-            ).mappings()
-        ]
-    return (
-        [row for row in rows if row["category"] == "NOTE"],
-        [row for row in rows if row["category"] == "TARGET"],
-    )
-
-
 def overview(engine: Engine, today: date) -> dict[str, Any]:
     from vibesynergy.query import plan_model
 
     monday = today - timedelta(days=today.weekday())
+    # VibeSynergy's plan and races only (#111): never intervals.icu's notes, targets or races.
     own = plan_model.leading_plan(engine)
-    week_notes, week_targets = plan_model.week_rows(engine, own) if own else _icu_weeks(engine)
-    with engine.connect() as conn:
-        garmin_races = [
-            dict(row)
-            for row in conn.execute(
-                select(planned_item)
-                .where(
-                    planned_item.c.kind == "event",
-                    planned_item.c.date >= today,
-                    or_(planned_item.c.is_race, planned_item.c.primary),
-                )
-                .order_by(planned_item.c.date)
-            ).mappings()
-        ]
+    week_notes, week_targets = plan_model.week_rows(engine, own) if own else ([], [])
     notes = {row["date"]: row for row in week_notes}
     targets: dict[date, list[dict]] = defaultdict(list)
     for row in week_targets:
@@ -103,12 +71,11 @@ def overview(engine: Engine, today: date) -> dict[str, Any]:
     weeks = []
     for start in mondays:
         note = notes.get(start)
-        # The own plan keeps the week's number, phase and kind; an intervals.icu note has
-        # them in its title only.
+        # The plan keeps the week's number, phase and kind.
         parsed = (
             {key: note[key] for key in ("number", "phase", "kind", "hours_label")}
-            if note and own
-            else parse_title(note.get("name") if note else None)
+            if note
+            else parse_title(None)
         )
         goals = []
         for row in targets.get(start, []):
@@ -156,13 +123,16 @@ def overview(engine: Engine, today: date) -> dict[str, Any]:
             )
     end = today + timedelta(days=UPCOMING_DAYS - 1)
     calendar = plan_q.plan(engine, Window(today, end), today, include_sync_status=False)
-    saved = stored_priorities(engine)
-    races = plan_q._merge_races(garmin_races, icu_plan.races(engine, today))
+    from vibesynergy.query import races as own_races
+
     return {
         "today": str(today),
         "plan_start": calendar["plan_start"],
         "plan_source": calendar["plan_source"],
-        "races": [plan_q._event_row(race, today, saved) for race in races],
+        "races": [
+            plan_q._event_row(race, today)  # pyright: ignore[reportPrivateUsage]
+            for race in own_races.rows(engine, today, since=today)
+        ],
         "phases": phases,
         "weeks": weeks,
         "current_week": next((w["start"] for w in weeks if w["when"] == "current"), None),

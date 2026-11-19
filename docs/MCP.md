@@ -162,14 +162,14 @@ everything the MCP can answer, the portal can show and vice versa.
   and which readiness reading counts; `sleep_check` can be `updated`. A planned session
   that departed from the plan carries `deviation` (`harder`, `longer`, `shorter`,
   `distance`, `intensity`) in `vibesynergy_plan` and `vibesynergy_week`.
-- Race priority: `vibesynergy_race_set_priority` (`plan.propose`) stores A, B or C for one
-  plan-calendar race. Null clears it. `vibesynergy_coach_state` races include `source`,
-  `source_id` and `priority` (A, B, C, or null). A Garmin primary race is A until a choice
-  is stored. Calendar sync does not overwrite the choice. The portal calendar page edits it.
-  `vibesynergy_plan` `races`, `next_event`, `supporting` and `next_race` include `source`,
-  `source_id`, that same effective priority, and `priority_origin` (`saved`, `derived`, or
-  `intervals` when the letter comes from the intervals.icu RACE_A/B/C category).
-  `next_race.is_primary` is Garmin's primary-event flag.
+- Race priority: `vibesynergy_race_set_priority` (`plan.propose`) stores A, B or C on one of
+  VibeSynergy's races (#111). Null clears it. `vibesynergy_coach_state` races include
+  `source` (`vibesynergy`), `source_id` (the race id) and `priority` (A, B, C, or null). A
+  Garmin or intervals.icu id of a race's copy is accepted as `source_id` too. No sync
+  changes a race or its priority. The portal calendar page edits it. `vibesynergy_plan`
+  `races`, `next_event`, `supporting` and `next_race` include `source`, `source_id`, the
+  priority and `priority_origin` (`saved` or `unset`). `next_race.is_primary` marks the
+  primary race: the next A race (#120).
 - Coach preferences: `vibesynergy_coach_state` is read-only. Since (31-10-2026) it returns
   only what the athlete sets on Coach → Settings: `documents.policy.effective` has
   `language` (`auto`/`en`/`nl`), `detail` (`concise`/`standard`/`detailed`), `tone`
@@ -182,8 +182,8 @@ everything the MCP can answer, the portal can show and vice versa.
   sport order and per-sport methods, weekly time, usage budget, Garmin goal/event/Garmin
   Coach sources, manual races, source priorities and the internal coach's assessment
   schedule are gone, and so are `garmin_context` and `coaching_events`: the plan and its
-  rules are in the knowledge base and intervals.icu, races and their A/B/C priority in the
-  plan calendar and the intervals.icu RACE_A/B/C category. Older stored documents still
+  rules are in the knowledge base and VibeSynergy's plan, races and their A/B/C priority in
+  VibeSynergy's own race list (#111). Older stored documents still
   load; the removed keys are ignored. Drafts are private settings; no planning or
   external-write capability is granted.
 - Orientation: `vibesynergy_overview`, `vibesynergy_catalog`, `vibesynergy_schema`,
@@ -539,10 +539,10 @@ example queries. Also available as resource `vibesynergy://schema`.
 Everything about one day, unified.
 - As built: `next_race` (`name`, `date`, `days_to_go`, `distance_m`, `priority`) and
   `plan_phase` (`phase`, `days_left`) are projected as of the requested local date.
-  `distance_m` is null when the calendar lacks a usable distance. `priority` is A, B, C,
-  or null: a stored race priority, or A when the race is Garmin's primary event and nothing
-  is stored. `priority_origin` is `saved` or `derived`. `is_primary` is Garmin's primary-event
-  flag. `source_id` is the Garmin event id or the calendar source id. A recorded race is in `taper`
+  `distance_m` is null when the race has no distance. `priority` is A, B, C, or null: the
+  race's own letter in VibeSynergy. `priority_origin` is `saved` or `unset`. `is_primary`
+  is true for the next A race. `source` is `vibesynergy` and `source_id` the race id
+  (#111). A recorded race is in `taper`
   from 14 days before race day; otherwise the projected phase is `build` until then.
   Both fields are null when no future race is recorded.
 - Params: `date` (default today), `detail`, `include` (subset of
@@ -729,71 +729,64 @@ Planned vs completed training.
   `this_week` as Monday through today). Today's sessions; the next event and upcoming races
   with days to go; adherence (planned vs done, and a changed session is not counted as
   done). The shared `next_race` and `plan_phase` fields are also included. `races`,
-  `next_event`, `supporting` and `next_race` each include `source`, `source_id`, `priority`
-  (A, B, C, or null) and `priority_origin` (`saved` when the letter is in `race_priority`,
-  `derived` when it follows Garmin's primary flag). A stored choice wins; otherwise a Garmin
-  primary race is A and every other race is unset. `next_race.is_primary` keeps that Garmin
-  flag. The soonest A race sets the phase; with no A race, Garmin's primary event still
-  leads. The calendar is
-  fetched `[calendar] lookahead_months` ahead (12 months when unset); Garmin drops past plan
-  days from its replies, so every version is kept.
-- The plan is VibeSynergy's own when VibeSynergy leads it (`vibesynergy_plan_model` says
-  `source` `vibesynergy`); intervals.icu then holds a copy. `plan_source` is `vibesynergy`
-  when the window reaches `plan_start` (the first day with a planned session), else
-  `garmin`. From `plan_start` on:
+  `next_event`, `supporting` and `next_race` each include `source` (`vibesynergy`),
+  `source_id` and `race_id` (the race's id), `sport`, `priority` (A, B, C, or null) and
+  `priority_origin` (`saved` when the race has a letter, else `unset`). Races are
+  VibeSynergy's own (#111): a Garmin event or an intervals.icu `RACE_A/B/C` event is never
+  read as a race. `next_race.is_primary` is true for the primary race: the next A race
+  (#120). The soonest A race sets the phase; with no A race, the soonest race leads. The
+  calendar is fetched `[calendar] lookahead_months` ahead (12 months when unset); Garmin
+  drops past plan days from its replies, so every version is kept.
+- The plan is VibeSynergy's own, and only that (#111): intervals.icu holds a one-way copy
+  that it passes on to other services, and nothing in that copy (workouts, week notes,
+  targets, races) is read as the plan. A change made in intervals.icu changes nothing in
+  this tool, `vibesynergy_today`, `vibesynergy_week`, the dashboard or the AI coach's
+  context. `plan_source` is `vibesynergy` when the window reaches `plan_start` (the first
+  day with a planned session), else `garmin`. From `plan_start` on:
   - each planned session is an item with `source` `vibesynergy`, `source_id` and
     `session_id` the session id (for the plan writes below),
     `kind` `workout`, `ownership` `vibesynergy_plan`, `in_plan` true, a Garmin-style `sport`
-    (the raw type is `extra.icu_type`) and `extra` with `description` (cue and steps),
-    `duration_s` and `distance_m` when known, and, while the session has a copy in
-    intervals.icu, `icu_id` (that event's id) and `load` (intervals.icu's estimate). A
-    skipped session is not an item;
-  - Garmin workouts fold in as `garmin_copies` or go to `not_in_plan` exactly as below, and
-    `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
+    (`running`, `cycling`, `swimming`, `strength_training`, `walking`; the raw type is
+    `extra.icu_type`) and `extra` with `description` (cue and steps), `duration_s` and
+    `distance_m` when known, and, while the session has a copy in intervals.icu, `icu_id`
+    (that event's id, for the activity pairing and Garmin delivery). A skipped session is
+    not an item;
+  - a Garmin scheduled workout that is a copy of a plan session is not a second item. It
+    is listed on the session as `garmin_copies` (`source_id`, `title`, `sport`, `match`:
+    `name` for the same day, sport family and name, `brick` for a part of a brick title,
+    `plan_tag` for a title carrying the plan's id such as `(lake27)` on a day with plan
+    sessions, and its calendar `mirrors`). Garmin has no id that links the two;
+  - any other Garmin workout (Garmin Coach's "Basis", "Drempel" and so on) is in
+    `not_in_plan` with `in_plan` false and `status` `not_in_plan`. It is not in `items`,
+    `today`, `adherence` or the week, and never reaches the advice;
+  - `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
     are the plan's keys such as `lake27:week:03`; a target has no `title`).
-- While intervals.icu leads, it is the plan. `plan_start` is the first day of an
-  intervals.icu plan workout (an event with an `external_id`); `plan_source` is
-  `intervals_icu` when the window reaches it, else `garmin`. From `plan_start` on:
-  - each intervals.icu WORKOUT is an item with `source` `intervals_icu`, `source_id` the
-    event id, `kind` `workout`, `ownership` `intervals_plan`, `in_plan` true, a Garmin-style
-    `sport` (`running`, `cycling`, `swimming`, `strength_training`, `walking`; the raw type
-    is `extra.icu_type`) and `extra` with `icu_id`, `external_id`, `description`,
-    `duration_s`, `distance_m`, `load` and `version` (for the `vibesynergy_icu_*` writes);
-  - a Garmin scheduled workout that intervals.icu pushed is not a second item. It is listed
-    on the plan item as `garmin_copies` (`source_id`, `title`, `sport`, `match`: `name` for
-    the same day, sport family and name, `plan_tag` for a title carrying the plan's
-    external-id prefix such as `(lake27)` on a day with plan workouts, and its calendar
-    `mirrors`). Garmin has no id that links the two;
-  - any other Garmin workout is in `not_in_plan` with `in_plan` false and `status`
-    `not_in_plan`. It is not in `items`, `today`, `adherence` or the week.
-    (`vibesynergy_icu_resolve_duplicate` and the `dubbel` pair for Garmin Coach sessions
-    were removed on 14-11-2026: the AI coach is the only coach.)
-  Days before `plan_start` keep the Garmin calendar as the plan, with `plan_source`
-  `garmin` on each training item.
+  Days before `plan_start`, and an install without a plan, keep the Garmin calendar as the
+  plan, with `plan_source` `garmin` on each training item.
 - `adherence` also has `changed`, `missed` and `not_in_plan` (Garmin workouts outside the
   plan up to today). `planned` and `done` are unchanged in meaning.
 - `weeks`: one row per Monday in the window that has a week note or weekly target in the
-  plan (intervals.icu's weekly NOTE or TARGET while it leads): `start`, `end`, `note` (`id`, `title`, `text`) and `targets` (`sport`, `family`,
+  plan: `start`, `end`, `note` (`id`, `title`, `text`) and `targets` (`sport`, `family`,
   `time_s`, `distance_m`, `load`, and `done_s` / `done_distance_m` from the activities that
   week), plus `time_s`, the sum of the time targets.
-- Races: an intervals.icu RACE_A/B/C on the day of a Garmin race is that race; the row
-  keeps the Garmin `source_id` and adds `intervals_id`. A race only in intervals.icu is
-  listed with `source` `intervals_icu`. Its priority cannot be stored and follows the
-  category; `vibesynergy_coach_state` races mark it `editable` false.
+- Races: a VibeSynergy race is an item with `kind` `event`, `source` `vibesynergy` and
+  `extra.ownership` `vibesynergy_plan`. A Garmin event on the day of a race (or linked to
+  it) is its copy, named in `extra.garmin`; `intervals_id` is the id of its intervals.icu
+  copy. Any other Garmin event is in `not_in_plan`. Migration 0053 moved the races Garmin
+  and intervals.icu held into VibeSynergy once; `vibesynergy plan import-races` repeats
+  that copy for races VibeSynergy has not got yet, and never changes one.
 
 #### `vibesynergy_plan_model`
-The training plan as VibeSynergy's own model, and who leads it. Read this before a plan
-write: it says which set of write tools applies.
+The training plan as VibeSynergy's own model, the only plan. Read this before a plan write.
 - Params: `start`, `end` (dates; default today to +13 days).
-- Returns: `plan_id`, `source` (`intervals` while intervals.icu leads, also when there is no
-  plan yet; `vibesynergy` when VibeSynergy leads), `version` (the plan's current version,
-  null without a plan), `sessions` in the window (`session_id`, `date`, `name`, `sport`,
-  `status`, `description`: cue and steps as intervals.icu text) and the `weeks` the window
-  touches (`week`, `monday`, `phase`, `kind`, `hours`, `note`, and `targets` per `sport`
-  with `time_s`, `distance_m`, `load`).
-- While `source` is `intervals`, write with the `vibesynergy_icu_*` tools. When it is
-  `vibesynergy`, write with the five tools below. The athlete switches with
-  `vibesynergy plan source intervals|vibesynergy`.
+- Returns: `plan_id`, `source` (always `vibesynergy`), `version` (the plan's current
+  version, null without a plan), `sessions` in the window (`session_id`, `date`, `name`,
+  `sport`, `status`, `description`: cue and steps as intervals.icu text) and the `weeks`
+  the window touches (`week`, `monday`, `phase`, `kind`, `hours`, `note`, and `targets`
+  per `sport` with `time_s`, `distance_m`, `load`).
+- Write with the five tools below. intervals.icu is no plan source: the old switch
+  `vibesynergy plan source` is gone. `vibesynergy plan import` copies a plan that lives in
+  intervals.icu into VibeSynergy once (it then leads); it never runs by itself.
 
 The five plan writes share these rules (scope `plan.write`):
 - `reason` is required and is stored with the new plan version, together with the author
@@ -848,7 +841,8 @@ One call for "how should I train today?".
   5 h (ask, don't call it a short night), `incomplete` when the athlete marked the night so
   (its short sleep and readiness are out of the safety floor), else null.
   `date_label` is `d-m-yyyy`; other dates stay ISO. Items carry `source` and `in_plan`;
-  `plan_source` says where the plan comes from (`vibesynergy`, `intervals_icu` or `garmin`),
+  `plan_source` says where the plan comes from (`vibesynergy`, or `garmin` before the plan
+  starts or without a plan; never intervals.icu, #111),
   and `not_in_plan` lists today's Garmin workouts that are not in the plan (see
   `vibesynergy_plan`).
   `advice` is the day's current advice, the same as the dashboard, the Coach page and the
@@ -880,8 +874,8 @@ Monday to Sunday, planned against what was done.
   (`title`, `focus`, `text`), `sports` (per sport `target_s`, `planned_s`, `goal_s` with
   `basis` target/planned, `done_s`, `done_distance_m`, `done_load`, `remaining_s`,
   `remaining` workouts, status `counts`), `sessions` (each planned workout with `planned`
-  and `actual` duration/distance/load, `match` paired/day_sport, intervals.icu `compliance`
-  when paired, `rpe`/`feel`; activities outside the plan have status `extra`), `counts`
+  and `actual` duration/distance/load (the planned load from the session's own steps),
+  `match` paired/day_sport, `compliance` (time done against time planned), `rpe`/`feel`; activities outside the plan have status `extra`), `counts`
   and `totals`. A training you give (kind coaching) counts for a plan workout of that sport
   and day only when nothing of your own matches.
 
@@ -890,10 +884,11 @@ Plan against done per Monday-to-Sunday week and per training phase, the numbers 
 Planning & progress page shows (`query/planning.py`, built on `week_progress`).
 - Params: `start`, `end` (dates; their Mondays count) or `weeks` (default 12, at most 52,
   ending with this week).
-- Returns: `weeks` (per week `goal_s`, `done_s`, `done_pct`, `planned_load` (intervals.icu's estimate
-  of the planned workouts) and `done_load` (VibeSynergy's own load of the activities),
+- Returns: `weeks` (per week `goal_s`, `done_s`, `done_pct`, `planned_load` (from the
+  planned sessions' own steps) and `done_load` (VibeSynergy's own load of the activities),
   status `counts`, `sessions_done_pct` (done of the planned workouts
-  whose day passed), `compliance_avg` (intervals.icu's compliance of paired workouts),
+  whose day passed), `compliance_avg` (time done against time planned, of the planned
+  workouts that were done),
   `number`/`phase`/`kind` from the weekly note, and `sports` per sport with `goal_s` and
   `basis` target/planned), `phases` (the same totals per phase) and `totals`.
 
@@ -943,15 +938,18 @@ Fitness markers over time.
 
 #### `vibesynergy_icu_events`
 `start`, `end` (default today to +28 days), `category` (WORKOUT, NOTE, TARGET, RACE_A/B/C),
-`refresh` (fetch intervals.icu first). The intervals.icu plan from VibeSynergy's cache, one row per
+`refresh` (fetch intervals.icu first). intervals.icu's copy of the plan from VibeSynergy's
+cache, for checking the copy; it is never the plan (#111) and is not on the AI coach's
+insight tools. One row per
 event with `event_id`, `external_id` and `version` (pass it as `expected_version` to
 `vibesynergy_icu_update_event`, `vibesynergy_icu_move_event` and
 `vibesynergy_icu_delete_event`), plus date, category, sport,
 name, description, tags, `for_week`, `targets`, `moving_time_s`, `load` and `fetched_at`.
-Scope `read`. Read this before every plan write.
+Scope `read`. Read this before every intervals.icu write.
 
-The intervals.icu writes (scope `plan.write`, each with a `reason`; for the plan while
-intervals.icu leads it): `vibesynergy_icu_create_event` (`category`, `start_date`, `name`,
+The intervals.icu writes (scope `plan.write`, each with a `reason`) change intervals.icu
+only: an event written there is not in VibeSynergy's plan and never becomes a planned
+session or a race (plan with the `vibesynergy_plan_*` tools): `vibesynergy_icu_create_event` (`category`, `start_date`, `name`,
 optional `sport`, `description`, `external_id`, `end_date`, `for_week`, `tags`, `targets`),
 `vibesynergy_icu_update_event` (`expected_version`, `event_id` or `external_id`, and the
 fields to change), `vibesynergy_icu_move_event` (`expected_version`, `start_date`),

@@ -11,6 +11,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Races are VibeSynergy's own** (#111): one race list with an A/B/C priority per race. The
+  races Garmin and intervals.icu held moved into it once, by themselves, on update; a change
+  in Garmin or intervals.icu changes nothing. `vibesynergy plan import-races` copies races
+  added there later, on request only. The primary race is now always the next A race
+  (#120), so the taper and the AI coach follow the race that matters.
 - **Reset the password from the terminal** (#105): `vibesynergy password-reset` mails a
   one-time link (15 minutes) to choose a new password without the old one, also with a second
   step on, and clears the login lockout. `--show` prints the link too; `--reset-mfa` turns the
@@ -152,6 +157,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **The advice, the reports, the dashboard and the AI coach read only VibeSynergy's plan**
+  (#111): planned sessions, week notes, weekly targets, races and the season. intervals.icu
+  only gets a copy to pass on to Zwift and other services; a workout, note, target or race
+  changed or added there is never planned and never reaches the advice or the AI coach. A
+  plan that still followed intervals.icu now leads in VibeSynergy. Workouts on your Garmin
+  calendar that are not in the plan stay "not in plan". Compliance and the planned load are
+  VibeSynergy's own (time done against time planned; the load from the session's steps); the
+  Planning page column is now "Time as planned".
 - **"AI coach" everywhere** (#96; Dutch: "AI-coach"): the portal, the mails, the docs and
   everything a model reads use this one term for the AI that coaches, instead of "your
   coach", "the AI" or a model's name. "AI app" stays the word for the app that connects
@@ -379,6 +392,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   ([#10](https://github.com/rvartanov/vibesynergy/pull/10)).
 
 ### Removed
+- **`vibesynergy plan source`** (#111): intervals.icu can no longer be the plan source.
+  `vibesynergy plan import` remains as an explicit one-time copy into VibeSynergy. The AI
+  coach's insight run no longer gets `vibesynergy_icu_events`.
 - intervals.icu's fitness (`wellness`), activity load, zone times and RPE/Feel are no longer
   read; `[user] load_source` is ignored ([#10](https://github.com/rvartanov/vibesynergy/pull/10),
   [#14](https://github.com/rvartanov/vibesynergy/pull/14)).

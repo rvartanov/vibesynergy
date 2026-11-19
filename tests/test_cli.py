@@ -12,8 +12,8 @@ def run(*args: str):
 
 
 def test_init_sync_status(env) -> None:
-    assert "schema at revision 0052" in run("init")
-    assert "revision 0052" in run("init")  # idempotent
+    assert "schema at revision 0053" in run("init")
+    assert "revision 0053" in run("init")  # idempotent
     out = run("sync", "demo", "--start", "2026-03-01", "--end", "2026-03-03")
     assert "demo.daily" in out and "ok" in out
     status = run("status")
@@ -274,7 +274,10 @@ def test_plan_create_starts_a_plan_that_vibesynergy_leads(env) -> None:
     run("init")
     out = run("plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13")
     assert '"plan_id": "lakeside-2027"' in out
-    assert run("plan", "source").strip() == "vibesynergy"
+    # There is no plan source switch any more: VibeSynergy is the only source (#111).
+    gone = runner.invoke(app, ["plan", "source"])
+    assert gone.exit_code != 0
+    assert '"added": []' in run("plan", "import-races", "--dry-run")
     again = runner.invoke(
         app, ["plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13"]
     )

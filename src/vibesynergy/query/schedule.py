@@ -32,6 +32,7 @@ WELLNESS = {
 
 
 def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) -> dict[str, Any]:
+    del raw  # compliance is VibeSynergy's own now (#111); kept for the callers
     if end < start:
         raise ValueError("end before start")
     if (end - start).days + 1 > MAX_DAYS:
@@ -115,30 +116,14 @@ def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) 
                 done.update(
                     {k: v for k, v in stats.get(str(done["id"]), {}).items() if v is not None}
                 )
-    # Compliance per done planned session (8-11), as in the week progress.
-    from vibesynergy.query import activity_effort
+    # Compliance per done planned session (8-11), as in the week progress: the time done
+    # against VibeSynergy's planned time, never intervals.icu's own figure (#111).
     from vibesynergy.query.week_progress import compliance_of
 
-    icu = {}
-    if raw is not None:
-        groups = [
-            {"group_id": r.group_id, "local_date": r.local_date, "start_utc": r.start_utc,
-             "sport": r.sport, "moving_s": r.moving_s, "elapsed_s": r.elapsed_s,
-             "distance_m": r.distance_m, "sources": r.sources or []}
-            for r in rows
-        ]  # fmt: skip
-        try:
-            icu = activity_effort.icu_for_groups(engine, raw, groups)
-        except Exception:  # compliance must never break the calendar
-            icu = {}
     for entry in days.values():
         for planned in entry["planned"]:
             for done in planned["done"]:
-                pct, source = compliance_of(
-                    planned.get("planned_s"),
-                    done.get("moving_s"),
-                    (icu.get(str(done["id"])) or {}).get("compliance"),
-                )
+                pct, source = compliance_of(planned.get("planned_s"), done.get("moving_s"))
                 done["compliance"], done["compliance_source"] = pct, source
     # A planned multisport is one holder too (#74): the sessions linked by their slot in order
     # (a triathlon, a duathlon, a brick), else a brick run and the day's ride with it.

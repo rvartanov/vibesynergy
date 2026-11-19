@@ -13,7 +13,7 @@ from vibesynergy.derive import unify
 from vibesynergy.mcp.server import build_server
 from vibesynergy.model import Activity, PlannedItem
 from vibesynergy.normalize.normaliser import write_records
-from vibesynergy.query import dashboard, journal
+from vibesynergy.query import dashboard, journal, races
 
 FRIDAY = date(2026, 10, 16)
 ROOT = Path(__file__).parents[1]
@@ -85,6 +85,7 @@ def _seed(runtime) -> None:
             source="garmin",
             raw_item_id=raw.id,
         )
+    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
     unify.rebuild(runtime.engine)
     journal.set_checkin(runtime.engine, FRIDAY, mood=3, note="Legs heavy")
 

@@ -46,7 +46,6 @@ from vibesynergy.query import evidence
 from vibesynergy.store.schema import (
     dataset_state,
     garmin_strength_delivery,
-    icu_event,
     planned_item,
 )
 
@@ -542,18 +541,12 @@ def name_key(name: str | None) -> str:
 def desired(
     engine, today: date, lookahead: int = LOOKAHEAD_DAYS, mark: Marks = MARK
 ) -> dict[str, dict[str, Any]]:
-    """Upcoming plan workouts with a valid block, by intervals.icu event id."""
+    """Upcoming sessions of VibeSynergy's plan with a valid block, by the id of their
+    intervals.icu copy. The content is the plan's own (#111), not the copy's."""
+    from vibesynergy.query import plan_model
+
     out: dict[str, dict[str, Any]] = {}
-    with engine.connect() as conn:
-        rows = conn.execute(
-            select(icu_event.c.id, icu_event.c.date, icu_event.c.name, icu_event.c.description)
-            .where(
-                icu_event.c.category == "WORKOUT",
-                icu_event.c.date >= today,
-                icu_event.c.date <= today + timedelta(days=lookahead),
-            )
-            .order_by(icu_event.c.date)
-        ).all()
+    rows = plan_model.delivery_rows(engine, today, today + timedelta(days=lookahead))
     for row in rows:
         try:
             block = parse_block(row.description)

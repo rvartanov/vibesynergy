@@ -1,5 +1,7 @@
-"""The intervals.icu calendar is the plan: pushed Garmin copies fold in, the rest is not
-in the plan, weekly notes and targets reach the week, races stay one per day."""
+"""A plan that lived in intervals.icu, copied once into VibeSynergy (``plan import``, and the
+races with ``plan import-races``), is VibeSynergy's plan from then on (#111): pushed Garmin
+copies fold in, the rest is not in the plan, weekly notes and targets reach the week, races
+stay one per day. intervals.icu is never read as the plan again."""
 
 from __future__ import annotations
 
@@ -7,12 +9,13 @@ import json
 from datetime import UTC, date, datetime
 
 from test_mcp_today import call
+from tests_helpers import adopt_icu_plan
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.derive import unify
 from vibesynergy.model import Activity, PlannedItem
 from vibesynergy.normalize.normaliser import write_records
-from vibesynergy.query import dashboard, plan
+from vibesynergy.query import dashboard, plan, races
 from vibesynergy.sources.intervals_icu.mappers import map_events
 
 SATURDAY = date(2026, 10, 31)
@@ -181,6 +184,8 @@ def _seed(runtime) -> None:
             source="garmin",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
+    races.adopt(runtime.engine)  # and so are the races
     unify.rebuild(runtime.engine)
 
 
@@ -188,49 +193,57 @@ def _sessions(out: dict) -> list[dict]:
     return [i for i in out["items"] if i["kind"] in plan.TRAINING_KINDS]
 
 
-def test_pushed_copy_is_one_intervals_item_and_foreign_is_not_in_plan(runtime) -> None:
+RIDE_SAT, RUN_SUN = "lake27:2026-10-31:ride", "lake27:2026-11-01:run"
+RIDE_MON, BRICK_MON = "lake27:2026-11-02:ride", "lake27:2026-11-02:brick-run"
+
+
+def test_pushed_copy_is_one_plan_item_and_foreign_is_not_in_plan(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(SATURDAY, SATURDAY), SATURDAY)
     (today,) = out["today"]
-    assert today["source"] == "intervals_icu"
+    assert today["source"] == "vibesynergy"
     assert today["title"] == "Duurrit Z2 60'"
     assert today["sport"] == "cycling"
     assert today["in_plan"] is True
-    assert today["ownership"] == "intervals_plan"
-    assert today["extra"]["external_id"] == "lake27:2026-10-31:ride"
+    assert today["ownership"] == "vibesynergy_plan"
+    assert today["session_id"] == RIDE_SAT
+    assert today["extra"]["icu_id"] == "1"  # its copy in intervals.icu
     assert [(c["source_id"], c["match"]) for c in today["garmin_copies"]] == [
         ("workout:copy", "name")
     ]
     assert today["status"] == "done"
-    assert [i["source_id"] for i in _sessions(out)] == ["1"]
+    assert [i["source_id"] for i in _sessions(out)] == [RIDE_SAT]
     (foreign,) = out["not_in_plan"]
     assert foreign["source_id"] == "workout:foreign"
     assert foreign["in_plan"] is False
     assert foreign["status"] == "not_in_plan"
-    assert out["plan_source"] == "intervals_icu"
+    assert out["plan_source"] == "vibesynergy"
     assert out["plan_start"] == "2026-10-31"
 
 
 def test_brick_copy_with_the_plan_tag_folds_in(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(MONDAY, MONDAY), MONDAY)
-    ride = next(i for i in out["items"] if i["source_id"] == "3")
-    assert sorted((c["source_id"], c["match"]) for c in ride["garmin_copies"]) == [
+    copies = [
+        c for i in out["items"] if i["source_id"] in (RIDE_MON, BRICK_MON)
+        for c in i.get("garmin_copies") or []
+    ]  # fmt: skip
+    assert sorted((c["source_id"], c["match"]) for c in copies) == [
         ("workout:brick", "plan_tag"),
         ("workout:vbrick", "brick"),
     ]
     assert out["not_in_plan"] == []
 
 
-def test_adherence_counts_the_intervals_plan(runtime) -> None:
+def test_adherence_counts_the_plan(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(date(2026, 10, 26), date(2026, 11, 8)), MONDAY)
     status = {i["source_id"]: i["status"] for i in _sessions(out)}
     assert status["workout:old"] == "missed"  # Garmin, before the plan started
-    assert status["1"] == "done"
-    assert status["2"] == "missed"
-    assert status["3"] == "done"
-    assert status["4"] == "today"
+    assert status[RIDE_SAT] == "done"
+    assert status[RUN_SUN] == "missed"
+    assert status[RIDE_MON] == "done"
+    assert status[BRICK_MON] == "today"
     assert out["adherence"] == {
         "planned": 4,
         "done": 2,
@@ -268,16 +281,19 @@ def test_week_has_the_note_and_targets(runtime, monkeypatch) -> None:
         "running": 9900,
     }
     assert board["week"]["note"]["title"] == "Wk 1 · Instap"
-    assert [i["title"] for i in board["plan"]["today"]] == ["Lange rit Z2 1u45", "Brickloop Z2 10'"]
+    assert sorted(i["title"] for i in board["plan"]["today"]) == [
+        "Brickloop Z2 10'",
+        "Lange rit Z2 1u45",
+    ]
 
     monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: MONDAY)
     week_tool = call(runtime, "vibesynergy_week")["data"]
-    assert week_tool["plan_source"] == "intervals_icu"
+    assert week_tool["plan_source"] == "vibesynergy"
     assert week_tool["note"]["title"] == "Wk 1 · Instap"
     assert {t["sport"] for t in week_tool["targets"]} == {"cycling", "running"}
     assert {i["id"] for i in week_tool["items"]} == {
-        "intervals_icu:3",
-        "intervals_icu:4",
+        f"vibesynergy:{RIDE_MON}",
+        f"vibesynergy:{BRICK_MON}",
     }
     today_tool = call(runtime, "vibesynergy_today")["data"]
     assert [i["id"] for i in today_tool["today"]] == [i["id"] for i in week_tool["items"]]
@@ -288,7 +304,7 @@ def test_tools_and_dashboard_agree_on_a_foreign_workout(runtime, monkeypatch) ->
     _seed(runtime)
     monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: SATURDAY)
     today_tool = call(runtime, "vibesynergy_today")["data"]
-    assert today_tool["planned_today"]["id"] == "intervals_icu:1"
+    assert today_tool["planned_today"]["id"] == f"vibesynergy:{RIDE_SAT}"
     assert [i["id"] for i in today_tool["not_in_plan"]] == ["garmin:workout:foreign"]
     plan_tool = call(runtime, "vibesynergy_plan", period="this_week")["data"]
     assert [i["title"] for i in plan_tool["today"]] == ["Duurrit Z2 60'"]
@@ -303,7 +319,7 @@ def test_tools_and_dashboard_agree_on_a_foreign_workout(runtime, monkeypatch) ->
         athlete=runtime.settings.athlete,
         sources=[],
     )
-    assert [i["source"] for i in board["plan"]["today"]] == ["intervals_icu"]
+    assert [i["source"] for i in board["plan"]["today"]] == ["vibesynergy"]
     assert [i["source_id"] for i in board["plan"]["not_in_plan"]] == ["workout:foreign"]
     assert all(i.get("in_plan", True) for i in board["plan"]["week"])
 
@@ -311,29 +327,30 @@ def test_tools_and_dashboard_agree_on_a_foreign_workout(runtime, monkeypatch) ->
 def test_races_stay_one_per_day(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(SATURDAY, SATURDAY), SATURDAY)
-    races = [(r["date"], r["source"], r["priority"], r["priority_origin"]) for r in out["races"]]
-    assert races == [
-        ("2026-12-20", "intervals_icu", "C", "intervals"),
-        ("2027-07-03", "garmin", "A", "derived"),
+    found = [(r["date"], r["source"], r["priority"], r["priority_origin"]) for r in out["races"]]
+    # The Garmin race and the intervals.icu race on 3-7 became one VibeSynergy race.
+    assert found == [
+        ("2026-12-20", "vibesynergy", "C", "saved"),
+        ("2027-07-03", "vibesynergy", "A", "saved"),
     ]
     race = out["races"][1]
     assert race["intervals_id"] == "8"
+    assert out["next_race"]["is_primary"] is True  # the next A race (#120)
     assert out["next_race"]["name"] == "Example triathlon 2027"
     assert [s["name"] for s in out["supporting"]] == ["WINTER TRAIL"]
     phase = plan.race_phase(runtime.engine, SATURDAY)
     assert phase["next_race"]["name"] == "Example triathlon 2027"
     # A window that holds a race formats it once for items and once for the race list.
     wide = plan.plan(runtime.engine, Window(SATURDAY, date(2027, 7, 31)), SATURDAY)
-    assert [i["source"] for i in wide["items"] if i["kind"] == "event"] == [
-        "intervals_icu",
-        "garmin",
-    ]
+    events = [i for i in wide["items"] if i["kind"] == "event"]
+    assert [i["source"] for i in events] == ["vibesynergy", "vibesynergy"]
+    # Garmin's copy of the race folds into it; it is no second race.
+    assert events[1]["extra"]["garmin"]["source_id"] == "event:example"
     assert wide["races"][0]["days_away"] == 50
-    # The calendar lists both; only a Garmin race can store a priority.
     listed = plan.calendar_races(runtime.engine, SATURDAY)
     assert [(r["source"], r["editable"]) for r in listed] == [
-        ("intervals_icu", False),
-        ("garmin", True),
+        ("vibesynergy", True),
+        ("vibesynergy", True),
     ]
 
 
@@ -374,7 +391,10 @@ def test_training_plan_overview(runtime) -> None:
         {"phase": "Instap", "start": "2026-11-02", "end": "2026-11-08", "weeks": [1]}
     ]
     assert [r["title"] for r in out["races"]] == ["WINTER TRAIL", "Example triathlon 2027"]
-    assert [i["id"] for i in out["upcoming"]["items"]] == ["intervals_icu:3", "intervals_icu:4"]
+    assert sorted(i["id"] for i in out["upcoming"]["items"]) == [
+        f"vibesynergy:{BRICK_MON}",
+        f"vibesynergy:{RIDE_MON}",
+    ]
 
 
 def test_week_titles_parse() -> None:

@@ -181,14 +181,8 @@ def test_calendar_moves_and_skips_a_session_once_vibesynergy_leads(runtime) -> N
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
     span = {"start": "2026-11-16", "end": "2026-11-22"}
-    data = api.get("/api/schedule", params=span).json()["data"]
-    assert data["editable"] is False
-    planned = [p for d in data["days"] for p in d["planned"]]
-    assert planned and planned[0]["session_id"] is None
     body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
-    refused = api.post("/api/plan/session/move", json=body, headers=write)
-    assert refused.status_code == 400 and "intervals.icu leads the plan" in refused.text
-    plan_model.set_source(runtime.engine, "vibesynergy")
+    # The import is a one-time copy: VibeSynergy leads at once (#111).
     data = api.get("/api/schedule", params=span).json()["data"]
     planned = [p for d in data["days"] for p in d["planned"]]
     assert data["editable"] is True and planned[0]["session_id"] == "lake27:2026-11-17:run-test"

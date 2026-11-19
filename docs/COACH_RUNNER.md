@@ -44,7 +44,7 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
    (`MCPServer.call_tool`), so every call goes through `vibesynergy.query`, checks its scope and
    is audit-logged with client `coach-runner` (author `client:coach-runner`, label
    "AI coach (API)"). Scopes are those of an AI app that coaches: `read`, `coach.write`
-   (entries, knowledge base, public insight) and `plan.write` (intervals.icu events). Never
+   (entries, knowledge base, public insight) and `plan.write` (VibeSynergy's plan). Never
    offered: `sql`, `publish`, `sync` (`vibesynergy_refresh`), `diary.write`, `plan.propose`.
    The insight run only gets the activity, plan and knowledge tools and `vibesynergy_coach_write`
    (no diary, health or earlier entries), may only write `activity_assessment` for the
@@ -185,6 +185,25 @@ The base block `safety` (version 2) is in every task's context and carries:
 Each part is built on its own: an empty injury log does not hide a floor that fired, and a
 part that fails says so and leaves the rest. The insight task writes a public line, so its
 safety block is the injury log only, as before.
+
+### The plan in the context: VibeSynergy only (#111)
+
+Every context block that carries the plan reads VibeSynergy's own plan model and race list,
+never intervals.icu:
+
+- `plan_horizon`, `plan_next_week` and `plan_match`: the sessions and week notes of
+  `plan_model.view`; `plan_horizon.guard` is the Garmin check of those sessions only;
+- `today` and `week`: `vibesynergy_today` and `vibesynergy_week`, built on
+  `vibesynergy_plan`, whose planned sessions, week notes, targets and races are
+  VibeSynergy's own. A Garmin workout that is not in the plan (Garmin Coach's "Basis",
+  "Drempel" and so on) stays under `not_in_plan` and is never planned;
+- `races` (version 2): VibeSynergy's race list with its A/B/C priority; the primary race
+  is the next A race (#120).
+
+intervals.icu only holds a copy that it passes on to other services. The insight run no
+longer gets `vibesynergy_icu_events`. A test (`tests/test_plan_source_vs_only.py`) changes an
+intervals.icu event and checks that the advice, the AI coach's context and the dashboard stay
+the same.
 
 ### The same harness over MCP
 

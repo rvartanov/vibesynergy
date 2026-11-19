@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from tests_helpers import adopt_icu_plan
+
 from vibesynergy.query import multisport
 
 
@@ -71,6 +73,7 @@ def test_a_planned_brick_is_one_holder_in_the_calendar(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     day = date(2026, 11, 15)
     out = schedule.calendar(runtime.engine, day, day, date(2026, 11, 10))["days"][0]
     (holder,) = out["planned_multisport"]
@@ -219,6 +222,7 @@ def test_a_brick_done_as_separate_ride_and_run_is_one_holder(runtime) -> None:
             source="garmin",
             raw_item_id=garmin.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     unify.rebuild(runtime.engine)
     out = schedule.calendar(runtime.engine, day, day, date(2026, 11, 23))
     entry = out["days"][0]
@@ -316,6 +320,7 @@ def test_a_planned_triathlon_is_one_holder_in_the_calendar(runtime) -> None:
             source="intervals_icu",
             raw_item_id=stored.id,
         )
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     day = date(2026, 11, 15)
     out = schedule.calendar(runtime.engine, day, day, date(2026, 11, 10))["days"][0]
     (holder,) = out["planned_multisport"]

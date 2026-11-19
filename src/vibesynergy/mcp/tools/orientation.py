@@ -89,10 +89,11 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_race_set_priority(
         source: str, source_id: str, priority: str | None = None
     ) -> dict[str, Any]:
-        """Set one race to A, B or C. Null uses the default again.
-
-        A Garmin primary race stays A until you choose. Calendar sync keeps the choice.
-        """
+        """Set one race to A, B or C (null: unset). Races are VibeSynergy's own (#111):
+        source vibesynergy and source_id the race id, as vibesynergy_coach_state and
+        vibesynergy_plan list them; a Garmin or intervals.icu id of the race's copy also
+        works. The next A race is the primary race. A change in Garmin or intervals.icu
+        never changes it."""
         from vibesynergy.query.race_priority import set_priority
 
         try:
@@ -108,9 +109,11 @@ def register(kit: ToolKit) -> None:
         category: str | None = None,
         refresh: bool = False,
     ) -> dict[str, Any]:
-        """The intervals.icu plan as cached in VibeSynergy, with event_id, external_id and
-        version for the vibesynergy_icu_* write tools. Default today to +28 days. category:
-        WORKOUT, NOTE, TARGET, RACE_A/B/C. refresh=true fetches intervals.icu first.
+        """The intervals.icu calendar as cached in VibeSynergy: its copy of the plan, for
+        checking that copy and for the vibesynergy_icu_* write tools (event_id, external_id,
+        version). Not the plan: advice, reports and the AI coach read VibeSynergy's plan
+        (vibesynergy_plan, vibesynergy_plan_model) and never this. Default today to +28 days.
+        category: WORKOUT, NOTE, TARGET, RACE_A/B/C. refresh=true fetches intervals.icu first.
         """
         first = _date(start) if start else today_in(settings.timezone)
         last = _date(end) if end else first + timedelta(days=28)
@@ -143,12 +146,11 @@ def register(kit: ToolKit) -> None:
 
     @tool(READ, "read")
     def vibesynergy_plan_model(start: str | None = None, end: str | None = None) -> dict[str, Any]:
-        """The training plan as VibeSynergy's own model: who leads (source intervals or
-        vibesynergy), version, the sessions in the window (default today to +13 days) with
-        their steps as intervals.icu text, and the weeks it touches with their note and
-        targets. While source is intervals, keep writing with the vibesynergy_icu_* tools; when
-        it is vibesynergy, write with vibesynergy_plan_session_set / _move / _skip and
-        vibesynergy_plan_week_set / vibesynergy_plan_target_set."""
+        """The training plan as VibeSynergy's own model, the only plan (source vibesynergy):
+        version, the sessions in the window (default today to +13 days) with their steps as
+        intervals.icu text, and the weeks it touches with their note and targets. Change it
+        with vibesynergy_plan_session_set / _move / _skip and vibesynergy_plan_week_set /
+        vibesynergy_plan_target_set; intervals.icu gets a copy within minutes."""
         from vibesynergy.query import plan_model
 
         first = _date(start) if start else today()
@@ -177,11 +179,6 @@ def register(kit: ToolKit) -> None:
 
         if plan_model.current_plan_id(engine) is None:
             raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
-        if plan_model.source(engine) != "vibesynergy":
-            raise ToolError(
-                "intervals.icu still leads the plan: use vibesynergy_icu_create_event or "
-                "vibesynergy_icu_update_event"
-            )
         try:
             out = plan_model.set_session(
                 engine,
@@ -204,11 +201,6 @@ def register(kit: ToolKit) -> None:
 
         if plan_model.current_plan_id(engine) is None:
             raise ToolError("there is no plan yet: create one with `vibesynergy plan create`")
-        if plan_model.source(engine) != "vibesynergy":
-            raise ToolError(
-                "intervals.icu still leads the plan: change the week note or target there "
-                "with vibesynergy_icu_update_event"
-            )
 
     @tool(ICU_WRITE, "plan.write")
     def vibesynergy_plan_session_move(reason: str, session_id: str, date: str) -> dict[str, Any]:
@@ -310,7 +302,9 @@ def register(kit: ToolKit) -> None:
         tags: list[str] | None = None,
         targets: dict[str, float] | None = None,
     ) -> dict[str, Any]:
-        """Add one intervals.icu plan event. A reason is required. Not a bulk upsert.
+        """Add one event to intervals.icu only. A reason is required. Not a bulk upsert.
+        It is not in VibeSynergy's plan and never becomes a planned session or a race there:
+        plan with vibesynergy_plan_session_set and friends instead.
 
         targets (TARGET events): time_target (s), load_target, distance_target (m).
         """

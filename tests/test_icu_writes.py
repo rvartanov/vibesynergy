@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 from sqlalchemy import select
+from tests_helpers import adopt_icu_plan
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.model import PlannedItem
@@ -316,10 +317,11 @@ def _garmin(runtime) -> None:
 def test_pushed_copy_is_folded_and_another_garmin_workout_is_not_in_plan(runtime) -> None:
     _seed(runtime)
     _garmin(runtime)
+    adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
     data = plan.plan(runtime.engine, Window(DAY, DAY), DAY, include_sync_status=False)
     assert not [item for item in data["items"] if item["source"] == "garmin"]
     (workout,) = data["today"]
-    assert workout["source"] == "intervals_icu"
+    assert workout["source"] == "vibesynergy"
     assert [copy["source_id"] for copy in workout["garmin_copies"]] == ["push-1"]
     (garmin,) = data["not_in_plan"]
     assert garmin["source_id"] == "coach-1"
