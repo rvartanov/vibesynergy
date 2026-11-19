@@ -225,6 +225,63 @@ def login_link(config: ConfigOpt = None) -> None:
     _first_link(rt, acc, "Login link for")
 
 
+@app.command("password-reset")
+def password_reset(
+    show: Annotated[
+        bool, typer.Option("--show", help="Print the link here as well as mailing it.")
+    ] = False,
+    reset_mfa: Annotated[
+        bool,
+        typer.Option(
+            "--reset-mfa",
+            help="Also turn the second step off (lost phone and backup codes); set it up again "
+            "after logging in. Without it the second step is still asked after the new password.",
+        ),
+    ] = False,
+    config: ConfigOpt = None,
+) -> None:
+    """A one-time link (15 minutes) to choose a new password without the old one.
+
+    Also clears the login lockout. Shell access on this machine is the proof that you own the
+    account: this is not reachable from the portal or from an AI app.
+    """
+    from vibesynergy import mailer
+    from vibesynergy.query import auth
+
+    rt = _runtime(config)
+    acc = auth.account(rt.engine)
+    if acc is None:
+        console.print("No account yet: run `vibesynergy init --email you@example.com`.")
+        raise typer.Exit(1)
+    auth.clear_lockout(rt.engine, acc["email"])
+    if reset_mfa and acc["mfa"] != "none":
+        auth.set_mail_mfa(rt.engine, rt.settings, acc["id"], False)  # off, secret and codes gone
+        auth.audit(rt.engine, "auth.mfa.off", "cli", actor="cli")
+        console.print("The second step is off: set it up again in Settings → Account.")
+    token = auth.issue_token(rt.engine, acc["id"], "reset", auth.LINK_TTL)
+    url = f"{_portal_base(rt)}/login#reset={token}"
+    auth.audit(rt.engine, "auth.reset.cli", "cli", actor="cli")
+    console.print("The login lockout is cleared.")
+    mailed = False
+    if mailer.configured(rt.settings):
+        try:
+            mailer.send(
+                rt.settings,
+                acc["email"],
+                "New password for VibeSynergy",
+                f"Choose a new password with this link (15 minutes, once):\n\n{url}",
+            )
+            mailed = True
+            console.print(f"The reset link was mailed to {acc['email']}.")
+        except mailer.MailError as exc:
+            console.print(f"Mailing the link failed: {exc}")
+    if show or not mailed:
+        console.print("Open this link once, within 15 minutes, to choose a new password:")
+        console.print(url, soft_wrap=True)
+    if acc["mfa"] != "none" and not reset_mfa:
+        console.print("The second step stays on: you will be asked for it after the new password.")
+
+
 def _seconds(value: float | None) -> str:
     return f"{value:.0f}s" if value is not None else "—"
 

@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Reset the password from the terminal** (#105): `vibesynergy password-reset` mails a
+  one-time link (15 minutes) to choose a new password without the old one, also with a second
+  step on, and clears the login lockout. `--show` prints the link too; `--reset-mfa` turns the
+  second step off when its phone and backup codes are lost. Command line only.
 - **"Changed" says why** on the start page: under a workout marked changed, one line
   such as "Harder than planned: 28 min above zone 1" or "Shorter than planned: 30 min
   instead of 50 min".
