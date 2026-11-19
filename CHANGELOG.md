@@ -248,6 +248,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **A login link opened twice no longer ends on an error.** When a mail app opens the
+  link a second time, or an older link is tapped after a newer one worked, the login page
+  said "This link has expired or was used" although you were already logged in; it now
+  takes you to the portal.
 - **The injury check and the check-in reaction now run** (#90). They waited for a check-in
   after a 09:04 morning report with two low scores, or pain of 4/10 or more, which never
   happened; now any check-in after the morning advice and any pain or injury for today starts
