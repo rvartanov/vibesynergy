@@ -29,7 +29,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import Engine, or_, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import coaching, multisport
+from vibesynergy.query import coaching, multisport, plan_match
 from vibesynergy.query.safety_floor import title_band
 from vibesynergy.query.views import sync_status
 from vibesynergy.store.schema import activity_unified, planned_item, training_plan
@@ -146,6 +146,7 @@ ABOVE_SHARE = 0.15  # … and its share of the session
 LOW_ZONE = 2  # without an RPE: nearly all heart-rate time in zones 1-2 is a low effort
 LOW_ZONE_SHARE = 0.9
 _ZONE = re.compile(r"\bz(?:one)?\s?([1-7])\b", re.IGNORECASE)
+_ICU_NAME = re.compile(r"intervals[ ._-]?icu", re.IGNORECASE)
 
 
 def zone_ceiling(item: dict[str, Any]) -> int | None:
@@ -195,7 +196,9 @@ def _low_effort(activity: dict[str, Any]) -> bool | None:
     return low / total >= LOW_ZONE_SHARE
 
 
-def deviation(item: dict[str, Any], activity: dict[str, Any]) -> dict[str, Any] | None:
+def deviation(
+    item: dict[str, Any], activity: dict[str, Any], structure: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     """How the matched activity departs from the planned session, or ``None`` when it is
     that session. ``kind`` is one of:
 
@@ -205,9 +208,13 @@ def deviation(item: dict[str, Any], activity: dict[str, Any]) -> dict[str, Any] 
       nearly all in zones 1-2), or longer with nothing known about the effort;
     - ``shorter``: over 25% shorter;
     - ``distance``: the distance is off by more than 25%;
+    - ``structure``: the laps clearly show another workout than the planned steps
+      (``plan_match.compare`` gave ``differs``, #116): 3x300 planned, 4x50 + 3x100 done, or
+      a tempo block in an easy run. ``planned`` and ``done`` say which;
     - ``intensity``: both sides name an intensity and the names differ.
 
-    A missing number is not a difference. Longer at a low effort is not a deviation.
+    A missing number is not a difference. Longer at a low effort is not a deviation, but a
+    different workout of the same size or longer is.
     """
     actual = activity.get("moving_s") or activity.get("elapsed_s")
     planned = planned_duration_s(item)
@@ -227,8 +234,18 @@ def deviation(item: dict[str, Any], activity: dict[str, Any]) -> dict[str, Any] 
             "planned_m": planned_distance_m(item),
             "actual_m": activity.get("distance_m"),
         }
+    if structure and structure.get("check") == "differs":
+        return {
+            "kind": "structure",
+            "planned": structure.get("planned"),
+            "done": structure.get("done"),
+            "done_shape": structure.get("done_shape"),
+        }
     wanted = planned_intensity(item)
-    done = planned_intensity({"title": activity.get("name"), "extra": {}})
+    # "Zwift - Intervals icu: Rustige rit Z2 1u" names where the workout came from, not
+    # intervals: the word is no intensity (#116, 19-11).
+    name = _ICU_NAME.sub(" ", str(activity.get("name") or ""))
+    done = planned_intensity({"title": name, "extra": {}})
     explicit = activity.get("intensity")
     if isinstance(explicit, str) and explicit.strip().lower() in _INTENSITY:
         done = explicit.strip().lower()
@@ -365,6 +382,7 @@ def plan(
         bucket = coached if kind == "coaching" else by_day
         found = {
             "id": group_id,
+            "sport": sport,
             "name": name,
             "moving_s": moving_s,
             "elapsed_s": elapsed_s,
@@ -374,6 +392,7 @@ def plan(
         matched.append({"id": group_id, "sources": refs or []})
         bucket.setdefault((day, family(sport)), []).append(found)
     effort = _effort_of(engine, matched)
+    laps = _laps_of(engine, items, done, today)
 
     planned_counts = Counter(
         (i["date"], family(i["sport"])) for i in items if i["kind"] in TRAINING_KINDS
@@ -404,10 +423,18 @@ def plan(
         if ambiguous or sport_family is None:
             item["status"] = "uncertain"
         elif matches:
-            differs = deviation(item, {**matches[0], **effort.get(matches[0]["id"], {})})
+            found = {**matches[0], **effort.get(matches[0]["id"], {})}
+            compared = plan_match.compare(
+                item.get("_steps"),
+                sport_family,
+                laps.get(matches[0]["id"]),
+                coached=bool(item.get("coached")),
+            )
+            differs = deviation(item, found, compared)
             item["status"] = "changed" if differs else "done"
             if differs:
                 item["deviation"] = differs
+            item["comparison"] = {**compared, "rpe": found.get("rpe")}
         else:
             item["status"] = "today" if day == today else "missed"
         item["done_by"] = matches[:1] if item["status"] in ("done", "changed") else []
@@ -431,6 +458,10 @@ def plan(
     # The workout text sits in extra; pages read item["description"] (8-11: the calendar and
     # the week view showed no workout details for any planned session).
     for item in items:
+        steps = item.pop("_steps", None)
+        if item["kind"] in TRAINING_KINDS and "comparison" not in item:
+            planned = plan_match.planned_text(steps, family(item.get("sport")))
+            item["comparison"] = {"check": None, "planned": planned, "done": None}
         if not item.get("description"):
             text = (item.get("extra") or {}).get("description")
             if text:
@@ -465,6 +496,29 @@ def plan(
             ),
         },
     }
+
+
+def _laps_of(
+    engine: Engine, items: list[dict[str, Any]], done: Any, today: date
+) -> dict[str, list[dict]]:
+    """Laps of the activities a planned session with steps may be matched to (same day and
+    sport family, swim, run or ride): what the structure check reads (#116)."""
+    wanted = {
+        (_as_day(i["date"]), family(i.get("sport")))
+        for i in items
+        if i["kind"] in TRAINING_KINDS and i.get("_steps") and _as_day(i["date"]) <= today
+    }
+    groups = [
+        {"id": row[2], "sources": row[9] or []}
+        for row in done
+        if (row[0], family(row[1])) in wanted and family(row[1]) in plan_match.CHECKED_FAMILIES
+    ]
+    if not groups:
+        return {}
+    try:
+        return plan_match.laps_for(engine, groups)
+    except Exception:  # the plan still answers; the sessions are then not checked
+        return {}
 
 
 def _common(item: dict[str, Any]) -> None:
@@ -523,6 +577,7 @@ def _model_item(row: dict[str, Any]) -> dict[str, Any]:
     if distance := _positive(row.get("distance_m")):
         extra["distance_m"] = distance
     return {
+        "_steps": row.get("steps") or [],
         "source": VIBESYNERGY,
         "source_id": row["id"],
         "session_id": row["id"],

@@ -1158,6 +1158,8 @@ def plan_layer(engine: Engine, plan_id: str, start: date, end: date) -> dict[str
                 "type": s["sport"],
                 "slot": s["slot"],
                 "description": session_text(s),
+                # The steps as data, for the structure check against the laps (#116).
+                "steps": (s["workout"] or {}).get("steps") or [],
                 "duration_s": s["duration_s"],
                 "distance_m": s["distance_m"],
                 "external_id": s["id"],

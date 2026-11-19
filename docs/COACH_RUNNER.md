@@ -192,7 +192,12 @@ Every context block that carries the plan reads VibeSynergy's own plan model and
 never intervals.icu:
 
 - `plan_horizon`, `plan_next_week` and `plan_match`: the sessions and week notes of
-  `plan_model.view`; `plan_horizon.guard` is the Garmin check of those sessions only;
+  `plan_model.view`; `plan_horizon.guard` is the Garmin check of those sessions only.
+  `plan_match` (version 2) also has, per session, what was done (#116): `match` (done,
+  changed, missed), `planned` and `done` as one line each ("Zwemmen duur 40' — 3x300
+  Middel", "lap_swimming 2525 m, 68' — 5x50 + 3x100 · RPE 3"), `check` (`match`,
+  `differs`, `not_checked`) and the `deviation`; `today` (version 2) has the same per
+  session. A `structure` deviation means another workout than planned, from the laps;
 - `today` and `week`: `vibesynergy_today` and `vibesynergy_week`, built on
   `vibesynergy_plan`, whose planned sessions, week notes, targets and races are
   VibeSynergy's own. A Garmin workout that is not in the plan (Garmin Coach's "Basis",
@@ -238,7 +243,10 @@ there is no valid AI advice ([Daily advice](#daily-advice-ai-first-the-rules-as-
   zone 1 for a training you give, zone 2 for a session planned easy. *Longer*: over 25%
   longer and not at a low effort (RPE above 4, or without an RPE, heart rate not nearly all
   in zones 1-2). Longer at a low effort is the session as planned. *Shorter*: over 25%
-  shorter, named as such. The advice says which it was.
+  shorter, named as such. *Structure* (#116): the planned steps against the laps
+  (`query/plan_match.py`): another main set (3x300 planned, 4x50 + 3x100 swum) or a tempo
+  block in a steady session; a few bad swim laps do not count, and laps too thin to judge
+  give "done, not checked" (`comparison.check` `not_checked`). The advice says which it was.
 - **Measurement gaps** (`query/measurement.py`, from the raw history VibeSynergy keeps): a
   night that grew by an hour or more after its first reading is reported; a readiness from
   before the night was complete does not count; when the day's readiness is a later

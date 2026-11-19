@@ -73,7 +73,13 @@ Details: [SOURCES.md](SOURCES.md).
 
 - **Planned workouts open on the start page**: click one under Planned to fold open its
   steps, as in This week. A workout marked "changed" says why underneath (harder, longer,
-  shorter, another distance or intensity than planned).
+  shorter, another distance or intensity, or another workout than planned).
+- **Planned against done**: under each done or changed workout on the start page, the day
+  view and in This week, two lines: "Planned:" with the planned main set (3x300 Middel,
+  25' Z2) and "Done:" with what was done (sport, distance, time, the main sets from the laps,
+  RPE). The content counts, not only the size: the planned steps are compared with the laps,
+  so other sets or intervals in place of a steady session make it "changed". Too few laps to
+  judge: "done, not checked".
 - **Today** (`#/dashboard`): advice for today, the plan and what was done, check-in and
   complaints, recovery and the week, what's coming up, key numbers, last night, body and
   measurements, the timeline, best efforts and the diary. Blocks can be reordered and hidden.

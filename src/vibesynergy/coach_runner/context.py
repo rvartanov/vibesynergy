@@ -343,16 +343,34 @@ def _activity(rt, day, cache):
 
 
 def _plan_match(rt, day, cache):
-    from vibesynergy.query import plan_model
+    """The day's planned sessions with what was done for each (#116): ``planned`` and
+    ``done`` lines, the content ``check`` and the ``deviation``. A session that is
+    ``changed`` (another workout, or another size or intensity) was not done as prescribed."""
+    from vibesynergy.core.timeutil import Window
+    from vibesynergy.query import plan as plan_q
+    from vibesynergy.query import plan_match, plan_model
 
     found = plan_model.view(rt.engine, day, day)
-    return [
-        {
+    try:
+        calendar = plan_q.plan(
+            rt.engine, Window(day, day), day, include_calendar=False, include_sync_status=False
+        )
+        matched = {i.get("session_id"): i for i in calendar["items"] if i.get("session_id")}
+    except Exception as exc:  # the sessions still go in, without what was done
+        log.warning("plan match context failed: %s", exc)
+        matched = {}
+    out = []
+    for s in found.get("sessions") or []:
+        row = {
             **{k: s.get(k) for k in ("session_id", "sport", "name", "status")},
             "description": _short(s.get("description")),
         }
-        for s in found.get("sessions") or []
-    ]
+        item = matched.get(s.get("session_id"))
+        if item is not None:
+            row["match"] = item.get("status")
+            row |= plan_match.for_coach(item)
+        out.append(row)
+    return out
 
 
 BLOCKS: dict[str, Block] = {
@@ -368,7 +386,7 @@ BLOCKS: dict[str, Block] = {
             version=2,
         ),
         Block("coach_memory", "Coachgeheugen", 2000, _memory),
-        Block("today", "Vandaag", 3000, _today),
+        Block("today", "Vandaag", 3000, _today, version=2),
         Block("recovery", "Herstel", 1200, _recovery),
         Block("plan_horizon", "Plan komende 9 dagen", 10000, _plan_horizon),
         Block("plan_next_week", "Plan volgende week", 2500, _plan_next_week),
@@ -378,7 +396,7 @@ BLOCKS: dict[str, Block] = {
         Block("recent_reports", "Recente rapporten", 3000, _recent_reports),
         Block("fitness", "Fitheid", 2500, _fitness),
         Block("activity", "Activiteit", 4000, _activity),
-        Block("plan_match", "Gepland op die dag", 2500, _plan_match),
+        Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),
         Block("month", "Vorige maand", 4000, _month),
         # Version 2 (#111): VibeSynergy's own races; the primary race is the next A race.
         Block("races", "Wedstrijden", 1500, _races, version=2),

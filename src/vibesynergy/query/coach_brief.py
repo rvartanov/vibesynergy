@@ -14,7 +14,15 @@ from sqlalchemy import Engine, select
 from vibesynergy.core.timeutil import Window
 from vibesynergy.core.user_datetime import format_user_date
 from vibesynergy.mcp.identity import current_connection
-from vibesynergy.query import coach, coach_workouts, dashboard, journal, week_progress, workouts
+from vibesynergy.query import (
+    coach,
+    coach_workouts,
+    dashboard,
+    journal,
+    plan_match,
+    week_progress,
+    workouts,
+)
 from vibesynergy.query import plan as plan_q
 from vibesynergy.query.daily_coach import fixed_safety_summary
 from vibesynergy.runtime import Runtime
@@ -236,6 +244,8 @@ def _item(row: dict[str, Any]) -> dict[str, Any]:
         "intensity": plan_q.planned_intensity(row),
         "distance_m": plan_q.planned_distance_m(row),
         "duration_s": plan_q.planned_duration_s(row),
+        # Planned against done by content (#116): a changed session is not done as planned.
+        **plan_match.for_coach(row),
     }
 
 
@@ -267,6 +277,7 @@ def _week_session(item: dict[str, Any]) -> dict[str, Any]:
         "intensity": plan_q.planned_intensity(item),
         "status": item.get("status"),
         "matched": matched,
+        **plan_match.for_coach(item),
     }
 
 

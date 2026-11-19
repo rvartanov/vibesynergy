@@ -20,6 +20,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   one-time link (15 minutes) to choose a new password without the old one, also with a second
   step on, and clears the login lockout. `--show` prints the link too; `--reset-mfa` turns the
   second step off when its phone and backup codes are lost. Command line only.
+- **Planned against done, by content** (#116): a workout of the same sport but another
+  content now counts as changed, not done. The planned steps are compared with the
+  activity's laps: 3x300 Middel planned and drills, 100s and 200+50s swum is "changed"
+  ("Another workout than planned"), and so is a tempo run in place of an easy run. A few bad
+  swim laps (a length miscounted) do not change the verdict. When the laps are too thin to
+  judge (one lap, auto laps for an interval plan), the workout says "done, not checked". On
+  the start page, the day view and in This week each done or changed workout shows two
+  lines, "Planned: Zwemmen duur 40' — 3x300 Middel" and "Done: Swimming 2525 m, 68' — 5x50 +
+  3x100 + 4x(200+50) + 7x50 · RPE 3", with the reason on top when changed. The AI coach gets
+  the same planned and done per session (`today`, `plan_match`), so a report does not call a
+  different session done as prescribed.
 - **"Changed" says why** on the start page: under a workout marked changed, one line
   such as "Harder than planned: 28 min above zone 1" or "Shorter than planned: 30 min
   instead of 50 min".
@@ -265,6 +276,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- A Zwift ride of a plan workout ("Zwift - Intervals icu: Rustige rit Z2 1u") no longer counts
+  as "changed: hard instead of easy": the "Intervals" in intervals.icu's name is no intensity.
 - **One daily-advice notice per day** (#108): a new version of the day's advice replaces the
   earlier notice instead of adding a second one that contradicts it, comes back at the top
   also when you dismissed the earlier version, and starts with "Updated:". On the phone a

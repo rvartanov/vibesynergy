@@ -5,6 +5,7 @@ import { effortLabel } from "./effort.js";
 import { esc, hoursMinutes, isNum, km, longDate, number, sportName, weekday } from "./format.js";
 import { N, t } from "./i18n.js";
 import { complianceChip } from "./compliance.js";
+import { planLinesHtml, statusWord } from "./plan_lines.js";
 import { sportIcon, sportKey } from "./symbols.js";
 import { workoutHtml } from "./workout_text.js";
 
@@ -32,9 +33,9 @@ function count(n, one, many) {
   return n === 1 ? t(one, { n: number(n) }) : t(many, { n: number(n) });
 }
 
-function chip(status) {
+function chip(status, comparison) {
   const [tone, word] = STATUS[status] || ["", status];
-  return `<span class="chip ${tone}">${esc(t(word))}</span>`;
+  return `<span class="chip ${tone}">${esc(statusWord(status, comparison, t(word)))}</span>`;
 }
 
 // Advice first: what the week so far means and what to do now.
@@ -126,13 +127,26 @@ function sessionHtml(session, { linkActivities }) {
   const title = esc(session.title || t("Activity"));
   const id = session.actual?.id;
   const name = id && linkActivities ? `<a href="#/activity/${esc(encodeURIComponent(id))}">${title}</a>` : title;
-  const text = actualText(session);
+  // Done or changed in the plan: Gepland and Gedaan, the reason on top (#116); else the
+  // numbers as before.
+  const lines = session.in_plan && session.actual
+    ? planLinesHtml({
+      title: session.title || t("Activity"),
+      sport: FAMILY_SPORT[session.family] || session.sport,
+      status: session.status,
+      comparison: session.comparison,
+      deviation: session.deviation,
+      actual: session.actual,
+      rpe: session.rpe,
+    })
+    : "";
+  const text = lines ? "" : actualText(session);
   // What the planned workout is, folded open on demand (8-11).
   const details = session.description && session.in_plan
     ? `<details class="collapsible wp-details"><summary>${esc(t("Workout details"))}</summary>${workoutHtml(session.description)}</details>`
     : "";
   const fit = session.in_plan && session.actual ? ` ${complianceChip(session.compliance, session.compliance_source)}` : "";
-  return `<li class="wp-session">${chip(session.status)}${fit} <span><span class="wp-day" title="${esc(longDate(session.date))}">${esc(day)}</span> ${name}${text ? `<span class="sub wp-actual">${esc(text)}</span>` : ""}${details}</span></li>`;
+  return `<li class="wp-session">${chip(session.status, session.comparison)}${fit} <span><span class="wp-day" title="${esc(longDate(session.date))}">${esc(day)}</span> ${name}${lines}${text ? `<span class="sub wp-actual">${esc(text)}</span>` : ""}${details}</span></li>`;
 }
 
 function sportHtml(sport, sessions, options) {
@@ -186,7 +200,7 @@ function detailsHtml(progress) {
     <summary>${t("Details")}</summary>
     ${note}
     <ul class="wp-basis">${rows}</ul>
-    <p class="sub">${t("A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, or another intensity.")}</p>
+    <p class="sub">${t("A workout counts as done when an activity of that sport took place that day, or when intervals.icu paired them; then intervals.icu's score is shown. Changed means more than a quarter longer or shorter, another intensity, or another workout: other sets or intervals than the planned steps, read from the laps. Done, not checked: the laps are too thin to compare the workout.")}</p>
   </details>`;
 }
 

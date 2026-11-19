@@ -161,7 +161,11 @@ everything the MCP can answer, the portal can show and vice versa.
   and `notes`; `measurement` says whether the night was updated after its first reading
   and which readiness reading counts; `sleep_check` can be `updated`. A planned session
   that departed from the plan carries `deviation` (`harder`, `longer`, `shorter`,
-  `distance`, `intensity`) in `vibesynergy_plan` and `vibesynergy_week`.
+  `distance`, `structure`, `intensity`) in `vibesynergy_plan` and `vibesynergy_week`.
+  Every planned session also has `comparison` (#116): `planned` (the main set from the
+  steps), `done` (the main sets from the laps), `check` (`match`, `differs`,
+  `not_checked`, or null when there is nothing to compare) and `rpe`; `vibesynergy_today`
+  and `vibesynergy_week` give `planned` and `done` as one line each per session.
 - Race priority: `vibesynergy_race_set_priority` (`plan.propose`) stores A, B or C on one of
   VibeSynergy's races (#111). Null clears it. `vibesynergy_coach_state` races include
   `source` (`vibesynergy`), `source_id` (the race id) and `priority` (A, B, C, or null). A
