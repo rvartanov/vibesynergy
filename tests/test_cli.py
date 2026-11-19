@@ -214,6 +214,52 @@ def test_init_with_email_makes_the_account_and_a_first_login_link(env) -> None:
     assert "Login link for athlete@example.com" in link and "/login#link=" in link
 
 
+def _reset_token(out: str) -> str:
+    return out.split("/login#reset=")[1].split()[0]
+
+
+def test_password_reset_clears_lockout_and_link_works_once(env, runtime) -> None:
+    from vibesynergy.query import auth
+
+    run("init", "--email", "athlete@example.com")
+    acc = auth.account(runtime.engine)
+    for _ in range(auth.MAX_FAILURES_EMAIL):
+        auth.note_attempt(runtime.engine, acc["email"], "1.2.3.4", False)
+    assert auth.locked(runtime.engine, acc["email"], "1.2.3.4")
+    out = run("password-reset")  # no mail set up: the link is shown
+    assert "lockout is cleared" in out and "/login#reset=" in out
+    assert not auth.locked(runtime.engine, acc["email"], "1.2.3.4")
+    token = _reset_token(out)
+    assert auth.use_token(runtime.engine, token, "reset") == acc["id"]
+    assert auth.use_token(runtime.engine, token, "reset") is None
+    from sqlalchemy import select
+
+    from vibesynergy.store.schema import audit_log
+
+    with runtime.engine.connect() as conn:
+        rows = conn.execute(select(audit_log.c.actor, audit_log.c.action)).all()
+    assert ("cli", "auth.reset.cli") in [tuple(r) for r in rows]
+
+
+def test_password_reset_keeps_or_resets_the_second_step(env, runtime) -> None:
+    from vibesynergy.query import auth
+
+    run("init", "--email", "athlete@example.com")
+    acc = auth.account(runtime.engine)
+    auth._set_mfa(runtime.engine, acc["id"], "totp")
+    out = run("password-reset", "--show")
+    assert "second step stays on" in out
+    assert auth.account(runtime.engine)["mfa"] == "totp"
+    out = run("password-reset", "--reset-mfa")
+    assert "second step is off" in out
+    assert auth.account(runtime.engine)["mfa"] == "none"
+
+
+def test_password_reset_needs_an_account(env) -> None:
+    run("init")
+    assert runner.invoke(app, ["password-reset"]).exit_code == 1
+
+
 def test_init_demo_and_database_backups(env, tmp_path) -> None:
     assert "Demo source on" in run("init", "--demo")
     assert "[sources.demo]" in env.read_text()

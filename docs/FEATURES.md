@@ -13,7 +13,11 @@ Status: alpha (0.0.1). The portal is in Dutch and English.
   (macOS, Linux) or from source. Step by step for people and for AI assistants:
   [INSTALL.md](../INSTALL.md).
 - **First login** by a one-time link from `vibesynergy init --email …` (valid 24 hours); a new
-  one with `vibesynergy login-link`.
+  one with `vibesynergy login-link`. **Password reset from the terminal**:
+  `vibesynergy password-reset` mails (or with `--show`, prints) a 15-minute one-time link to
+  choose a new password without the old one, clears the login lockout and audits
+  `auth.reset.cli`; `--reset-mfa` also turns the second step off. Command line only (shell
+  access is the proof), not in the portal or the AI apps.
 - **Login**: password, or a one-time link by mail; "Forgot your password?" by mail.
   Optional second step: a code by mail, or an authenticator app (TOTP) with 10 backup codes.
   Brute-force brake, sessions per device (log out one or all), a mail on a new login.

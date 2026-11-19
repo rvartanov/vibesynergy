@@ -49,6 +49,7 @@ volume. Other commands run inside the container:
 ```bash
 docker exec -it vibesynergy vibesynergy status
 docker exec -it vibesynergy vibesynergy login-link   # a new login link
+docker exec -it vibesynergy vibesynergy password-reset   # a link to choose a new password
 docker exec -it vibesynergy vibesynergy db backup    # a copy of the database in /data/share/backups
 ```
 
@@ -108,7 +109,8 @@ another device. See [deploy/README.md](deploy/README.md).
 | What you see | What to do |
 |---|---|
 | The link says it expired or was used | Make a new one: `vibesynergy login-link` (container: `docker exec -it vibesynergy vibesynergy login-link`). |
-| Forgot your password | "Forgot your password?" on the login page (needs mail set up), or a new login link as above. |
+| Forgot your password | "Forgot your password?" on the login page (needs mail set up), a new login link as above, or `vibesynergy password-reset` (container: `docker exec -it vibesynergy vibesynergy password-reset`): mails a 15-minute link to choose a new password without the old one, or prints it when mail is not set up (`--show` always prints it). It also clears the login lockout. |
+| Locked out of the second step too (lost phone and backup codes) | `vibesynergy password-reset --reset-mfa`: as above, and the second step is turned off; set it up again in Settings → Account after logging in. Without `--reset-mfa` the second step is still asked after the new password. |
 | Login keeps asking again from another device | You're on plain `http://`: use HTTPS (see above). |
 | `serve` refuses to start: old database | `vibesynergy db upgrade`, then start again. |
 | Port 8447 already in use | Container: change the left side of `127.0.0.1:8447:8447` (and use that port in the login link too). uv: `[portal] port = 8457` in the config. |
