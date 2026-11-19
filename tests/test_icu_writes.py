@@ -345,7 +345,7 @@ def test_plan_write_scope_is_separate(runtime) -> None:
 
     def call(scopes: frozenset[str]):
         async def go():
-            tokens = set_connection("reader", scopes=scopes, label="Reader")
+            tokens = set_connection("reader", scopes=scopes, label="Reader", role="own")
             try:
                 async with Client(build_server(runtime)) as client:
                     return await client.call_tool("vibesynergy_icu_create_event", arguments)

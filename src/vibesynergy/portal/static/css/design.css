@@ -232,6 +232,8 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 .advice-status .advice-refresh { min-height: 24px; }
 .advice-fallback { border-left: 3px solid var(--line); padding-left: var(--space-2); }
 /* The earlier versions of the day's advice on the Coach page (#90). */
+.second-opinions .notice { flex-basis: 100%; margin: var(--space-1) 0 0; }
+.proposal-text { white-space: pre-wrap; }
 .advice-versions ol { margin: var(--space-1) 0 0; padding-left: var(--space-3); display: grid; gap: var(--space-1); }
 .advice-version-head { display: inline-flex; gap: var(--space-1); align-items: center; margin-right: var(--space-1); }
 .dash-plan { margin: var(--space-3) 0; padding-top: var(--space-3); border-top: 1px solid var(--subtle); }

@@ -51,11 +51,13 @@ def login(r: Rec):
 @scenario("today", "Je dag: advies, herstel en check-in", "Your day: advice, recovery and check-in")
 def today(r: Rec):
     # An AI coach's advice for today, so the card shows it (cleared again afterwards).
-    _demo("demo_daily_advice.py", "seed")
+    # And an advisory AI coach's second opinion that differs from it (#118): one helper
+    # seeds both.
+    _demo("demo_coach_roles.py", "seed")
     try:
         _today(r)
     finally:
-        _demo("demo_daily_advice.py", "clear")
+        _demo("demo_coach_roles.py", "clear")
 
 
 def _today(r: Rec):
@@ -93,6 +95,20 @@ def _today(r: Rec):
         "When new data comes in, like your check-in or a workout, your AI coach makes a new "
         "version. This line says when and why.",
         3.2,
+    )
+    second = advice.locator("[data-second-opinions]")
+    r.check(second.count() > 0, "the advice card should list the second opinion")
+    r.check(
+        advice.locator("[data-second-opinion-differs]").count() > 0,
+        "a second opinion that differs should be flagged",
+    )
+    r.point(second)
+    r.say(
+        "Werkt er een tweede AI-coach mee, dan staat zijn second opinion erbij. Wijkt die af "
+        "van je AI-coach, dan zie je dat meteen. Je eigen AI-coach heeft het laatste woord.",
+        "When a second AI coach works with you, its second opinion is listed here. Where it "
+        "differs from your AI coach, you see it at once. Your own AI coach has the last word.",
+        3.6,
     )
     update = advice.get_by_role("button", name="Advies bijwerken")
     r.check(update.count() > 0, "the advice card should have Update advice")
@@ -416,11 +432,34 @@ def fitness(r: Rec):
 
 @scenario("coach", "Je AI-coach instellen en gebruiken", "Setting up and using your AI coach")
 def coach(r: Rec):
+    # The day's advice with an advisory AI coach's second opinion beside it (#118).
+    _demo("demo_coach_roles.py", "seed")
+    try:
+        _coach(r)
+    finally:
+        _demo("demo_coach_roles.py", "clear")
+
+
+def _coach(r: Rec):
     r.go("coach")
     r.say(
         "Training → Coach: advies, kennis, regels, geheugen en taken van je AI-coach.",
         "Training → Coach: your AI coach's advice, knowledge, rules, memory and tasks.",
     )
+    second = r.pg.locator("[data-coach-advice] [data-second-opinions]")
+    r.check(second.count() > 0, "the Coach page should list the second opinion")
+    r.point(second)
+    r.say(
+        "Bij het advies van vandaag staat de second opinion van een adviserende AI-coach, "
+        "met waar die afwijkt. In de berichten eronder heeft hij een eigen label.",
+        "With today's advice you see the second opinion of an advisory AI coach, and where "
+        "it differs. In the messages below it has its own label.",
+        3.4,
+    )
+    chip = r.pg.locator("[data-second-opinion-chip]").first
+    r.check(chip.count() > 0, "the second opinion should be marked in the messages")
+    r.point(chip)
+    r.wait(1.2)
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
     r.say(
         "Instellingen: zet je AI-coach aan en kies een AI-aanbieder.",
@@ -580,6 +619,15 @@ def insight(r: Rec):
 
 @scenario("search-inbox", "Zoeken en 'Wacht op jou'", "Search and 'Waiting for you'")
 def search_inbox(r: Rec):
+    # A plan change an AI coach proposed and a second opinion that differs (#118).
+    _demo("demo_coach_roles.py", "seed")
+    try:
+        _search_inbox(r)
+    finally:
+        _demo("demo_coach_roles.py", "clear")
+
+
+def _search_inbox(r: Rec):
     r.go("dashboard")
     r.pg.keyboard.press("/")
     r.wait(1)
@@ -598,6 +646,24 @@ def search_inbox(r: Rec):
     r.say(
         "Het belletje: 'Wacht op jou' toont voorstellen die alleen jij kunt goedkeuren.",
         "The bell: 'Waiting for you' lists proposals only you can approve.",
+        2.8,
+    )
+    proposal = r.pg.locator("[data-plan-proposal]").first
+    r.check(proposal.count() > 0, "a plan proposal should wait for a decision")
+    r.point(proposal.get_by_role("button", name="Goedkeuren en doorvoeren"))
+    r.say(
+        "Een AI-coach wijzigt je plan niet zomaar: zijn wijziging wacht hier als voorstel. "
+        "Keur je het goed, dan voert VibeSynergy het door; afwijzen kan ook.",
+        "An AI coach does not just change your plan: its change waits here as a proposal. "
+        "Approve it and VibeSynergy carries it out; you can also reject it.",
+        3.6,
+    )
+    notice = r.pg.locator("a", has_text="Second opinion").first
+    r.check(notice.count() > 0, "a second opinion that differs should be a notice")
+    r.point(notice)
+    r.say(
+        "Bij de meldingen zie je ook wanneer een second opinion afwijkt van je AI-coach.",
+        "The notices also say when a second opinion differs from your AI coach.",
         2.8,
     )
 
@@ -675,6 +741,24 @@ def sharing(r: Rec):
     r.say(
         "De link staat klaar om te kopiëren; intrekken kan altijd.",
         "The link is ready to copy; you can revoke it any time.",
+    )
+    roles = r.pg.locator("[data-coach-roles]")
+    r.check(roles.count() > 0, "Coach apps should explain the roles")
+    r.point(roles)
+    r.say(
+        "Elke app en elk token krijgt een rol: je eigen agent, de primaire AI-coach die je "
+        "dagadvies geeft, of een adviserende AI-coach voor een second opinion en voorstellen.",
+        "Each app and token gets a role: your own agent, the primary AI coach that gives your "
+        "daily advice, or an advisory AI coach for a second opinion and proposals.",
+        3.8,
+    )
+    r.point(roles.locator("select[data-role-client]").first)
+    r.say(
+        "Er is altijd precies één primaire AI-coach. Een nieuwe app begint als adviserend, "
+        "tot jij kiest.",
+        "There is always exactly one primary AI coach. A new app starts as advisory, until "
+        "you choose.",
+        2.8,
     )
     name = r.pg.locator("input[name=name]")
     r.type(name, "Mijn AI-assistent")

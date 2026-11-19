@@ -16,6 +16,21 @@ const SCOPE_LABELS = [
   N("Run read-only database queries"),
 ];
 
+// The role of a connection among the AI coaches (#118). The server sends the ids.
+const ROLE_LABELS = {
+  own: N("My own agent"),
+  primary: N("Primary AI coach"),
+  advisory: N("Advisory AI coach"),
+};
+
+function roleSelect(access, clientId, role, name, only) {
+  const options = (access.roles || [])
+    .filter((item) => !only || only.includes(item.id))
+    .map((item) => `<option value="${esc(item.id)}"${item.id === role ? " selected" : ""}>${esc(t(ROLE_LABELS[item.id] || item.label))}</option>`)
+    .join("");
+  return `<select class="btn" data-role-client="${esc(clientId)}" aria-label="${esc(t("Role of {app}", { app: name }))}">${options}</select>`;
+}
+
 // Read from the rows of apps, tokens and share links: the lists show only what works.
 const ACCESS_VERBS = {
   "access.app_revoked": N("app access revoked"),
@@ -73,20 +88,25 @@ export function coachAppsHtml(access) {
   const appRows = apps.length
     ? apps.map((c) => `<tr>
         <td><input class="btn" data-rename-client="${esc(c.client_id)}" value="${esc(c.display_name || c.name || c.client_id)}" aria-label="${esc(t("Name for {app}", { app: c.name || c.client_id }))}"></td>
+        <td>${roleSelect(access, c.client_id, c.role, c.display_name || c.name || c.client_id)}</td>
         <td>${esc(c.redirect || "–")}</td>
         <td>${c.approved ? esc(ago(c.approved)) : `<span class="muted">${t("not approved")}</span>`}</td>
         <td><button class="btn" type="button" data-revoke="${esc(c.client_id)}" data-name="${esc(c.display_name || c.name || c.client_id)}">${t("Revoke")}</button></td>
       </tr>`).join("")
-    : `<tr><td colspan="4">${esc(t(allApps.length ? N("No apps have access now.") : N("No apps have connected yet.")))}</td></tr>`;
+    : `<tr><td colspan="5">${esc(t(allApps.length ? N("No apps have access now.") : N("No apps have connected yet.")))}</td></tr>`;
   const tokenRows = tokens.length
     ? tokens.map((row) => `<tr>
         <td>${esc(row.display_name || row.name)} <span class="sub">${esc(row.prefix)}</span>${row.stale ? ` <span class="chip warning">${esc(t("Not used for a long time"))}</span>` : ""}</td>
+        <td>${roleSelect(access, `pat:${row.id}`, row.role, row.display_name || row.name)}</td>
         <td>${esc((row.scopes || []).join(", "))}</td>
         <td>${row.expires_at ? esc(userDateTime(row.expires_at)) : "–"}</td>
         <td>${row.last_used ? esc(userDateTime(row.last_used)) : esc(t("not used yet"))}</td>
         <td><button class="btn" type="button" data-revoke-pat="${esc(row.id)}" data-name="${esc(row.display_name || row.name)}">${t("Revoke")}</button></td>
       </tr>`).join("")
-    : `<tr><td colspan="5">${esc(t(allTokens.length ? N("No tokens have access now.") : N("No tokens yet.")))}</td></tr>`;
+    : `<tr><td colspan="6">${esc(t(allTokens.length ? N("No tokens have access now.") : N("No tokens yet.")))}</td></tr>`;
+  const runner = access.runner
+    ? `<p><label>${esc(t("The AI coach inside VibeSynergy"))} ${roleSelect(access, access.runner.client_id, access.runner.role, t("The AI coach inside VibeSynergy"), ["primary", "advisory"])}</label></p>`
+    : "";
   return `
     <section class="card" data-coach-apps>
       <h2>${t("Coach apps")}</h2>
@@ -101,8 +121,19 @@ export function coachAppsHtml(access) {
         <p><button class="btn" type="submit">${t("Save passphrase")}</button></p>
         <p class="sub" data-passphrase-status role="status"></p>
       </form>
+      <h3 class="settings-subhead">${t("Roles")}</h3>
+      <div data-coach-roles>
+        <p class="sub">${t("Each app and token has a role. It decides what the app may write, whatever its permissions.")}</p>
+        <ul class="sub">
+          <li>${t("My own agent: works on your request in a conversation. What it writes counts as approved by you.")}</li>
+          <li>${t("Primary AI coach: gives your daily advice. A plan change needs your approval first. There is always exactly one.")}</li>
+          <li>${t("Advisory AI coach: gives a second opinion beside the advice, and proposals you approve. It never changes your plan.")}</li>
+        </ul>
+        ${runner}
+        <p class="sub" data-role-status role="status"></p>
+      </div>
       <h3 class="settings-subhead">${t("Connected apps")}</h3>
-      <div class="table-wrap"><table><thead><tr><th>${t("App")}</th><th>${t("Returns to")}</th><th>${t("Approved")}</th><th>${t("Action")}</th></tr></thead><tbody>${appRows}</tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>${t("App")}</th><th>${t("Role")}</th><th>${t("Returns to")}</th><th>${t("Approved")}</th><th>${t("Action")}</th></tr></thead><tbody>${appRows}</tbody></table></div>
     </section>
     <section class="card" data-pat-card>
       <h2>${t("Personal tokens")}</h2>
@@ -129,7 +160,7 @@ export function coachAppsHtml(access) {
         <p class="sub" data-pat-status role="status"></p>
       </form>
       <div data-revealed></div>
-      <div class="table-wrap"><table><thead><tr><th>${t("Token")}</th><th>${t("Permissions")}</th><th>${t("Expires")}</th><th>${t("Last used")}</th><th>${t("Action")}</th></tr></thead><tbody>${tokenRows}</tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>${t("Token")}</th><th>${t("Role")}</th><th>${t("Permissions")}</th><th>${t("Expires")}</th><th>${t("Last used")}</th><th>${t("Action")}</th></tr></thead><tbody>${tokenRows}</tbody></table></div>
     </section>`;
 }
 
@@ -211,6 +242,18 @@ export function bindCoachApps(view, ctx, draw) {
         refresh(reply, t("Revoked {name}.", { name: button.dataset.name }));
       } catch (error) {
         view.querySelector("[data-pat-status]").textContent = t(error.message);
+      }
+    });
+  });
+  view.querySelectorAll("[data-role-client]").forEach((select) => {
+    select.addEventListener("change", async () => {
+      try {
+        const reply = await post("mcp/role", { client_id: select.dataset.roleClient, role: select.value });
+        refresh(reply, t("Role saved."));
+      } catch (error) {
+        select.setAttribute("aria-invalid", "true");
+        const status = root.querySelector("[data-role-status]");
+        if (status) status.textContent = t(error.message);
       }
     });
   });

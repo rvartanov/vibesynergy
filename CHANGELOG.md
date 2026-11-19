@@ -11,6 +11,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **More than one AI coach, each with a role** (#118): in Settings → Sharing → Coach apps
+  every app and token gets a role. *My own agent* works on your request and what it writes
+  counts as approved. The *primary AI coach* (exactly one; the AI coach inside VibeSynergy
+  unless you choose another) gives the daily advice. An *advisory AI coach* gives a second
+  opinion and proposals only. VibeSynergy enforces the role for every write tool and
+  refuses a write outside it with an error that says what to do instead. Apps and tokens
+  that were connected already keep working as your own agent; a new connection starts as
+  advisory until you choose.
+- **Plan changes wait for your approval** (#118): a plan change by the primary AI coach
+  needs an approval reference (`approval_id`: a proposal you approved or your 'akkoord'
+  reply, at most 48 hours old). Without one, and always for an advisory AI coach, the
+  change is stored as a proposal under Waiting for you, with Approve and Reject; approving
+  carries it out. **This changes behaviour**: the AI coach inside VibeSynergy no longer
+  writes the plan by itself, also not to fill day 9 of the horizon; those sessions arrive
+  as proposals.
+- **Second opinion** (#118): an advisory AI coach's morning or evening entry is never the
+  daily advice. It shows under "Second opinion" with the day's advice on the start page
+  and the Coach page, and in the Coach page's messages with its own chip. Where it differs
+  from your AI coach in the safety level or a session decision it is flagged, Waiting for
+  you has a notice, and your AI coach weighs it in its next advice. `vibesynergy_today`
+  carries the same `second_opinions`.
+- **Entry keys per author** (#118): two AI coaches can no longer collide on
+  `morning-<date>` or get each other's entry: a key belongs to its author
+  (`morning-<date>-<author>`), and `vibesynergy_coach_handbook` tells each connection its
+  role and key suffix (`connection`).
 - **Races are VibeSynergy's own** (#111): one race list with an A/B/C priority per race. The
   races Garmin and intervals.icu held moved into it once, by themselves, on update; a change
   in Garmin or intervals.icu changes nothing. `vibesynergy plan import-races` copies races

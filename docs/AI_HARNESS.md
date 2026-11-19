@@ -76,6 +76,33 @@ advice with the reason `limit`). The injury check and check-in reaction run from
 triggers. Every version stays; only a change of colour, safety level or a session decision
 is mailed. Details: [COACH_RUNNER.md](COACH_RUNNER.md#continuous-advice-90).
 
+## More than one AI coach (#118)
+
+The harness is provider- and model-agnostic in operation too: rights and contracts hold per
+**role**, set per connection by the athlete (Settings → Sharing → Coach apps).
+
+| Role | Who | Daily advice | Plan |
+|---|---|---|---|
+| The athlete's own agent | an interactive session on his request | its entry counts (his own request) | writes directly; approved |
+| Primary AI coach | exactly one; by default the AI coach inside VibeSynergy (the runner) | writes *the* daily advice, morning and evening | needs an approval reference (an approved proposal or his 'akkoord' reply); without one the write becomes a proposal |
+| Advisory AI coach | any other AI coach, e.g. an external one over MCP | none: its entry is a second opinion in the same day thread | proposals only |
+
+- **Enforced on the server**, for every write tool, and refused with a clear error the same
+  way the output contract refuses an entry (`mcp/roles.py`; the plan gate and the approval
+  reference in `query/plan_proposals.py`). A new write tool must be given a policy: a test
+  fails otherwise.
+- **Proposals** wait under Waiting for you; approving carries the stored tool call out.
+- **Keys per author** (`morning-<date>-<author>`): two AI coaches never collide or get each
+  other's entry.
+- **Conflicting advice**: where a second opinion differs from the primary in the safety
+  level or a session decision, the start page and the Coach page show it flagged, Waiting
+  for you has a notice, and the primary gets it in its next run (context block
+  `coach_team`) and says in its reasons whether it follows it. The primary has the last
+  word unless the athlete chooses.
+- **Continuity (#115)**: second opinions are entries in the same day thread as the
+  advice's versions (`daily_advice.resolve`: `versions` and `second_opinions`), each with an
+  id, an author and a time, so the thread #115 builds on already holds them.
+
 ## Layers
 
 1. **Triggers**: when a task runs.
@@ -98,7 +125,11 @@ is mailed. Details: [COACH_RUNNER.md](COACH_RUNNER.md#continuous-advice-90).
    - the tool loop, budget and cost, retries, idempotency.
 5. **Actions and guardrails**:
    - what a task may write;
-   - what needs the athlete's approval (a proposal, then "akkoord", then execute);
+   - what needs the athlete's approval (a proposal, then "akkoord", then execute), by the
+     writer's role (#118): the athlete's own agent writes as approved; the primary AI coach
+     needs an approval reference for a plan change, else it becomes a proposal; an advisory
+     AI coach writes notes, second opinions and proposals only. The server enforces it for
+     every write tool (`mcp/roles.py`, `query/plan_proposals.py`);
    - the output checked against the contract.
 6. **Delivery**: mail, push, portal, Strava and Garmin, following the communication rule.
 7. **Observation**: run log (cost, versions), failure alerts, contract checks, prediction
@@ -134,12 +165,12 @@ task.
 
 | # | Task | Trigger | Output | Writes on its own | Needs approval | Now |
 |---|---|---|---|---|---|---|
-| 1 | Morning advice | schedule, daily 07:00 (the fixed advice run); event: new data for today (#90) | report (mail/push/portal) | the report; fill day 9 of the horizon | changing today or tomorrow | API runner |
+| 1 | Morning advice | schedule, daily 07:00 (the fixed advice run); event: new data for today (#90) | report (mail/push/portal) | the report; day 9 of the horizon as a proposal (#118) | changing today or tomorrow; filling day 9 | API runner |
 | 2 | Evening review | schedule, daily; event: new data for tomorrow (#90); its advice is for tomorrow | report | the report; predictions | moving sessions | API runner |
 | 3 | Week review | schedule, Sunday | report + next-week proposal | the report | next week's changes | API runner |
 | 4 | Insight under a public activity | event: activity published | line in the Strava/Garmin text | the insight | – | API runner |
 | 5 | Reply to a report | event: the athlete replies | answer, or execute "akkoord" | the answer | the approved action itself | a reply makes a new version of the current advice (#90), which reads it |
-| 6 | Horizon fill | schedule, daily | sessions for day 9 | sessions within the week note | changes beyond the note | inside 1 |
+| 6 | Horizon fill | schedule, daily | sessions for day 9 | a proposal per session (#118: a plan write needs an approval reference) | every plan write | inside 1 |
 | 7 | Injury check | event: pain or an injury logged for today, at once (#90; within the daily maximum) | advice | the advice | plan changes (proposal + akkoord) | API runner (since 10-11) |
 | 8 | Check-in reaction | event: check-in saved after the fixed advice run, after the wait (#90; within the daily maximum) | short advice for today | the advice | swapping today's session (proposal + akkoord) | API runner (since 10-11) |
 | 9 | Weather swap | schedule, evening | outdoor ↔ indoor proposal | – | the swap | inside 2 |

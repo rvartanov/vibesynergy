@@ -191,7 +191,7 @@ def test_the_rules_are_versioned():
         )
     )
     digest = hashlib.sha256(text.encode()).hexdigest()[:12]
-    assert (prompts.RULES_VERSION, digest) == (4, RULES_DIGEST), digest
+    assert (prompts.RULES_VERSION, digest) == (5, RULES_DIGEST), digest
     assert contract.parse_stamp(contract.stamp(14, 2, 2)) == {
         "harness": contract.HARNESS_VERSION,
         "rules": 2,
@@ -201,7 +201,7 @@ def test_the_rules_are_versioned():
     assert contract.parse_stamp("latest") is None
 
 
-RULES_DIGEST = "1a3979d0e3fa"
+RULES_DIGEST = "a7a66a71fd96"
 
 
 @pytest.mark.parametrize("job", [t for t in registry.live() if t != "insight"])
@@ -231,7 +231,7 @@ def test_the_rules_are_numbered_steps_any_model_can_follow(job):
 
 def _mcp(rt, tool, **args):
     async def go():
-        tokens = set_connection("client-1", scopes=frozenset({"read", "coach.write"}))
+        tokens = set_connection("client-1", scopes=frozenset({"read", "coach.write"}), role="own")
         try:
             async with Client(build_server(rt)) as client:
                 return await client.call_tool(tool, args)
@@ -312,6 +312,7 @@ def test_an_mcp_entry_records_the_harness_it_was_written_under(rt, today):
     data = result.structured_content["data"]
     assert data["meta"]["safety"] == OK
     assert data["meta"]["harness"] == {
+        "role": "own",  # the athlete's own agent (#118)
         "target": today.isoformat(),  # the day this advice is for (#90)
         "version": contract.HARNESS_VERSION,
         "via": "mcp",
@@ -347,8 +348,9 @@ def test_an_mcp_entry_records_the_harness_it_was_written_under(rt, today):
 
 
 def test_an_mcp_write_is_checked_for_validity_not_approval(rt, today, monkeypatch):
-    """A request over MCP is the athlete's own: the same form checks as the runner, and no
-    approval step. Only the autonomous runner is barred from softening illness."""
+    """A request through the athlete's own agent is his own: the same form checks as the
+    runner, and no approval step. An AI coach acting on its own (the runner, an app with
+    another role, #118) is barred from softening illness."""
     from vibesynergy.query import coach_brief
 
     sick = {"safety": {"level": "refuse", "rules": ["sick"]}}

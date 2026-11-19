@@ -11,6 +11,46 @@ everything the MCP can answer, the portal can show and vice versa.
 
 ---
 
+## Roles per connection
+
+More than one AI coach can work under the same harness (#118). Every connection (an app
+approved over OAuth, a personal token, the AI coach inside VibeSynergy) has a role, set in
+Settings → Sharing → Coach apps and stored in `coach_role`. Rights hold per role, never per
+provider or model, and the server enforces them for every write tool
+(`vibesynergy/mcp/roles.py`, `WRITE_POLICY`); scopes still apply on top.
+
+| Role | Coach entries | Plan tools (`vibesynergy_plan_*`) | intervals.icu writes (`vibesynergy_icu_*`) | KB, memory, publish, harness run, race priority |
+| --- | --- | --- | --- | --- |
+| `own`: the athlete's own agent | approved; a daily entry is the daily advice | written directly (`plan.write`) | written directly | allowed |
+| `primary`: the primary AI coach (exactly one; by default `coach-runner`, the AI coach inside VibeSynergy) | its daily entry is the daily advice | with `approval_id`: written; without: stored as a proposal | need `approval_id`, else refused | allowed |
+| `advisory`: an advisory AI coach | notes and assessments; a daily entry is a **second opinion**; no `public_insight` | always stored as a proposal (`plan.propose` is enough) | refused | refused (use `vibesynergy_kb_propose_change`, a note) |
+
+- **Defaults.** A local caller (stdio, the portal) is the athlete. Apps and tokens that
+  were connected before roles existed keep `own`. A connection made later is `advisory`
+  until the athlete chooses. Giving `primary` to a connection takes it from the one that
+  had it (that one becomes advisory); taking it away gives it back to `coach-runner`.
+- **Refusals.** A write outside the role is a tool error the model can act on:
+  `Refused by this connection's role (advisory AI coach): vibesynergy_kb_upsert is not open
+  to an advisory AI coach … Instead: suggest the change with vibesynergy_kb_propose_change`.
+  Nothing is stored; the audit log has outcome `refused: …`.
+- **Proposals.** A plan tool that is not approved answers `{"written": false, "proposal":
+  {id, tool, arguments, reason, summary, status}, "note"}`. The athlete approves or rejects
+  it under Waiting for you (`POST /api/plan_proposals/<id>/approve|reject`); approving
+  carries the stored call out in the proposer's name and copies it to intervals.icu. A
+  proposal that could never be carried out (unknown session, steps not understood) is
+  refused when it is made. The same open proposal is not stored twice.
+- **Approval reference.** `approval_id` on the plan and intervals.icu write tools:
+  `proposal:<id>` (approved by the athlete) or `reply:<id>` (his reply to a coach entry
+  with an explicit yes such as 'akkoord' and no 'niet'/'no'), not older than 48 hours. A
+  reference that does not hold is refused, never turned into a proposal.
+- **Entries.** Each entry records `meta.harness.role`. Idempotency keys are per author
+  (`morning-<date>-<author>`): a key another author used is stored as `<key>-<author>`; an
+  advisory entry's key always carries its author. `vibesynergy_today` and the portal's
+  advice carry `second_opinions` (each with `differences` and `disagrees`), and the
+  primary's daily-advice tasks get them in the context block `coach_team`.
+- `vibesynergy_coach_handbook` returns `connection`: `role`, `may`, `author`, `key_suffix`,
+  `idempotency_key_example`, `writes_daily_advice`.
+
 ## Implementation status
 
 **Done (phases 3a to 3c, and the diary of phase 6):** read and action tools, 8 prompts and 5 resources, in
@@ -145,10 +185,11 @@ everything the MCP can answer, the portal can show and vice versa.
   day (morning: today; evening: today or tomorrow), the summary is within the word limit
   (×1.5), and the safety outcome is complete and consistent (level, the colour of that
   level, at least one reason; a level milder than the rules' needs `override_reason`).
-  It is a check of form and validity, never of approval: a request over MCP is the
-  athlete's own, through his AI app, and is already approved. The registry's approval
-  steps, and the rule that `sick`, `red_flag_note`, `pain_7` and `affects_movement` can
-  never be softened, apply to the autonomous runner only. The
+  It is a check of form and validity, never of approval: what needs approval follows from
+  the connection's role (see "Roles per connection"). The rule that `sick`,
+  `red_flag_note`, `pain_7` and `affects_movement` can never be softened applies to every
+  AI coach that acts on its own (the runner, the primary and an advisory AI coach), not
+  to the athlete's own agent. The
   stored entry has `meta.safety` and `meta.harness` (`version`, `via` runner or mcp, `task`,
   `stamp`, `current`, `follows_current`, `rules_floor`); a write under an old or missing
   stamp is stored with a warning in `meta.warnings`. `vibesynergy_coach_handbook` has the

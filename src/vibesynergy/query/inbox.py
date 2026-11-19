@@ -1,6 +1,7 @@
 """One place for what waits on the athlete: decisions first, then notices.
 
-Decisions are proposals only the athlete can take or leave: knowledge-base changes from
+Decisions are proposals only the athlete can take or leave: plan changes from an AI coach
+(approved or rejected in the list itself, #118), knowledge-base changes from
 the coach (Coach → Change log) and new threshold values (Training → Zones & thresholds).
 Notices need no decision but are worth a look: a coach routine that did not run
 and a plan horizon that is not on Garmin as it should be. Each item links to the
@@ -10,6 +11,7 @@ portal shows the decision count next to the bell in the header.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import date
 from typing import Any
 
@@ -71,10 +73,55 @@ def _thresholds(engine: Engine) -> list[dict[str, Any]]:
     ]
 
 
+def _plan_proposals(engine: Engine) -> list[dict[str, Any]]:
+    """Plan changes an AI coach may not make by itself (#118): approved or rejected here."""
+    from vibesynergy.query import plan_proposals
+
+    return [
+        {
+            "kind": "plan_proposal",
+            "id": p["id"],
+            "role": p["role"],
+            "author": p["author"],
+            "author_name": p["author_name"],
+            "change": p["summary"],
+            "why": p["reason"],
+            "at": p["created_at"],
+            "link": "#/inbox",
+        }
+        for p in plan_proposals.pending(engine)
+    ]
+
+
+def _disagreements(rt: Any, today: date) -> list[dict[str, Any]]:
+    """A second opinion that differs from the primary AI coach's advice for today or
+    tomorrow in safety level or a session decision (#118)."""
+    from datetime import timedelta
+
+    from vibesynergy.query import daily_advice
+
+    out = []
+    for day in (today, today + timedelta(days=1)):
+        for opinion in daily_advice.thread_opinions(rt, day):
+            if opinion["disagrees"]:
+                out.append(
+                    {
+                        "kind": "coach_disagreement",
+                        "date": day.isoformat(),
+                        "author_name": opinion["author_name"],
+                        "differences": opinion["differences"],
+                        "link": "#/coach",
+                    }
+                )
+    return out
+
+
 def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
     from vibesynergy.query import coach_tasks, horizon
 
     out: list[dict[str, Any]] = []
+    with contextlib.suppress(Exception):  # a notice must never break the list
+        out.extend(_disagreements(rt, today))
     try:
         for task in coach_tasks.status(rt.engine, utc_now(), rt.settings.timezone):
             for day in task["missing"]:
@@ -125,10 +172,10 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
 
 
 def inbox(rt: Any, today: date) -> dict[str, Any]:
-    decisions = _kb(rt.engine) + _thresholds(rt.engine)
+    decisions = _plan_proposals(rt.engine) + _kb(rt.engine) + _thresholds(rt.engine)
     return {"decisions": decisions, "notices": _notices(rt, today), "count": len(decisions)}
 
 
 def count(engine: Engine) -> int:
     """The number next to the bell: decisions only, cheap enough for every page."""
-    return len(_kb(engine)) + len(_thresholds(engine))
+    return len(_plan_proposals(engine)) + len(_kb(engine)) + len(_thresholds(engine))

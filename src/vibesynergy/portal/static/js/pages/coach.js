@@ -394,6 +394,10 @@ function coachEntryHtml(entry, names) {
   const when = entry.at ? userDateTime(entry.at) : "";
   // Only "out of date" is worth a chip; the rest of the bookkeeping sits in Details.
   const stale = entry.freshness === "stale" ? ` <span class="chip warning">${esc(t(COACH_FRESHNESS.stale))}</span>` : "";
+  // An advisory AI coach's entry (#118): in the same day thread, marked, with who wrote it.
+  const second = entry.second_opinion
+    ? ` <span class="chip info" data-second-opinion-chip>${esc(t("Second opinion"))}</span> <span class="sub">${esc(authorLabel(entry, names))}</span>`
+    : "";
   const confirm =
     entry.entry_type === "threshold_change" && entry.meta?.status === "proposed"
       ? `<button class="btn" type="button" data-threshold-confirm="${esc(String(entry.id))}">${t(CONFIRM_THRESHOLD)}</button>`
@@ -406,7 +410,7 @@ function coachEntryHtml(entry, names) {
     ? `${safety}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`
     : `${safety}${coach}`;
   return `<article class="coach-entry" data-entry-type="${esc(entry.entry_type || "")}">
-    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span> <span class="sub">${esc(when)}</span>${stale}</header>
+    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span>${second} <span class="sub">${esc(when)}</span>${stale}</header>
     ${body}
     ${confirm}
     ${coachDetailsHtml(entry, names)}

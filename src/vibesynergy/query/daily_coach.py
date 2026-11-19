@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, or_, select
 
 from vibesynergy.core.timeutil import Window, today_in
 from vibesynergy.i18n import translator
@@ -661,6 +661,7 @@ def _with_live_safety(
 
 
 def _daily_entry_row(conn, day: date, kind: str):
+    role = func.json_extract(coach_decision_log.c.meta, "$.harness.role")
     return (
         conn.execute(
             select(coach_decision_log)
@@ -668,6 +669,8 @@ def _daily_entry_row(conn, day: date, kind: str):
                 coach_decision_log.c.subject_id == SUBJECT,
                 coach_decision_log.c.for_date == day,
                 coach_decision_log.c.entry_type == kind,
+                # Not an advisory AI coach's second opinion (#118): never the day's decision.
+                or_(role.is_(None), role != "advisory"),
             )
             .order_by(desc(coach_decision_log.c.id))
             .limit(1)

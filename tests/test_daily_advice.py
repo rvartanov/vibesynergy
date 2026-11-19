@@ -69,7 +69,7 @@ def _day(rt):
 
 def _mcp(rt, tool, **args):
     async def go():
-        tokens = set_connection("client-1", scopes=frozenset({"read", "coach.write"}))
+        tokens = set_connection("client-1", scopes=frozenset({"read", "coach.write"}), role="own")
         try:
             async with Client(build_server(rt)) as client:
                 return await client.call_tool(tool, args)

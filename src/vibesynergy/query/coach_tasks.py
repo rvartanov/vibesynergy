@@ -132,7 +132,12 @@ def _runs(engine: Engine, task: Task, since: date) -> tuple[datetime | None, set
     """Last run of the task and the days it ran on since ``since``."""
     if task.entry_type is None:
         return None, set()
-    where = [coach_decision_log.c.entry_type == task.entry_type]
+    # A second opinion from an advisory AI coach (#118) is no run of the task.
+    role = func.json_extract(coach_decision_log.c.meta, "$.harness.role")
+    where = [
+        coach_decision_log.c.entry_type == task.entry_type,
+        or_(role.is_(None), role != "advisory"),
+    ]
     if task.entry_type == "note" and task.key_prefix:
         # The API runner keys its week review "weekly-<date>" (runner.entry_key); the old
         # routines used "weekreview:". Both count (8-11: a done review showed as skipped).

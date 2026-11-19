@@ -14,6 +14,14 @@ The setting "Daily advice" (``prefs["daily_advice"]``):
 - ``rules``: the fixed rules only, no AI.
 - ``off``: no daily advice.
 
+More than one AI coach (#118): only the primary AI coach's entry (and the athlete's own
+agent's, written on his request) is the daily advice. An advisory AI coach's entry for the
+day (``meta.harness.role == "advisory"``) is a **second opinion**: it is listed beside the
+advice in the same day thread (``second_opinions``) and flagged where it differs from the
+primary in the safety level or a session decision. The primary has the last word unless
+the athlete chooses; it gets the second opinions in its next run (context block
+``coach_team``).
+
 One exception to "everything from the AI" stays fixed: the autonomous coach runner can
 never soften the hard rules (illness, a red-flag note, pain 7/10 or more, an injury that
 changes how you move; ``safety_floor.HARD_RULES``). That is enforced where the runner
@@ -148,9 +156,10 @@ def entry_target(entry: dict[str, Any]) -> date | None:
     return day + timedelta(days=1) if entry.get("entry_type") == "evening" else day
 
 
-def _entries(rt, day: date) -> list[dict[str, Any]]:
+def _entries(rt, day: date, *, second: bool = False) -> list[dict[str, Any]]:
     """The coach entries that are a daily advice for ``day`` (they carry ``meta.safety``
-    or claim a daily-advice task), newest first: every version of that day's advice."""
+    or claim a daily-advice task), newest first: every version of that day's advice.
+    ``second`` gives the advisory AI coaches' entries for that day instead (#118)."""
     with rt.engine.connect() as conn:
         rows = (
             conn.execute(
@@ -174,8 +183,85 @@ def _entries(rt, day: date) -> list[dict[str, Any]]:
             continue  # a plain note is no daily advice
         if entry_target(dict(row)) != day:
             continue
+        if is_second_opinion(row) != second:
+            continue  # an advisory AI coach's entry is never the daily advice (#118)
         out.append(dict(row))
     return out
+
+
+# --- second opinions (#118) -------------------------------------------------------------------
+
+
+def is_second_opinion(entry: Any) -> bool:
+    """Written by an advisory AI coach (``meta.harness.role``, set when it was written):
+    shown beside the daily advice in the same day thread, never as the advice itself."""
+    meta = dict(entry).get("meta")
+    return ((meta or {}).get("harness") or {}).get("role") == "advisory"
+
+
+def _disagreement(
+    opinion: dict[str, Any], primary: dict[str, Any] | None, level: str | None
+) -> list[dict[str, Any]]:
+    """Where a second opinion differs from the primary on what counts: the safety level
+    or the decision on a session both name. Wording and colour alone are no disagreement."""
+    out: list[dict[str, Any]] = []
+    theirs = ai_safety(opinion.get("meta")) or {}
+    if theirs.get("level") and level and theirs["level"] != level:
+        out.append({"field": "safety_level", "primary": level, "advisory": theirs["level"]})
+    if primary is not None:
+        mine, other = _decisions(primary), _decisions(opinion)
+        changes = [
+            {"title": mine[t][0], "primary": mine[t][1], "advisory": other[t][1]}
+            for t in sorted(set(mine) & set(other))
+            if mine[t][1] != other[t][1]
+        ]
+        if changes:
+            out.append({"field": "sessions", "changes": changes})
+    return out
+
+
+def second_opinions(
+    rt, day: date, primary: dict[str, Any] | None = None, level: str | None = None
+) -> list[dict[str, Any]]:
+    """The advisory AI coaches' entries for ``day``, the newest per author, each with where
+    it differs from the primary (``differences``, ``disagrees``). ``primary`` is the entry
+    that is the daily advice, when there is one; ``level`` the safety level shown."""
+    seen: set[str] = set()
+    out = []
+    for entry in _entries(rt, day, second=True):
+        if entry["author"] in seen:
+            continue
+        seen.add(entry["author"])
+        meta = entry.get("meta") or {}
+        safety = ai_safety(meta) or {}
+        differences = _disagreement(entry, primary, level)
+        out.append(
+            {
+                **_entry_info(entry),
+                "author": entry["author"],
+                "author_name": meta.get("author_name"),
+                "advice": _summary(entry),
+                "colour": safety.get("colour"),
+                "safety_level": safety.get("level"),
+                "reasons": list(safety.get("reasons") or []),
+                "sessions": [
+                    {"title": title, "decision": decision}
+                    for title, decision in _decisions(entry).values()
+                ],
+                "differences": differences,
+                "disagrees": bool(differences),
+            }
+        )
+    return out
+
+
+def thread_opinions(rt, day: date) -> list[dict[str, Any]]:
+    """The second opinions for ``day`` held against the newest valid advice of the primary
+    AI coach, from the stored entries alone (no rules computed): for the notice under
+    Waiting for you and the primary's next run."""
+    primary = next((e for e in _entries(rt, day) if ai_safety(e.get("meta")) is not None), None)
+    level = (ai_safety(primary.get("meta")) or {}).get("level") if primary else None
+    return second_opinions(rt, day, primary, level)
 
 
 def target_day(job: str, run_day: date) -> date:
@@ -475,6 +561,31 @@ def _shadow_log(rt, day: date, entry_id: int, ai: dict, rules: dict, diffs: list
 
 
 def resolve(
+    rt,
+    day: date,
+    rules: dict[str, Any] | None,
+    *,
+    tr: Translator = ENGLISH,
+    allow_ai: bool = True,
+    trigger: bool = True,
+) -> dict[str, Any]:
+    """The advice for ``day`` (``_resolve``), with the advisory AI coaches' second opinions
+    for that day beside it (#118): ``second_opinions``, each flagged where it differs from
+    the advice shown in safety level or a session decision. Only in AI mode."""
+    base = _resolve(rt, day, rules, tr=tr, allow_ai=allow_ai, trigger=trigger)
+    base["second_opinions"] = []
+    if rt is None or base.get("mode") != "ai":
+        return base
+    try:
+        shown = (base.get("entry") or {}).get("id") if base.get("source") == "ai" else None
+        primary = next((e for e in _entries(rt, day) if e["id"] == shown), None) if shown else None
+        base["second_opinions"] = second_opinions(rt, day, primary, base.get("safety_level"))
+    except Exception:  # the advice must still answer
+        log.exception("reading the second opinions failed")
+    return base
+
+
+def _resolve(
     rt,
     day: date,
     rules: dict[str, Any] | None,

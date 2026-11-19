@@ -484,7 +484,13 @@ def _daily(rt: Any, since: datetime | None, delivery_day: date | None = None) ->
                 select(coach_run.c.entry_id).where(coach_run.c.entry_id.is_not(None))
             )
         }
-    rows = [r for r in rows if r[0] not in by_runner]
+    # An advisory AI coach's entry is a second opinion (#118), never the daily advice: it
+    # is shown with the advice in the portal and is not sent as a message.
+    rows = [
+        r
+        for r in rows
+        if r[0] not in by_runner and ((r[3] or {}).get("harness") or {}).get("role") != "advisory"
+    ]
     tr = i18n.for_settings(rt.settings)
     heading = tr("Messages from your AI coach")
     notes = []
