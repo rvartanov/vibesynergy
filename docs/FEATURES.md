@@ -202,6 +202,15 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   review's advice is for tomorrow. There is one current advice per day: the start page says
   when it was written and after what, the Coach page lists the earlier versions, and a mail
   comes only when the colour, the safety level or a session decision changes.
+- **One ongoing conversation per day** (#115): every run of your AI coach (07:00, an
+  update, the evening, a check-in, pain) starts from the day so far: the earlier versions
+  of the advice and your replies. A new version says what changed and why ("Changed
+  because: your resting HR is normal again …"), or it is refused. Every notice, push and
+  mail shows a stored report and opens exactly that report; an older version is marked
+  *Replaced* (on the Coach page and on its report page, with a link to the current one) and
+  is never sent. The start page, the Coach page, the notices, the mail and the AI apps over
+  MCP show the same thread in the same order, also when an AI coach in an app wrote a
+  version. A daily check reports any gap on the Coach page.
 - **One harness for every AI coach**: each task has a versioned prompt and rules, a fixed
   context that starts with the safety outcome (the rules' level and reasons, sleep check,
   measurement gaps, check-in, complaints, injuries), and an output contract. An entry that

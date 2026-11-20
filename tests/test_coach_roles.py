@@ -110,8 +110,11 @@ def _session_day(rt, session_id: str) -> date:
         ).scalar_one()
 
 
-def _morning(rt, client, scopes, *, safety=OK, key=None, sessions=None, summary="Train."):
+def _morning(
+    rt, client, scopes, *, safety=OK, key=None, sessions=None, summary="Train.", because=None
+):
     day = _today(rt).isoformat()
+    extra = {"changed_because": because} if because else {}
     return _call(
         rt,
         client,
@@ -123,6 +126,7 @@ def _morning(rt, client, scopes, *, safety=OK, key=None, sessions=None, summary=
         for_date=day,
         safety=safety,
         sessions=sessions,
+        **extra,
     )
 
 
@@ -520,7 +524,9 @@ def test_entry_keys_are_per_author_and_never_collide(rt) -> None:
     # And the primary's retry still finds its own.
     assert _runner_morning(rt)["id"] == primary["id"]
     # Another author who meets a taken key gets it under its own suffix as well.
-    own = _data(_morning(rt, OWN_AGENT, SUGGEST, key=f"morning-{day}"))
+    # The athlete's own agent writes the next version of the day's advice (#115).
+    because = {"previous": primary["id"], "reason": "Op verzoek opnieuw bekeken, zelfde advies."}
+    own = _data(_morning(rt, OWN_AGENT, SUGGEST, key=f"morning-{day}", because=because))
     assert own["idempotency_key"] == f"morning-{day}-{OWN_AGENT}"
     with rt.engine.connect() as conn:
         assert len(conn.execute(select(coach_decision_log.c.id)).all()) == 3
@@ -689,7 +695,11 @@ def test_a_second_opinion_is_no_day_decision_and_no_message(rt) -> None:
     assert alerts._daily(rt, since) == []
     assert daily_coach.read(rt, _today(rt))["morning"]["state"] == "no_coach"
     own = _data(_morning(rt, OWN_AGENT, SUGGEST, safety=EASE, summary="Rustig aan."))
-    assert [a.key for a in alerts._daily(rt, since)] == [f"coach:{own['id']}"]
+    # The own agent's daily advice is a version in the day thread (#115): it has the day's
+    # advice notice, linked to it, and is no second message.
+    assert alerts._daily(rt, since) == []
+    notices = [e for e in alerts.for_portal(rt.settings)["recent"] if e["kind"] == "advice"]
+    assert [n["entry_id"] for n in notices] == [own["id"]]
     assert "Rustig aan." in str(daily_coach.read(rt, _today(rt))["morning"])
 
 

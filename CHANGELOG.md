@@ -11,6 +11,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **One ongoing conversation with your AI coach per day** (#115): every run (07:00, an
+  event, an update, the evening, a check-in, pain) gets the day thread in its context:
+  the earlier versions of the advice, what changed and why, and your replies. A new
+  version must say what changes against the current one and why (`changed_because`,
+  naming its id); without it the output contract refuses the write, for the AI coach
+  inside VibeSynergy and for AI coaches over MCP alike. The start page ends with "Changed
+  because: …"; the Coach page numbers the earlier versions, marks them *Replaced* and links
+  each to its own report; a report page says whether it is the current version.
+- **Every notice traceable** (#115): every notice, push and mail about your AI coach is
+  read back from a stored report and opens exactly that report (`#/coach/report/<id>`).
+  A text that is not stored, or a replaced version, is not sent; a version that only
+  rewords points the day's notice at itself without a new push. An MCP coach's daily
+  advice gets the same per-day notice as the built-in one. A daily continuity check
+  (Coach page, `vibesynergy_today` `continuity`, audit log) reports gaps: a notice without
+  its report, a notice on an older version, an advice without a notice, a change without
+  a reason. **This changes behaviour**: a second daily advice for the same day without
+  `changed_because` is refused, and the advice notice links to the report instead of the
+  start page.
 - **More than one AI coach, each with a role** (#118): in Settings → Sharing → Coach apps
   every app and token gets a role. *My own agent* works on your request and what it writes
   counts as approved. The *primary AI coach* (exactly one; the AI coach inside VibeSynergy

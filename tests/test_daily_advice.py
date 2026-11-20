@@ -80,6 +80,13 @@ def _mcp(rt, tool, **args):
 
 
 def _write(rt, safety=EASE, summary="Doe de duurloop rustig, 45 minuten in Z2.", key="m-1"):
+    # A later version names the one it replaces (#115).
+    before = daily_advice.previous_version(rt, _day(rt))
+    because = (
+        {"previous": before["id"], "reason": "Nieuwe versie na nieuwe gegevens van vandaag."}
+        if before
+        else None
+    )
     result = _mcp(
         rt,
         "vibesynergy_coach_write",
@@ -88,6 +95,7 @@ def _write(rt, safety=EASE, summary="Doe de duurloop rustig, 45 minuten in Z2.",
         idempotency_key=key,
         for_date=_day(rt).isoformat(),
         safety=safety,
+        **({"changed_because": because} if because else {}),
     )
     assert not result.is_error, result.content[0].text
     return result.structured_content["data"]

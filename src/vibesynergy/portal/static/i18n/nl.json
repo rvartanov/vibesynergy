@@ -3182,5 +3182,22 @@
  "No app or token with that id.": "Geen app of token met dat id.",
  "No proposal with that id.": "Geen voorstel met dat id.",
  "This proposal is already handled.": "Dit voorstel is al afgehandeld.",
- "The AI coach inside VibeSynergy is a primary or an advisory AI coach.": "De AI-coach in VibeSynergy is een primaire of een adviserende AI-coach."
+ "The AI coach inside VibeSynergy is a primary or an advisory AI coach.": "De AI-coach in VibeSynergy is een primaire of een adviserende AI-coach.",
+ "Changed because: {reason}.": "Veranderd omdat: {reason}.",
+ "Replaced": "Vervangen",
+ "Version {n} of {of} of the advice for {day}.": "Versie {n} van {of} van het advies voor {day}.",
+ "This is the current advice.": "Dit is het huidige advies.",
+ "Open the start page": "Naar de startpagina",
+ "Open the current version": "Naar de huidige versie",
+ "Replaced by a newer version: this is not the current advice.": "Vervangen door een nieuwere versie: dit is niet het huidige advies.",
+ "Version {n}": "Versie {n}",
+ "Check of the thread": "Controle van de draad",
+ "What your AI coach stored and what you were sent do not match everywhere:": "Wat je AI-coach bewaarde en wat je kreeg, klopt niet overal:",
+ "A notice shows a text that is not stored with your AI coach.": "Een melding toont een tekst die niet bij je AI-coach bewaard is.",
+ "A notice shows a text that is not in the report it links to.": "Een melding toont een tekst die niet in het rapport staat waar hij naar linkt.",
+ "The notice for {day} shows an older version of the advice.": "De melding voor {day} toont een oudere versie van het advies.",
+ "The current advice for {day} got no notice.": "Het huidige advies voor {day} kreeg geen melding.",
+ "A later version of the advice for {day} changed without saying why.": "Een latere versie van het advies voor {day} veranderde zonder te zeggen waarom.",
+ "A later version of the advice for {day} names no earlier version.": "Een latere versie van het advies voor {day} noemt geen eerdere versie.",
+ "This report was replaced by a newer version; it is not sent again.": "Dit rapport is vervangen door een nieuwere versie; het wordt niet opnieuw verstuurd."
 }

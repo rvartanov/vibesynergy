@@ -76,6 +76,45 @@ advice with the reason `limit`). The injury check and check-in reaction run from
 triggers. Every version stays; only a change of colour, safety level or a session decision
 is mailed. Details: [COACH_RUNNER.md](COACH_RUNNER.md#continuous-advice-90).
 
+## Continuity: one thread per day (#115)
+
+When the AI coach is triggered (07:00, an event, a manual update, the evening, a check-in,
+pain), it continues **one conversation**: the day thread. The harness guards it.
+
+- **The thread is preloaded.** Every daily advice run (morning, evening, injury, check-in,
+  reply) gets context block `day_thread`: every earlier version of the advice for the day
+  this run is about, oldest first, each with its id, number, status (current, replaced,
+  invalid), time, author, colour and level, sessions, `changed_because` and the athlete's
+  replies on it; the evening run also gets the day it reviews. The start message names the
+  current version by id. An AI coach over MCP gets the same block through
+  `vibesynergy_coach_prompt(job, include_context=true)`.
+- **The rule** (harness rules v7, step 4): build on the thread; say what changes against
+  the previous version and why; never contradict an earlier version without the reason.
+- **The contract** (harness v3): a daily advice for a day that already has a valid version
+  must carry `changed_because = {"previous": <id of the current version>, "reason": "…"}`.
+  Missing, citing an older version, or a reason of a word: refused, with the id to use. The
+  runner checks it again when the run ends (fail closed). A first version and a second
+  opinion need none.
+- **Everything sent is stored and linked.** `report.send` reads the entry back by id and
+  sends only that text; every notice, push and mail links to exactly that entry
+  (`#/coach/report/<id>`) and the notice records `entry_id` and the `excerpt` it shows. An
+  entry that is not stored is not sent; a replaced or invalid version is not sent (not even
+  by hand). A version that only rewords sends nothing but points the day's notice at itself,
+  so the notice never shows a replaced version. An MCP coach's daily advice gets the same
+  per-day notice as the runner's.
+- **The same thread everywhere**, newest first with the same numbers: the start page, the
+  Coach page (earlier versions with time, "Changed because" and *Replaced*), the report
+  page (version n of m, current or replaced with a link to the current one), the notice,
+  the mail, `vibesynergy_today` (`advice.versions`) and `vibesynergy_coach_entries`
+  (`advice_version`).
+- **The continuity check** (`query/coach_consistency.py`, deterministic): for yesterday,
+  today and tomorrow it reports a notice without a stored entry, a notice text that is not
+  in its entry, a notice on a replaced version, a current advice without a notice, and a
+  later version that changed without a reason. Findings have the layer shape
+  `{level, where, rule, evidence, fix}` (#61/#62). It runs once a day from the alerts check
+  (audit action `coach.consistency`, for the weekly audit of #62); the Coach page and
+  `vibesynergy_today` (`continuity`) show the live outcome.
+
 ## More than one AI coach (#118)
 
 The harness is provider- and model-agnostic in operation too: rights and contracts hold per
@@ -161,6 +200,11 @@ layers (#60, #61, #62):
    rules and recent change reasons, and proposes fixes. Planned.
 3. **Weekly harness audit** (#62): tasks, contracts, pending approvals, missing rules. Each
    accepted finding becomes a layer-1 check or a rule. Planned.
+
+The **continuity check** (#115, `query/coach_consistency.py`) is the same kind of
+deterministic check for the AI coach's day thread against what was sent (see
+[Continuity](#continuity-one-thread-per-day-115)); its daily outcome in the audit log is
+input for the weekly audit.
 
 ## Task list
 

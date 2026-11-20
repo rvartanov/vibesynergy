@@ -13,7 +13,7 @@ import {
 } from "../daily_review.js";
 import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
-import { adviceHtml, adviceLevel, versionsHtml } from "../daily_advice.js";
+import { adviceHtml, adviceLevel, continuityHtml, threadBannerHtml, versionsHtml } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
 
 const COACH_TIMEOUT_MS = 15000;
@@ -98,7 +98,9 @@ function fillReport(id) {
     const { data } = await get(`coach/report/${encodeURIComponent(id)}`, {}, { timeoutMs: COACH_TIMEOUT_MS });
     if (stale() || !el.isConnected) return;
     const entry = { ...data.entry, replies: data.replies };
-    el.innerHTML = `<section class="card coach-section" aria-label="${esc(t("Report"))}"><div class="coach-feed">${coachEntryHtml(entry, {})}</div>
+    // Where this report stands in its day thread (#115): current, or replaced by which one.
+    const banner = data.thread ? threadBannerHtml(data.thread, longDate(data.thread.date)) : "";
+    el.innerHTML = `<section class="card coach-section" aria-label="${esc(t("Report"))}">${banner}<div class="coach-feed">${coachEntryHtml(entry, {})}</div>
       <p><a href="#/coach">${esc(t("All messages from your AI coach"))}</a></p></section>`;
     bindReplies(el, () => entry);
   };
@@ -212,7 +214,14 @@ export async function render(view, { args = [], query, meta, stale }) {
         if (stale() || !adviceCard.isConnected) return;
         const level = adviceLevel(data);
         if (level) adviceCard.classList.add(level);
-        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = adviceHtml(data, { keyPrefix: "coach" }) + versionsHtml(data);
+        adviceCard.querySelector("[data-coach-advice-body]").innerHTML = adviceHtml(data, { keyPrefix: "coach" }) + versionsHtml(data) + '<div data-coach-continuity></div>';
+        // The continuity check (#115): shown only when the thread and what was sent differ.
+        get("coach/continuity", {}, { timeoutMs: COACH_TIMEOUT_MS })
+          .then(({ data: found }) => {
+            const slot = adviceCard.querySelector("[data-coach-continuity]");
+            if (!stale() && slot?.isConnected) slot.innerHTML = continuityHtml(found.findings);
+          })
+          .catch(() => {});
       })
       .catch(() => {
         if (stale() || !adviceCard.isConnected) return;

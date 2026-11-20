@@ -139,6 +139,15 @@ def build_coach_runner_router(rt: Runtime) -> APIRouter:
         except ValueError:
             return _bad("Unknown refresh.")
 
+    @router.get("/coach/continuity")
+    def coach_continuity(lang: str | None = None) -> Any:
+        """The continuity check (#115): gaps between the AI coach's thread and what was sent."""
+        from vibesynergy import i18n
+        from vibesynergy.query import coach_consistency
+
+        tr = i18n.translator(lang) if lang else i18n.for_settings(rt.settings)
+        return {"data": {"findings": coach_consistency.for_page(rt, tr)}}
+
     @router.get("/coach/report/{entry_id}")
     def coach_report(entry_id: int) -> Any:
         try:

@@ -400,7 +400,14 @@ def test_make_again_writes_a_new_report_and_send_again_mails_it(rt, mail):
     assert "test-20261101T100000" in runner.start_message(
         rt, "morning", DAY, run_key="test-20261101T100000"
     )
-    redo_write = morning_write("Alex, toch rustig aan vandaag.", idempotency_key=key)
+    redo_write = morning_write(
+        "Alex, toch rustig aan vandaag.",
+        idempotency_key=key,
+        changed_because={  # the redo is the next version of the day (#115)
+            "previous": done_first.entry_id,
+            "reason": "Opnieuw gemaakt op verzoek, het advies blijft hetzelfde.",
+        },
+    )
     redo = FakeModel(tool_use("vibesynergy_coach_write", redo_write), done())
     again = runner.run(rt, "morning", "test-20261101T100000", DAY, trigger="test", client=redo)
     assert again.status == "done" and again.entry_id != done_first.entry_id
@@ -1323,7 +1330,8 @@ def test_a_write_without_safety_is_refused_and_the_model_repairs_it(rt, mail):
     ]
     # The rules the model was given name the steps and the schema.
     system = model.requests[0]["system"][-1]["text"]
-    assert "## Harnasregels v6" in system and "safety (verplicht)" in system
+    assert f"## Harnasregels v{prompts.RULES_VERSION}" in system
+    assert "safety (verplicht)" in system
 
 
 def test_an_entry_for_the_wrong_day_never_becomes_the_report(rt, mail):

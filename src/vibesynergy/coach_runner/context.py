@@ -21,8 +21,9 @@ from vibesynergy.core.timeutil import Window
 log = logging.getLogger(__name__)
 
 # Bump when the chain format or a base block changes shape (2: the safety block, #88;
-# 3: replies carry their id and the daily advice gets ``coach_team``, #118).
-VERSION = 3
+# 3: replies carry their id and the daily advice gets ``coach_team``, #118; 4: the daily
+# advice gets ``day_thread``, #115).
+VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -270,6 +271,65 @@ def _coach_team(rt, day, cache):
     return {"second_opinions": opinions, "plan_proposals": proposals}
 
 
+THREAD_TEXT_CHARS = 400
+
+
+def _by(version: dict[str, Any]) -> str:
+    """Who wrote a version, in the words of the thread."""
+    if version.get("via") == "runner":
+        return "AI-coach in VibeSynergy"
+    if version.get("role") == "own":
+        return "eigen agent van de atleet"
+    return "AI-coach via MCP"
+
+
+def _day_thread(rt, day, cache):
+    """The day thread (#115): every earlier version of the advice for the day this run's
+    advice is for, oldest first, with what changed and why and the athlete's replies on
+    each; for the evening run also the day it reviews. ``current`` is the version a new
+    one replaces: cite its id in ``changed_because``."""
+    from vibesynergy.query import daily_advice
+
+    target = daily_advice.target_day(str(cache.get("task") or ""), day)
+    out = []
+    for when in sorted({day, target}):
+        found = daily_advice.thread(rt, when)
+        versions = [
+            {
+                "id": v["id"],
+                "version": v["version"],
+                "status": {"current": "huidig", "replaced": "vervangen", "invalid": "ongeldig"}[
+                    v["status"]
+                ],
+                "at": v["at"],
+                "by": _by(v),
+                "colour": v["colour"],
+                "safety_level": v["safety_level"],
+                "advice": str(v["advice"] or "")[:THREAD_TEXT_CHARS],
+                "sessions": v["sessions"],
+                "changed_because": (v.get("changed_because") or {}).get("reason"),
+                "new_data_before_it": v["changes"],
+                "replies": [
+                    {"reply_id": r["reply_id"], "at": r["at"], "text": r["text"][:300]}
+                    for r in v["replies"]
+                ],
+            }
+            for v in found["versions"]
+        ]
+        current = next((v["id"] for v in versions if v["status"] == "huidig"), None)
+        out.append(
+            {
+                "advice_for": when.isoformat(),
+                "this_run": when == target,
+                "current": current,
+                "versions": versions,
+            }
+        )
+    if not any(d["versions"] for d in out):
+        return "nog geen advies voor deze dag: jouw entry is de eerste versie"
+    return out
+
+
 def _recent_reports(rt, day, cache):
     from vibesynergy.query import predictions
 
@@ -442,6 +502,12 @@ BLOCKS: dict[str, Block] = {
         Block("weather", "Weer", 2000, _weather),
         Block("replies", "Antwoorden op eerdere rapporten", 3000, _replies, version=2),
         Block("recent_reports", "Recente rapporten", 3000, _recent_reports),
+        Block(
+            "day_thread",
+            "Dagdraad: de eerdere versies van het advies en de antwoorden, oudste eerst",
+            6000,
+            _day_thread,
+        ),
         Block(
             "coach_team",
             "Second opinions van adviserende AI-coaches en planvoorstellen",

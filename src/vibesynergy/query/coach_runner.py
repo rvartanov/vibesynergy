@@ -117,6 +117,12 @@ def resend(rt, job: str) -> dict[str, Any]:
         )
     if run is None or entry is None:
         raise TestRunError("There is no report to send again yet.")
+    from vibesynergy.query import daily_advice
+
+    state = daily_advice.version_state(rt, entry["id"])
+    if state is not None and state["status"] != "current":
+        # Only what is current is sent (#115): a replaced version is not mailed again.
+        raise TestRunError("This report was replaced by a newer version; it is not sent again.")
     if not report.send(rt, job, run["for_date"], dict(entry), by_mail=True):
         raise TestRunError("Mail is not set up: see Settings → Alerts.")
     return overview(rt)
@@ -145,7 +151,18 @@ def report(rt, entry_id: int) -> dict[str, Any]:
     if row is None:
         raise LookupError("no such coach entry")
     entry = _coach_row(dict(row))
-    return {"entry": entry, "replies": coach_replies.for_entries(rt.engine, [entry_id])[entry_id]}
+    from vibesynergy.query import daily_advice
+
+    # Where this report stands in its day thread (#115): a notice links here, and an
+    # older version says it was replaced and by which one.
+    thread = daily_advice.version_state(rt, entry_id)
+    return {
+        "entry": entry,
+        "replies": coach_replies.for_entries(rt.engine, [entry_id])[entry_id],
+        "thread": {**thread, "changed_because": daily_advice.changed_because(dict(row))}
+        if thread
+        else None,
+    }
 
 
 # The harness over MCP: the same tasks, runs and Test now as Coach → Settings. ------

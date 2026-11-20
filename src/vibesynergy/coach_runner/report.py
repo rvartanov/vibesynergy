@@ -5,16 +5,26 @@ proposal.
 Sent through the existing alert channel (``alerts.deliver``: ``[mail]`` and the alert
 address from Settings → Alerts). The subject and the line around the link follow the portal
 language; with "follow the browser" they are Dutch, like the coach.
+
+Everything sent is traceable (#115): ``send`` reads the entry back from the database by its
+id and sends only that stored text, linked to exactly that entry
+(``#/coach/report/<id>``). An entry that is not stored is not sent; a daily advice
+version that is no longer the current one for its day (replaced or invalid) is not sent
+either. The notice and the push carry the entry id and the excerpt of the entry they
+show, which the consistency check (``query.coach_consistency``) holds against the entry.
 """
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Any
 
 from vibesynergy import alerts, i18n
 from vibesynergy.core.user_datetime import format_user_short_day
 from vibesynergy.portal import prefs
+
+log = logging.getLogger(__name__)
 
 SUBJECTS = {
     "morning": "Coach morning \u2013 {day}",
@@ -96,6 +106,35 @@ def html(rt, title: str, entry: dict[str, Any], advice: dict[str, Any] | None = 
     return mail_html.render([record], tr, title=title, link=link)
 
 
+def stored(rt, entry_id: Any) -> dict[str, Any] | None:
+    """The coach entry as stored, or ``None``: what is sent is read back from here."""
+    from sqlalchemy import select
+
+    from vibesynergy.store.schema import coach_decision_log
+
+    try:
+        ident = int(entry_id)
+    except (TypeError, ValueError):
+        return None
+    with rt.engine.connect() as conn:
+        row = (
+            conn.execute(select(coach_decision_log).where(coach_decision_log.c.id == ident))
+            .mappings()
+            .first()
+        )
+    return dict(row) if row else None
+
+
+def report_link(entry_id: int) -> str:
+    """The page every notice, push and mail about an entry links to."""
+    return f"#/coach/report/{int(entry_id)}"
+
+
+def excerpt(entry: dict[str, Any]) -> str:
+    """The part of the entry a push or a notice shows: its first paragraph."""
+    return " ".join((entry.get("text") or "").strip().split("\n\n")[0].split())
+
+
 def send(
     rt,
     job: str,
@@ -104,37 +143,61 @@ def send(
     *,
     advice_day: date | None = None,
     by_mail: bool = False,
+    quiet: bool = False,
 ) -> list[str]:
-    """Send the report; returns the channels used (empty when none is set up).
+    """Send the report; returns the channels used (empty when none is set up, or when the
+    entry may not be sent: not stored, or a replaced version, #115).
     ``advice_day`` is the day the advice is for (the evening review: tomorrow, #90).
     A daily advice follows the alert kind ``advice``; ``by_mail`` (sending a report again
-    by hand) always mails it."""
+    by hand) always mails it. ``quiet`` (a version that only rewords the advice) sends
+    nothing and only points the day's portal notice at the new version."""
     from vibesynergy.query import daily_advice
 
+    found = stored(rt, entry.get("id"))
+    if found is None:
+        log.warning("coach report %s not sent: the entry is not stored", entry.get("id"))
+        return []
+    entry = found
+    advice_job = job in daily_advice.ADVICE_JOBS
+    state = daily_advice.version_state(rt, entry["id"]) if advice_job else None
+    if advice_job and state is not None and state["status"] != "current":
+        log.warning(
+            "coach report %s not sent: it is %s (current: %s)",
+            entry["id"],
+            state["status"],
+            state["current_id"],
+        )
+        return []
     title = subject(rt.settings, job, day)
     target = advice_day or (
         daily_advice.target_day(job, day) if job in daily_advice.ADVICE_JOBS else day
     )
     tr = i18n.translator(language(rt.settings))
     advice = advice_for(rt, job, target, tr)
-    if job in daily_advice.ADVICE_JOBS and not by_mail:
+    if advice_job and not by_mail:
         # A daily advice goes where Settings → Alerts sends the kind "advice": by default
         # a push and a notice in the portal, no mail (Robert, 18-11-2026).
         # One notice and one push per target day (#108): a new version replaces the old
-        # ones; its id is the version, so an older dismissal does not hide it.
-        update = daily_advice.is_update(rt, target, entry)
+        # ones; its id is the version, so an older dismissal does not hide it. The notice
+        # links to exactly this version (#115).
+        update = bool(state and (state["version"] or 0) > 1)
         return alerts.notify_advice(
             rt,
             key=f"advice:{target.isoformat()}",
             version=entry["id"],
+            entry_id=entry["id"],
+            excerpt=excerpt(entry),
             tag=f"advice-{target.isoformat()}",
             prefix=tr("Updated:") + " " if update else "",
             title=title,
             short=short(entry, advice, tr),
             body=body(rt, entry, advice),
             html=html(rt, title, entry, advice),
-            link="#/coach" if job == "evening" else "#/dashboard",
+            link=report_link(entry["id"]),
+            quiet=quiet,
         )
+    if quiet:
+        return []
     return alerts.deliver(
         rt,
         title,
@@ -146,7 +209,7 @@ def send(
 
 def short(entry: dict[str, Any], advice: dict[str, Any] | None, tr) -> str:
     """One or two lines for a push or a portal notice: the verdict and the coach's summary."""
-    summary = " ".join((entry.get("text") or "").strip().split("\n\n")[0].split())
+    summary = excerpt(entry)
     line = _verdict_line(advice, tr)
     text = f"{line}. {summary}" if line and summary else line or summary
     return text[:240]

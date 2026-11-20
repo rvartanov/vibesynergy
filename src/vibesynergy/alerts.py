@@ -86,6 +86,8 @@ class Alert:
     detail: str = ""
     external: bool = True  # email; a logged complaint stays on the portal only
     rich: dict | None = None  # a coach note's parts for the HTML mail
+    entry_id: int | None = None  # the stored coach entry a coach note comes from (#115)
+    excerpt: str = ""  # the part of that entry's text the alert shows
 
 
 def _plain_error(error: str) -> str:
@@ -259,8 +261,10 @@ def _note_excerpt(note: str) -> str:
     return compact[: _NOTE_EXCERPT - 1].rstrip() + "…"
 
 
-def _new_mail_lines(records: list[dict]) -> list[str]:
-    """Warning text collapses when it repeats. Each coach note stays, even with the same words."""
+def _new_mail_lines(records: list[dict], portal: Any = None) -> list[str]:
+    """Warning text collapses when it repeats. Each coach note stays, even with the same words.
+    ``portal`` (``page -> address``): with more than one record, each coach note carries
+    the link to its own entry (#115), as the footer only links one page."""
     lines: list[str] = []
     seen: set[str] = set()
     for record in records:
@@ -271,6 +275,11 @@ def _new_mail_lines(records: list[dict]) -> list[str]:
         # shown once, without the label and excerpt in front.
         if coach_note and detail:
             line = detail
+        link = str(record.get("link") or "")
+        if coach_note and portal and len(records) > 1 and link.startswith("#/coach/report/"):
+            address = portal(link)
+            if address:
+                line = f"{line}\n{address}"
         key = str(record.get("id") or line) if coach_note else " ".join(line.split()).casefold()
         if not key or key in seen:
             continue
@@ -306,6 +315,9 @@ def _subject(records: list[dict]) -> str:
 
 def _mail_footer_link(records: list[dict]) -> str:
     if records and all(record.get("kind") == "daily_coach" for record in records):
+        # One coach note links to exactly that entry (#115); more than one to the feed.
+        if len(records) == 1 and records[0].get("link", "").startswith("#/coach/report/"):
+            return records[0]["link"]
         return "#/coach"
     return "#/dashboard"
 
@@ -485,11 +497,20 @@ def _daily(rt: Any, since: datetime | None, delivery_day: date | None = None) ->
             )
         }
     # An advisory AI coach's entry is a second opinion (#118), never the daily advice: it
-    # is shown with the advice in the portal and is not sent as a message.
+    # is shown with the advice in the portal and is not sent as a message. A daily advice
+    # version from an AI coach over MCP has the day's advice notice (#115,
+    # ``daily_advice.announce``), linked to that version: not a second message.
+    from vibesynergy.query import daily_advice
+
     rows = [
         r
         for r in rows
-        if r[0] not in by_runner and ((r[3] or {}).get("harness") or {}).get("role") != "advisory"
+        if r[0] not in by_runner
+        and ((r[3] or {}).get("harness") or {}).get("role") != "advisory"
+        and not (
+            ((r[3] or {}).get("harness") or {}).get("target")
+            and daily_advice.ai_safety(r[3]) is not None
+        )
     ]
     tr = i18n.for_settings(rt.settings)
     heading = tr("Messages from your AI coach")
@@ -506,11 +527,13 @@ def _daily(rt: Any, since: datetime | None, delivery_day: date | None = None) ->
                 f"coach:{ident}",
                 "info",
                 f"{heading}: {_note_excerpt(raw)}",
-                "#/coach",
+                f"#/coach/report/{int(ident)}",
                 event=True,
                 kind="daily_coach",
                 dedupe=str(ident),
                 detail=raw,
+                entry_id=int(ident),
+                excerpt=_note_excerpt(str(note or "").strip()).removesuffix("…"),
                 rich={
                     "text": str(note or "").strip(),
                     "sessions": (meta or {}).get("sessions") or [],
@@ -554,7 +577,15 @@ def check(rt: Any, *, send: Any = None) -> dict[str, list[str]]:
     (open alerts and recent events) stays in the state for the page to read. Returns the keys."""
     store = SecretStore(rt.settings.secrets_dir, SECRETS)
     with store.lock(STATE):
-        return _check_locked(rt, store, send)
+        result = _check_locked(rt, store, send)
+    try:
+        # Once a day: the AI coach's thread against what was sent (#115).
+        from vibesynergy.query import coach_consistency
+
+        coach_consistency.daily(rt)
+    except Exception:  # the check is a report; it never stops the alerts
+        log.warning("the continuity check failed", exc_info=True)
+    return result
 
 
 def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]]:
@@ -658,6 +689,9 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
             }
             if a.rich:
                 record["rich"] = a.rich
+            if a.entry_id is not None:
+                record["entry_id"] = a.entry_id
+                record["excerpt"] = a.excerpt
             if a.kind in ADVICE_KINDS and not a.event:
                 record["dedupe_key"] = a.key
             deliveries[ident] = record
@@ -688,6 +722,7 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
             "kind": a.kind,
             "detail": a.detail,
             **_job_origin(a),
+            **({"entry_id": a.entry_id, "excerpt": a.excerpt} if a.entry_id is not None else {}),
         }
         for a in events
     ] + recent
@@ -703,9 +738,10 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
         **open_state,
     }
     store.set(STATE, saved)
+    own_send = send is None
     send = send or (
-        lambda subject, body, channel, html=None: deliver(
-            rt, subject, body, only=[channel], html=html
+        lambda subject, body, channel, html=None, url="/#/inbox": deliver(
+            rt, subject, body, only=[channel], html=html, url=url
         )
     )
     tr = i18n.for_settings(rt.settings)
@@ -724,7 +760,7 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
                 record["status"] = "attempting"
             store.set(STATE, saved)
             if phase == "new":
-                lines = _new_mail_lines(pending)
+                lines = _new_mail_lines(pending, lambda page: portal_url(rt, page))
                 subject = _subject(pending)
                 footer_link = _mail_footer_link(pending)
             else:
@@ -739,6 +775,9 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
             text = "\n\n".join(lines) + _footer(rt, footer_link)
             if channel == "email" and phase == "new":
                 outcome = _send_with_html(send, subject, text, channel, rt, pending, footer_link)
+            elif own_send and footer_link.startswith("#/coach/report/"):
+                # One coach note: the push opens exactly that entry (#115).
+                outcome = send(subject, text, channel, url=f"/{footer_link}")
             else:
                 outcome = send(subject, text, channel)
             delivered = outcome is None or channel in outcome
@@ -938,6 +977,9 @@ def notify_advice(
     version: str | int | None = None,
     prefix: str = "",
     tag: str | None = None,
+    entry_id: int | None = None,
+    excerpt: str = "",
+    quiet: bool = False,
 ) -> list[str]:
     """A new or changed daily advice, on the channels chosen for the kind ``advice``
     (Settings → Alerts). Push gets the short text, email the full report, the portal a
@@ -945,16 +987,42 @@ def notify_advice(
 
     ``key`` is one per target day (#108): a new version replaces the day's notice and its
     push (``tag``). ``version`` is stored with the notice so the portal's dismissal of an
-    older version does not hide the new one; ``prefix`` ("Updated: ") marks a later version."""
+    older version does not hide the new one; ``prefix`` ("Updated: ") marks a later version.
+
+    ``entry_id`` is the stored version the notice is about (#115): the notice, the push and
+    the mail link to it, and ``excerpt`` is the part of its text they show. ``quiet`` (a
+    version that only rewords the advice) sends nothing: it only points an existing
+    notice for the day at the new version, so the notice never shows a replaced one."""
     title = f"{prefix}{title}"
     chosen = routes(rt.settings).get("advice", [])
     used: list[str] = []
+    store = SecretStore(rt.settings.secrets_dir, SECRETS)
+    if quiet:
+        events = store.get(ADVICE_STATE) or []
+        if any(e.get("key") == key for e in events):
+            store.set(
+                ADVICE_STATE,
+                [
+                    {
+                        **e,
+                        "text": f"{title}: {short}"[:300],
+                        "link": link,
+                        "version": None if version is None else str(version),
+                        "entry_id": entry_id,
+                        "excerpt": excerpt,
+                    }
+                    if e.get("key") == key
+                    else e
+                    for e in events
+                ],
+            )
+        return []
+    url = f"/{link}" if link.startswith("#/") else "/#/inbox"
     if "email" in chosen:
         used += deliver(rt, title, body, only=["email"], html=html)
     if "push" in chosen:
-        used += deliver(rt, title, short, only=["push"], tag=tag)
+        used += deliver(rt, title, short, only=["push"], tag=tag, url=url)
     if "portal" in chosen:
-        store = SecretStore(rt.settings.secrets_dir, SECRETS)
         events = [e for e in store.get(ADVICE_STATE) or [] if e.get("key") != key]
         event = {
             "key": key,
@@ -965,6 +1033,8 @@ def notify_advice(
             "kind": "advice",
             "detail": "",
             "version": None if version is None else str(version),
+            "entry_id": entry_id,
+            "excerpt": excerpt,
         }
         store.set(ADVICE_STATE, [event, *events][:ADVICE_KEPT])
         used.append("portal")
@@ -978,9 +1048,10 @@ def deliver(
     only: list[str] | None = None,
     html: str | None = None,
     tag: str | None = None,
+    url: str = "/#/inbox",
 ) -> list[str]:
     """Send on every configured channel (or those in ``only``); returns the channels used.
-    A failure is logged, not raised."""
+    ``url`` is where a push opens the portal. A failure is logged, not raised."""
     settings = rt.settings
     used = []
     ready = {k: v and (only is None or k in only) for k, v in channels(settings, rt.engine).items()}
@@ -996,7 +1067,7 @@ def deliver(
 
         try:
             extra_push = {"tag": tag} if tag else {}
-            if webpush.send_all(rt, subject, body, url="/#/inbox", **extra_push):
+            if webpush.send_all(rt, subject, body, url=url, **extra_push):
                 used.append("push")
         except Exception:  # a push problem never stops the other channels
             log.exception("sending the alert push failed")

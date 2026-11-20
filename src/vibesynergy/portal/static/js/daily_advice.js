@@ -1,7 +1,7 @@
 // The day's advice (#89), the same on the start page and the Coach page: the AI coach's
 // advice when it is valid, else the fixed rules' with the reason. The current version says
-// when it was written and what came in before it; the Coach page lists the earlier
-// versions (#90). An advisory AI coach's entry for the day is listed under "Second
+// when it was written, what came in before it and why it changed; the Coach page lists the
+// earlier versions, marked replaced, each linked to its own report (#90, #115). An advisory AI coach's entry for the day is listed under "Second
 // opinion", flagged where it differs from the primary AI coach (#118). Under "Why this advice":
 // the reasons, where it came from and where the AI and the rules differ. The update button
 // syncs every source and then asks the AI coach for new advice, with its progress.
@@ -98,7 +98,30 @@ function updatedText(advice) {
       : t("Written at {time}.", { time });
   const diff = versionDiffText(entry.differences);
   if (diff) line += ` ${t("Changed: {what}.", { what: diff })}`;
+  const because = becauseText(entry);
+  if (because) line += ` ${because}`;
   return line;
+}
+
+/** The AI coach's own reason for a later version (#115), as one sentence. */
+export function becauseText(version) {
+  const reason = String(version?.changed_because?.reason || "").trim().replace(/[.\s]+$/, "");
+  return reason ? t("Changed because: {reason}.", { reason }) : "";
+}
+
+const STATUS = { replaced: N("Replaced"), invalid: N("Not used: incomplete") };
+
+/** Where one report stands in its day thread (#115), for the report page a notice links to. */
+export function threadBannerHtml(thread, dayText) {
+  if (!thread || !thread.version) return "";
+  const which = t("Version {n} of {of} of the advice for {day}.", { n: thread.version, of: thread.of, day: dayText });
+  if (thread.status === "current") {
+    return `<p class="notice" data-thread-status="current">${esc(which)} ${esc(t("This is the current advice."))} <a href="#/dashboard">${esc(t("Open the start page"))}</a></p>`;
+  }
+  const newer = thread.current_id
+    ? ` <a href="#/coach/report/${esc(String(thread.current_id))}">${esc(t("Open the current version"))}</a>`
+    : "";
+  return `<p class="notice warning" data-thread-status="${esc(thread.status)}">${esc(which)} ${esc(t("Replaced by a newer version: this is not the current advice."))}${newer}</p>`;
 }
 
 /** Every version of the day's advice, newest first, for the Coach page (#90). */
@@ -107,20 +130,32 @@ export function versionsHtml(advice) {
   const shown = advice?.source === "ai" ? advice.entry?.id : null;
   const earlier = all.filter((v) => v.id !== shown);
   if (!earlier.length) return "";
+  // The day thread (#115): each earlier version with its number, its time, what changed and
+  // why, marked replaced (never shown as current), and a link to exactly that version.
   const items = earlier.map((v) => {
     const time = v.at ? userTime(v.at) : "";
     const colour = v.valid
       ? `<span class="chip ${TONES[v.colour] || ""}">${esc(t(COLOURS[v.colour] || v.colour))}</span>`
-      : `<span class="chip">${esc(t("Not used: incomplete"))}</span>`;
+      : "";
+    const status = STATUS[v.status] ? `<span class="chip" data-version-status="${esc(v.status)}">${esc(t(STATUS[v.status]))}</span>` : "";
+    const number = v.version ? `${esc(t("Version {n}", { n: v.version }))} · ` : "";
     const notes = [
       v.changes?.length ? t("after {what}", { what: changesText(v.changes) }) : "",
       v.first ? t("first advice for this day") : versionDiffText(v.differences),
+      becauseText(v),
     ].filter(Boolean).join(" · ");
-    return `<li data-advice-version="${esc(String(v.id))}"><span class="advice-version-head"><time datetime="${esc(v.at || "")}">${esc(time)}</time> ${colour}</span>
+    return `<li data-advice-version="${esc(String(v.id))}"><span class="advice-version-head">${number}<a href="#/coach/report/${esc(String(v.id))}"><time datetime="${esc(v.at || "")}">${esc(time)}</time></a> ${colour} ${status}</span>
       <span>${esc(v.advice || "")}</span>${notes ? ` <span class="sub">${esc(notes)}</span>` : ""}</li>`;
   }).join("");
   return `<details class="advice-versions" data-refresh-key="coach-advice-versions" data-advice-versions><summary>${esc(t("Earlier versions ({n})", { n: earlier.length }))}</summary>
     <ol>${items}</ol></details>`;
+}
+
+/** The continuity check's gaps (#115): what was sent against what the AI coach stored. */
+export function continuityHtml(findings) {
+  if (!findings?.length) return "";
+  const items = findings.map((f) => `<li data-continuity-rule="${esc(f.rule)}">${esc(f.message || f.rule)}</li>`).join("");
+  return `<div class="notice warning" data-continuity><p><strong>${esc(t("Check of the thread"))}</strong> ${esc(t("What your AI coach stored and what you were sent do not match everywhere:"))}</p><ul>${items}</ul></div>`;
 }
 
 const DECISIONS = {

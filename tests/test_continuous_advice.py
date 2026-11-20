@@ -326,6 +326,12 @@ def _advice_run(rt, key, safety, summary, *, sessions=None, trigger="event", day
     extra = {"safety": safety, "summary": summary}
     if sessions is not None:
         extra["sessions"] = sessions
+    before = daily_advice.previous_version(rt, day)
+    if before is not None:  # a later version names the one it replaces (#115)
+        extra["changed_because"] = {
+            "previous": before["id"],
+            "reason": "Nieuwe HRV binnen, het advies opnieuw bekeken.",
+        }
     write = morning_write(day=day, **extra)
     write["idempotency_key"] = runner.entry_key("morning", day, key)
     model = FakeModel(tool_use("vibesynergy_coach_write", write), done())
@@ -477,13 +483,29 @@ def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypat
     monkeypatch.setattr(
         alerts, "channels", lambda settings, engine=None: {"email": True, "push": True}
     )
-    entry = {"id": 4242, "text": "Robert, vandaag rustig: 30 minuten op praattempo.\n\nDetails."}
+    text = "Robert, vandaag rustig: 30 minuten op praattempo.\n\nDetails."
+    with rt.engine.begin() as conn:
+        ident = conn.execute(
+            insert(coach_decision_log).values(
+                subject_id=1,
+                at=utc_now(),
+                kind="coach",
+                author="client:coach-runner",
+                entry_type="morning",
+                for_date=DAY,
+                text=text,
+                meta={"safety": AMBER, "harness": {"via": "runner", "task": "morning"}},
+            )
+        ).inserted_primary_key[0]
+    entry = {"id": ident, "text": text}
 
     used = report.send(rt, "morning", DAY, entry)
     assert sorted(used) == ["portal", "push"] and mails == []
     assert "30 minuten op praattempo" in pushes[0][1] and "Details" not in pushes[0][1]
     notices = [e for e in alerts.for_portal(rt.settings)["recent"] if e["kind"] == "advice"]
-    assert len(notices) == 1 and notices[0]["link"] == "#/dashboard"
+    # The notice links to exactly the stored version (#115).
+    assert len(notices) == 1 and notices[0]["link"] == f"#/coach/report/{ident}"
+    assert notices[0]["entry_id"] == ident
 
     # Sending the same advice again replaces its notice; a report sent again by hand mails.
     report.send(rt, "morning", DAY, entry)

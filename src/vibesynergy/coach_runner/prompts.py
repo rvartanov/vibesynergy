@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 6
+RULES_VERSION = 7
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -125,6 +125,17 @@ SAFETY_STEPS = """\
       ander veiligheidsniveau of sessiebesluit, weeg het dan: zeg in reasons of je het
       overneemt en waarom wel of niet. Jij hebt het laatste woord, tenzij {name} kiest.
    Alleen de regeluitkomst herhalen is geen afweging.
+4. BOUW VOORT op de dagdraad (blok "day_thread"). Het is één doorlopend gesprek met
+   {name}: wat je eerder vandaag zei (ook de avondreview van gisteren), wat er sindsdien
+   binnenkwam en wat {name} antwoordde.
+   a. Staat er bij de dag van dit advies al een versie met status "huidig", dan is jouw
+      entry de volgende versie. Geef changed_because met previous = het id van die versie.
+   b. Zeg in changed_because.reason wat er verandert tegenover die versie en waarom: de
+      nieuwe data, een antwoord van {name}, of je afweging. Verandert er niets, zeg dat
+      dan, en waarom.
+   c. Spreek een eerdere versie nooit tegen zonder de reden te noemen, ook in de summary:
+      "je rustpols is weer normaal, dus …".
+   d. Geen versie voor die dag: jouw entry is de eerste. Laat changed_because weg.
 """
 
 SAFETY_FIELD = """\
@@ -139,6 +150,12 @@ SAFETY_FIELD = """\
       "override_reason": "Readiness 11 is gemeten na de training; vanochtend was hij 27."}
      Fout (wordt geweigerd): level "ok" met colour "amber"; lege reasons; milder dan de
      regels zonder override_reason.
+   - changed_because (verplicht als de dag al een versie heeft, zie stap 4):
+     {"previous": <id van de huidige versie>, "reason": "…"}.
+     Voorbeeld: {"previous": 1018, "reason": "Rustpols is weer normaal en de check-in is
+     goed, dus de duurloop mag weer door."}
+     Fout (wordt geweigerd): geen changed_because terwijl de dag al advies heeft; een
+     previous die niet de huidige versie is; een reason van een paar woorden.
 """
 
 RUNNER_RULES = """\
@@ -187,6 +204,10 @@ MCP_RULES = """\
 - Geef aan vibesynergy_coach_write mee: task (de taak, bijvoorbeeld "{job}") en harness (de
   waarde van "harness.stamp" uit vibesynergy_coach_prompt). Zo staat bij de entry onder welke
   versie van het harnas hij geschreven is.
+- De dagdraad (blok "day_thread" in die context) is dezelfde als die van de runner: jouw
+  dagadvies is een versie in dezelfde draad. Heeft de dag al een versie, geef dan
+  changed_because mee (stap 4); {name} ziet jouw versie op dezelfde plek als die van de
+  runner, met dezelfde melding.
 - De server controleert elke write tegen het uitvoercontract. Een entry die er niet aan
   voldoet wordt geweigerd, met de reden. Dat is een controle op vorm en geldigheid.
 - Wat je mag schrijven hangt af van de rol van je verbinding. Die staat in
@@ -264,7 +285,7 @@ def harness_rules(job: str, name: str = DEFAULT_NAME) -> str:
     task = registry.BY_ID.get(job)
     daily = bool(task and task.contract.safety)
     words = (task.contract.max_words if task else None) or 150
-    first = 4 if daily else 2
+    first = 5 if daily else 2
     return HARNESS_RULES.format(
         version=RULES_VERSION,
         name=name,
