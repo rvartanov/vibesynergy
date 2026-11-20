@@ -1,37 +1,43 @@
 WEBVTT
 
-00:00:06.955 --> 00:00:10.118
+00:00:13.580 --> 00:00:16.815
 The start page shows how you are doing and what to do today.
 
-00:00:10.168 --> 00:00:15.247
+00:00:16.865 --> 00:00:22.130
 At the top: today's advice. Your AI coach decides the colour, the safety and the reasons; without valid advice the fixed rules give it, and say why.
 
-00:00:15.297 --> 00:00:21.287
+00:00:22.180 --> 00:00:28.303
 Under 'Why this advice': the reasons, where the advice comes from and where your AI coach and the rules differ.
 
-00:00:21.337 --> 00:00:26.868
+00:00:28.353 --> 00:00:33.914
 When new data comes in, like your check-in or a workout, your AI coach makes a new version. It builds on the previous one and says what changes and why.
 
-00:00:26.918 --> 00:00:31.436
+00:00:33.964 --> 00:00:38.474
 When a second AI coach works with you, its second opinion is listed here. Where it differs from your AI coach, you see it at once. Your own AI coach has the last word.
 
-00:00:31.486 --> 00:00:35.180
+00:00:38.524 --> 00:00:46.300
+VibeSynergy checks every night. When a measurement looks wrong, you see why here, and that night's sleep, HRV or readiness don't count for the advice.
+
+00:00:46.350 --> 00:00:53.681
+You decide: 'No, it's right' counts the night after all, 'Yes, incomplete' leaves it out. You can always undo it.
+
+00:00:53.731 --> 00:00:57.454
 Update advice first syncs all your sources, then asks your AI coach for new advice.
 
-00:00:35.230 --> 00:00:38.877
+00:00:57.504 --> 00:01:01.234
 Recovery compares HRV, sleep and resting heart rate with your normal.
 
-00:00:38.927 --> 00:00:49.138
+00:01:01.284 --> 00:01:11.925
 Fill in the check-in every morning: 1 to 5 per question.
 
-00:00:49.188 --> 00:00:58.322
+00:01:11.975 --> 00:01:21.532
 Your answers are saved right away.
 
-00:00:58.372 --> 00:01:02.463
+00:01:21.582 --> 00:01:25.842
 A note helps your AI coach refine the advice.
 
-00:01:02.513 --> 00:01:08.227
+00:01:25.892 --> 00:01:31.790
 Use ‹ and › or the date to move to other days.
 
-00:01:08.277 --> 00:01:14.935
+00:01:31.840 --> 00:01:42.220
 Further down: last night, body, timeline and best efforts.

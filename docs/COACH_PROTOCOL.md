@@ -193,6 +193,14 @@ updated later, a readiness from after training or from a partial night: a number
 gap is not a signal), what was already done today and how, and complaints or pain even when
 the injury log is empty.
 
+The sleep check (`safety.sleep_check`): VibeSynergy checks every night and marks it `ok`,
+`suspect`, `incomplete` or `bad`, with the reasons. When it is `bad` or `incomplete`, the
+metrics in `not_counted_metrics` (sleep, HRV, readiness, resting HR) do not count: weigh
+them less, rely on the check-in, the resting heart rate and the trend, and say in one
+sentence that the night is uncertain. A `suspect` night still counts, with a caveat.
+`override` is the athlete's own choice and beats the check; set it with
+`vibesynergy_sleep_check_set` only on his word.
+
 **Exactly one entry per run and per AI coach**, also when there is nothing to say: a missing
 entry is how a missed run shows (COACH-4).
 

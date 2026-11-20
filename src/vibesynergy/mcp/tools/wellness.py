@@ -34,9 +34,13 @@ def register(kit: ToolKit) -> None:
         """Nights (default last_7d): times, duration, stages, score from the best source,
         with a period summary and regularity (mean bedtime / wake time / midpoint in local
         time and their standard deviation in minutes). stages=true adds the hypnogram
-        segments."""
+        segments. A night the automatic sleep check has something to say about carries
+        `check`: state (ok, suspect, incomplete, bad), the reasons, the user's own choice
+        (override) and which metrics do not count (not_counted)."""
         span = window(period, start, end, "last_7d")
-        data = views.sleep(engine, span, stages=stages, timezone=settings.timezone)
+        data = views.sleep(
+            engine, span, stages=stages, timezone=settings.timezone, raw=getattr(rt, "raw", None)
+        )
         return envelope(data, span=span)
 
     @tool(READ, "read")

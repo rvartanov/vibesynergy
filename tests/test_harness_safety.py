@@ -196,7 +196,7 @@ def test_the_rules_are_versioned():
         )
     )
     digest = hashlib.sha256(text.encode()).hexdigest()[:12]
-    assert (prompts.RULES_VERSION, digest) == (7, RULES_DIGEST), digest
+    assert (prompts.RULES_VERSION, digest) == (8, RULES_DIGEST), digest
     assert contract.parse_stamp(contract.stamp(14, 2, 2)) == {
         "harness": contract.HARNESS_VERSION,
         "rules": 2,
@@ -206,7 +206,7 @@ def test_the_rules_are_versioned():
     assert contract.parse_stamp("latest") is None
 
 
-RULES_DIGEST = "f5405aab1718"
+RULES_DIGEST = "5c2075c48eeb"
 
 
 @pytest.mark.parametrize("job", [t for t in registry.live() if t != "insight"])
@@ -300,7 +300,7 @@ def test_an_mcp_coach_gets_the_runners_rules_context_and_contract(rt, today):
     assert data["harness"]["chain"][:4] == list(registry.BASE_CONTEXT)
     # The same preloaded chain as the runner's start message.
     assert data["context"]["text"] == context.preload(rt, "morning", DAY)["text"]
-    assert '<context name="safety" v="2">' in data["context"]["text"]
+    assert '<context name="safety" v="3">' in data["context"]["text"]
     plain = _mcp(rt, "vibesynergy_coach_prompt", job="weekly").structured_content["data"]
     assert "context" not in plain and plain["contract"]["safety_required"] is False
     book = _mcp(rt, "vibesynergy_coach_handbook", include_protocol=False)
@@ -444,14 +444,14 @@ def test_a_fired_floor_reaches_the_coach_when_the_injury_log_is_empty(rt):
     assert journal.injuries(rt.engine, DAY, days=14) == []
     found = context.preload(rt, "morning", DAY)
     block = next(b for b in found["blocks"] if b["name"] == "safety")
-    assert block == {"name": "safety", "version": 2, "chars": block["chars"], "ok": True}
+    assert block == {"name": "safety", "version": 3, "chars": block["chars"], "ok": True}
     safety = _block_data(found, "safety")
     assert safety["injuries"] == "geen" or safety["injuries"] == []
     assert safety["floor"]["level"] == "flag" and safety["floor"]["colour"] == "amber"
     assert {"short_sleep", "sore"} <= set(safety["floor"]["rules"])
     rules = {r["rule"]: r["text"] for r in safety["floor"]["reasons"]}
     assert rules["short_sleep"] == "only 4 h 30 min of sleep"
-    assert safety["checkin"]["soreness"] == 4 and safety["sleep_incomplete"] is False
+    assert safety["checkin"]["soreness"] == 4
     assert safety["sleep_check"] is None  # the check-in agrees with the short night
 
 
@@ -459,10 +459,15 @@ def test_the_sleep_check_and_the_incomplete_mark_are_in_the_context(rt):
     _seed_short_night(rt)
     journal.set_checkin(rt.engine, DAY, sleep_quality=5, mood=4)
     asked = _block_data(context.preload(rt, "evening", DAY), "safety")
-    assert asked["sleep_check"]["state"] == "suspect" and asked["sleep_incomplete"] is False
+    assert asked["sleep_check"]["state"] == "suspect" and asked["sleep_check"]["override"] is None
+    assert asked["sleep_check"]["reasons"] == [
+        "your check-in says you slept well, but only 4 h 30 min was measured"
+    ]
     journal.set_sleep_incomplete(rt.engine, DAY, True)
     marked = _block_data(context.preload(rt, "evening", DAY), "safety")
-    assert marked["sleep_check"]["state"] == "incomplete" and marked["sleep_incomplete"] is True
+    assert marked["sleep_check"]["state"] == "incomplete"
+    assert marked["sleep_check"]["override"] == "incomplete"
+    assert marked["sleep_check"]["not_counted_metrics"] == ["sleep", "readiness"]
     assert "short_sleep" not in marked["floor"]["rules"]
 
 

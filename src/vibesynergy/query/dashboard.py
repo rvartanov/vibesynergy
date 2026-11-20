@@ -32,6 +32,7 @@ from vibesynergy.query import (
     latency,
     measurement,
     safety_floor,
+    sleep_quality,
     training,
     views,
     week_progress,
@@ -121,6 +122,9 @@ def dashboard(
 
     load_rt = _load_runtime(rt, engine, athlete)
     completed = _block(lambda: _completed(engine, today))
+    # The sleep check of the nights the baselines use (#100), before the baselines: a
+    # badly recorded night stays out of them.
+    marks = _block(lambda: _sleep_marks(engine, rt, today, timezone))
     recovery = _block(lambda: _recovery(engine, today, timezone))
     load = _block(lambda: _load(engine, today, athlete, load_rt))
     _today_zones(engine, rt, today, athlete)
@@ -150,7 +154,16 @@ def dashboard(
     delivery = _block(lambda: delivery_status(engine, sources, queried_at=queried_at))
     verdict = _block(
         lambda: _verdict_block(
-            recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap
+            recovery,
+            load,
+            plan,
+            injuries,
+            sick,
+            checkin_tags,
+            tr,
+            completed,
+            gap,
+            _mark_of(marks, today),
         )
     )
     # The advice shown (#89): the AI's when there is a valid one, else the rules' with the
@@ -421,8 +434,27 @@ def _today_zones(engine: Engine, rt, today: date, athlete: dict | None) -> None:
         log.debug("today's heart-rate zones could not be computed", exc_info=True)
 
 
+def _sleep_marks(engine: Engine, rt, today: date, timezone: str) -> dict[date, dict]:
+    """The sleep check of the nights in the baseline window, recomputed where a night's
+    inputs changed (#100)."""
+    return sleep_quality.nights(
+        engine,
+        getattr(rt, "raw", None),
+        Window(today - timedelta(days=BASELINE_DAYS), today),
+        timezone,
+    )
+
+
+def _mark_of(marks: Any, day: date) -> dict | None:
+    """The night's mark from ``_sleep_marks``, or ``None`` when that block failed."""
+    if _failed(marks) or not isinstance(marks, dict):
+        return None
+    found = marks.get(day)
+    return found if isinstance(found, dict) else None
+
+
 def _verdict_block(
-    recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap=None
+    recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap=None, mark=None
 ) -> dict:
     if any(
         _failed(part) for part in (recovery, load, plan, injuries, sick, checkin_tags, completed)
@@ -440,6 +472,7 @@ def _verdict_block(
         checkin=checkin,
         tags=tags,
         measurement=None if _failed(gap) else gap,
+        sleep_check=mark,
     )
 
 
@@ -448,6 +481,7 @@ def rules_verdict(rt, day: date, *, tr: Translator = ENGLISH, include_calendar: 
     the dashboard, without the rest of the page (``daily_advice.current``)."""
     engine, settings = rt.engine, rt.settings
     completed = _completed(engine, day)
+    marks = _block(lambda: _sleep_marks(engine, rt, day, settings.timezone))
     recovery = _recovery(engine, day, settings.timezone)
     load = _load(engine, day, settings.athlete, rt)
     _today_zones(engine, rt, day, settings.athlete)
@@ -461,7 +495,18 @@ def rules_verdict(rt, day: date, *, tr: Translator = ENGLISH, include_calendar: 
     sick = journal.tagged_days(engine, Window(day - timedelta(days=2), day), ["sick"])
     checkin_tags = _checkin_and_tags(engine, day)
     gap = _block(lambda: measurement.night(engine, getattr(rt, "raw", None), day))
-    return _verdict_block(recovery, load, plan, injuries, sick, checkin_tags, tr, completed, gap)
+    return _verdict_block(
+        recovery,
+        load,
+        plan,
+        injuries,
+        sick,
+        checkin_tags,
+        tr,
+        completed,
+        gap,
+        _mark_of(marks, day),
+    )
 
 
 def _plan_view(plan: dict, today: date) -> dict:
@@ -687,8 +732,27 @@ def _checkin_and_tags(engine: Engine, today: date) -> tuple[dict | None, list[st
     return checkin, sorted(tags)
 
 
+def sleep_check_view(mark: dict | None, tr: Translator = ENGLISH) -> dict | None:
+    """The night's mark for the page, the brief and the MCP: the stored fields plus the
+    words (``sleep_quality.describe``). ``None`` when there is nothing to say."""
+    words = sleep_quality.describe(mark, tr)
+    if words is None or mark is None:
+        return None
+    return {
+        **words,
+        "date": mark.get("date"),
+        "metrics": mark.get("metrics") or {},
+        "not_counted_metrics": mark.get("not_counted") or [],
+        "checked_at": mark.get("checked_at"),
+        "sleep_s": mark.get("sleep_s"),
+        "rules": [r["rule"] for r in mark.get("reasons") or []],
+    }
+
+
 def _floor_reason(item: dict, tr: Translator) -> str:
     values = dict(item.get("values") or {})
+    if "metrics" in item:
+        values["metrics"] = sleep_quality.join([tr(m) for m in item["metrics"]], tr)
     if "seconds" in item:
         values["time"] = _hm(item["seconds"], tr)
     for name, seconds in (item.get("times") or {}).items():
@@ -708,11 +772,23 @@ def _verdict(
     checkin: dict | None = None,
     tags: list[str] | None = None,
     measurement: dict | None = None,
+    sleep_check: dict | None = None,
 ) -> dict:
-    """Colour and sentences for the dashboard. The level comes from the shared floor."""
+    """Colour and sentences for the dashboard. The level comes from the shared floor.
+    ``sleep_check`` is the night's mark (``sleep_quality.night``, #100); without one, the
+    check-in rule and the athlete's choice alone (``sleep_quality.from_checkin``)."""
+    sleep_block = recovery.get("sleep.duration")
+    mark = sleep_check or sleep_quality.from_checkin(checkin, _reading_value(sleep_block))
     floor = safety_floor.evaluate(
         safety_floor.signals_from_dashboard(
-            recovery, load, injuries, sick, checkin=checkin, tags=tags, measurement=measurement
+            recovery,
+            load,
+            injuries,
+            sick,
+            checkin=checkin,
+            tags=tags,
+            measurement=measurement,
+            sleep_check=mark,
         )
     )
     color = safety_floor.COLOURS[floor["level"]]
@@ -746,10 +822,10 @@ def _verdict(
     }[color]
     advice = _advice(color, plan, tr, completed_count=completed_count)
     return {
-        # The night may be measured incompletely (#53): the athlete is asked, not told.
-        # The portal asks about "suspect" and shows "incomplete"; a night that was updated
-        # later is in ``measurement`` and in the reasons, not a question to the athlete.
-        "sleep_check": journal.sleep_check(checkin, sleep_value),
+        # The night's sleep check (#53, #100): the mark, why, and what does not count. The
+        # portal shows it with "yes, incomplete" / "no, it's right"; null when there is
+        # nothing to say.
+        "sleep_check": sleep_check_view(mark, tr),
         "measurement": measurement,
         "notes": [
             {"rule": item["rule"], "text": text}

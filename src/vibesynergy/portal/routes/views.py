@@ -405,7 +405,10 @@ def register(kit: PortalKit) -> None:
 
     @router.get("/sleep")
     def sleep_page(
-        period: str | None = None, start: str | None = None, end: str | None = None
+        period: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        lang: str = "en",
     ) -> dict[str, Any]:
         """Sleep page: every night with its stages (hypnograms), regularity, and the nightly
         metrics as a series; the same query as the MCP tool vibesynergy_sleep."""
@@ -416,7 +419,12 @@ def register(kit: PortalKit) -> None:
         if len(span) > MAX_SLEEP_NIGHTS:
             raise ValueError(f"choose a period of at most {MAX_SLEEP_NIGHTS} days")
         data = views.sleep(
-            engine, span, stages=len(span) <= HYPNOGRAM_NIGHTS, timezone=settings.timezone
+            engine,
+            span,
+            stages=len(span) <= HYPNOGRAM_NIGHTS,
+            timezone=settings.timezone,
+            raw=rt.raw,
+            tr=translator(lang),
         )
         data["series"] = qs.series(
             engine,

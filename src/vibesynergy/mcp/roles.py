@@ -87,6 +87,7 @@ WRITE_POLICY: dict[str, str] = {
     "vibesynergy_add_note": OPEN,
     "vibesynergy_edit_note": OPEN,
     "vibesynergy_checkin": OPEN,
+    "vibesynergy_sleep_check_set": OPEN,
     "vibesynergy_log_injury": OPEN,
     "vibesynergy_activity_set_effort": OPEN,
     "vibesynergy_activity_set_coaching": OPEN,

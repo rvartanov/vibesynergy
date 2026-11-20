@@ -5,6 +5,8 @@ There is one current advice per target day. The fixed advice run (the ``morning`
 between, new data makes a new version of the current advice:
 
 - sleep or HRV comes in or is updated (``sleep``, ``hrv``);
+- the night's sleep check changes its mark (``sleep_check``, #100: a night found badly
+  recorded or incomplete, or the athlete's "it's right" / "yes, incomplete");
 - the check-in is saved (``checkin``);
 - a note (illness is a note tagged sick), pain or an injury comes in (``note``,
   ``injury``): at once, without waiting;
@@ -52,7 +54,17 @@ from vibesynergy.core.timeutil import utc_now
 
 log = logging.getLogger(__name__)
 
-KINDS = ("sleep", "hrv", "checkin", "note", "injury", "activity", "plan", "reply")
+KINDS = (
+    "sleep",
+    "hrv",
+    "sleep_check",
+    "checkin",
+    "note",
+    "injury",
+    "activity",
+    "plan",
+    "reply",
+)
 IMMEDIATE = frozenset({"note", "injury"})
 DEBOUNCE = timedelta(minutes=5)
 MAX_WAIT = timedelta(minutes=30)
@@ -181,6 +193,7 @@ def fingerprint(rt, target: date) -> dict[str, str]:
     return {
         "sleep": _digest(sorted(sleep, key=str)),
         "hrv": _digest([(m, _round(v, 0.1)) for m, v in metrics if m.startswith("hrv.")]),
+        "sleep_check": _digest(_sleep_mark(rt, target)),
         "checkin": _digest(checked),
         "note": _digest([tuple(r) for r in notes]),
         "injury": _digest([[tuple(r) for r in injuries], [tuple(r) for r in pains]]),
@@ -193,6 +206,23 @@ def fingerprint(rt, target: date) -> dict[str, str]:
         "plan": _digest([tuple(r) for r in sessions]),
         "reply": _digest(tuple(replies)),
     }
+
+
+def _sleep_mark(rt, target: date) -> Any:
+    """The night's mark as far as the advice is concerned: its state and what does not
+    count (``query.sleep_quality``), not the time of the check."""
+    from vibesynergy.query import sleep_quality
+
+    try:
+        found = sleep_quality.night(
+            rt.engine, getattr(rt, "raw", None), target, rt.settings.timezone
+        )
+    except Exception:
+        log.debug("sleep check for the advice inputs failed", exc_info=True)
+        return "unavailable"
+    if not found:
+        return None
+    return [found["state"], sorted(found.get("not_counted") or []), found.get("override")]
 
 
 # --- the target day, the newest run, the limit -------------------------------------------------

@@ -185,10 +185,14 @@ and show where the AI and the rules differed from `rules_floor`.
 
 ### Safety in the context
 
-The base block `safety` (version 2) is in every task's context and carries:
+The base block `safety` (version 3) is in every task's context and carries:
 
 - `floor`: the rules' level, colour, the rules that fired, each one's reason, and notes;
-- `sleep_check` (`suspect`, `incomplete`, `updated`) and `sleep_incomplete`;
+- `sleep_check` (#100): the night's automatic sleep check with the athlete's choice on top:
+  `state` (`ok`, `suspect`, `incomplete`, `bad`), `auto_state`, `override` (`incomplete`,
+  `ok` or null), `metrics` (per metric its own state), `not_counted_metrics` and `reasons`
+  (sentences), or null when there is nothing to say. Since #100 it replaces
+  `sleep_incomplete`; a night updated later is one of its reasons;
 - `measurement`: whether the night was updated after its first reading and which readiness
   reading counts;
 - `checkin`, `complaints`, `pain_today`;
@@ -259,6 +263,17 @@ there is no valid AI advice ([Daily advice](#daily-advice-ai-first-the-rules-as-
   (`query/plan_match.py`): another main set (3x300 planned, 4x50 + 3x100 swum) or a tempo
   block in a steady session; a few bad swim laps do not count, and laps too thin to judge
   give "done, not checked" (`comparison.check` `not_checked`). The advice says which it was.
+- **The sleep check** (#100, `query/sleep_quality.py`; tests: `tests/test_sleep_check.py`):
+  every night is checked against fixed rules (heart rate during the sleep window, the window
+  against the usual bedtime and wake time, the stages, HRV over the night, a night updated
+  later, the check-in) and marked `ok`, `suspect`, `incomplete` or `bad`, per metric. A
+  metric that is `bad` or `incomplete` does not count for `short_sleep`, `low_readiness`,
+  `low_hrv` or `rhr_up`, and the floor adds a note that says so; a `suspect` one still counts,
+  with a note. The athlete's "yes, incomplete" or "no, it's right" (Today, or
+  `vibesynergy_sleep_check_set`) beats the check. The harness rules (version 8, step 3b): a
+  metric of a bad or incomplete night is weighed less, the advice leans on the check-in,
+  resting HR and the trend, and says in one sentence that the night is uncertain. A changed
+  mark is a new signal (trigger kind `sleep_check`, with the wait).
 - **Measurement gaps** (`query/measurement.py`, from the raw history VibeSynergy keeps): a
   night that grew by an hour or more after its first reading is reported; a readiness from
   before the night was complete does not count; when the day's readiness is a later
@@ -390,6 +405,7 @@ current advice without a notice, a later version without its reason.
 | --- | --- | --- |
 | `sleep` | `sleep.*` daily values and the sleep sessions of the target day | yes |
 | `hrv` | `hrv.*` daily values of the target day | yes |
+| `sleep_check` | the night's sleep check (#100): its state, what does not count, the athlete's choice | yes |
 | `checkin` | the target day's check-in | yes |
 | `note` | notes covering the target day or the day before (illness is a note tagged sick) | no |
 | `injury` | open injuries, and pain logged for the target day or the day before | no |

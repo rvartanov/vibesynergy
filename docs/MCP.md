@@ -249,7 +249,8 @@ provider or model, and the server enforces them for every write tool
   `changed_because` used to be stored and is now refused.
 - `vibesynergy_today` (#88): `safety` now also has `colour`, `reasons` (`[{rule, text}]`)
   and `notes`; `measurement` says whether the night was updated after its first reading
-  and which readiness reading counts; `sleep_check` can be `updated`. A planned session
+  and which readiness reading counts; `sleep_check` could be `updated` (since #100 a
+  reason of the sleep check, see above). A planned session
   that departed from the plan carries `deviation` (`harder`, `longer`, `shorter`,
   `distance`, `structure`, `intensity`) in `vibesynergy_plan` and `vibesynergy_week`.
   Every planned session also has `comparison` (#116): `planned` (the main set from the
@@ -305,6 +306,28 @@ provider or model, and the server enforces them for every write tool
   runs for a model and period, newest first.
 - Wellness and body: `vibesynergy_sleep`, `vibesynergy_recovery`, `vibesynergy_intraday`,
   `vibesynergy_body`, `vibesynergy_blood_pressure`, `vibesynergy_profile`
+- Sleep check (#100): every night is checked automatically, read-only on the raw history
+  (`query/sleep_quality.py`) and marked `ok`, `suspect`, `incomplete` or `bad`, with the
+  reasons and per metric (`sleep`, `hrv`, `readiness`, `resting_hr`) its own state. The
+  rules: heart rate during the sleep window (a gap over 30 min or under 80% measured:
+  incomplete), the window against the median bedtime and wake time of the 28 nights before
+  (4 h or more off: suspect; under 6 h of sleep while the heart rate stays at a sleeping
+  level for 90 min after the end: suspect), the stages (over 3 h of sleep without REM, an
+  implausible share of one stage, or one stage for 4 h without a change: bad), HRV over
+  under 70% of the window (incomplete for HRV), a night updated later and a readiness from
+  the partial night (#88), and a good check-in against under 5 h measured (#53). It is
+  stored as a derived result (`sleep_check` table, with `checked_at`) and checked again when
+  Garmin delivers a new version of the night. The user decides last:
+  `vibesynergy_sleep_check_set` (`diary.write`) with `choice` `incomplete`, `ok` ("it's
+  right", beats the check) or `clear`. A metric that is `bad` or `incomplete` does not count
+  for the safety floor (`short_sleep`, `low_readiness`, `low_hrv`, `rhr_up`) and is left out
+  of `vibesynergy_baselines` (`left_out_nights`) and `vibesynergy_trend`
+  (`left_out_nights`, the dates); a `suspect` one still counts and the advice names it.
+  `vibesynergy_today` (`sleep_check`), `vibesynergy_sleep` (per night `check`) and
+  `vibesynergy_explain` (`sleep_check`) show the mark. **This changes behaviour**: a night
+  found badly recorded or incomplete is left out of the advice and the baselines without
+  being asked; `sleep_check` in `vibesynergy_today` has a new shape (`state` is `ok`,
+  `suspect`, `incomplete` or `bad`; `updated` is now one of its reasons).
 - Data: `vibesynergy_sync_status`, `vibesynergy_latency`, `vibesynergy_coverage`, `vibesynergy_metric_status`,
   `vibesynergy_refresh`, `vibesynergy_sql`
 - Shared coaching read: `vibesynergy_activity_assessment`, `vibesynergy_current_coaching_state`,
@@ -623,9 +646,12 @@ example queries. Also available as resource `vibesynergy://schema`.
 
 #### `vibesynergy_explain`
 - Params: `metric` + `date`, or `activity_id` + `field`.
-- Returns: provenance (§2.8) and alternative values from other sources. A sleep metric or
-  readiness on a night the athlete marked as an incomplete measurement adds
-  `marked_incomplete`: the value stays, it does not count for that day's advice.
+- Returns: provenance (§2.8) and alternative values from other sources. A metric from the
+  night (sleep, HRV, readiness, resting HR) adds `sleep_check` (#100): the night's mark
+  (`state`, `auto_state`, `override`, `metrics`, `not_counted`, `reasons` with `rule`,
+  `state` and `text`, `checked_at`), `this_metric` (the state of this metric) and `counts`
+  (whether it counts for the advice and the baselines). The value itself stays as the
+  source measured it. A night the athlete marked incomplete also adds `marked_incomplete`.
 
 ### 3.2 Viewing: days and periods
 
@@ -687,6 +713,8 @@ Is it changing, and how fast?
   `granularity`.
 - Returns: slope per week/month with confidence interval, total change, R², change points
   (if any, with dates), plain-language summary ("weight −0.21 kg/week, 95% CI −0.28…−0.14").
+  Nights the sleep check marked badly recorded or incomplete for the metric are left out
+  and listed in `left_out_nights` (#100).
 
 #### `vibesynergy_compare_periods`
 - Params: `metrics[]`, `period_a`, `period_b` (or `period_a` + `baseline: "previous" |
@@ -710,7 +738,8 @@ Personal norms and deviations, the basis of "is this normal for me".
 - Params: `metrics[]` (default: HRV, RHR, sleep score, readiness, weight), `window`
   (default `60d`), `date` (default today).
 - Returns per metric: baseline mean/std or median/MAD, today's value, z-score, percentile,
-  7-day trend direction.
+  7-day trend direction. Nights the sleep check marked badly recorded or incomplete for the
+  metric are left out of the baseline; `left_out_nights` counts them (#100).
 
 #### `vibesynergy_anomalies`
 - Params: `metrics[]`, period (default `last_28d`), `threshold` (z, default 2), `window`.
@@ -931,9 +960,12 @@ One call for "how should I train today?".
   the last three days done, the A race and any B race with the phase, the dashboard verdict
   and attention list, the safety floor (level, rules, text), this coach's last entries and
   freshness, and stale-data warnings. `planned_today` is the first session today.
-  `sleep_check`: `suspect` when the check-in rates sleep 4-5 but the watch measured under
-  5 h (ask, don't call it a short night), `incomplete` when the athlete marked the night so
-  (its short sleep and readiness are out of the safety floor), else null.
+  `sleep_check` (#100): the night's automatic sleep check with the user's choice on top,
+  or null when there is nothing to say: `state` (`suspect`: ask, still counts;
+  `incomplete` or `bad`: the metrics in `not_counted_metrics` are out of the safety floor
+  and the baselines), `auto_state`, `override` (`incomplete`, `ok` or null), `headline`,
+  `reasons` (sentences), `effect`, `metrics`, `rules`, `checked_at`. Relay it as
+  uncertainty about the night, not as a short night.
   `date_label` is `d-m-yyyy`; other dates stay ISO. Items carry `source` and `in_plan`;
   `plan_source` says where the plan comes from (`vibesynergy`, or `garmin` before the plan
   starts or without a plan; never intervals.icu, #111),
@@ -1082,7 +1114,9 @@ Open-Meteo at its start and hour).
   (specific dates).
 - Returns per night: bed/wake times, duration, stages, score and sub-scores, avg HR/HRV/RR,
   SpO2, restless moments, source; period summary (averages, regularity, consistency of bed
-  time, sleep debt vs your need); `full` adds hypnogram segments.
+  time, sleep debt vs your need); `full` adds hypnogram segments. A night the sleep check
+  (#100) has something to say about carries `check`: `state`, `auto_state`, `override`,
+  `headline`, `reasons` (sentences), `not_counted` (metric names) and `effect`.
 
 #### `vibesynergy_recovery`
 - Params: period (default `last_14d`).
@@ -1142,6 +1176,14 @@ Open-Meteo at its start and hour).
 #### `vibesynergy_notes`
 - Params: period, `tag`.
 - Returns: your notes/annotations (illness, travel, injury, alcohol, stress, …).
+
+#### `vibesynergy_sleep_check_set` *(scope `diary.write`)*
+The user's own verdict on a night's sleep measurement (#100); it beats the automatic sleep
+check.
+- Params: `choice` (`incomplete`: yes, the measurement is incomplete; `ok`: no, it's right;
+  `clear`: undo), `date` (the morning the night ends, default today).
+- Returns: `date` and the night's `sleep_check` after the choice. Only on the user's own
+  word. Garmin's record is never changed. Role policy: open (the user's diary).
 
 #### `vibesynergy_add_note` *(scope `diary.write`)*
 - Params: `text`, `date` (default today), `end` (for a span), `tags[]`, `activity_id` (a

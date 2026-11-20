@@ -53,6 +53,7 @@ export async function render(view, { query, meta, stale }) {
     <form class="filters">${periodPickerHtml({ id: "period", value, extra: EXTRA, today })}</form>
     ${nights.length ? "" : `<div class="notice info">${t("No sleep recorded in this period.")}</div>`}
     ${tilesHtml(data)}
+    ${checksHtml(nights)}
     <section class="card">
       <h2>${t("Sleep per night")}</h2>
       ${perNightHtml(hasStages, hasScore)}
@@ -118,6 +119,25 @@ function tilesHtml(data) {
     tiles.push(tile(t("Wake time"), esc(r.wake.mean), esc(t("average · varies ± {time}", { time: minutesText(r.wake.sd_min) }))));
   }
   return tiles.length ? `<section class="grid tiles">${tiles.join("")}</section>` : "";
+}
+
+// The sleep check (#100): nights whose measurement may be off, with the reason and what
+// does not count. Your own choice ("it's right", "incomplete") is said; you make it on Today.
+export function checksHtml(nights) {
+  const marked = (nights || []).filter((n) => n.check);
+  if (!marked.length) return "";
+  const line = (n) => {
+    const c = n.check;
+    const date = shortDate(n.local_date);
+    let words;
+    if (c.override === "ok") words = t("You said this night was measured right.");
+    else if (c.override === "incomplete") words = [t("You marked this night as incomplete."), c.effect].filter(Boolean).join(" ");
+    else words = [c.headline && `${c.headline}${c.reasons?.length ? `: ${c.reasons.join("; ")}` : ""}.`, c.effect].filter(Boolean).join(" ");
+    return `<li data-sleep-check-night="${esc(n.local_date)}"><b>${esc(date)}</b> ${esc(words)}</li>`;
+  };
+  return `<section class="card"><h2>${t("Sleep check")}</h2>
+    <p class="sub">${t("Nights whose measurement may be off. A badly recorded or incomplete night doesn't count for the advice or your averages.")}</p>
+    <ul class="sleep-checks">${marked.map(line).join("")}</ul></section>`;
 }
 
 function minutesText(m) {

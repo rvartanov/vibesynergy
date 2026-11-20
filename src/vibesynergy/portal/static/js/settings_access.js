@@ -49,6 +49,7 @@ const ACTIVITY_VERBS = {
   vibesynergy_add_note: N("logged a note"),
   vibesynergy_edit_note: N("changed a note"),
   vibesynergy_checkin: N("logged a check-in"),
+  vibesynergy_sleep_check_set: N("marked a night's sleep"),
   vibesynergy_log_injury: N("logged pain"),
   vibesynergy_icu_create_event: N("added a plan session"),
   vibesynergy_icu_update_event: N("changed a plan session"),

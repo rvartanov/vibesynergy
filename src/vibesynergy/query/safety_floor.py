@@ -88,6 +88,7 @@ def signals_from_coach_inputs(inputs: dict) -> dict[str, Any]:
         "hrv_z": hrv.get("z") if isinstance(hrv, dict) else None,
         "hrv_low_days": inputs.get("hrv_low_days") or 0,
         "rhr_up_bpm": rhr_up,
+        "sleep_check": inputs.get("sleep_check"),
         "tsb": load.get("tsb"),
         "acwr": load.get("acwr"),
         "form": load.get("form"),
@@ -106,9 +107,11 @@ def signals_from_dashboard(
     checkin: dict | None = None,
     tags: list[str] | None = None,
     measurement: dict | None = None,
+    sleep_check: dict | None = None,
 ) -> dict[str, Any]:
     """Map the dashboard's already loaded blocks onto the floor. ``measurement`` is
-    ``query.measurement.night``: which readiness reading the day's value is (#88)."""
+    ``query.measurement.night``: which readiness reading the day's value is (#88).
+    ``sleep_check`` is ``query.sleep_quality.night``: the night's mark (#100)."""
     hrv = recovery.get("hrv.night_avg") or {}
     rhr = recovery.get("hr.resting") or {}
     sleep = recovery.get("sleep.duration") or {}
@@ -137,6 +140,7 @@ def signals_from_dashboard(
         "readiness_daily": readiness.get("value"),
         "readiness_daily_z": readiness.get("z"),
         "measurement": measurement,
+        "sleep_check": sleep_check,
         "hrv_z": hrv.get("z"),
         "hrv_low_days": recovery.get("hrv_low_days") or 0,
         "rhr_up_bpm": rhr_up,
@@ -196,9 +200,17 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
                 "An open complaint means keeping hard work easy.",
             )
 
-    hrv_z = signals.get("hrv_z")
+    # The night's sleep check (#100), with the athlete's choice on top: a metric from a
+    # night that is badly recorded or incomplete does not count for the rules below. Without
+    # a check, the athlete's own "incomplete" mark (#53) still counts.
+    checkin_now = signals.get("checkin")
+    mark = signals.get("sleep_check")
+    if not isinstance(mark, dict):
+        mark = sleep_mark_from_checkin(checkin_now)
+    dropped = set((mark or {}).get("not_counted") or [])
+    hrv_z = None if "hrv" in dropped else signals.get("hrv_z")
     low_days = signals.get("hrv_low_days") or 0
-    rhr_up = signals.get("rhr_up_bpm")
+    rhr_up = None if "resting_hr" in dropped else signals.get("rhr_up_bpm")
     rhr_high = rhr_up is not None and rhr_up >= THRESHOLDS["rhr_up_bpm"]
     if low_days >= THRESHOLDS["hrv_low_streak"] and rhr_high:
         hit(
@@ -214,11 +226,8 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
     ):
         hit("deep_fatigue", "refuse", "deep fatigue with low HRV")
 
-    # A night the athlete marked as an incomplete measurement (#53): its short sleep and the
-    # readiness computed from it do not count.
-    checkin_now = signals.get("checkin")
-    incomplete = isinstance(checkin_now, dict) and bool(checkin_now.get("sleep_incomplete"))
-    sleep = None if incomplete else signals.get("sleep_s")
+    incomplete = "readiness" in dropped
+    sleep = None if "sleep" in dropped else signals.get("sleep_s")
     if sleep is not None and sleep < THRESHOLDS["short_sleep_s"]:
         hit("short_sleep", "flag", "only {time} of sleep", seconds=sleep)
     # Measurement gaps (#88): a readiness computed before the night was complete does not
@@ -227,7 +236,16 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
     reading = gap.get("readiness") or {}
     partial = bool(reading.get("partial_night"))
     notes: list[dict[str, Any]] = []
-    if gap.get("sleep"):
+    if dropped and mark:
+        notes.append(_mark_note(mark, dropped))
+    elif mark and mark.get("state") == "suspect":
+        notes.append(
+            {
+                "rule": "sleep_check_suspect",
+                "key": "Last night's sleep measurement may be off; it still counts.",
+            }
+        )
+    if gap.get("sleep") and not (mark and "sleep" in dropped):
         notes.append(
             {
                 "rule": "sleep_updated",
@@ -295,6 +313,28 @@ def evaluate(signals: dict, day: date | None = None) -> dict[str, Any]:
         )
 
     return {"level": level, "rules": sorted(rules), "reasons": reasons, "notes": notes}
+
+
+def sleep_mark_from_checkin(checkin: Any) -> dict[str, Any] | None:
+    """The night's mark when only the athlete's choice is known (no sleep check)."""
+    from vibesynergy.query import sleep_quality
+
+    override = sleep_quality.override_of(checkin if isinstance(checkin, dict) else None)
+    return sleep_quality.decide(None, override)
+
+
+def _mark_note(mark: dict[str, Any], dropped: set[str]) -> dict[str, Any]:
+    from vibesynergy.query import sleep_quality
+
+    names = [sleep_quality.METRIC_NAMES[m] for m in sleep_quality.METRICS if m in dropped]
+    by_athlete = mark.get("override") == "incomplete"
+    return {
+        "rule": "sleep_check",
+        "key": "You marked last night's sleep as incomplete: its {metrics} don't count."
+        if by_athlete
+        else "Last night's sleep may be badly recorded: its {metrics} don't count.",
+        "metrics": names,
+    }
 
 
 # Rules the AI advice may never soften (#88, #89): illness, red-flag notes and real pain.

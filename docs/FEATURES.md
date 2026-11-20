@@ -85,8 +85,12 @@ Details: [SOURCES.md](SOURCES.md).
   measurements, the timeline, best efforts and the diary. Blocks can be reordered and hidden.
   A block or key number without data takes no space; one line at the bottom names what is
   left out. A block you tick under "Arrange the start page" stays even while it is empty.
-  A short measured night that your check-in contradicts is asked about, and can be marked as
-  an incomplete measurement so it leaves the advice (undo possible).
+  Every night gets an automatic sleep check (heart rate all night, the usual bedtime and
+  wake time, plausible sleep stages, HRV over the night, a night updated later, the check-in
+  against the measurement): a night that may be off, incomplete or badly recorded is shown
+  with the reason, and you answer "Yes, incomplete" or "No, it's right" (undo possible; also
+  over MCP). Sleep, HRV, readiness or resting heart rate of a badly recorded or incomplete
+  night do not count for the advice.
   A night Garmin updated after its first reading, and a readiness that is the reading after
   training instead of the morning one, are named in the advice; the morning reading counts.
   A finished session is judged on how hard it was, not only how long: longer at a low effort
@@ -168,7 +172,9 @@ Details: [SOURCES.md](SOURCES.md).
 - **Recovery**: HRV against your own normal band, resting heart rate, readiness, Body Battery,
   morning check-ins. Missing days are never drawn as zero.
 - **Sleep**: stages and score per night, bed and wake times and their regularity, hypnograms,
-  the other nightly measurements.
+  the other nightly measurements, and the nights the sleep check marked, with the reason.
+  Badly recorded or incomplete nights stay out of the HRV, sleep and readiness baselines and
+  trends.
 - **Body**: weigh-ins with a smoothed trend, body composition, blood pressure.
 - **Diary**: morning check-in (stays in VibeSynergy), notes with tags (e.g. sick, travel),
   linked to activities; optional private copy of notes to intervals.icu.

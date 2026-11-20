@@ -299,8 +299,11 @@ class CheckinRequest(BaseModel):
 
 
 class SleepIncompleteRequest(BaseModel):
+    """The athlete's choice on a night's sleep check (#53, #100): true = "yes, incomplete",
+    false = "no, it's right", null = undo."""
+
     date: str | None = None
-    incomplete: bool = True
+    incomplete: bool | None = True
 
 
 class InjuryRequest(BaseModel):

@@ -130,6 +130,10 @@ How to use it well:
   the day's worst pain (pain.max) are metrics like any other, e.g. for vibesynergy_correlate.
   Save what the user tells you with vibesynergy_add_note, vibesynergy_checkin or
   vibesynergy_log_injury, only after they said or confirmed it.
+- Every night gets an automatic sleep check (ok, suspect, incomplete, bad): in
+  vibesynergy_today (sleep_check), vibesynergy_sleep and vibesynergy_explain. A metric of a
+  bad or incomplete night does not count for the advice or the baselines; weigh it less and
+  say so. The user decides last: vibesynergy_sleep_check_set, only on their own word.
 - Personal model fits: vibesynergy_model_run_write stores parameters and a markdown
   report. vibesynergy_model_runs lists runs of one model. The parameter diff against
   the previous run of that model is stored when the run is written.

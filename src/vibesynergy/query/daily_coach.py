@@ -8,6 +8,7 @@ or when no training advice is given at all (refuse). Reading never creates work.
 
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 
 from sqlalchemy import desc, func, or_, select
@@ -27,6 +28,8 @@ from vibesynergy.query import (
     views,
 )
 from vibesynergy.store.schema import activity_unified, coach_decision_log, daily_unified
+
+log = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 PROMPT_VERSION = 2
@@ -473,8 +476,32 @@ def _capture(
             "processing_pending": pending,
         }
     )
+    # The night's sleep check (#100): only when it says something, so an ordinary night
+    # keeps the inputs (and their version) as they were.
+    mark = _sleep_mark(rt, day)
+    if mark:
+        inputs["sleep_check"] = mark
     inputs["safety"] = safety(inputs)
     return {"input_version": evidence.digest(_semantic(inputs)), "inputs": inputs}
+
+
+def _sleep_mark(rt, day: date) -> dict | None:
+    from vibesynergy.query import sleep_quality
+
+    try:
+        found = sleep_quality.night(rt.engine, getattr(rt, "raw", None), day, rt.settings.timezone)
+    except Exception:
+        log.exception("sleep check for the daily coach failed")
+        return None
+    if not found or (found["state"] == "ok" and not found.get("override")):
+        return None
+    return {
+        "state": found["state"],
+        "override": found.get("override"),
+        "metrics": found.get("metrics") or {},
+        "not_counted": found.get("not_counted") or [],
+        "rules": [r["rule"] for r in found.get("reasons") or []],
+    }
 
 
 def _semantic(inputs: dict) -> dict:

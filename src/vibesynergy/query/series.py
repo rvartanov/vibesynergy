@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import Engine, func, select
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import journal
+from vibesynergy.query import journal, sleep_quality
 from vibesynergy.query.catalog import ACTIVITY_METRICS, COMPUTED, DIARY_METRICS, KNOWN
 from vibesynergy.store.schema import activity_unified, checkin, daily_unified, injury_log
 
@@ -266,25 +266,32 @@ def baseline(
     *,
     window_days: int = 60,
     exclude_tags: Iterable[str] | None = journal.BASELINE_EXCLUDE_TAGS,
+    exclude_marked: bool = True,
 ) -> dict[str, Any] | None:
     """Personal norm over the ``window_days`` before ``day`` and where ``day`` falls in it.
     Days tagged in the diary with ``exclude_tags`` (default: sick) are left out of the
-    norm, so a cold doesn't drag it down; the day itself is always compared."""
+    norm, so a cold doesn't drag it down; the day itself is always compared. With
+    ``exclude_marked`` a night the sleep check marked badly recorded or incomplete for this
+    metric is left out too (#100; ``left_out_nights`` counts them)."""
     before = Window(day - timedelta(days=window_days), day - timedelta(days=1))
-    history = list(
-        daily_values(engine, [metric], before, exclude_tags=exclude_tags)[metric].values()
-    )
+    values = daily_values(engine, [metric], before, exclude_tags=exclude_tags)[metric]
+    marked = sleep_quality.not_counted_days(engine, metric, before) if exclude_marked else set()
+    history = [v for d, v in values.items() if d not in marked]
     today = daily_values(engine, [metric], Window(day, day))[metric].get(day)
     if len(history) < 7 or today is None:
         return None
     mean, std = statistics.fmean(history), statistics.stdev(history)
-    return {
+    out = {
         "value": _round(today),
         "baseline_mean": _round(mean),
         "baseline_std": _round(std),
         "z": _round((today - mean) / std) if std else 0.0,
         "n": len(history),
     }
+    left_out = len(marked & set(values))
+    if left_out:
+        out["left_out_nights"] = left_out
+    return out
 
 
 def _buckets(window: Window, granularity: str) -> int:
