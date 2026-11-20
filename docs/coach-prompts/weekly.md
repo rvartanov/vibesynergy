@@ -10,5 +10,5 @@ Werkwijze:
 3. Beoordeel: uren per sport vs. weekdoel van de fase; aantal harde prikkels (volgens de planregels); loopvolume binnen 3,5–4,5 u (volgens de planregels); herstelmarkers en trend; adherence; voorspelfout van de dagelijkse entries.
 4. Bepaal voor de komende week: fase en of het een laad- of herstelweek is, uren per sport, de sleutelsessies. Als het herstel of de uitvoering afwijkt van het plan: voorstel tot aanpassing.
 5. Schrijf één vibesynergy_coach_write met entry_type "note", summary "Weekreview <ISO-week>", idempotency_key "weekreview:<ISO-week>", kb_rules en details.
-6. Wijzigingen in intervals.icu alleen na expliciet akkoord van de atleet in deze sessie.
-7. Stuur de atleet met SendUserMessage: korte tabel gepland vs. gedaan per sport, harde prikkels, herstel, en het voorstel voor de komende week.
+6. Wijzigingen in het plan (in VibeSynergy) alleen na expliciet akkoord van de atleet in deze sessie.
+7. Zet het bericht aan de atleet in de summary van je vibesynergy_coach_write, na "Weekreview <ISO-week>" (VibeSynergy stuurt die naar de atleet): korte tabel gepland vs. gedaan per sport, harde prikkels, herstel, en het voorstel voor de komende week.

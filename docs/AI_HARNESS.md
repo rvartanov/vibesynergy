@@ -22,7 +22,10 @@ Coach → Settings, and the adapter for one vendor's routines (`query/agent_even
 `tests/test_model_neutral.py` fails when one shows up anywhere else a model or the athlete
 reads, and when the role is called anything but AI coach; the knowledge base warns
 (`knowledge.lint`, in the handbook's warnings and at a proposal) when a routine instruction
-(topic `coach-prompts`) or a COACH rule names a model. See [Any provider](#any-provider).
+(topic `coach-prompts`) or a COACH rule names a model. The same lint (#120) warns on retired
+names, rule ranges that do not match the rules in use, tools that do not exist and thresholds
+written as numbers; Coach → Methods & rules shows the warnings too. See
+[Any provider](#any-provider).
 
 ## Principles
 

@@ -245,6 +245,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   approval; a newer knowledge-base proposal from the same AI coach replaces its waiting one. A
   routine instruction or COACH rule that names a model or provider gives a warning, and
   an article's earlier slug keeps working (`claude-coach-loop` is now `ai-coach-loop`).
+  Methods & rules (and every AI coach, in the handbook) also gets a warning for a text with
+  a retired name, a rule range that does not match the rules in use, a tool that does not
+  exist, or a threshold written as a fixed number instead of read live.
 - **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,

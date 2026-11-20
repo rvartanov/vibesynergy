@@ -21,7 +21,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from vibesynergy.core.ids import new_id
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.query import neutral
+from vibesynergy.query import kb_lint, neutral
 from vibesynergy.store.schema import (
     kb_article,
     kb_article_revision,
@@ -322,30 +322,172 @@ def model_name_warning(kind: str, ref: str, *texts: str | None) -> dict[str, Any
     }
 
 
+_MESSAGES = {
+    "retired_name": "{kind} {ref} uses a retired name: {found}. Remove it or write the current "
+    "name.",
+    "rule_range": "{kind} {ref} refers to {found}, but the rules in use are {expected}. "
+    "Write the real range.",
+    "unknown_rule": "{kind} {ref} refers to {found}, which is not a rule in use.",
+    "unknown_tool": "{kind} {ref} names a tool that does not exist: {found}. Name a "
+    "VibeSynergy tool, or remove it.",
+    "fixed_threshold": "{kind} {ref} writes thresholds as fixed numbers ({found}). Thresholds "
+    "change after every test: write 'read live with " + kb_lint.THRESHOLD_TOOL + "' instead.",
+}
+
+
+def _warning(
+    kind: str,
+    ref: str,
+    article: str | None,
+    check: str,
+    names: list[str],
+    *,
+    expected: list[str] | None = None,
+    hints: list[str] | None = None,
+) -> dict[str, Any]:
+    found = (
+        ", ".join(f"{name} ({hint})" for name, hint in zip(names, hints, strict=True))
+        if hints
+        else ", ".join(names)
+    )
+    item: dict[str, Any] = {
+        "kind": kind,
+        "ref": ref,
+        "article": article,
+        "check": check,
+        "names": names,
+        "message": _MESSAGES[check].format(
+            kind=kind, ref=ref, found=found, expected=", ".join(expected or [])
+        ),
+    }
+    if expected is not None:
+        item["expected"] = expected
+    return item
+
+
+def in_threshold_scope(slug: str | None, topic: str | None) -> bool:
+    """Does the AI coach follow this article as an instruction or as its working method
+    (Coach → Methods & rules: routine instructions, working method, plan)? Such a text holds
+    no threshold as a number (#120): thresholds change after every test, and the AI coach
+    reads them live with vibesynergy_thresholds."""
+    return method_group({"topic": topic, "slug": slug or ""}) in {"prompts", "method"}
+
+
+def _lint_context(conn: Connection) -> dict[str, Any]:
+    from vibesynergy.mcp.server import tool_names  # the real registry; mcp imports query
+
+    rule_ids = conn.execute(select(kb_rule.c.id).where(kb_rule.c.active.is_(True))).scalars()
+    return {
+        "families": kb_lint.rule_families(rule_ids),
+        "tools": tool_names(),
+        "retired": kb_lint.retired_list(SLUG_ALIASES),
+    }
+
+
+def _text_warnings(
+    ctx: Mapping[str, Any],
+    kind: str,
+    ref: str,
+    article: str | None,
+    texts: tuple[str | None, ...],
+    *,
+    prompt: bool,
+    thresholds: bool,
+) -> list[dict[str, Any]]:
+    """Every check on one article or rule, in a fixed order."""
+    text = "\n".join(t for t in texts if t)
+    out: list[dict[str, Any]] = []
+    if prompt:
+        found = model_name_warning(kind, ref, text)
+        if found:
+            found["article"] = article
+            out.append(found)
+    retired = kb_lint.retired_names(text, ctx["retired"])
+    if retired:
+        out.append(
+            _warning(
+                kind,
+                ref,
+                article,
+                "retired_name",
+                [name for name, _ in retired],
+                hints=[hint for _, hint in retired],
+            )
+        )
+    for found_range, expected in kb_lint.rule_ranges(text, ctx["families"]):
+        out.append(_warning(kind, ref, article, "rule_range", [found_range], expected=[expected]))
+    unknown = kb_lint.unknown_rules(text, ctx["families"])
+    if unknown:
+        out.append(_warning(kind, ref, article, "unknown_rule", unknown))
+    tools = kb_lint.unknown_tools(text, ctx["tools"])
+    if tools:
+        out.append(_warning(kind, ref, article, "unknown_tool", tools))
+    if thresholds:
+        values = kb_lint.fixed_thresholds(text)
+        if values:
+            out.append(_warning(kind, ref, article, "fixed_threshold", values))
+    return out
+
+
 def lint(engine: Engine) -> list[dict[str, Any]]:
-    """Warnings about the knowledge base's own text (#96): an instruction article (topic
-    ``coach-prompts``) or a COACH rule in use that names a model or provider. A warning
-    only; the athlete decides about the text."""
+    """Warnings about the knowledge base's own text, for every article and rule in use.
+
+    - ``model_name`` (#96): an instruction article (topic ``coach-prompts``) or a COACH rule
+      names a model or provider;
+    - ``retired_name``, ``rule_range``, ``unknown_rule``, ``unknown_tool`` (#120): any text;
+    - ``fixed_threshold`` (#120): an instruction, working-method or plan article, or a rule
+      of one, or a COACH rule, writes a threshold as a number.
+
+    Articles first (by slug), then rules (by id). A warning only; the athlete decides about
+    the text."""
     out: list[dict[str, Any]] = []
     with engine.connect() as conn:
+        ctx = _lint_context(conn)
         articles = conn.execute(
-            select(kb_article.c.id, kb_article.c.slug, kb_article.c.title, kb_article.c.body_md)
-            .where(kb_article.c.topic == PROMPT_TOPIC, kb_article.c.status == "active")
+            select(
+                kb_article.c.id,
+                kb_article.c.slug,
+                kb_article.c.title,
+                kb_article.c.body_md,
+                kb_article.c.topic,
+            )
+            .where(kb_article.c.status == "active")
             .order_by(kb_article.c.slug)
         ).all()
+        by_id = {row.id: row for row in articles}
         for row in articles:
-            found = model_name_warning("article", row.slug, row.title, row.body_md)
-            if found:
-                out.append(found)
+            out.extend(
+                _text_warnings(
+                    ctx,
+                    "article",
+                    row.slug,
+                    row.slug,
+                    (row.title, row.body_md),
+                    prompt=row.topic == PROMPT_TOPIC,
+                    thresholds=in_threshold_scope(row.slug, row.topic),
+                )
+            )
         rules = conn.execute(
-            select(kb_rule.c.id, kb_rule.c.text)
-            .where(kb_rule.c.id.like(f"{COACH_RULE_PREFIX}%"), kb_rule.c.active.is_(True))
+            select(kb_rule.c.id, kb_rule.c.text, kb_rule.c.article_id)
+            .where(kb_rule.c.active.is_(True))
             .order_by(kb_rule.c.id)
         ).all()
         for row in rules:
-            found = model_name_warning("rule", row.id, row.text)
-            if found:
-                out.append(found)
+            article = by_id.get(row.article_id)
+            if article is None:
+                continue  # a rule of an archived article is out of use with it
+            coach = row.id.upper().startswith(COACH_RULE_PREFIX)
+            out.extend(
+                _text_warnings(
+                    ctx,
+                    "rule",
+                    row.id,
+                    article.slug,
+                    (row.text,),
+                    prompt=coach,
+                    thresholds=coach or in_threshold_scope(article.slug, article.topic),
+                )
+            )
     return out
 
 
@@ -353,16 +495,47 @@ def change_warnings(
     engine: Engine, kind: str, target: str, changes: Mapping[str, Any]
 ) -> list[str]:
     """Lint messages for one write or proposal, before it is the current text."""
-    if kind == "article":
-        slug = canonical_slug(str(target).strip())
-        if not is_prompt_article(engine, slug, changes.get("topic")):
+    with engine.connect() as conn:
+        ctx = _lint_context(conn)
+        if kind == "article":
+            slug = canonical_slug(str(target).strip())
+            current = _one(conn, kb_article, kb_article.c.slug == slug)
+            topic = changes.get("topic") or (current["topic"] if current is not None else None)
+            found = _text_warnings(
+                ctx,
+                "article",
+                slug,
+                slug,
+                (changes.get("title"), changes.get("body_md")),
+                prompt=topic == PROMPT_TOPIC,
+                thresholds=in_threshold_scope(slug, topic),
+            )
+        elif kind == "rule":
+            rule_id = str(target).strip()
+            current = _one(conn, kb_rule, kb_rule.c.id == rule_id)
+            article = None
+            if current is not None:
+                article = _one(conn, kb_article, kb_article.c.id == current["article_id"])
+            elif changes.get("article_slug"):
+                article = _one(
+                    conn,
+                    kb_article,
+                    kb_article.c.slug == canonical_slug(str(changes["article_slug"])),
+                )
+            coach = rule_id.upper().startswith(COACH_RULE_PREFIX)
+            found = _text_warnings(
+                ctx,
+                "rule",
+                rule_id,
+                article["slug"] if article is not None else None,
+                (changes.get("text"),),
+                prompt=coach,
+                thresholds=coach
+                or (article is not None and in_threshold_scope(article["slug"], article["topic"])),
+            )
+        else:
             return []
-        found = model_name_warning("article", slug, changes.get("title"), changes.get("body_md"))
-    elif kind == "rule" and str(target).upper().startswith(COACH_RULE_PREFIX):
-        found = model_name_warning("rule", str(target), changes.get("text"))
-    else:
-        return []
-    return [found["message"]] if found else []
+    return [item["message"] for item in found]
 
 
 def archived_articles(engine: Engine) -> list[dict[str, Any]]:
@@ -391,7 +564,8 @@ def method_group(article: Mapping[Any, Any]) -> str | None:
 
 
 def methods_index(engine: Engine) -> dict[str, Any]:
-    """The coach's prompts, working method and evidence articles in use, with their rules."""
+    """The coach's prompts, working method and evidence articles in use, with their rules,
+    and the lint warnings about the knowledge base's text."""
     groups: dict[str, list[dict[str, Any]]] = {"prompts": [], "method": [], "evidence": []}
     with engine.connect() as conn:
         articles = (
@@ -442,7 +616,9 @@ def methods_index(engine: Engine) -> dict[str, Any]:
                     ],
                 }
             )
-    return {"groups": groups}
+    # The knowledge-base lint (#96, #120), shown above the groups: the same warnings every
+    # AI coach gets in the handbook.
+    return {"groups": groups, "warnings": lint(engine)}
 
 
 def edit_article(

@@ -3237,5 +3237,13 @@
  "You said this night was measured right.": "You said this night was measured right.",
  "You marked this night as incomplete.": "You marked this night as incomplete.",
  "Nights whose measurement may be off. A badly recorded or incomplete night doesn't count for the advice or your averages.": "Nights whose measurement may be off. A badly recorded or incomplete night doesn't count for the advice or your averages.",
- "marked a night's sleep": "marked a night's sleep"
+ "marked a night's sleep": "marked a night's sleep",
+ "{ref} names a model or provider: {names}. Write “AI coach” instead, so any model can follow it.": "{ref} names a model or provider: {names}. Write “AI coach” instead, so any model can follow it.",
+ "{ref} uses a name that is no longer in use: {names}.": "{ref} uses a name that is no longer in use: {names}.",
+ "{ref} refers to {names}, but the rules in use are {expected}.": "{ref} refers to {names}, but the rules in use are {expected}.",
+ "{ref} refers to {names}, which is not a rule in use.": "{ref} refers to {names}, which is not a rule in use.",
+ "{ref} names a tool that does not exist: {names}.": "{ref} names a tool that does not exist: {names}.",
+ "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).": "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).",
+ "Check of the texts": "Check of the texts",
+ "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change.": "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change."
 }

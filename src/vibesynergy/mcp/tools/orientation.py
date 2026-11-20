@@ -52,11 +52,11 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_coach_state() -> dict[str, Any]:
         """The athlete's coaching preferences: advice language, detail and tone, notes for
         the AI coach, and things to remember (availability, fixed moments, equipment). Plus
-        plan-calendar races with their priority, and contact_window: when an AI coach may
-        reach the athlete (start, end, time zone, open_now, opens_at) and the one urgent
-        safety exception; outside it write entries as usual but send him nothing. The
-        training plan and its rules are in
-        the knowledge base and intervals.icu.
+        VibeSynergy's races with their priority (the primary race is the next A race), and
+        contact_window: when an AI coach may reach the athlete (start, end, time zone,
+        open_now, opens_at) and the one urgent safety exception; outside it write entries as
+        usual but send him nothing. The training plan is VibeSynergy's own
+        (vibesynergy_plan_model); its rules are in the knowledge base.
         """
         from vibesynergy.coach_runner import contact
 

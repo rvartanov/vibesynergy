@@ -11,6 +11,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Check of the knowledge-base texts** (#120): Coach → Methods & rules now shows a warning,
+  with a link to the article, when a text your AI coach follows uses a retired name (the old
+  app name, the removed plan-source command, an old article name), refers to a range of
+  rules that does not match the rules in use ("ICU-1..4" while ICU-6 exists), names a rule
+  or a tool that does not exist ("SendUserMessage"), or writes a threshold as a fixed number
+  ("FTP 265 W", "5:10/km") in a routine instruction, the working method or the plan, where it
+  goes stale after the next test. Every AI coach gets the same warnings in the handbook, and
+  a proposed change gets them before you approve it. A warning only: you decide about the
+  text.
 - **Sleep check for every night** (#100): Garmin's sleep tracking is not always right, so
   VibeSynergy now checks each night itself and marks it as fine, possibly off, incomplete
   or badly recorded, with the reason ("Sleep may be badly recorded: no REM sleep recorded
@@ -238,6 +247,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **Routine instructions without another app's tool** (#120): the seed prompts for the
+  morning, evening and week review no longer ask for `SendUserMessage`; the message to the
+  athlete is the summary of the AI coach's entry, which VibeSynergy sends. Changes go to
+  the plan in VibeSynergy, not to intervals.icu. `vibesynergy_coach_state` no longer says the
+  plan lives in intervals.icu: the plan is VibeSynergy's own, and the primary race is the
+  next A race.
 - **The coach handbook is generated from the harness** (#119): `vibesynergy_coach_handbook`
   lists all 14 harness tasks (was 4) with the times, days and switches of Coach → Settings
   (`due` was 11:00 and 23:30, now the scheduled time, e.g. 07:00 and 21:45), their
