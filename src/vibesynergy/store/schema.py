@@ -72,6 +72,8 @@ raw_item = Table(
         sqlite_where=text("is_current = 1"),
     ),
     Index("ix_raw_item_sha256", "sha256"),
+    # Every version of one item, oldest first (#88, #100: the history of a night).
+    Index("ix_raw_item_source_dataset_item_key", "source", "dataset", "item_key"),
 )
 
 # Sync bookkeeping per source dataset: what has been collected and what went wrong.
@@ -654,10 +656,26 @@ checkin = Table(
     Column("stress", Integer),
     Column("motivation", Integer),
     Column("note", Text),
-    # The night's sleep measurement marked incomplete by the athlete (#53): the short sleep
-    # and the readiness from it no longer count for the day's advice.
+    # The athlete's choice on the night's sleep measurement (#53, #100): true = incomplete
+    # (its sleep and readiness no longer count for the day's advice), false = it's right
+    # (beats the automatic sleep check), null = no choice.
     Column("sleep_incomplete", Boolean),
     Column("updated_at", UTCDateTime, nullable=False),
+    PrimaryKeyConstraint("subject_id", "date"),
+)
+
+# The automatic sleep check of one night (#100): a derived result, recomputed whenever the
+# night's inputs (``inputs``, a fingerprint of the raw versions) change. ``state`` is the
+# check's own outcome; the athlete's choice is ``checkin.sleep_incomplete``.
+sleep_check = Table(
+    "sleep_check",
+    metadata,
+    Column("subject_id", Integer, nullable=False),
+    Column("date", Date, nullable=False),
+    Column("inputs", String, nullable=False),
+    Column("state", String, nullable=False),
+    Column("result", JSON, nullable=False),
+    Column("checked_at", UTCDateTime, nullable=False),
     PrimaryKeyConstraint("subject_id", "date"),
 )
 

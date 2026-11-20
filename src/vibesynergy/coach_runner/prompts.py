@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 7
+RULES_VERSION = 8
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -59,7 +59,9 @@ Volg deze stappen in deze volgorde. Sla er geen over.
 1. LEES de vooraf geladen context eerst. Wat daar staat, haal je niet opnieuw op.
    Het blok "safety" staat er altijd in en bevat:
    - floor: de uitkomst van de vaste regels (level, colour, rules, reasons, notes);
-   - sleep_check en measurement: meetgaten in de nacht (zie stap 3);
+   - sleep_check: de automatische slaapcheck van de nacht (state ok, suspect,
+     incomplete of bad, met reasons, de metingen die niet meetellen en de keuze van
+     {name} zelf, override) en measurement: meetgaten in de nacht (zie stap 3);
    - checkin, complaints, pain_today, injuries: wat {name} zelf meldde.
    Haal met de tools alleen op wat je daarna nog mist.
 {safety_steps}\
@@ -110,9 +112,14 @@ SAFETY_STEPS = """\
    Loop deze vier punten langs en noem in reasons wat de doorslag gaf:
    a. Check-in tegenover metingen. Voelt {name} zich goed terwijl een meting laag is, of
       andersom? Zeg welke je zwaarder weegt en waarom.
-   b. Meetgaten. sleep_check "suspect", "incomplete" of "updated", en measurement (de
-      nacht is later bijgewerkt; de readiness is van na de training of van een halve
-      nacht): een getal uit een meetgat is geen signaal. Zeg dat je het niet meetelt.
+   b. Meetgaten en de slaapcheck. Is sleep_check.state "bad" of "incomplete", dan tellen
+      de metingen in not_counted_metrics (slaap, HRV, readiness, rustpols) niet mee: weeg
+      ze minder, steun op de check-in, de rustpols en de trend, en zeg in één zin dat de
+      nacht onzeker gemeten is. Bij "suspect" tellen ze nog wel mee, maar met een
+      voorbehoud. override is de keuze van {name} zelf en gaat boven de check. Ook
+      measurement (de nacht is later bijgewerkt; de readiness is van na de training of van
+      een halve nacht): een getal uit een meetgat is geen signaal. Zeg dat je het niet
+      meetelt.
    c. Wat vandaag al gedaan is en hoe: zwaarder dan gepland telt, langer op lage
       inspanning niet. Per sessie staan planned (gepland) en done (gedaan) er naast elkaar.
       Een sessie met status changed is niet gedaan zoals voorgeschreven, ook niet bij

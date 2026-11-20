@@ -53,10 +53,13 @@ def today(r: Rec):
     # An AI coach's advice for today, so the card shows it (cleared again afterwards).
     # And an advisory AI coach's second opinion that differs from it (#118): one helper
     # seeds both.
+    # And a badly recorded night, so the sleep check shows (#100).
     _demo("demo_coach_roles.py", "seed")
+    _demo("demo_sleep_check.py", "seed")
     try:
         _today(r)
     finally:
+        _demo("demo_sleep_check.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
 
@@ -118,6 +121,34 @@ def _today(r: Rec):
         "differs from your AI coach, you see it at once. Your own AI coach has the last word.",
         3.6,
     )
+    sleep = advice.locator("[data-sleep-check]")
+    r.check(sleep.count() > 0, "the badly recorded night should show its sleep check (#100)")
+    r.point(sleep)
+    r.say(
+        "VibeSynergy controleert elke nacht. Klopt een meting niet, dan zie je hier waarom, en "
+        "tellen slaap, HRV of gereedheid van die nacht niet mee voor het advies.",
+        "VibeSynergy checks every night. When a measurement looks wrong, you see why here, and "
+        "that night's sleep, HRV or readiness don't count for the advice.",
+        3.8,
+    )
+    r.click(sleep.get_by_role("button", name="Nee, het klopt"))
+    r.wait(1.0)
+    sleep = advice.locator("[data-sleep-check]")
+    r.check(
+        "goed gemeten" in (sleep.first.text_content() or ""),
+        "after 'No, it's right' the page should say the night counts as measured",
+    )
+    r.point(sleep)
+    r.say(
+        "Jij beslist: 'Nee, het klopt' telt de nacht toch mee, 'Ja, onvolledig' laat hem weg. "
+        "Ongedaan maken kan altijd.",
+        "You decide: 'No, it's right' counts the night after all, 'Yes, incomplete' leaves it "
+        "out. You can always undo it.",
+        3.4,
+    )
+    r.click(sleep.get_by_role("button", name="Ongedaan maken"))
+    r.wait(1.0)
+    advice = card(r, "Advies voor vandaag")
     update = advice.get_by_role("button", name="Advies bijwerken")
     r.check(update.count() > 0, "the advice card should have Update advice")
     r.point(update)
@@ -578,6 +609,15 @@ def _coach(r: Rec):
 
 @scenario("health", "Herstel, slaap en lichaam", "Recovery, sleep and body")
 def health(r: Rec):
+    # A badly recorded night, so the sleep page lists it (#100).
+    _demo("demo_sleep_check.py", "seed")
+    try:
+        _health(r)
+    finally:
+        _demo("demo_sleep_check.py", "clear")
+
+
+def _health(r: Rec):
     r.go("recovery")
     r.say(
         "Gezondheid → Herstel: HRV, rusthartslag en je check-ins over tijd.",
@@ -589,6 +629,16 @@ def health(r: Rec):
     r.say(
         "Slaap: duur, score, fasen en bedtijden per nacht.",
         "Sleep: duration, score, stages and bedtimes per night.",
+    )
+    checks = card(r, "Slaapcheck")
+    r.check(checks.count() > 0, "the sleep page should list the night the sleep check marked")
+    r.point(checks)
+    r.say(
+        "Onder Slaapcheck: de nachten waarvan de meting mogelijk niet klopt, met de reden. "
+        "Die tellen niet mee voor je gemiddelden.",
+        "Under Sleep check: the nights whose measurement may be off, with the reason. They "
+        "don't count for your averages.",
+        3.4,
     )
     r.scroll(700)
     r.go("body")

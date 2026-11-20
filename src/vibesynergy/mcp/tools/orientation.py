@@ -975,7 +975,10 @@ def register(kit: ToolKit) -> None:
     @tool(READ, "read")
     def vibesynergy_explain(metric: str, date: str) -> dict[str, Any]:
         """Where a daily value came from: the source shown, every source's value, the raw
-        record behind each and the best-source rule that chose between them."""
+        record behind each and the best-source rule that chose between them. A metric from
+        the night (sleep, HRV, readiness, resting HR) adds `sleep_check`: the automatic
+        check of that night (state ok/suspect/incomplete/bad, reasons, the user's choice)
+        and whether this value counts for the advice and the baselines."""
         return envelope(
             views.explain(
                 engine,
@@ -983,5 +986,7 @@ def register(kit: ToolKit) -> None:
                 _date(date),
                 rt.settings.best_source,
                 best_source.load(rt.settings.data_dir),
+                raw=getattr(rt, "raw", None),
+                timezone=rt.settings.timezone,
             )
         )

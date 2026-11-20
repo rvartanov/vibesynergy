@@ -17,7 +17,7 @@ from typing import Any
 from sqlalchemy import Engine
 
 from vibesynergy.core.timeutil import Window
-from vibesynergy.query import journal
+from vibesynergy.query import journal, sleep_quality
 from vibesynergy.query import series as qs
 
 _Z95 = 1.959964
@@ -43,13 +43,19 @@ def trend(
     *,
     method: str = "theil_sen",
     exclude_tags: Iterable[str] | None = None,
+    exclude_marked: bool = True,
 ) -> dict:
-    days, ys = _ordered(
-        qs.daily_values(engine, [metric], window, exclude_tags=exclude_tags)[metric]
-    )
+    """Slope per week over ``window``. With ``exclude_marked`` the nights the sleep check
+    marked badly recorded or incomplete for this metric are left out (#100) and listed in
+    ``left_out_nights``."""
+    values = qs.daily_values(engine, [metric], window, exclude_tags=exclude_tags)[metric]
+    marked = sleep_quality.not_counted_days(engine, metric, window) if exclude_marked else set()
+    left_out = sorted(d for d in values if d in marked)
+    days, ys = _ordered({d: v for d, v in values.items() if d not in marked})
     n = len(ys)
+    extra = {"left_out_nights": [str(d) for d in left_out]} if left_out else {}
     if n < 5:
-        return {"n": n, "summary": f"too few values for a trend ({n}; need at least 5)"}
+        return {"n": n, "summary": f"too few values for a trend ({n}; need at least 5)", **extra}
     xs = [(d - days[0]).days for d in days]
     if method == "linear":
         slope, intercept, se = _ols(xs, ys)
@@ -80,6 +86,7 @@ def trend(
         "direction": direction,
         "summary": f"{metric}: {per_week:+.3g} per week (95% CI {unit_ci[0]} to {unit_ci[1]}), "
         f"{direction}, n={n}",
+        **extra,
     }
 
 

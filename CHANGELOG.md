@@ -11,6 +11,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Sleep check for every night** (#100): Garmin's sleep tracking is not always right, so
+  VibeSynergy now checks each night itself and marks it as fine, possibly off, incomplete
+  or badly recorded, with the reason ("Sleep may be badly recorded: no REM sleep recorded
+  in a night of 10 h 55 min; HRV measured only from 20:22 to 00:07"). It looks at whether
+  the watch measured your heart rate all night, whether the night fits your usual bedtime
+  and wake time, whether the sleep stages are plausible, whether HRV covered the night, and
+  whether Garmin updated the night later. Today shows the mark with "Yes, incomplete" and
+  "No, it's right"; your choice wins and can be undone, also through your AI app
+  (`vibesynergy_sleep_check_set`). Sleep, HRV, readiness or resting heart rate from a
+  badly recorded or incomplete night no longer count for the day's advice, your AI coach
+  weighs them less and says the night is uncertain, and they stay out of your baselines and
+  trends. The sleep page lists the marked nights. A changed mark updates the advice. **This
+  changes behaviour**: a night found badly recorded or incomplete leaves the advice without
+  being asked first; say "No, it's right" to count it again.
 - **Contact window for every AI coach** (#119): Coach → Settings → Contact window says
   when an AI coach may reach you, by default 07:00–23:00 in your time zone. Outside it your
   AI coach still runs and writes its advice, and you see it in the portal, but the notice,

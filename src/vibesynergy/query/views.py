@@ -18,7 +18,8 @@ from sqlalchemy import Engine, and_, case, desc, func, select, tuple_
 from vibesynergy.core.config import RETIRED_SOURCES
 from vibesynergy.core.timeutil import Window
 from vibesynergy.derive.unify import DEFAULT_BEST_SOURCE, source_order
-from vibesynergy.query import evidence, journal
+from vibesynergy.i18n import ENGLISH, Translator
+from vibesynergy.query import evidence, journal, sleep_quality
 from vibesynergy.query import series as qs
 from vibesynergy.query.catalog import KNOWN
 from vibesynergy.query.units import family, pace_unit, presentation
@@ -171,14 +172,25 @@ def _best_sleep(engine: Engine, when: date) -> dict[str, Any] | None:
 
 
 def sleep(
-    engine: Engine, window: Window, *, stages: bool = False, timezone: str | None = None
+    engine: Engine,
+    window: Window,
+    *,
+    stages: bool = False,
+    timezone: str | None = None,
+    raw=None,
+    tr: Translator = ENGLISH,
 ) -> dict[str, Any]:
+    """Every night in ``window`` from the best source. A night the sleep check (#100) has
+    something to say about carries ``check``: the mark, why, and what does not count."""
     nights = []
+    marks = sleep_quality.nights(engine, raw, window, timezone or "UTC")
     for d in window.days():
         night = _best_sleep(engine, d)
         if night is None:
             continue
         night.pop("extra", None)
+        if (words := sleep_quality.describe(marks.get(d), tr)) is not None:
+            night["check"] = words
         if stages:
             night["stages"] = _rows(
                 engine,
@@ -1013,8 +1025,13 @@ def explain(
     when: date,
     best_source: dict | None = None,
     exact: dict | None = None,
+    *,
+    raw=None,
+    timezone: str = "UTC",
 ) -> dict[str, Any]:
-    """Which source's value is shown, the alternatives, and the raw record behind each."""
+    """Which source's value is shown, the alternatives, and the raw record behind each. A
+    metric from the night (sleep, HRV, readiness, resting HR) carries the night's sleep
+    check (#100); with ``raw`` it is checked again if its inputs changed."""
     chosen = _rows(
         engine,
         select(daily_unified).where(daily_unified.c.metric == metric, daily_unified.c.date == when),
@@ -1047,27 +1064,33 @@ def explain(
             "order": rules[rule],
         },
         "definition": KNOWN[metric].to_dict() if metric in KNOWN else None,
-        **_sleep_mark(engine, metric, when),
+        **_sleep_mark(engine, metric, when, raw, timezone),
     }
 
 
-_MARKED_METRICS = ("sleep.", "recovery.readiness")
-
-
-def _sleep_mark(engine: Engine, metric: str, when: date) -> dict[str, Any]:
-    """A night the athlete marked as an incomplete measurement (#53): the value stays as the
-    source measured it, but it does not count for that day's advice."""
-    if not metric.startswith(_MARKED_METRICS):
+def _sleep_mark(engine: Engine, metric: str, when: date, raw, timezone: str) -> dict[str, Any]:
+    """The night's sleep check (#100) for a metric that comes from the night. The value stays
+    as the source measured it; ``counts`` says whether it counts for that day's advice and
+    the baselines."""
+    group = sleep_quality.group_of(metric)
+    if group is None:
         return {}
-    found = journal.checkins(engine, Window(when, when))
-    if not (found and found[0].get("sleep_incomplete")):
+    mark = sleep_quality.nights(engine, raw, Window(when, when), timezone).get(when)
+    if mark is None:
         return {}
-    return {
-        "marked_incomplete": {
+    out: dict[str, Any] = {
+        "sleep_check": {
+            **(sleep_quality.for_context(mark) or {}),
+            "this_metric": mark["metrics"].get(group, "ok"),
+            "counts": group not in mark["not_counted"],
+        }
+    }
+    if mark.get("override") == "incomplete":
+        out["marked_incomplete"] = {
             "by": "athlete",
             "note": "marked as an incomplete measurement; not counted for that day's advice",
         }
-    }
+    return out
 
 
 def coverage(engine: Engine, metrics: list[str], window: Window) -> dict[str, Any]:

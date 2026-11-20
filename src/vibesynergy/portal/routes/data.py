@@ -198,7 +198,8 @@ def register(kit: PortalKit) -> None:
 
     @router.post("/diary/sleep-incomplete")
     def diary_sleep_incomplete(request: SleepIncompleteRequest) -> dict[str, Any]:
-        """Mark the night ending on ``date`` as an incomplete measurement, or undo it (#53)."""
+        """The athlete's choice on the night ending on ``date`` (#53, #100): incomplete
+        (true), "it's right" (false, beats the automatic sleep check) or undo (null)."""
         when = _date(request.date) if request.date else today()
         if when > today():
             raise ValueError("the date is in the future")

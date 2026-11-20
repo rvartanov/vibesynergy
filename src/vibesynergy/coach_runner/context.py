@@ -22,8 +22,9 @@ log = logging.getLogger(__name__)
 
 # Bump when the chain format or a base block changes shape (2: the safety block, #88;
 # 3: replies carry their id and the daily advice gets ``coach_team``, #118; 4: the daily
-# advice gets ``day_thread``, #115).
-VERSION = 4
+# advice gets ``day_thread``, #115; 5: the safety block's ``sleep_check`` is the night's
+# sleep check, #100).
+VERSION = 5
 
 
 @dataclass(frozen=True)
@@ -136,14 +137,24 @@ def _safety(rt, day, cache):
             "reasons": safety.get("reasons") or [],
             "notes": safety.get("notes") or [],
         },
-        "sleep_check": brief.get("sleep_check"),
-        "sleep_incomplete": bool(isinstance(checkin, dict) and checkin.get("sleep_incomplete")),
+        # The night's sleep check (#100): the mark, the reasons, the metrics that do not
+        # count and the athlete's own choice (override), which beats the check.
+        "sleep_check": _sleep_check(brief.get("sleep_check")),
         "measurement": brief.get("measurement"),
         "checkin": checkin,
         "complaints": brief.get("complaints") or [],
         "pain_today": brief.get("pain_today") or [],
         "injuries": injuries,
     }
+
+
+def _sleep_check(found: Any) -> dict[str, Any] | None:
+    if not isinstance(found, dict):
+        return None
+    keys = ("date", "state", "auto_state", "override", "metrics", "not_counted_metrics")
+    out = {k: found.get(k) for k in keys}
+    out["reasons"] = found.get("reasons") or []
+    return out
 
 
 def _memory(rt, day, cache):
@@ -488,10 +499,10 @@ BLOCKS: dict[str, Block] = {
         Block("communication_rule", "Communicatieregel", 400, _communication),
         Block(
             "safety",
-            "Veiligheid: regeluitkomst, meetgaten, check-in, klachten, blessures",
+            "Veiligheid: regeluitkomst, slaapcheck, meetgaten, check-in, klachten, blessures",
             4000,
             _safety,
-            version=2,
+            version=3,
         ),
         Block("coach_memory", "Coachgeheugen", 2000, _memory),
         Block("today", "Vandaag", 3000, _today, version=2),

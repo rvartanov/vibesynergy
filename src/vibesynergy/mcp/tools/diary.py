@@ -15,6 +15,7 @@ from vibesynergy.mcp.server import (
 )
 from vibesynergy.query import (
     journal,
+    sleep_quality,
     views,
 )
 
@@ -22,6 +23,7 @@ from vibesynergy.query import (
 def register(kit: ToolKit) -> None:
     rt = kit.rt
     engine = kit.engine
+    settings = kit.settings
     tool = kit.tool
     today = kit.today
     window = kit.window
@@ -130,6 +132,27 @@ def register(kit: ToolKit) -> None:
                 motivation=motivation,
                 note=note,
             ),
+            span=Window(when, when),
+        )
+
+    @tool(WRITE, "diary.write")
+    def vibesynergy_sleep_check_set(choice: str, date: str | None = None) -> dict[str, Any]:
+        """The user's own verdict on a night's sleep measurement (default: last night, the
+        night that ends on `date`). choice: "incomplete" (yes, the measurement is
+        incomplete: its sleep and readiness, and whatever else the check found, don't count
+        for the advice), "ok" (no, it's right: the automatic sleep check is overruled) or
+        "clear" (undo; the automatic check decides again). Only on the user's own word: ask
+        first. Garmin's record is never changed. Returns the night's check after the
+        choice."""
+        when = _date(date) if date else today()
+        if when > today():
+            raise ValueError("the date is in the future")
+        if choice not in ("incomplete", "ok", "clear"):
+            raise ValueError('choice must be "incomplete", "ok" or "clear"')
+        sleep_quality.set_override(engine, when, None if choice == "clear" else choice)
+        mark = sleep_quality.night(engine, getattr(rt, "raw", None), when, settings.timezone)
+        return diary_changed(
+            {"date": str(when), "sleep_check": sleep_quality.for_context(mark)},
             span=Window(when, when),
         )
 

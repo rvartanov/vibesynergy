@@ -1,13 +1,16 @@
 WEBVTT
 
-00:00:02.055 --> 00:00:06.197
+00:00:05.945 --> 00:00:10.204
 Health → Recovery: HRV, resting heart rate and your check-ins over time.
 
-00:00:06.247 --> 00:00:09.415
+00:00:10.254 --> 00:00:13.453
 Pick a longer period to see trends.
 
-00:00:09.465 --> 00:00:14.249
+00:00:13.503 --> 00:00:16.675
 Sleep: duration, score, stages and bedtimes per night.
 
-00:00:14.299 --> 00:00:18.352
+00:00:16.725 --> 00:00:22.786
+Under Sleep check: the nights whose measurement may be off, with the reason. They don't count for your averages.
+
+00:00:22.836 --> 00:00:30.078
 Body: weight and other measurements, for example from a Withings scale.

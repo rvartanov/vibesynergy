@@ -598,16 +598,26 @@ function todayAdviceHtml(d, refresh = false) {
   return adviceHtml(d.advice, { refresh });
 }
 
-// A night the watch may have cut short (#53): the check-in says good sleep, the watch measured
-// under 5 h. Asked, not told; marking it keeps the night out of the advice, and can be undone.
-function sleepCheckHtml(verdict) {
+// The night's sleep check (#53, #100): VibeSynergy checks every night and says when the
+// measurement may be off, with the reason. The athlete decides last: "yes, incomplete" keeps
+// the night out of the advice, "no, it's right" lets it count; both can be undone.
+export function sleepCheckHtml(verdict) {
   const check = verdict && !failed(verdict) ? verdict.sleep_check : null;
   if (!check) return "";
-  if (check.state === "incomplete") {
-    return `<p class="sub sleep-check" data-sleep-check>${esc(t("You marked last night's measurement as incomplete: its short sleep and readiness don't count for today's advice."))} <button class="linkish" type="button" data-sleep-incomplete="false">${esc(t("Undo"))}</button></p>`;
+  const undo = `<button class="linkish" type="button" data-sleep-incomplete="null">${esc(t("Undo"))}</button>`;
+  if (check.override === "incomplete") {
+    const effect = check.effect ? ` ${esc(check.effect)}` : "";
+    return `<p class="sub sleep-check" data-sleep-check>${esc(t("You marked last night's sleep as incomplete."))}${effect} ${undo}</p>`;
   }
-  const time = hoursMinutes(check.measured_s);
-  return `<div class="notice sleep-check" data-sleep-check><p>${esc(t("Your watch measured only {time} of sleep, but your check-in says you slept well. Was the measurement incomplete?", { time }))}</p><button class="btn" type="button" data-sleep-incomplete="true">${esc(t("Yes, ignore this night"))}</button></div>`;
+  if (check.override === "ok") {
+    return `<p class="sub sleep-check" data-sleep-check>${esc(t("You said last night's sleep was measured right, so it counts as measured."))} ${undo}</p>`;
+  }
+  const why = (check.reasons || []).join("; ");
+  const head = check.headline ? `<strong>${esc(check.headline)}</strong>${why ? `: ${esc(why)}` : ""}.` : esc(why);
+  const effect = check.effect
+    ? ` ${esc(check.effect)}`
+    : check.state === "suspect" ? ` ${esc(t("It still counts for now."))}` : "";
+  return `<div class="notice sleep-check" data-sleep-check role="group" aria-label="${esc(t("Sleep check"))}"><p>${head}${effect}</p><p>${esc(t("Is that right?"))}</p><div class="actions"><button class="btn" type="button" data-sleep-incomplete="true">${esc(t("Yes, incomplete"))}</button> <button class="btn" type="button" data-sleep-incomplete="false">${esc(t("No, it's right"))}</button></div></div>`;
 }
 
 function bindSleepCheck(view, date, ctx) {
@@ -615,7 +625,7 @@ function bindSleepCheck(view, date, ctx) {
     button.addEventListener("click", async () => {
       button.disabled = true;
       try {
-        await post("diary/sleep-incomplete", { date, incomplete: button.dataset.sleepIncomplete === "true" });
+        await post("diary/sleep-incomplete", { date, incomplete: JSON.parse(button.dataset.sleepIncomplete) });
         if (!ctx.stale()) await render(view, ctx);
       } catch {
         button.disabled = false;

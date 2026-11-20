@@ -117,11 +117,10 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
             "ctl": board["load"].get("ctl"),
             "ramp": board["load"].get("ctl_ramp_7d"),
         },
-        # suspect: check-in says good sleep, the watch measured under 5 h; incomplete: the
-        # athlete marked the night so, it does not count for the advice (#53).
-        # updated: the night grew after its first reading (#88); what was computed before
-        # then (an early readiness, a morning report) used the short night.
-        "sleep_check": _sleep_check(board.get("verdict") or {}),
+        # The night's sleep check (#100): state ok, suspect, incomplete or bad, why, the
+        # athlete's own choice (override) and the metrics that do not count. A night that
+        # grew after its first reading (#88) is one of its reasons (rule "updated").
+        "sleep_check": (board.get("verdict") or {}).get("sleep_check"),
         # Which readiness reading counts and whether the night was updated later (#88).
         "measurement": (board.get("verdict") or {}).get("measurement"),
         "planned_today": today_items[0] if today_items else None,
@@ -174,19 +173,6 @@ def _verdict(advice: dict[str, Any] | None) -> dict[str, Any] | None:
         "fallback": (advice.get("fallback") or {}).get("reason"),
         "updating": (advice.get("updating") or {}).get("kind"),
     }
-
-
-def _sleep_check(verdict: dict[str, Any]) -> dict[str, Any] | None:
-    found = verdict.get("sleep_check")
-    grown = (verdict.get("measurement") or {}).get("sleep")
-    if found is None and grown:
-        return {
-            "state": "updated",
-            "measured_s": grown["now_s"],
-            "first_s": grown["first_s"],
-            "updated_at": grown.get("updated_at"),
-        }
-    return found
 
 
 def week_brief(rt: Runtime, start: date, end: date, today: date) -> dict[str, Any]:

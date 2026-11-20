@@ -329,15 +329,15 @@ def set_checkin(engine: Engine, when: date, **scores: Any) -> dict[str, Any]:
     return checkins(engine, Window(when, when))[0]
 
 
-# A night that looks cut short (#53): the check-in says good sleep, the watch measured little.
-SUSPECT_QUALITY = 4
-SUSPECT_SLEEP_S = 5 * 3600
-
-
-def set_sleep_incomplete(engine: Engine, when: date, incomplete: bool) -> dict[str, Any]:
-    """Mark (or unmark) the night ending on ``when`` as an incomplete measurement. Garmin's
-    record is not changed; the mark only keeps that night out of the day's advice."""
-    values: dict[str, Any] = {"sleep_incomplete": bool(incomplete), "updated_at": utc_now()}
+def set_sleep_incomplete(engine: Engine, when: date, incomplete: bool | None) -> dict[str, Any]:
+    """The athlete's choice on the night ending on ``when`` (#53, #100): ``True`` marks it
+    as an incomplete measurement, ``False`` says it is right (it beats the automatic sleep
+    check, ``query.sleep_quality``), ``None`` undoes the choice. Garmin's record is not
+    changed; the choice only decides what counts for the day's advice."""
+    values: dict[str, Any] = {
+        "sleep_incomplete": None if incomplete is None else bool(incomplete),
+        "updated_at": utc_now(),
+    }
     with engine.begin() as conn:
         conn.execute(
             insert(checkin)
@@ -345,25 +345,6 @@ def set_sleep_incomplete(engine: Engine, when: date, incomplete: bool) -> dict[s
             .on_conflict_do_update(index_elements=["subject_id", "date"], set_=values)
         )
     return checkins(engine, Window(when, when))[0]
-
-
-def sleep_check(day_checkin: dict | None, sleep_s: float | None) -> dict[str, Any] | None:
-    """Whether the night's measurement may be incomplete: ``incomplete`` when marked so,
-    ``suspect`` when the check-in rates sleep 4-5 but under 5 h was measured, else ``None``.
-    A night that Garmin updated later is ``query.measurement`` (#88): by then the measured
-    sleep is no longer short, so this check cannot see it."""
-    found = day_checkin or {}
-    if found.get("sleep_incomplete"):
-        return {"state": "incomplete", "measured_s": sleep_s}
-    quality = found.get("sleep_quality")
-    if (
-        isinstance(quality, int)
-        and quality >= SUSPECT_QUALITY
-        and sleep_s is not None
-        and sleep_s < SUSPECT_SLEEP_S
-    ):
-        return {"state": "suspect", "measured_s": sleep_s, "sleep_quality": quality}
-    return None
 
 
 def checkins(engine: Engine, window: Window) -> list[dict[str, Any]]:
@@ -667,7 +648,7 @@ def context(engine: Engine, when: date) -> dict[str, Any] | None:
         out["checkin"] = {
             k: v
             for k, v in day["checkin"].items()
-            if k in CHECKIN_FIELDS or k == "note" or (k == "sleep_incomplete" and v)
+            if k in CHECKIN_FIELDS or k == "note" or (k == "sleep_incomplete" and v is not None)
         }
     pains = [
         {"injury": i["title"], "pain": i["pain"]["pain"]} for i in day["injuries"] if i["pain"]
