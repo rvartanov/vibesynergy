@@ -360,6 +360,28 @@ each with `changes`, `trigger` and what really changed against the version befor
 advice was written and after what ("Updated at 10:32 after your check-in. Changed: colour
 amber → green."); the Coach page lists the earlier versions under the advice card.
 
+**The day thread (#115).** The versions are one conversation. Each item in `versions` has
+`version` (1 is the oldest valid one), `of`, `status` (`current`, `replaced` with
+`replaced_by`, or `invalid`) and `changed_because`. Every daily advice run gets them in
+context block `day_thread` (oldest first, with the athlete's replies; the evening run also
+the day it reviews), and the start message names the current version: "De huidige versie
+voor die dag is advies #1018 … geef changed_because = {"previous": 1018, …}". The output
+contract refuses a later version without `changed_because` citing that id
+(`contract.check_changed_because`), and `contract_issues` fails a run whose entry ignores
+the thread. The dashboard line ends with "Changed because: …"; the Coach page marks earlier
+versions *Replaced*, numbered and linked to their own report; the report page says
+"Version 1 of 2 of the advice for Thu 19 Nov. Replaced by a newer version" with a link to
+the current one (`GET /api/coach/report/<id>` → `thread`).
+
+**What is sent is what is stored (#115).** `report.send` reads the entry back by id and
+sends only that stored text, linked to `#/coach/report/<id>` (mail, push and notice; the
+push opens that page). A daily advice version that is not the current one for its day is
+never sent, also not by Send again. A version that only rewords is not sent, but the day's
+notice is pointed at it (`quiet`). The continuity check (`query/coach_consistency.py`, once
+a day from the alerts check, live on the Coach page and in `vibesynergy_today`) reports any
+gap: a notice without its entry or with a text not in it, a notice on a replaced version, a
+current advice without a notice, a later version without its reason.
+
 **Triggers.** Every daily-advice run stores a fingerprint of its inputs at its start
 (`coach_run.harness.inputs`: one short hash per kind). On every scheduler tick
 `triggers.due` compares the inputs now with the newest run for the target day:

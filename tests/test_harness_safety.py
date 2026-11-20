@@ -92,6 +92,7 @@ def test_a_valid_daily_advice_passes_and_is_cleaned():
     assert found == {
         "task": "morning",
         "safety": {"level": "ok", "colour": "green", "reasons": ["HRV normaal"]},
+        "changed_because": None,
     }
 
 
@@ -167,7 +168,11 @@ def test_every_problem_is_named_at_once():
 
 def test_the_task_decides_the_contract():
     # A note needs no safety; the same note as the injury check does.
-    assert _check(entry_type="note", safety=None) == {"task": None, "safety": None}
+    assert _check(entry_type="note", safety=None) == {
+        "task": None,
+        "safety": None,
+        "changed_because": None,
+    }
     with pytest.raises(contract.ContractError, match="safety is required"):
         _check(entry_type="note", task="injury", safety=None)
     assert _check(entry_type="note", task="checkin")["task"] == "checkin"
@@ -191,7 +196,7 @@ def test_the_rules_are_versioned():
         )
     )
     digest = hashlib.sha256(text.encode()).hexdigest()[:12]
-    assert (prompts.RULES_VERSION, digest) == (6, RULES_DIGEST), digest
+    assert (prompts.RULES_VERSION, digest) == (7, RULES_DIGEST), digest
     assert contract.parse_stamp(contract.stamp(14, 2, 2)) == {
         "harness": contract.HARNESS_VERSION,
         "rules": 2,
@@ -201,7 +206,7 @@ def test_the_rules_are_versioned():
     assert contract.parse_stamp("latest") is None
 
 
-RULES_DIGEST = "3fa2727c175f"
+RULES_DIGEST = "f5405aab1718"
 
 
 @pytest.mark.parametrize("job", [t for t in registry.live() if t != "insight"])
@@ -324,15 +329,23 @@ def test_an_mcp_entry_records_the_harness_it_was_written_under(rt, today):
     }
     assert result.structured_content["meta"]["warnings"] == []
     # Without the stamp, or with an old one, the entry is stored and says so.
+    # A later version of the day builds on the thread (#115): it names the one it replaces.
+    because = {"previous": data["id"], "reason": "Nog steeds goed hersteld, niets veranderd."}
     old = _mcp(
         rt,
         "vibesynergy_coach_write",
-        **_write(idempotency_key="again", harness="h1.r1.p3.c1"),
+        **_write(idempotency_key="again", harness="h1.r1.p3.c1", changed_because=because),
     )
     meta = old.structured_content["data"]["meta"]["harness"]
     assert meta["follows_current"] is False and meta["stamp"] == "h1.r1.p3.c1"
     assert "not written under the current harness" in old.structured_content["meta"]["warnings"][0]
-    none = _mcp(rt, "vibesynergy_coach_write", **_write(idempotency_key="third"))
+    because = {
+        "previous": old.structured_content["data"]["id"],
+        "reason": "Nog steeds goed hersteld, niets veranderd.",
+    }
+    none = _mcp(
+        rt, "vibesynergy_coach_write", **_write(idempotency_key="third", changed_because=because)
+    )
     assert none.structured_content["data"]["meta"]["harness"]["stamp"] is None
     # A plain note has no task contract; it still records how it came in.
     note = _mcp(

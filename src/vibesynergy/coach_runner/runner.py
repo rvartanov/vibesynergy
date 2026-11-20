@@ -379,7 +379,7 @@ def start_message(
     return (
         f'{head}\nSchrijf je entry met entry_type "{entry}", idempotency_key "{key}" en '
         f'for_date "{for_date.isoformat()}".'
-        + _advice_lines(rt, job, for_date, payload)
+        + _advice_lines(rt, job, for_date, payload, key)
         + f"\n\n{replied}"
         + _about(payload)
         + _preloaded(
@@ -400,7 +400,9 @@ CHANGE_NAMES = {
 }
 
 
-def _advice_lines(rt, job: str, for_date: date, payload: dict[str, Any] | None) -> str:
+def _advice_lines(
+    rt, job: str, for_date: date, payload: dict[str, Any] | None, key: str | None = None
+) -> str:
     """For a daily advice: the day it is for, and for a new version what came in (#90)."""
     target = _advice_target(job, for_date)
     if target is None:
@@ -419,7 +421,31 @@ def _advice_lines(rt, job: str, for_date: date, payload: dict[str, Any] | None) 
             "vervangt de vorige versie. Verandert er niets aan kleur, veiligheid of "
             "sessies, zeg dat dan kort."
         )
+    previous = _previous(rt, target, key)
+    if previous is not None:
+        # The day thread (#115): the version this one replaces, named, so the model does
+        # not have to find it.
+        when = str(previous.get("at") or "")[11:16]
+        lines.append(
+            f"De huidige versie voor die dag is advies #{previous['id']} (versie "
+            f'{previous.get("version")}, {when} UTC): "{previous["advice"][:200]}". Jouw '
+            "entry is de volgende versie: bouw erop voort (blok day_thread) en geef "
+            f'changed_because = {{"previous": {previous["id"]}, "reason": "wat verandert '
+            'tegenover die versie en waarom"}.'
+        )
     return "\n" + "\n".join(lines)
+
+
+def _previous(rt, target: date, key: str | None = None) -> dict[str, Any] | None:
+    """The day's current advice version, which this run's advice replaces (#115). ``key``
+    is the run's own entry key: an entry an earlier attempt of this run wrote is not it."""
+    from vibesynergy.query import daily_advice
+
+    try:
+        return daily_advice.previous_version(rt, target, key=key, author=RUNNER_AUTHOR)
+    except Exception:
+        log.exception("coach runner: reading the day thread failed")
+        return None
 
 
 def _about(payload: dict[str, Any] | None) -> str:
@@ -443,7 +469,10 @@ def _preloaded(
 
 
 def contract_issues(
-    job: str, entry: dict[str, Any] | None, for_date: date | None = None
+    job: str,
+    entry: dict[str, Any] | None,
+    for_date: date | None = None,
+    previous: int | None = None,
 ) -> list[str]:
     """Where the entry a run wrote misses the task's output contract. Any issue fails the
     run (fail closed, #88): the entry is marked invalid and is not mailed.
@@ -451,7 +480,9 @@ def contract_issues(
     The write itself was already checked (``contract.check_write`` refuses a bad entry back
     to the model, which can then repair it). This is the second net, for what only the run
     knows: the entry is of the task's type, for the run's day, within the task's length,
-    written under this harness, and a daily advice carries its safety outcome."""
+    written under this harness, and a daily advice carries its safety outcome and, when
+    the day already had a version at the start of the run (``previous``), builds on the
+    day thread (``changed_because``, #115)."""
     task = registry.BY_ID.get(job)
     if task is None or entry is None:
         return []
@@ -479,6 +510,8 @@ def contract_issues(
         safety = meta.get("safety")
         if not isinstance(safety, dict) or safety.get("level") not in contract.LEVELS:
             issues.append("no safety outcome (level, colour, reasons)")
+        if previous is not None and not (meta.get("changed_because") or {}).get("reason"):
+            issues.append(f"ignores the day thread: no changed_because for advice #{previous}")
     return issues
 
 
@@ -737,6 +770,8 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
 
         harness["target"] = advice_target.isoformat()
         harness["changes"] = under["changes"]
+        before = _previous(rt, advice_target, entry_key(job, for_date, row["run_key"]))
+        harness["previous"] = before["id"] if before else None
         try:
             harness["inputs"] = triggers.fingerprint(rt, advice_target)
         except Exception:
@@ -838,7 +873,7 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             _save(rt, row["id"], status=result.status, error=result.error, finished_at=finished)
             return result
         result.entry_id = entry["id"]
-        issues = contract_issues(job, entry, for_date)
+        issues = contract_issues(job, entry, for_date, harness.get("previous"))
         _save(rt, row["id"], harness={**harness, "contract": issues})
         if issues:
             # Fail closed: an entry outside the contract is no report. It is marked
@@ -860,8 +895,13 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
         coach_replies.mark_read(rt.engine, [r["id"] for r in replies], row["id"])
         _save(rt, row["id"], status="done", entry_id=entry["id"], finished_at=finished)
         if advice_target is not None and not _real_change(rt, advice_target, entry):
-            # A new version that only rewords the advice: no mail (#90).
+            # A new version that only rewords the advice: no mail (#90), but the day's
+            # notice now points at this version, never at a replaced one (#115).
             _save(rt, row["id"], harness={**harness, "contract": issues, "mail": "no_change"})
+            try:
+                report.send(rt, job, for_date, entry, advice_day=advice_target, quiet=True)
+            except Exception:
+                log.exception("coach runner: pointing the notice at the new version failed")
             return result
         _mail(rt, row, job, for_date, entry, result, advice_day=advice_target)
         return result

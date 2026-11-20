@@ -1,7 +1,8 @@
 """Put an AI coach's morning advice in the demo for today, or take it out (#89, #90).
 
 Two versions: the 07:00 advice, and the update after the check-in that replaced it, so the
-start page shows "Updated at … after your check-in" and the Coach page its earlier version.
+start page shows "Updated at … after your check-in. Changed because: …" and the Coach page
+its earlier version, marked replaced (#115).
 
 Only for the help-video demo home (``~/vs-help-home``), never for real data: the scenario
 ``today`` seeds before it records and clears afterwards, so the advice card shows what an
@@ -21,7 +22,9 @@ from pathlib import Path
 
 from sqlalchemy import delete, insert
 
+from vibesynergy import alerts
 from vibesynergy.core.config import load_settings
+from vibesynergy.core.secrets import SecretStore
 from vibesynergy.core.timeutil import today_in, utc_now
 from vibesynergy.query import daily_advice
 from vibesynergy.runtime import Runtime
@@ -45,6 +48,13 @@ def clear(rt: Runtime) -> None:
                 coach_decision_log.c.idempotency_key.in_((KEY, EARLIER))
             )
         )
+    # The day's advice notice that ``seed`` sent goes with it.
+    store = SecretStore(rt.settings.secrets_dir, alerts.SECRETS)
+    key = f"advice:{today_in(rt.settings.timezone).isoformat()}"
+    store.set(
+        alerts.ADVICE_STATE,
+        [e for e in store.get(alerts.ADVICE_STATE) or [] if e.get("key") != key],
+    )
 
 
 def seed(rt: Runtime) -> None:
@@ -65,7 +75,7 @@ def seed(rt: Runtime) -> None:
         "safety": safety,
         "author_name": "AI coach (API)",
         "harness": {
-            "version": 2,
+            "version": 3,
             "via": "runner",
             "task": "morning",
             "rules_floor": {
@@ -81,7 +91,7 @@ def seed(rt: Runtime) -> None:
     }
     meta["harness"].update(target=day.isoformat(), trigger="event", changes=["checkin"])
     with rt.engine.begin() as conn:
-        conn.execute(
+        earlier = conn.execute(
             insert(coach_decision_log).values(
                 subject_id=1,
                 at=utc_now() - timedelta(hours=1),
@@ -93,8 +103,13 @@ def seed(rt: Runtime) -> None:
                 text="Je bent goed hersteld: de duurloop van 60 minuten kan zoals gepland.",
                 meta=first,
             )
-        )
-        conn.execute(
+        ).inserted_primary_key[0]
+        # The update builds on the 07:00 version and says why it changed (#115).
+        meta["changed_because"] = {
+            "previous": earlier,
+            "reason": "Je check-in meldt zware benen, dus de duurloop wordt korter en rustiger.",
+        }
+        current = conn.execute(
             insert(coach_decision_log).values(
                 subject_id=1,
                 at=utc_now(),
@@ -106,7 +121,9 @@ def seed(rt: Runtime) -> None:
                 text="Doe de duurloop vandaag rustig: 45 minuten in zone 2, geen tempo.",
                 meta=meta,
             )
-        )
+        ).inserted_primary_key[0]
+    # The notice for the current version, as the AI coach's run sends it (#115).
+    daily_advice.announce(rt, current)
 
 
 def main() -> None:

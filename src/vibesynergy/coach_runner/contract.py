@@ -24,6 +24,15 @@ what needs the athlete's approval, follows from its role (``mcp.roles``, #118): 
 athlete's own agent, the primary AI coach or an advisory AI coach. The entry records both:
 ``meta.harness.via`` is ``runner`` or ``mcp`` and ``meta.harness.role`` the role.
 
+4. A later version of a day's advice builds on the day thread (#115). When the day
+   already has a valid version (from any AI coach that writes the daily advice, also last
+   night's evening review), the new one carries ``changed_because``:
+   ``{"previous": <id of that version>, "reason": "…"}``. ``previous`` must be the version
+   that is current now, so a run that did not read the thread, or read an old one, is
+   refused; ``reason`` says what changes against it and why (the new data, a reply, or
+   the judgement), so a new version never contradicts the earlier one without a reason.
+   An advisory AI coach's entry is a second opinion beside the thread, not a version.
+
 Every stored entry also gets ``meta.harness``: the harness, rules, prompt and context
 versions it was written under, how it came in (runner or MCP) and the rules' outcome at
 that moment, so it shows later whether a write followed the current harness, and where the
@@ -40,8 +49,9 @@ from typing import Any
 from vibesynergy.coach_runner import registry
 from vibesynergy.query import safety_floor
 
-# Bump when the contract, the context chain format or the stamp changes.
-HARNESS_VERSION = 2
+# Bump when the contract, the context chain format or the stamp changes (3: the day
+# thread and ``changed_because``, #115).
+HARNESS_VERSION = 3
 LEVELS = safety_floor.LEVELS
 
 WORD_SLACK = 1.5
@@ -58,6 +68,15 @@ SAFETY_HELP = (
     '"green"|"amber"|"red", "reasons": ["…", at least one, short], "override_reason": '
     '"…" (only when your level is milder than the rules\' level in the safety context)}. '
     "Colour follows the level: ok=green, ease=amber, flag=amber, refuse=red."
+)
+
+
+REASON_MIN_WORDS = 4
+CHANGED_HELP = (
+    'The schema is changed_because = {"previous": <the id of the current version in the '
+    'day_thread context>, "reason": "what changes against that version and why: the new '
+    'data, a reply or your judgement, in one or two sentences"}. Also when nothing '
+    "changes: say that, and why."
 )
 
 
@@ -191,6 +210,45 @@ def check_safety(
     return out
 
 
+def check_changed_because(value: Any, previous: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The validated ``changed_because`` of a new version, or ``None`` for a first version
+    (``previous`` is ``None``: whatever was sent is not stored). Raises ``ContractError``
+    when the day already has a version and the new one does not build on it (#115)."""
+    if previous is None:
+        return None
+    about = (
+        f"advice #{previous['id']} (version {previous.get('version') or '?'}, "
+        f'"{str(previous.get("advice") or "")[:80]}")'
+    )
+    if not isinstance(value, dict):
+        raise ContractError(
+            f"changed_because is required: this day already has {about}, and your entry "
+            "replaces it. " + CHANGED_HELP
+        )
+    problems = []
+    unknown = sorted(set(value) - {"previous", "reason"})
+    if unknown:
+        problems.append(f"unknown changed_because field(s): {', '.join(unknown)}")
+    try:
+        cited = int(value.get("previous"))
+    except (TypeError, ValueError):
+        cited = None
+    if cited != previous["id"]:
+        problems.append(
+            f"changed_because.previous must be {previous['id']}: the current version is "
+            f"{about}; build on that one (got {value.get('previous')!r})"
+        )
+    reason = " ".join(str(value.get("reason") or "").split())[: REASON_CHARS * 2]
+    if len(reason.split()) < REASON_MIN_WORDS:
+        problems.append(
+            "changed_because.reason needs a sentence: what changes against the previous "
+            "version and why (or that nothing changes, and why)"
+        )
+    if problems:
+        raise ContractError("; ".join(problems) + ". " + CHANGED_HELP)
+    return {"previous": previous["id"], "reason": reason}
+
+
 def check_write(
     *,
     entry_type: str,
@@ -201,15 +259,20 @@ def check_write(
     safety: Any = None,
     floor: dict[str, Any] | None = None,
     autonomous: bool = False,
+    previous: dict[str, Any] | None = None,
+    changed_because: Any = None,
 ) -> dict[str, Any]:
     """Validate one entry before it is stored. This is a check of form and validity
     (schema, a consistent safety outcome, the target day), never of approval: what needs
     the athlete's yes is the registry's ``approval`` and applies to the autonomous runner.
     ``autonomous`` is true for a write from a runner run (``check_safety``).
 
-    Returns ``{"task", "safety"}``: the task id the contract came from and the cleaned
-    safety outcome, each possibly ``None``. Raises ``ContractError`` listing everything
-    that is wrong, so one retry can fix it all."""
+    ``previous`` is the day's current advice version when this entry is a new version of
+    it (``daily_advice.previous_version``); then ``changed_because`` is required.
+
+    Returns ``{"task", "safety", "changed_because"}``: the task id the contract came from,
+    the cleaned safety outcome and the cleaned reason, each possibly ``None``. Raises
+    ``ContractError`` listing everything that is wrong, so one retry can fix it all."""
     found = task_for(entry_type, task)
     problems: list[str] = []
     text = (summary or "").strip()
@@ -237,9 +300,15 @@ def check_write(
             cleaned = check_safety(safety, floor, autonomous=autonomous)
         except ContractError as exc:
             problems.append(str(exc))
+    because = None
+    if previous is not None and (cleaned is not None or (found and found.contract.safety)):
+        try:
+            because = check_changed_because(changed_because, previous)
+        except ContractError as exc:
+            problems.append(str(exc))
     if problems:
         raise ContractError("Refused by the output contract: " + " | ".join(problems))
-    return {"task": found.id if found else None, "safety": cleaned}
+    return {"task": found.id if found else None, "safety": cleaned, "changed_because": because}
 
 
 def _target_days(target: str, today: date) -> tuple[date, ...]:

@@ -379,7 +379,18 @@ def _entry_info(entry: dict[str, Any]) -> dict[str, Any]:
         # Why this version was made (#90): the trigger and what came in before it.
         "trigger": harness.get("trigger"),
         "changes": list(harness.get("changes") or []),
+        # What changes against the version before and why, in the AI coach's words (#115).
+        "changed_because": changed_because(entry),
     }
+
+
+def changed_because(entry: dict[str, Any]) -> dict[str, Any] | None:
+    """The AI coach's own ``{"previous", "reason"}`` on a later version of a day's advice
+    (#115), as checked by the output contract; ``None`` on a first version."""
+    found = (entry.get("meta") or {}).get("changed_because")
+    if not isinstance(found, dict) or not str(found.get("reason") or "").strip():
+        return None
+    return {"previous": found.get("previous"), "reason": str(found["reason"]).strip()}
 
 
 # --- versions (#90) ----------------------------------------------------------------------------
@@ -445,16 +456,35 @@ def compare(older: dict[str, Any] | None, newer: dict[str, Any]) -> list[dict[st
 
 def versions(entries: list[dict[str, Any]], tr: Translator = ENGLISH) -> list[dict[str, Any]]:
     """Every version of a day's advice, newest first, with what really changed against
-    the valid version before it. Invalid versions are listed, marked, and never compared."""
+    the valid version before it. Invalid versions are listed, marked, and never compared.
+
+    This is the day thread (#115), the same list on the start page, the Coach page, the
+    report page, ``vibesynergy_today`` and ``vibesynergy_coach_entries``: ``version`` numbers the
+    valid versions from 1 (the oldest), ``status`` is ``current`` (the newest valid one),
+    ``replaced`` (with ``replaced_by``) or ``invalid``, and ``changed_because`` is the AI
+    coach's own reason for a later version."""
     valid = [e for e in entries if ai_safety(e.get("meta")) is not None]
+    numbers = {e["id"]: n for n, e in enumerate(sorted(valid, key=lambda e: e["id"]), start=1)}
+    current = valid[0]["id"] if valid else None
     out = []
     for entry in entries:
         safety = ai_safety(entry.get("meta"))
         older = next((v for v in valid if v["id"] < entry["id"]), None) if safety else None
+        newer = [v["id"] for v in valid if v["id"] > entry["id"]]
+        if safety is None:
+            status = "invalid"
+        elif entry["id"] == current:
+            status = "current"
+        else:
+            status = "replaced"
         out.append(
             {
                 **_entry_info(entry),
                 "valid": safety is not None,
+                "version": numbers.get(entry["id"]),
+                "of": len(valid),
+                "status": status,
+                "replaced_by": min(newer) if safety is not None and newer else None,
                 "colour": (safety or {}).get("colour"),
                 "safety_level": (safety or {}).get("level"),
                 "headline": tr(HEADLINES[safety["colour"]]) if safety else None,
@@ -466,6 +496,129 @@ def versions(entries: list[dict[str, Any]], tr: Translator = ENGLISH) -> list[di
     return out
 
 
+# --- the day thread (#115) --------------------------------------------------------------------
+
+
+def previous_version(
+    rt, day: date, *, key: str | None = None, author: str | None = None
+) -> dict[str, Any] | None:
+    """The current valid version of ``day``'s advice that a new version would replace, or
+    ``None`` when there is none yet. A retry of the same write (its own idempotency key,
+    with or without the author suffix) is not its own previous version."""
+    from vibesynergy.mcp import roles
+
+    entries = _entries(rt, day)
+    listed = versions(entries)
+    retry = {key, f"{key}-{roles.key_suffix(author)}"} if key and author else set()
+    for entry in entries:
+        if ai_safety(entry.get("meta")) is None:
+            continue
+        if entry.get("author") == author and entry.get("idempotency_key") in retry:
+            continue
+        found = next((v for v in listed if v["id"] == entry["id"]), {})
+        return {
+            "id": entry["id"],
+            "at": found.get("at"),
+            "version": found.get("version"),
+            "colour": found.get("colour"),
+            "safety_level": found.get("safety_level"),
+            "advice": _summary(entry),
+            "sessions": [
+                {"title": title, "decision": decision}
+                for title, decision in _decisions(entry).values()
+            ],
+        }
+    return None
+
+
+def version_state(rt, entry_id: int) -> dict[str, Any] | None:
+    """Where one stored entry stands in its day thread: ``{"date", "version", "of",
+    "status", "current_id", "replaced_by"}``; ``None`` for an entry that is no daily
+    advice version (a weekly report, a second opinion). Raises ``LookupError`` when the
+    entry is not stored."""
+    with rt.engine.connect() as conn:
+        row = (
+            conn.execute(select(coach_decision_log).where(coach_decision_log.c.id == entry_id))
+            .mappings()
+            .first()
+        )
+    if row is None:
+        raise LookupError("no such coach entry")
+    entry = dict(row)
+    day = entry_target(entry)
+    if day is None or is_second_opinion(entry):
+        return None
+    listed = versions(_entries(rt, day))
+    found = next((v for v in listed if v["id"] == entry_id), None)
+    if found is None:
+        return None
+    current = next((v["id"] for v in listed if v["status"] == "current"), None)
+    return {
+        "date": day.isoformat(),
+        "version": found["version"],
+        "of": found["of"],
+        "status": found["status"],
+        "current_id": current,
+        "replaced_by": found["replaced_by"],
+    }
+
+
+def announce(rt, entry_id: int) -> list[str]:
+    """The notice for a daily advice version an AI coach wrote over MCP (#115): the same
+    one per day as the runner's (``report.send``), and only on a real change; a version
+    that only rewords points the day's notice at itself without a push. Returns the
+    channels used."""
+    from vibesynergy.coach_runner import report
+
+    entry = report.stored(rt, entry_id)
+    if entry is None or is_second_opinion(entry) or ai_safety(entry.get("meta")) is None:
+        return []
+    day = entry_target(entry)
+    if day is None or entry.get("for_date") is None:
+        return []
+    task = ((entry.get("meta") or {}).get("harness") or {}).get("task")
+    job = (
+        task
+        if task in ADVICE_JOBS
+        else "evening"
+        if entry["entry_type"] == "evening"
+        else "morning"
+    )
+    quiet = not real_change(rt, day, entry)
+    return report.send(rt, job, entry["for_date"], entry, advice_day=day, quiet=quiet)
+
+
+def thread(rt, day: date) -> dict[str, Any]:
+    """The day thread for ``day`` from the stored entries alone (no rules computed): every
+    version with its replies, oldest first, and the second opinions. For the AI coach's
+    context (block ``day_thread``) and the consistency check."""
+    from vibesynergy.query import coach_replies
+
+    entries = _entries(rt, day)
+    listed = versions(entries)
+    replies = coach_replies.for_entries(rt.engine, [e["id"] for e in entries])
+    return {
+        "date": day.isoformat(),
+        "versions": [
+            {
+                **v,
+                "author": e.get("author"),
+                "role": ((e.get("meta") or {}).get("harness") or {}).get("role"),
+                "sessions": [
+                    {"title": title, "decision": decision}
+                    for title, decision in _decisions(e).values()
+                ],
+                "replies": [
+                    {"reply_id": r["id"], "at": r["at"], "text": r["text"]}
+                    for r in replies.get(e["id"], [])
+                ],
+            }
+            for v, e in reversed(list(zip(listed, entries, strict=True)))
+        ],
+        "second_opinions": thread_opinions(rt, day),
+    }
+
+
 def real_change(rt, day: date, entry: dict[str, Any]) -> bool:
     """A new version for ``day`` that differs from the previous valid one in colour,
     safety level or a session decision: worth a mail. The first version always is."""
@@ -475,11 +628,6 @@ def real_change(rt, day: date, entry: dict[str, Any]) -> bool:
         None,
     )
     return older is None or bool(compare(older, entry))
-
-
-def is_update(rt, day: date, entry: dict[str, Any]) -> bool:
-    """``entry`` is a later version of ``day``'s advice: an earlier one exists (#108)."""
-    return any(e["id"] < entry["id"] for e in _entries(rt, day))
 
 
 def _new_hard(entry: dict[str, Any], rules: dict[str, Any] | None) -> list[str]:

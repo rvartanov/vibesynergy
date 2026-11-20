@@ -204,6 +204,22 @@ provider or model, and the server enforces them for every write tool
   `vibesynergy_coach_threshold_propose`, `vibesynergy_coach_memory_write` and
   `vibesynergy_kb_propose_change` keep their own typed validation (they were already
   refused when invalid); they do not carry the harness stamp yet.
+- The day thread (#115): a daily advice for a day that already has a valid version (from
+  any AI coach that writes the daily advice, also last night's evening review) is the next
+  version of it. `vibesynergy_coach_write` then needs `changed_because`
+  (`{"previous": <id of the current version>, "reason": "what changes against it and
+  why"}`) and **refuses** the write without it, with an older `previous`, or with a reason
+  of a word; the error names the id to use. A first version and an advisory AI coach's
+  second opinion need none. The thread is in `vibesynergy_coach_prompt(job,
+  include_context=true)` as context block `day_thread` (oldest first, with the athlete's
+  replies), in `vibesynergy_today` as `advice.versions` (newest first, each with `version`,
+  `of`, `status` `current`/`replaced`/`invalid`, `replaced_by`, `changed_because`) and in
+  `vibesynergy_coach_entries` as `advice_version` per entry. An MCP coach's daily advice
+  gets the same per-day notice and push as the built-in AI coach's, linked to its entry
+  (`#/coach/report/<id>`). `vibesynergy_today` also has `continuity`: the gaps the
+  continuity check finds between the thread and what was sent (empty when in line).
+  **This changes behaviour**: a second daily advice for the same day without
+  `changed_because` used to be stored and is now refused.
 - `vibesynergy_today` (#88): `safety` now also has `colour`, `reasons` (`[{rule, text}]`)
   and `notes`; `measurement` says whether the night was updated after its first reading
   and which readiness reading counts; `sleep_check` can be `updated`. A planned session
@@ -908,7 +924,10 @@ One call for "how should I train today?".
   `checkin`, `note`, `injury`, `activity`, `plan`, `reply`) and what really changed against
   the version before (`differences`: colour, safety level, sessions). `versions` lists every
   version of the day's advice, newest first (#90): one current advice per target day; the
-  evening review's advice is for tomorrow.
+  evening review's advice is for tomorrow. It is the day thread (#115): each version has
+  `version`, `of`, `status` (`current`, `replaced`, `invalid`), `replaced_by` and
+  `changed_because`, the same list and order as the start page and the Coach page.
+  `continuity` lists the continuity check's gaps (#115).
   `verdict` is its short form. `safety` stays the rules' outcome, which a coach's own
   `safety` is checked against in `vibesynergy_coach_write`.
 

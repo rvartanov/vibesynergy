@@ -472,6 +472,7 @@ def register(kit: ToolKit) -> None:
         safety: dict[str, Any] | None = None,
         task: str | None = None,
         harness: str | None = None,
+        changed_because: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Write a typed AI coach entry. Author comes from the MCP connection, not this call.
 
@@ -500,6 +501,12 @@ def register(kit: ToolKit) -> None:
         block, race, test, thresholds, kb, injury, checkin); its contract then applies.
         harness: the harness.stamp from vibesynergy_coach_prompt, so the entry records which
         harness version it was written under (the result says whether it is current).
+        changed_because (#115): one day has one advice thread. When the day the advice is
+        for already has a version (day_thread in vibesynergy_coach_prompt(job,
+        include_context=true), or advice.versions in vibesynergy_today), yours is the next
+        version and must say {"previous": <id of the current version>, "reason": "what
+        changes against it and why"}; without it, or citing an older version, the write is
+        refused. Not needed for the first version of a day or for a second opinion.
 
         sessions (morning, evening, weekly): your verdict per planned session, shown as a
         status with one symbol and colour each: [{title, decision, note}], decision one of
@@ -549,6 +556,20 @@ def register(kit: ToolKit) -> None:
         try:
             applies = harness_contract.task_for(entry_type, task)
             floor = _rules_floor(day) if (applies and applies.contract.safety) or safety else None
+            # The day thread (#115): a daily advice for a day that already has a version is
+            # the next version of it, and must build on that one. A second opinion is not.
+            target = harness_contract.advice_target(
+                entry_type,
+                applies.id if applies else None,
+                day,
+                under["for_date"] if under else today(),
+                safety is not None,
+            )
+            previous = (
+                _thread_previous(target, idempotency_key)
+                if target is not None and role != roles.ADVISORY
+                else None
+            )
             checked = harness_contract.check_write(
                 entry_type=entry_type,
                 summary=summary,
@@ -560,6 +581,8 @@ def register(kit: ToolKit) -> None:
                 # Only the athlete's own agent acts on his request; an AI coach on its own
                 # (the runner, a scheduled routine of an app) never softens a hard rule.
                 autonomous=under is not None or role != roles.OWN,
+                previous=previous,
+                changed_because=changed_because,
             )
             # A runner's daily advice is written on the run's own day; the evening's counts
             # for tomorrow (#90), which the harness records as its target.
@@ -595,6 +618,8 @@ def register(kit: ToolKit) -> None:
             extra["model_id"] = model_id
         if checked["safety"]:
             extra["safety"] = checked["safety"]
+        if checked.get("changed_because"):
+            extra["changed_because"] = checked["changed_because"]
         if role == roles.ADVISORY:
             # An advisory entry always carries its author in the key, so the primary AI
             # coach's key for the day stays its own (morning-<date>-<author>).
@@ -634,7 +659,23 @@ def register(kit: ToolKit) -> None:
                 "Stored as a second opinion: the daily advice is the primary AI coach's. "
                 "The athlete sees yours beside it, flagged where it differs."
             )
+        if under is None and stamp.get("target") and role != roles.ADVISORY:
+            # An MCP coach's daily advice joins the same thread and the same notice as the
+            # runner's (#115): one notice per day, linked to this stored version.
+            from vibesynergy.query import daily_advice
+
+            try:
+                daily_advice.announce(rt, row["id"])
+            except Exception:  # the entry is stored; the notice is not worth a failed write
+                log.exception("announcing the advice version failed")
         return envelope({**row, "harness": stamp}, warnings=warnings)
+
+    def _thread_previous(target, key: str) -> dict[str, Any] | None:
+        from vibesynergy.query import daily_advice
+
+        return daily_advice.previous_version(
+            rt, target, key=key.strip() if key else None, author=current_author()
+        )
 
     def _rules_floor(day) -> dict[str, Any] | None:
         """The rules' safety outcome for ``day``, to hold the AI coach's own against. ``None``
@@ -687,10 +728,24 @@ def register(kit: ToolKit) -> None:
         """Coach entries from vibesynergy_coach_write for a period (default last_28d).
 
         entry_type limits the list to morning, evening, note, activity_assessment or
-        threshold_change. Each entry includes kb_rules and its predictions.
+        threshold_change. Each entry includes kb_rules and its predictions. A daily advice
+        version also has advice_version (#115): {date (the day it is for), version, of,
+        status (current, replaced or invalid), current_id, replaced_by} and its
+        changed_because, the same thread as the start page and vibesynergy_today. Newest
+        first.
         """
+        from vibesynergy.query import daily_advice
+
         span = window(period, None, None, "last_28d")
         rows = predictions.coach_entries(engine, span, entry_type)
+        for row in rows:
+            if row.get("entry_type") not in daily_advice.ADVICE_ENTRY_TYPES:
+                continue
+            try:
+                row["advice_version"] = daily_advice.version_state(rt, row["id"])
+            except LookupError:
+                row["advice_version"] = None
+            row["changed_because"] = daily_advice.changed_because(row)
         return envelope({"entries": rows}, span=span)
 
     @tool(READ, "read")

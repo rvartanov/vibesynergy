@@ -89,12 +89,17 @@ def _today(r: Rec):
     updated = advice.locator("[data-advice-updated]")
     r.check(updated.count() > 0, "the advice should say when it was updated")
     r.point(updated)
+    r.check(
+        "Veranderd omdat" in (updated.first.text_content() or ""),
+        "the update should say why it changed (#115)",
+    )
     r.say(
         "Komen er nieuwe gegevens binnen, zoals je check-in of een training, dan maakt je "
-        "AI-coach een nieuwe versie. Hier zie je wanneer en waarom.",
+        "AI-coach een nieuwe versie. Hij bouwt voort op de vorige en zegt wat er verandert "
+        "en waarom.",
         "When new data comes in, like your check-in or a workout, your AI coach makes a new "
-        "version. This line says when and why.",
-        3.2,
+        "version. It builds on the previous one and says what changes and why.",
+        3.6,
     )
     second = advice.locator("[data-second-opinions]")
     r.check(second.count() > 0, "the advice card should list the second opinion")
@@ -463,6 +468,32 @@ def _coach(r: Rec):
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
     r.point(chip)
     r.wait(1.2)
+    # The day thread (#115): the earlier version, marked replaced, and its own report.
+    earlier = r.pg.locator("[data-coach-advice] [data-advice-versions]")
+    r.check(earlier.count() > 0, "the Coach page should list the earlier version")
+    r.click(earlier.locator("summary"))
+    replaced = earlier.locator('[data-version-status="replaced"]').first
+    r.check(replaced.count() > 0, "the earlier version should be marked replaced")
+    r.point(replaced)
+    r.say(
+        "Eerdere versies van vandaag staan eronder, met tijd en waarom het advies veranderde. "
+        "Een oudere versie is gemarkeerd als vervangen.",
+        "Earlier versions of today are listed below, with the time and why the advice "
+        "changed. An older version is marked replaced.",
+        3.4,
+    )
+    r.click(earlier.locator("[data-advice-version] a").first)
+    banner = r.pg.locator('[data-thread-status="replaced"]')
+    r.check(banner.count() > 0, "the report page should say the version was replaced")
+    r.point(banner)
+    r.say(
+        "Elke melding opent precies het rapport waar hij over gaat. Is dat een oudere versie, "
+        "dan staat dat erbij, met een link naar het huidige advies.",
+        "Every notice opens exactly the report it is about. When that is an older version, "
+        "it says so, with a link to the current advice.",
+        3.4,
+    )
+    r.go("coach")
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
     r.say(
         "Instellingen: zet je AI-coach aan en kies een AI-aanbieder.",

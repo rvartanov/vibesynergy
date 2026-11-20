@@ -69,6 +69,7 @@ TASKS: tuple[Task, ...] = (
         ),
         prompt="morning",
         chain=(
+            "day_thread",
             "today",
             "recovery",
             "plan_horizon",
@@ -99,7 +100,16 @@ TASKS: tuple[Task, ...] = (
             target="today_or_tomorrow",
         ),
         prompt="evening",
-        chain=("today", "week", "recovery", "plan_horizon", "weather", "replies", "coach_team"),
+        chain=(
+            "day_thread",
+            "today",
+            "week",
+            "recovery",
+            "plan_horizon",
+            "weather",
+            "replies",
+            "coach_team",
+        ),
         writes=("report", "predictions"),
         approval=("move sessions",),
     ),
@@ -190,7 +200,7 @@ TASKS: tuple[Task, ...] = (
             "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
         prompt="injury",
-        chain=("today", "recovery", "plan_horizon", "replies", "coach_team"),
+        chain=("day_thread", "today", "recovery", "plan_horizon", "replies", "coach_team"),
         writes=("report",),
         approval=("plan changes",),
         notes="Pain or an injury logged for today makes a new version of today's advice at "
@@ -207,7 +217,7 @@ TASKS: tuple[Task, ...] = (
             "note", ("summary", "for_date"), max_words=70, safety=True, target="today"
         ),
         prompt="checkin",
-        chain=("today", "recovery", "plan_horizon", "replies", "coach_team"),
+        chain=("day_thread", "today", "recovery", "plan_horizon", "replies", "coach_team"),
         writes=("report",),
         approval=("swapping today's session",),
         notes="A check-in saved after the fixed advice run makes a new version of today's "
@@ -243,7 +253,7 @@ TASKS: tuple[Task, ...] = (
         triggers=(Trigger("event", "reply"),),
         contract=Contract(None),
         prompt="evening",
-        chain=("replies", "coach_team", "recent_reports", "plan_horizon"),
+        chain=("day_thread", "replies", "coach_team", "recent_reports", "plan_horizon"),
         writes=("answer",),
         approval=("the approved action itself",),
         status="planned",

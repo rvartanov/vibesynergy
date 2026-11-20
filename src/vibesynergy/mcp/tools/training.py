@@ -227,9 +227,22 @@ def register(kit: ToolKit) -> None:
         advice the dashboard shows. Default today. Prefer this over several smaller reads.
         advice (and its short form verdict) is the day's current advice: the AI coach's
         valid advice (source ai) or the fixed rules' (source rules, with fallback.reason).
-        safety is the rules' own outcome, which the AI coach's safety is checked against."""
+        safety is the rules' own outcome, which the AI coach's safety is checked against.
+        advice.versions is the day thread (#115), newest first, the same list and order as
+        the start page and the Coach page: each version with its number (version, of),
+        status (current, replaced or invalid), when it was written and changed_because.
+        A daily advice you write for a day that has a current version replaces it: pass
+        changed_because to vibesynergy_coach_write. continuity lists gaps between the
+        thread and what was sent (a notice without its entry, a replaced version in a
+        notice, a later version without its reason); empty when all is in line."""
+        from vibesynergy.query import coach_consistency
+
         when = _date(date) if date else today()
         data = coach_brief.today_brief(rt, when)
+        try:
+            data["continuity"] = coach_consistency.check(rt, when)["findings"]
+        except Exception:  # the day must still answer
+            data["continuity"] = None
         return envelope(data, span=Window(when, when), warnings=data["warnings"])
 
     @tool(READ, "read")

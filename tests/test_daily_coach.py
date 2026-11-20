@@ -168,7 +168,8 @@ def test_new_morning_coach_write_raises_an_alert(runtime):
     assert found[0].kind == "daily_coach"
     assert found[0].text == "Messages from your AI coach: Keep today easy."
     assert found[0].detail == "Keep today easy."
-    assert found[0].link == "#/coach"
+    # The notice links to exactly the stored entry (#115).
+    assert found[0].link == f"#/coach/report/{found[0].entry_id}"
     assert found[0].event is True
     prefs.save(runtime.settings.data_dir, {"language": "nl"})
     dutch = alerts._daily(runtime, since)
@@ -224,7 +225,7 @@ def test_daily_coach_alert_quotes_each_note_and_skips_blanks(runtime):
         assert 280 <= len(excerpt) <= 300
         assert excerpt.startswith("Take it easy today.")
         assert "End alpha." not in excerpt and "End beta." not in excerpt
-        assert item.link == "#/coach"
+        assert item.link == f"#/coach/report/{item.entry_id}"
         assert item.kind == "daily_coach"
 
 

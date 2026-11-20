@@ -156,9 +156,14 @@ def harness_index() -> dict[str, Any]:
             "Write with vibesynergy_coach_write(..., task=<job>, harness=<harness.stamp>). "
             "The server checks every write against the contract and refuses what misses it; "
             "read the error, fix that, write again.",
+            "A day has one advice thread (#115): when the context block day_thread shows a "
+            "current version for the day your advice is for, yours is the next version. "
+            "Build on it and pass changed_because={previous: <its id>, reason: what changes "
+            "and why}; without it the write is refused.",
         ],
         "daily_advice_tasks": list(registry.daily()),
         "safety_schema": contract.SAFETY_HELP,
+        "changed_because_schema": contract.CHANGED_HELP,
         "tasks": {
             task.id: {
                 "entry_type": task.contract.entry_type,
