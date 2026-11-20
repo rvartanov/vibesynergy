@@ -13,7 +13,8 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
@@ -456,6 +457,15 @@ def build_server(rt: Runtime) -> MCPServer:
         return {"notes": coach.athlete_notes(engine)}
 
     return server
+
+
+@functools.cache
+def tool_names() -> frozenset[str]:
+    """Every tool name this MCP server registers: the one list the knowledge-base lint checks
+    a named tool against (#120). Registering a tool reads no data, so a server built without
+    a runtime has the same tools; it is built once per process."""
+    server = build_server(cast(Runtime, SimpleNamespace(engine=None, settings=None)))
+    return frozenset(server.vibesynergy_tool_scopes)  # type: ignore[attr-defined]
 
 
 def _excluding(tags: Any, what: str = "values") -> str | None:

@@ -472,7 +472,7 @@ def athlete_notes(engine: Engine, *, subject_id: int = 1) -> str:
 
 
 def athlete_for_coach(engine: Engine, settings: Any, *, subject_id: int = 1) -> dict[str, Any]:
-    """Profile, thresholds, plan-calendar races and notes. Notes are the athlete's words."""
+    """Profile, thresholds, races (VibeSynergy's own) and notes. Notes are the athlete's words."""
     from vibesynergy.query import athlete_threshold, plan, thresholds
 
     current = athlete_threshold.current_thresholds(engine)

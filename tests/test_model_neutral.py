@@ -473,7 +473,8 @@ def test_kb_lint_warns_when_an_instruction_or_coach_rule_names_a_model(runtime) 
     engine = runtime.engine
     coach_prompts.seed(engine)
     _loop_article(runtime)
-    assert knowledge.lint(engine) == []  # the seeds and a neutral rule are clean
+    # The seeds and a neutral rule name no model (the seeds cite COACH-5, not in use here).
+    assert [w for w in knowledge.lint(engine) if w["check"] == "model_name"] == []
     knowledge.upsert_article(
         engine,
         slug="coach-prompt-morning",
@@ -499,7 +500,7 @@ def test_kb_lint_warns_when_an_instruction_or_coach_rule_names_a_model(runtime) 
         body_md="Claude en GPT vergeleken.",
         topic="evidence",
     )
-    found = knowledge.lint(engine)
+    found = [w for w in knowledge.lint(engine) if w["check"] == "model_name"]
     assert [(w["kind"], w["ref"], w["names"]) for w in found] == [
         ("article", "coach-prompt-morning", ["Claude", "Opus"]),
         ("rule", "COACH-1", ["Claude"]),

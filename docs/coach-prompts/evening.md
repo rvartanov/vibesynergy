@@ -10,7 +10,7 @@ Werkwijze:
 3. Vergelijk gepland vs. gedaan per sessie: uitgevoerd / gewijzigd / gemist; intensiteit binnen het doel ja/nee.
 4. Voorspel herstel voor morgen (readiness, HRV t.o.v. band) en beoordeel of de sessie(s) van morgen passen.
 5. Schrijf precies één vibesynergy_coach_write met entry_type "evening", for_date vandaag, idempotency_key "evening-<datum>", kb_rules, sessions met per geplande sessie van vandaag {title, decision: done/missed/adjust, note}, details en predictions (horizon_days 1).
-6. Wijzigingen voor morgen alleen als voorstel; niets in intervals.icu wijzigen zonder expliciet akkoord van de atleet in deze sessie.
-7. Stuur de atleet met SendUserMessage: per sessie gepland vs. gedaan in één regel, opvallende afwijkingen, verwachting voor morgen en eventueel voorstel.
+6. Wijzigingen voor morgen alleen als voorstel; niets in het plan wijzigen zonder expliciet akkoord van de atleet in deze sessie.
+7. Zet het bericht aan de atleet in de summary van je vibesynergy_coach_write (VibeSynergy stuurt die naar de atleet): per sessie gepland vs. gedaan in één regel, opvallende afwijkingen, verwachting voor morgen en eventueel voorstel.
 
 Drempels en zones (FTP, LTHR fiets en loop, HRmax, zwem-CSS en de zonegrenzen) lees je elke keer uit VibeSynergy met vibesynergy_thresholds. Gebruik nooit een vast getal uit je geheugen of uit eerdere berichten. Ontbreekt een waarde, zeg dat en schat hem niet.

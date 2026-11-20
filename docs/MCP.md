@@ -177,7 +177,14 @@ provider or model, and the server enforces them for every write tool
   `claude-coach-loop` is now `ai-coach-loop`; `knowledge.SLUG_ALIASES`), and in proposals
   and writes, which land on the article under its current slug. A proposal for a routine
   instruction (topic `coach-prompts`) or a COACH rule that names a model or provider comes
-  back with a warning in `meta.warnings`; the handbook lists such texts in use. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
+  back with a warning in `meta.warnings`; the handbook lists such texts in use. The same lint
+  (#120, `knowledge.lint`) also warns on any article or rule in use that has a retired name
+  (Vitality, the `plan source` command, an old slug), a rule range that does not match the
+  rules in use (`ICU-1..4` while ICU-6 exists), a rule that does not exist, or a tool the MCP
+  server does not register (`SendUserMessage`; checked against the real tool list,
+  `mcp.server.tool_names`), and on an instruction, working-method or plan article (or one of
+  its rules, or a COACH rule) that writes a threshold as a number (`265 W`, `LTHR 162`,
+  `5:10/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
   or rejects it on the portal (Coach → Knowledge). Nothing in the current text changes
@@ -1169,7 +1176,7 @@ Open-Meteo at its start and hour).
 #### `vibesynergy_athlete` *(scope `read`)*
 - Returns: profile (time zone, units, sex, max and resting heart rate, and `age` in whole
   years from the date of birth set under Zones & thresholds; never the date itself),
-  threshold heart rate and pace, plan-calendar races (as in `vibesynergy_coach_state`), and the
+  threshold heart rate and pace, VibeSynergy's races (as in `vibesynergy_coach_state`), and the
   athlete's notes for a coach. The notes are read-only.
   The same text is `vibesynergy://athlete/notes`.
 

@@ -3,6 +3,7 @@
 // works: the routine instructions, the working method and the evidence, with their rules.
 // Both open the same article page, where text and rules are edited in place and save at once.
 // Archived articles leave these views; they stay in the change log.
+import { lintCard } from "./kb_lint.js";
 import { gradeChip } from "./symbols.js";
 import { get, post } from "./api.js";
 import { coachShell } from "./coach_tabs.js";
@@ -220,7 +221,7 @@ export async function renderMethods(view, { args = [], stale, share = null }) {
   const body = coachShell(view, "methods", {
     intro: t("How your AI coach works, and the rules it follows. Change a text here and your AI coach uses it from the next run."),
   });
-  body.innerHTML = GROUPS.map(([key, label, hint]) => {
+  body.innerHTML = lintCard(data.warnings) + GROUPS.map(([key, label, hint]) => {
     const articles = data.groups?.[key] || [];
     const empty = key === "prompts"
       ? `<p class="empty">${esc(t("The routine instructions are not here yet."))}</p>

@@ -472,10 +472,13 @@ def fitness(r: Rec):
 @scenario("coach", "Je AI-coach instellen en gebruiken", "Setting up and using your AI coach")
 def coach(r: Rec):
     # The day's advice with an advisory AI coach's second opinion beside it (#118).
+    # And an outdated working-method article, so Methods & rules shows its check (#120).
     _demo("demo_coach_roles.py", "seed")
+    _demo("demo_kb_lint.py", "seed")
     try:
         _coach(r)
     finally:
+        _demo("demo_kb_lint.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
 
@@ -599,6 +602,15 @@ def _coach(r: Rec):
         "Kennis: artikelen waarop je AI-coach zich baseert. Wijzigingen keur jij goed.",
         "Knowledge: the articles your AI coach relies on. You approve changes.",
         2.6,
+    )
+    r.click(r.pg.get_by_role("link", name="Werkwijze & regels"))
+    check = r.pg.locator("[data-kb-lint]")
+    r.check(check.count() > 0, "Methods & rules should show the check of the texts")
+    r.point(check)
+    r.say(
+        "Werkwijze & regels: een verouderde tekst krijgt hier een waarschuwing.",
+        "Methods & rules: an outdated text gets a warning here.",
+        2.2,
     )
     r.click(r.pg.get_by_role("link", name="Logboek"))
     r.say(

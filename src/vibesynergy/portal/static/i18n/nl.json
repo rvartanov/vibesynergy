@@ -3237,5 +3237,13 @@
  "You said this night was measured right.": "Je zei dat deze nacht goed gemeten is.",
  "You marked this night as incomplete.": "Je hebt deze nacht als onvolledig gemarkeerd.",
  "Nights whose measurement may be off. A badly recorded or incomplete night doesn't count for the advice or your averages.": "Nachten waarvan de meting mogelijk niet klopt. Een slecht vastgelegde of onvolledige nacht telt niet mee voor het advies en je gemiddelden.",
- "marked a night's sleep": "markeerde de slaap van een nacht"
+ "marked a night's sleep": "markeerde de slaap van een nacht",
+ "{ref} names a model or provider: {names}. Write “AI coach” instead, so any model can follow it.": "{ref} noemt een model of aanbieder: {names}. Schrijf “AI-coach”, zodat elk model het kan volgen.",
+ "{ref} uses a name that is no longer in use: {names}.": "{ref} gebruikt een naam die niet meer in gebruik is: {names}.",
+ "{ref} refers to {names}, but the rules in use are {expected}.": "{ref} verwijst naar {names}, maar de regels in gebruik zijn {expected}.",
+ "{ref} refers to {names}, which is not a rule in use.": "{ref} verwijst naar {names}; dat is geen regel in gebruik.",
+ "{ref} names a tool that does not exist: {names}.": "{ref} noemt een tool die niet bestaat: {names}.",
+ "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).": "{ref} noemt drempels als vaste getallen: {names}. Die veranderen na elke test; je AI-coach hoort ze live te lezen (Training → Zones & drempels).",
+ "Check of the texts": "Controle van de teksten",
+ "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change.": "Je AI-coach krijgt deze waarschuwingen ook. Pas de tekst aan, of vraag je AI-coach om een voorstel."
 }
