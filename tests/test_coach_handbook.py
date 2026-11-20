@@ -135,3 +135,130 @@ def test_article_kind_and_owner() -> None:
     )
     assert coach_handbook.article_kind("evidence-sleep", "sleep") == ("evidence", "coach")
     assert coach_handbook.article_kind("swim-data-quality", "swim") == ("method", "coach")
+
+
+def test_the_built_wheel_serves_the_protocol(tmp_path) -> None:
+    """#119: an installed app served no protocol (docs/ was not in the wheel). Build the
+    package the way CI does (sdist, then the wheel from it) and read the protocol from the
+    unpacked wheel alone, away from this checkout."""
+    import shutil
+    import subprocess
+    import sys
+    import zipfile
+
+    import pytest
+
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not installed")
+    out = tmp_path / "dist"
+    subprocess.run(
+        [uv, "build", "--out-dir", str(out), "--quiet"], cwd=ROOT, check=True, timeout=300
+    )
+    wheel = next(out.glob("vibesynergy-*.whl"))
+    unpacked = tmp_path / "site"
+    with zipfile.ZipFile(wheel) as zf:
+        zf.extractall(unpacked)
+    found = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from vibesynergy.query import coach_handbook as h\n"
+            "print(h._protocol_path())\n"
+            "print(len(h.protocol_text() or ''))",
+        ],
+        cwd=tmp_path,
+        env={"PYTHONPATH": str(unpacked), "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=120,
+    )
+    path, size = found.stdout.split()
+    assert path.startswith(str(unpacked)), path
+    expected = (ROOT / "docs" / "COACH_PROTOCOL.md").read_text(encoding="utf-8")
+    assert int(size) == len(expected) > 1000
+
+
+def _handbook(runtime) -> dict:
+    result = _call(runtime, {"include_protocol": False})
+    assert not result.is_error
+    return result.structured_content["data"]
+
+
+def test_the_handbooks_tasks_are_the_registry_and_its_due_times_the_schedule(runtime) -> None:
+    """#119: the handbook listed 4 tasks at 11:00 and 23:30; the harness has 14, at the
+    times of Coach → Settings. Generated from the registry and the settings, never by hand."""
+    from vibesynergy.coach_runner import registry
+    from vibesynergy.coach_runner import settings as runner_settings
+
+    def check(data: dict) -> None:
+        schedule = runner_settings.load(runtime).schedule
+        tasks = {t["id"]: t for t in data["tasks"]}
+        assert list(tasks) == [t.id for t in registry.TASKS]
+        for task in registry.TASKS:
+            row = tasks[task.id]
+            spec = schedule.get(task.id) if registry.schedule_trigger(task.id) else None
+            if spec is None:
+                assert row["due"] is None, task.id
+                continue
+            assert row["due"] == spec["time"], task.id
+            assert row["on"] is spec["on"], task.id
+            if "monthday" in spec:
+                assert row["monthday"] == spec["monthday"], task.id
+            else:
+                assert row["days"] == spec["days"], task.id
+            (trigger,) = [g for g in row["triggers"] if g["kind"] == "schedule"]
+            assert trigger["time"] == spec["time"] and spec["time"] in trigger["when"]
+            assert row["context"] == list(registry.chain_for(task.id)) or task.runs == "code"
+            assert row["approval"] == list(task.approval)
+            assert row["contract"]["entry_type"] == task.contract.entry_type
+
+    data = _handbook(runtime)
+    check(data)
+    tasks = {t["id"]: t for t in data["tasks"]}
+    assert (tasks["morning"]["due"], tasks["evening"]["due"]) == ("07:00", "21:45")
+    assert tasks["weekly"]["days"] == [6]
+
+    runner_settings.save(
+        runtime,
+        {
+            "schedule": {
+                "morning": {"time": "06:15"},
+                "weekly": {"time": "18:30", "days": [5]},
+                "kb": {"monthday": 3},
+            }
+        },
+    )
+    data = _handbook(runtime)
+    check(data)
+    tasks = {t["id"]: t for t in data["tasks"]}
+    assert tasks["morning"]["due"] == "06:15"
+    assert (tasks["weekly"]["due"], tasks["weekly"]["days"]) == ("18:30", [5])
+    assert "Saturday 18:30" in tasks["weekly"]["trigger"]
+    assert tasks["kb"]["monthday"] == 3
+    assert data["timezone"] == runtime.settings.timezone
+
+
+def test_the_handbook_carries_the_approval_steps_and_the_contact_window(runtime) -> None:
+    from vibesynergy.mcp import roles
+    from vibesynergy.query import plan_proposals
+
+    data = _handbook(runtime)
+    approval = data["approval"]
+    assert set(approval["roles"]) == set(roles.ROLES)
+    assert approval["roles"]["primary"]["may"] == roles.ROLE_MAY["primary"]
+    assert approval["approval_hours"] == plan_proposals.APPROVAL_HOURS
+    assert "vibesynergy_plan_session_set" in approval["write_policy"]["plan"]
+    listed = {name for names in approval["write_policy"].values() for name in names}
+    assert listed == set(roles.WRITE_POLICY)
+    window = data["contact_window"]
+    assert {"start", "end", "timezone", "open_now", "urgent_exception"} <= set(window)
+
+
+def test_the_protocol_states_no_times_of_its_own() -> None:
+    """Times are the settings' and reach a coach as tasks[].due; a time in the protocol
+    text would drift from them (#119)."""
+    text = coach_handbook.protocol_text() or ""
+    assert not re.findall(r"\b[0-2]?\d:[0-5]\d\b", text)
+    assert "contact_window" in text

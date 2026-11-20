@@ -399,7 +399,10 @@ def collect(rt: Any, today: date, since: datetime | None = None) -> list[Alert]:
             continue
         out.append(_job_alert(job, i18n.for_settings(settings)))
     out += _history(rt, since)
-    out += _daily(rt, since, today)
+    # The contact window (#119): an AI coach's messages wait while it is closed.
+    from vibesynergy.coach_runner import contact
+
+    out += _daily(rt, contact.coach_since(rt, since), today)
     out += _expiring_tokens(rt)
     return Collected(out, frozenset(hold))
 

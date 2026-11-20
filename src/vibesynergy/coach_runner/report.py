@@ -12,6 +12,9 @@ id and sends only that stored text, linked to exactly that entry
 version that is no longer the current one for its day (replaced or invalid) is not sent
 either. The notice and the push carry the entry id and the excerpt of the entry they
 show, which the consistency check (``query.coach_consistency``) holds against the entry.
+
+Outside the contact window (``coach_runner.contact``, #119) a report is not sent but held,
+and goes out when the window opens.
 """
 
 from __future__ import annotations
@@ -150,7 +153,9 @@ def send(
     ``advice_day`` is the day the advice is for (the evening review: tomorrow, #90).
     A daily advice follows the alert kind ``advice``; ``by_mail`` (sending a report again
     by hand) always mails it. ``quiet`` (a version that only rewords the advice) sends
-    nothing and only points the day's portal notice at the new version."""
+    nothing and only points the day's portal notice at the new version. Outside the
+    contact window (``contact``, #119) nothing is sent: the report waits in the outbox,
+    unless it is the urgent safety exception."""
     from vibesynergy.query import daily_advice
 
     found = stored(rt, entry.get("id"))
@@ -172,6 +177,22 @@ def send(
     target = advice_day or (
         daily_advice.target_day(job, day) if job in daily_advice.ADVICE_JOBS else day
     )
+    if not by_mail and not quiet:
+        from vibesynergy.coach_runner import contact
+
+        # The contact window (#119): outside it the entry stands, its delivery waits;
+        # only today's red advice from the athlete's own report goes out at once.
+        urgent = advice_job and contact.urgent(rt, entry, target)
+        if not contact.allowed(rt, urgent=urgent):
+            contact.hold_report(
+                rt,
+                job=job,
+                day=day,
+                entry_id=int(entry["id"]),
+                advice_day=target if advice_job else None,
+            )
+            log.info("coach report %s waits for the contact window", entry["id"])
+            return []
     tr = i18n.translator(language(rt.settings))
     advice = advice_for(rt, job, target, tr)
     if advice_job and not by_mail:

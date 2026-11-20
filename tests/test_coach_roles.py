@@ -547,15 +547,11 @@ def test_only_the_primarys_entry_is_the_daily_advice(rt) -> None:
     assert found["safety_level"] == "ease"
     assert [v["id"] for v in found["versions"]] == [primary["id"]]  # no version of the advice
     # A second opinion is no run of the morning task either.
-    _last, ran = coach_tasks._runs(
-        rt.engine, next(t for t in coach_tasks.TASKS if t.id == "morning"), _today(rt)
-    )
+    _last, ran = coach_tasks._runs(rt.engine, "morning", "morning", _today(rt))
     assert ran == {_today(rt)}
     with rt.engine.begin() as conn:
         conn.execute(coach_decision_log.delete().where(coach_decision_log.c.id == primary["id"]))
-    assert coach_tasks._runs(
-        rt.engine, next(t for t in coach_tasks.TASKS if t.id == "morning"), _today(rt)
-    ) == (None, set())
+    assert coach_tasks._runs(rt.engine, "morning", "morning", _today(rt)) == (None, set())
 
 
 def test_a_second_opinion_that_differs_is_flagged_and_reaches_the_primary(rt) -> None:

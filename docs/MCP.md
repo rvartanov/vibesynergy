@@ -75,6 +75,33 @@ provider or model, and the server enforces them for every write tool
   `include_protocol=false` leaves out the text for later runs. The same text is the
   resource `vibesynergy://coach/handbook`, and the server instructions start by pointing to
   it.
+- Coach handbook, generated (#119): the wheel carries `docs/COACH_PROTOCOL.md` (as
+  `vibesynergy/_docs/COACH_PROTOCOL.md`), so an installed app serves `protocol_md` and
+  `protocol_version`; a test builds the wheel and reads the protocol from it. Everything
+  else in the handbook is generated from the harness registry and this install's settings,
+  never written by hand: `tasks` lists every harness task (14, registry order) with
+  `title`, `status`, `runs`, `on`, `triggers` (each `kind` and `detail`; a schedule's also
+  `when` and `time`), `trigger` (one line), `schedule` (`daily`, `weekly`, `days`,
+  `monthly`, `event`, `per_activity`), `due` (the scheduled local time of Coach → Settings,
+  `null` for an event task), `days`, `monthday`, `missing_after` (when a tracked run counts
+  as missing: `due` plus three hours, at the latest 23:59), `entry_type`, `key_prefix`,
+  `prompt`, `inputs`, `context` (the context chain), `contract` (`entry_type`, `required`,
+  `max_words`, `safety_required`, `target_day`), `writes`, `approval`, `scopes`,
+  `requires`, `notes`, `last_run` and `missing`. A test holds every `due` to the saved
+  schedule, before and after a change. Also `timezone`; `approval` with `roles` (`name`,
+  `may` per role), `default_role`, `approval_id` and `approval_hours`, `write_policy`
+  (tools per policy: `open`, `entry`, `plan`, `approval`, `trusted`) with
+  `write_policy_help`, and `tasks` (the approval steps per task); and `contact_window`
+  (below). The protocol text itself states no time of its own (a test checks it).
+- Contact window (#119): `vibesynergy_coach_state` and `vibesynergy_coach_handbook` return
+  `contact_window`: `on`, `start`, `end` (local `HH:MM`, default 07:00–23:00), `timezone`,
+  `open_now`, `opens_at` (ISO, `null` while open), `waiting` (deliveries VibeSynergy holds),
+  `what_waits`, `rule` (one sentence to follow) and `urgent_exception`. An AI coach writes
+  entries as usual outside the window but sends the athlete nothing until `opens_at`;
+  VibeSynergy holds its own notice, push and mail about the entries the same way. The only
+  exception is today's advice at safety level `refuse` from a hard rule the athlete's own
+  report set off (illness, a red-flag note, pain 7/10 or more, an injury that changes how he
+  moves).
 - Coach predictions: `vibesynergy_coach_write` (`coach.write`) accepts optional
   `predictions` (`metric`, `horizon_days`, `predicted`, `ci_low`, `ci_high`, `model_id`)
   and `kb_rules` (rule ids stored on the entry). `metric` must be a daily value stored

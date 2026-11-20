@@ -17,7 +17,6 @@ from typing import Any
 
 from sqlalchemy import Engine, select
 
-from vibesynergy.core.timeutil import utc_now
 from vibesynergy.store.schema import athlete_threshold
 
 
@@ -123,7 +122,7 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
     with contextlib.suppress(Exception):  # a notice must never break the list
         out.extend(_disagreements(rt, today))
     try:
-        for task in coach_tasks.status(rt.engine, utc_now(), rt.settings.timezone):
+        for task in coach_tasks.status_for(rt):
             for day in task["missing"]:
                 out.append(
                     {

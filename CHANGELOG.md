@@ -11,6 +11,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Contact window for every AI coach** (#119): Coach → Settings → Contact window says
+  when an AI coach may reach you, by default 07:00–23:00 in your time zone. Outside it your
+  AI coach still runs and writes its advice, and you see it in the portal, but the notice,
+  the push and the mail wait until the window opens; for a day's advice only the version
+  that is current then goes out, once. Report mails, "Messages from your AI coach" and the
+  notice that a run failed wait too. The one exception: today's advice to rest because you
+  reported illness, a red-flag complaint, pain 7/10 or more or an injury that changes how
+  you move goes out at once. AI coaches over MCP get the window in
+  `vibesynergy_coach_state` and the handbook (`contact_window`) and keep to it. **This
+  changes behaviour**: an advice update made at night (new sleep data at 05:00, say) no
+  longer pushes at once but at 07:00.
 - **One ongoing conversation with your AI coach per day** (#115): every run (07:00, an
   event, an update, the evening, a check-in, pain) gets the day thread in its context:
   the earlier versions of the advice, what changed and why, and your replies. A new
@@ -213,6 +224,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **The coach handbook is generated from the harness** (#119): `vibesynergy_coach_handbook`
+  lists all 14 harness tasks (was 4) with the times, days and switches of Coach → Settings
+  (`due` was 11:00 and 23:30, now the scheduled time, e.g. 07:00 and 21:45), their
+  triggers, context chain, contract and approval steps, plus `approval` (roles, the write
+  policy per tool, `approval_id`) and `contact_window`, from the same registry and settings
+  the AI coach inside VibeSynergy runs on. The missed-run check and Coach → Tasks read the
+  same schedule: a run counts as missing three hours after its scheduled time.
 - **The advice, the reports, the dashboard and the AI coach read only VibeSynergy's plan**
   (#111): planned sessions, week notes, weekly targets, races and the season. intervals.icu
   only gets a copy to pass on to Zwift and other services; a workout, note, target or race
@@ -321,6 +339,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **The installed app serves the coach protocol** (#119): `protocol_md` and
+  `protocol_version` in `vibesynergy_coach_handbook` were empty in an installed app,
+  because `docs/COACH_PROTOCOL.md` was not in the package. The wheel now carries it.
 - A Zwift ride of a plan workout ("Zwift - Intervals icu: Rustige rit Z2 1u") no longer counts
   as "changed: hard instead of easy": the "Intervals" in intervals.icu's name is no intensity.
 - **One daily-advice notice per day** (#108): a new version of the day's advice replaces the

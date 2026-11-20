@@ -70,7 +70,7 @@ ROLE_MAY: dict[str, str] = {
         "advice, never as the daily advice. Your plan changes (vibesynergy_plan_session_set, "
         "_move, _skip, vibesynergy_plan_week_set, vibesynergy_plan_target_set) are stored as "
         "proposals the athlete approves. You cannot write to intervals.icu, publish, change "
-        "the knowledge base directly, or write the coach memory."
+        "the knowledge base directly, or write the AI coach's memory."
     ),
 }
 

@@ -28,6 +28,7 @@ from vibesynergy import alerts, i18n
 from vibesynergy.coach_runner import (
     MODEL,
     REPORT_JOBS,
+    contact,
     context,
     contract,
     pricing,
@@ -707,6 +708,16 @@ def notify_failure(rt, job: str, for_date: date, error: str) -> list[str]:
         text += "\n\n" + tr("What went wrong: {error}", error=error[:300])
     link = alerts.portal_url(rt, "#/coach/settings")
     try:
+        if not contact.allowed(rt):
+            # Outside the contact window (#119) the notice waits until it opens.
+            contact.hold_message(
+                rt,
+                key=f"failed:{job}:{for_date.isoformat()}",
+                subject=tr(FAILED_SUBJECT, job=name, day=day),
+                body=f"{text}\n\n{link}".strip(),
+                only=["email", "push"],
+            )
+            return []
         return alerts.deliver(
             rt,
             tr(FAILED_SUBJECT, job=name, day=day),
@@ -944,6 +955,9 @@ def _mail(
     if used:
         result.mailed = True
         _save(rt, row["id"], mailed_at=utc_now(), mail_error=None)
+    elif contact.is_held(rt, int(entry["id"])):
+        # Outside the contact window (#119): it goes out when the window opens.
+        _save(rt, row["id"], mail_error=contact.HELD)
     else:
         _save(rt, row["id"], mail_error="not sent: no channel set up (Settings → Alerts)")
 

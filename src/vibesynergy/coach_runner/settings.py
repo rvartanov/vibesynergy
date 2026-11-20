@@ -110,6 +110,8 @@ class RunnerSettings:
     local_url: str | None
     # The advice during the day (#90): {"max_runs": automatic updates per day, 0 = off}.
     advice: dict[str, Any] = field(default_factory=dict)
+    # When an AI coach may reach the athlete (#119): {"on", "start", "end"}, local time.
+    contact: dict[str, Any] = field(default_factory=dict)
 
     def usable(self, provider: str) -> bool:
         if provider == "local":
@@ -148,7 +150,14 @@ def load(rt) -> RunnerSettings:
         keys={p: bool(api_key(rt, p)) for p in PROVIDERS},
         local_url=saved.get("local_url") or None,
         advice=_advice(saved.get("advice")),
+        contact=_contact(saved.get("contact")),
     )
+
+
+def _contact(saved: Any) -> dict[str, Any]:
+    from vibesynergy.coach_runner import contact
+
+    return contact.normalise(saved)
 
 
 def _advice(saved: Any) -> dict[str, Any]:
@@ -195,6 +204,11 @@ def _schedule(saved: Any, version: Any = SCHEDULE_VERSION) -> dict[str, dict[str
     if saved and version != SCHEDULE_VERSION:
         out["morning"]["time"] = DEFAULT_SCHEDULE["morning"]["time"]
     return out
+
+
+def default_schedule() -> dict[str, dict[str, Any]]:
+    """A fresh copy of the default schedule."""
+    return _schedule(None)
 
 
 def _check_schedule(value: Any, current: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -268,6 +282,7 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
         "tasks",
         "local_url",
         "advice",
+        "contact",
     }
     if unknown:
         raise RunnerSettingsError("Unknown setting.")
@@ -343,6 +358,13 @@ def save(rt, changes: dict[str, Any], *, actor: str = "portal") -> RunnerSetting
         ):
             raise RunnerSettingsError("Choose from 0 to 24 updates a day (0 switches them off).")
         doc["advice"] = {"max_runs": runs}
+    if "contact" in changes:
+        from vibesynergy.coach_runner import contact
+
+        try:
+            doc["contact"] = contact.check(changes["contact"], _contact(doc.get("contact")))
+        except ValueError as exc:
+            raise RunnerSettingsError(str(exc)) from exc
     current_schedule = _schedule(doc.get("schedule"), doc.get("schedule_version"))
     if "schedule" in changes:
         doc["schedule"] = _check_schedule(changes["schedule"], current_schedule)

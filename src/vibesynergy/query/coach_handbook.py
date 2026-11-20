@@ -1,8 +1,14 @@
-"""The coach handbook: the provider-neutral protocol plus the live knowledge-base index.
+"""The coach handbook: the provider-neutral protocol plus everything generated around it.
 
 Any AI that coaches over MCP reads this first (``vibesynergy_coach_handbook``). The protocol
-text is ``docs/COACH_PROTOCOL.md``; the index lists active articles and the active rules
-in them, so a coach knows which slugs to read and which rule ids to cite in ``kb_rules``.
+text is ``docs/COACH_PROTOCOL.md`` (packaged into the wheel, so an installed app serves it,
+#119). It is the way of working and states no task, time or rule of its own. The rest is
+generated, never written by hand, from the same sources the AI coach inside VibeSynergy
+runs on: the task register with each task's schedule, triggers, context chain, contract and
+approval steps (``coach_tasks``, from ``coach_runner.registry`` and the settings), the
+harness versions and contract (``harness_index``), the roles and approval steps
+(``approval_index``), the contact window (``coach_runner.contact``) and the knowledge-base
+index (active articles and the rule ids to cite in ``kb_rules``).
 """
 
 from __future__ import annotations
@@ -28,8 +34,16 @@ START_HERE: tuple[str, ...] = (
 )
 
 
+# Where the wheel carries the protocol (pyproject.toml, ``force-include``, #119): an installed
+# app serves the same text as the repository's docs/COACH_PROTOCOL.md.
+PACKAGED_DOC = Path(__file__).resolve().parents[1] / "_docs" / "COACH_PROTOCOL.md"
+
+
 def _protocol_path() -> Path | None:
-    """The handbook file of this checkout (the service runs from an editable install)."""
+    """The protocol the wheel carries; in a checkout (an editable install, the tests) the
+    repository's own file."""
+    if PACKAGED_DOC.is_file():
+        return PACKAGED_DOC
     for parent in Path(__file__).resolve().parents:
         candidate = parent / PROTOCOL_DOC
         if candidate.is_file():
@@ -123,19 +137,47 @@ def knowledge_index(engine: Engine) -> dict[str, Any]:
     }
 
 
-def _tasks(engine: Engine, timezone: str | None) -> list[dict[str, Any]]:
-    """The task register; with a time zone also last runs and missing runs."""
-    from dataclasses import asdict
-
-    from vibesynergy.core.timeutil import utc_now
+def _tasks(rt: Any | None) -> list[dict[str, Any]]:
+    """The task register (``coach_tasks``): generated from the harness registry and the
+    settings, with last runs and missing runs when the install is known (#119)."""
     from vibesynergy.query import coach_tasks
 
-    if timezone is None:
-        return [
-            {**asdict(t), "due": t.due.strftime("%H:%M") if t.due else None}
-            for t in coach_tasks.TASKS
-        ]
-    return coach_tasks.status(engine, utc_now(), timezone)
+    if rt is None:
+        return coach_tasks.register()
+    return coach_tasks.status_for(rt)
+
+
+def approval_index() -> dict[str, Any]:
+    """Who may write what, and what waits for the athlete's yes: from the roles
+    (``mcp.roles``), the plan approval check (``plan_proposals``) and the registry."""
+    from vibesynergy.coach_runner import registry
+    from vibesynergy.mcp import roles
+    from vibesynergy.query import plan_proposals
+
+    policies: dict[str, list[str]] = {}
+    for name, policy in roles.WRITE_POLICY.items():
+        policies.setdefault(policy, []).append(name)
+    return {
+        "roles": {
+            role: {"name": roles.ROLE_NAMES[role], "may": roles.ROLE_MAY[role]}
+            for role in roles.ROLES
+        },
+        "default_role": roles.DEFAULT_ROLE,
+        "approval_id": plan_proposals.APPROVAL_HELP,
+        "approval_hours": plan_proposals.APPROVAL_HOURS,
+        "write_policy": {policy: sorted(names) for policy, names in sorted(policies.items())},
+        "write_policy_help": {
+            roles.OPEN: "every role, within its scopes",
+            roles.ENTRY: "every role; an advisory AI coach's daily entry is a second opinion",
+            roles.PLAN: "the athlete's own agent writes; the primary AI coach needs "
+            "approval_id, else a proposal is stored; an advisory AI coach always proposes",
+            roles.APPROVAL: "the athlete's own agent writes; the primary AI coach needs "
+            "approval_id; an advisory AI coach is refused",
+            roles.TRUSTED: "the athlete's own agent and the primary AI coach; an advisory "
+            "AI coach is refused and told what to do instead",
+        },
+        "tasks": {task.id: list(task.approval) for task in registry.TASKS if task.approval},
+    }
 
 
 def harness_index() -> dict[str, Any]:
@@ -160,6 +202,10 @@ def harness_index() -> dict[str, Any]:
             "current version for the day your advice is for, yours is the next version. "
             "Build on it and pass changed_because={previous: <its id>, reason: what changes "
             "and why}; without it the write is refused.",
+            "Times are this install's: each task's due and days in tasks (local time, "
+            "timezone). Reach the athlete only inside contact_window; outside it write "
+            "your entries as usual and send nothing until opens_at, except its "
+            "urgent_exception.",
         ],
         "daily_advice_tasks": list(registry.daily()),
         "safety_schema": contract.SAFETY_HELP,
@@ -178,15 +224,26 @@ def harness_index() -> dict[str, Any]:
     }
 
 
+def _contact(rt: Any | None) -> dict[str, Any] | None:
+    from vibesynergy.coach_runner import contact
+
+    return contact.state(rt) if rt is not None else None
+
+
 def handbook(
     engine: Engine,
     *,
     scopes: frozenset[str] | set[str],
     include_protocol: bool = True,
-    timezone: str | None = None,
+    rt: Any | None = None,
     connection: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
-    """The handbook for one connection, and warnings for the envelope."""
+    """The handbook for one connection, and warnings for the envelope.
+
+    Everything but the protocol text is generated (#119): the tasks with their schedule,
+    triggers, context chain and contract, the approval steps and the contact window come
+    from the harness registry, the roles and the settings of this install (``rt``), the
+    same ones the AI coach inside VibeSynergy runs on."""
     warnings: list[str] = []
     text = protocol_text()
     if text is None:
@@ -205,7 +262,10 @@ def handbook(
         "start_here": list(START_HERE),
         "harness": harness_index(),
         "knowledge": knowledge_index(engine),
-        "tasks": _tasks(engine, timezone),
+        "tasks": _tasks(rt),
+        "timezone": rt.settings.timezone if rt is not None else None,
+        "contact_window": _contact(rt),
+        "approval": approval_index(),
         "access": {
             "scopes": sorted(scopes),
             "needed": list(COACH_SCOPES_NEEDED),

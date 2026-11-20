@@ -63,6 +63,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/vibesynergy"]
 
+# The coach protocol lives in docs/ and is served by the app (vibesynergy_coach_handbook,
+# #119): the wheel carries a copy inside the package.
+[tool.hatch.build.targets.wheel.force-include]
+"docs/COACH_PROTOCOL.md" = "vibesynergy/_docs/COACH_PROTOCOL.md"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

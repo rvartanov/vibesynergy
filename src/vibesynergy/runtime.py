@@ -106,6 +106,9 @@ class Runtime:
 
         handlers[plan_model.MIRROR_JOB] = lambda _job: plan_model.run_mirror(self.engine)
         handlers[coach_schedule.SCHEDULE_JOB] = lambda _job: coach_schedule.enqueue_due(self)
+        from vibesynergy.coach_runner import contact as coach_contact
+
+        handlers[coach_contact.JOB] = lambda _job: coach_contact.release(self)
         handlers[coach_schedule.JOB] = lambda job: coach_schedule.handle(self, job)
         handlers[history.JOB] = lambda job: history.run_step(self, job.payload["fill"])
         handlers[history.ARCHIVE_JOB] = lambda job: history.import_archive(

@@ -703,6 +703,7 @@ def serve(
             lanes.register(lane, thread)
             threads.append(thread)
     if schedule:
+        from vibesynergy.coach_runner import contact as coach_contact
         from vibesynergy.coach_runner import schedule as coach_schedule
         from vibesynergy.query import (
             agent_events,
@@ -732,6 +733,8 @@ def serve(
                 agent_events.JOB: lambda: agent_events.due(rt),
                 # API coach runner: morning, evening, weekly. Off until Coach → Settings.
                 coach_schedule.SCHEDULE_JOB: lambda: coach_schedule.due(rt),
+                # AI coach deliveries held outside the contact window (#119).
+                coach_contact.JOB: lambda: coach_contact.due(rt),
             },
         )
         rt.scheduler = scheduler

@@ -517,6 +517,16 @@ def _coach(r: Rec):
         "a day at most; you see what that costs.",
         3.4,
     )
+    contact_start = r.pg.locator("#coach-contact-start")
+    r.check(contact_start.count() > 0, "Settings should show the contact window")
+    r.point(contact_start)
+    r.say(
+        "Contactvenster: wanneer een AI-coach je mag bereiken, standaard van 7 tot 23 uur. "
+        "Daarbuiten maakt hij zijn advies wel, maar meldingen wachten tot het venster opengaat.",
+        "Contact window: when an AI coach may reach you, from 7 to 23 by default. Outside "
+        "it the advice is still made, but notices wait until the window opens.",
+        3.8,
+    )
     r.click(r.pg.locator("summary", has_text="Ochtendadvies").first)
     r.say(
         "Per taak stel je in wanneer je AI-coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.",
