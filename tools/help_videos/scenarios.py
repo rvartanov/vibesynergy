@@ -515,7 +515,7 @@ def _coach(r: Rec):
         "hoeveel updates per dag hoogstens; je ziet wat dat kost.",
         "New data makes a new version of the advice during the day. Choose how many updates "
         "a day at most; you see what that costs.",
-        3.4,
+        2.8,
     )
     contact_start = r.pg.locator("#coach-contact-start")
     r.check(contact_start.count() > 0, "Settings should show the contact window")
@@ -525,7 +525,7 @@ def _coach(r: Rec):
         "Daarbuiten maakt hij zijn advies wel, maar meldingen wachten tot het venster opengaat.",
         "Contact window: when an AI coach may reach you, from 7 to 23 by default. Outside "
         "it the advice is still made, but notices wait until the window opens.",
-        3.8,
+        2.8,
     )
     r.click(r.pg.locator("summary", has_text="Ochtendadvies").first)
     r.say(
