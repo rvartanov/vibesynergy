@@ -57,6 +57,15 @@ def _no_live_intervals_icu(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _contact_window_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The contact window (#119) has its own tests, which save one. The rest must not
+    depend on the hour they run at, so an unsaved window is off here."""
+    from vibesynergy.coach_runner import contact
+
+    monkeypatch.setattr(contact, "DEFAULT", {**contact.DEFAULT_WINDOW, "on": False})
+
+
+@pytest.fixture(autouse=True)
 def _portal_login_off(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """The login gate has its own tests (marked ``auth``); the rest test the portal itself."""
     if request.node.get_closest_marker("auth"):

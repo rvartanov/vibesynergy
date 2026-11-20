@@ -143,7 +143,7 @@ def dashboard(
             _attention_block(
                 engine, today, recovery, load, injuries, sources, tr, gear, _horizon_args(rt)
             )
-            + _coach_runs(engine, timezone, tr)
+            + _coach_runs(rt, engine, timezone, tr)
         )
     )
     queried_at = utc_now().isoformat()
@@ -284,12 +284,16 @@ def _horizon_args(rt) -> tuple:
     return prefs.horizon_days(data_dir), sports, None, marks
 
 
-def _coach_runs(engine, timezone: str, tr) -> list:
+def _coach_runs(rt, engine, timezone: str, tr) -> list:
     """A coach routine that did not run: the athlete hears it, the plan may be stale."""
     from vibesynergy.query import coach_tasks
 
     try:
-        tasks = coach_tasks.status(engine, utc_now(), timezone)
+        tasks = (
+            coach_tasks.status(engine, utc_now(), timezone)
+            if rt is None or not hasattr(getattr(rt, "settings", None), "secrets_dir")
+            else coach_tasks.status_for(rt)
+        )
     except Exception:  # the start page must still answer
         return []
     return [

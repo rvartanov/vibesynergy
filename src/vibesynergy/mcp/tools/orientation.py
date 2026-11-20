@@ -52,15 +52,22 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_coach_state() -> dict[str, Any]:
         """The athlete's coaching preferences: advice language, detail and tone, notes for
         the AI coach, and things to remember (availability, fixed moments, equipment). Plus
-        plan-calendar races with their priority. The training plan and its rules are in
+        plan-calendar races with their priority, and contact_window: when an AI coach may
+        reach the athlete (start, end, time zone, open_now, opens_at) and the one urgent
+        safety exception; outside it write entries as usual but send him nothing. The
+        training plan and its rules are in
         the knowledge base and intervals.icu.
         """
+        from vibesynergy.coach_runner import contact
+
         snap = coach.snapshot(engine)
         return envelope(
             {
                 **snap,
                 "active_profile": coach.profile_binding(snap),
                 "races": plan_q.calendar_races(engine, today()),
+                # When an AI coach may reach the athlete (#119): keep to it.
+                "contact_window": contact.state(rt),
                 "note": coach.COACH_STATE_NOTE,
             }
         )
@@ -70,8 +77,11 @@ def register(kit: ToolKit) -> None:
         """Read this first when you coach. The coach protocol (docs/COACH_PROTOCOL.md) for
         any AI coach: roles and what needs the athlete's akkoord, the morning, evening, weekly and
         insight runs, tool order, idempotency keys, privacy rules for public text, replies
-        and failure handling. Plus the task register (each coach task with its trigger,
-        inputs, output, what you decide alone, last run and missing runs), the active
+        and failure handling. Plus, generated from the harness registry and this install's
+        settings: the task register (every harness task with its triggers, scheduled time
+        as due, days, context chain, contract, what it writes alone and what needs
+        approval, last run and missing runs), approval (roles, write policy per tool,
+        approval_id), contact_window (when you may reach the athlete), the active
         knowledge-base articles (slugs to read with vibesynergy_kb_get), the active rule ids
         (cite them in kb_rules), this connection's scopes against what the coach loop
         needs, and connection: your role next to other AI coaches (the athlete's own agent,
@@ -87,7 +97,7 @@ def register(kit: ToolKit) -> None:
             engine,
             scopes=current_scopes(),
             include_protocol=include_protocol,
-            timezone=settings.timezone,
+            rt=rt,
             connection={
                 "role": role,
                 "role_name": roles.ROLE_NAMES[role],

@@ -168,7 +168,9 @@ function lastRunHtml(job, run, enabled) {
   if (!run) return esc(t("Not run yet"));
   const status = `<span class="chip ${TONE[run.status] || ""}">${esc(t(STATUS[run.status] || run.status))}</span>`;
   const when = esc(userDateTime(run.finished_at || run.started_at));
-  const mail = run.mail_error ? ` <span class="sub">${esc(t("Report not mailed: set up mail under Settings → Alerts."))}</span>` : "";
+  const mail = run.mail_error === HELD
+    ? ` <span class="sub">${esc(t("The report waits for your contact window."))}</span>`
+    : run.mail_error ? ` <span class="sub">${esc(t("Report not mailed: set up mail under Settings → Alerts."))}</span>` : "";
   const report = run.entry_id ? ` · <a href="#/coach/report/${esc(String(run.entry_id))}">${esc(t("Open report"))}</a>` : "";
   const again = WITH_REPORT.includes(job)
     ? ` <span class="settings-save" data-autosave-skip>${run.entry_id ? `<button class="btn" type="button" data-runner-resend="${job}">${esc(t("Send again"))}</button>` : ""}<button class="btn" type="button" data-runner-test="${job}"${enabled ? "" : " disabled"}>${esc(t("Make again"))}</button></span>`
@@ -228,6 +230,25 @@ function adviceUpdatesHtml(data) {
   </div>`;
 }
 
+// When an AI coach may reach you (#119): every AI coach, here and over MCP. Outside it the
+// advice is still made and shown; its notice, push and mail wait until the window opens.
+const HELD = "waiting for the contact window";
+
+function contactHtml(data) {
+  const c = data.contact || {};
+  return `<fieldset class="settings-field coach-contact">
+    <legend>${esc(t("Contact window"))}</legend>
+    <label class="check"><input type="checkbox" role="switch" name="contact_on" aria-describedby="coach-contact-hint"${c.on !== false ? " checked" : ""}> ${esc(t("Only reach me between these times"))}</label>
+    <div class="coach-contact-times">
+      <label for="coach-contact-start">${esc(t("From"))}</label>
+      <input class="btn" id="coach-contact-start" name="contact_start" type="time" step="60" value="${esc(c.start || "07:00")}">
+      <label for="coach-contact-end">${esc(t("Until"))}</label>
+      <input class="btn" id="coach-contact-end" name="contact_end" type="time" step="60" value="${esc(c.end || "23:00")}">
+    </div>
+    <p class="sub" id="coach-contact-hint">${esc(t("For every AI coach, in {zone}. Outside these times your AI coach still makes its advice and you see it here, but notices, pushes and mails wait until the window opens. Only today's advice to rest because you reported illness or serious pain comes at once.", { zone: c.timezone || data.timezone }))}${c.waiting ? ` ${esc(t("Waiting now: {n}.", { n: number(c.waiting) }))}` : ""}</p>
+  </fieldset>`;
+}
+
 function scheduleFrom(el) {
   const out = {};
   for (const job of REPORTS) {
@@ -273,6 +294,7 @@ function cardHtml(data) {
         <p class="sub" id="coach-runner-cap-hint">${esc(t("You get a mail at 80%. At 100% your AI coach pauses until next month."))}</p>
       </div>
       ${adviceUpdatesHtml(data)}
+      ${contactHtml(data)}
       <div class="settings-field" data-autosave-skip>
         <label for="coach-runner-name">${esc(t("Your name"))}</label>
         <input class="btn" id="coach-runner-name" name="athlete_name" maxlength="40" autocomplete="given-name" aria-describedby="coach-runner-name-hint" value="${esc(data.athlete_name && data.athlete_name !== "de atleet" ? data.athlete_name : "")}">
@@ -330,6 +352,11 @@ function draw(el, stale, data) {
           .map((box) => [box.name.slice("task-on-".length), { on: box.checked }]))),
         local_url: el.querySelector('[name="local_url"]')?.value.trim() ?? "",
         advice: { max_runs: Number(el.querySelector('[name="advice_max_runs"]').value) },
+        contact: {
+          on: el.querySelector('[name="contact_on"]').checked,
+          start: el.querySelector('[name="contact_start"]').value,
+          end: el.querySelector('[name="contact_end"]').value,
+        },
       };
       if (!toggle.disabled) changes.enabled = toggle.checked;
       try {

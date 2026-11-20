@@ -1,40 +1,43 @@
 WEBVTT
 
-00:00:06.122 --> 00:00:09.283
+00:00:05.955 --> 00:00:09.120
 Training → Coach: your AI coach's advice, knowledge, rules, memory and tasks.
 
-00:00:09.333 --> 00:00:17.644
+00:00:09.170 --> 00:00:17.546
 With today's advice you see the second opinion of an advisory AI coach, and where it differs. In the messages below it has its own label.
 
-00:00:17.694 --> 00:00:23.877
+00:00:17.596 --> 00:00:23.824
 Earlier versions of today are listed below, with the time and why the advice changed. An older version is marked replaced.
 
-00:00:23.927 --> 00:00:30.216
+00:00:23.874 --> 00:00:30.160
 Every notice opens exactly the report it is about. When that is an older version, it says so, with a link to the current advice.
 
-00:00:30.266 --> 00:00:33.346
+00:00:30.210 --> 00:00:33.295
 Settings: turn your AI coach on and choose an AI provider.
 
-00:00:33.396 --> 00:00:36.879
+00:00:33.345 --> 00:00:36.845
 Paste your own API key here and choose 'Save key'.
 
-00:00:36.929 --> 00:00:42.179
+00:00:36.895 --> 00:00:40.579
 New data makes a new version of the advice during the day. Choose how many updates a day at most; you see what that costs.
 
-00:00:42.229 --> 00:00:46.874
+00:00:40.629 --> 00:00:45.272
+Contact window: when an AI coach may reach you, from 7 to 23 by default. Outside it the advice is still made, but notices wait until the window opens.
+
+00:00:45.322 --> 00:00:49.986
 Per task you set when your AI coach runs, for example the morning advice at 7.
 
-00:00:46.924 --> 00:00:51.835
+00:00:50.036 --> 00:00:54.987
 Memory: what your AI coach remembers about you, and how it talks.
 
-00:00:51.885 --> 00:01:01.563
+00:00:55.037 --> 00:01:04.857
 Notes for your AI coach are saved automatically.
 
-00:01:01.613 --> 00:01:06.269
+00:01:04.907 --> 00:01:09.568
 Under 'What to remember' you add fixed facts, such as when you can train.
 
-00:01:06.319 --> 00:01:10.772
+00:01:09.618 --> 00:01:14.102
 Knowledge: the articles your AI coach relies on. You approve changes.
 
-00:01:10.822 --> 00:01:16.954
+00:01:14.152 --> 00:01:20.325
 Log: every change in what your AI coach knows, to look back on.

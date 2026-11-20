@@ -1,21 +1,23 @@
-"""The coach's task register: what the coach does, when, and whether it happened.
+"""The coach's task register: what each AI coach task does, when, and whether it happened.
 
-Since 10-11 the full list of coach tasks, with their switches, schedules and context, is
-the AI harness registry (``coach_runner/registry.py``, Coach → Settings). This register
-keeps the reports whose missing run can be told from the clock (morning, evening, the week
-review) and the insight; a missed one alerts and
+Generated, never written by hand (#119). Every row comes from the AI harness registry
+(``coach_runner/registry.py``: triggers, contract, context chain, what a task writes on its
+own and what waits for the athlete's approval) and the settings (Coach → Settings: the
+time, the days and the switch of each scheduled task, ``coach_runner.settings``). The
+internal AI coach runs from the same two, and an external AI coach reads this register in
+``vibesynergy_coach_handbook``, so both work to the same list and the same times.
+
+What this module adds is the missed-run check. For the reports whose missing run can be
+told from the clock (morning, evening, the week review) and the insight, ``status`` adds the
+last run from the coach log and the runs that are missing. A run counts as missing once its
+scheduled time plus ``MISSING_AFTER`` has passed (the same grace the scheduler gives a late
+start, ``schedule.GRACE``), at the latest at the end of the day. A missed one alerts and
 fires ``coach.run_missed`` (catch-up).
-
-One list for every coach task: trigger, inputs, output, what the coach decides alone and
-what needs the athlete's akkoord. ``status`` adds the last run of each task from the coach log
-and the runs that are missing, so a skipped routine is noticed (the dashboard turns a
-missing run into a notification). The prompts in ``docs/coach-prompts`` and the knowledge
-base say how; this register says what and when, and a test keeps them in line.
 """
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -26,35 +28,27 @@ from vibesynergy.store.schema import coach_decision_log
 
 # How many past due moments are checked: recent misses alert, old history does not.
 LOOKBACK_DAYS = 3
+# A scheduled run counts as missing this long after its time: the scheduler's grace
+# (``coach_runner.schedule.GRACE``; a test keeps the two equal).
+MISSING_AFTER = timedelta(hours=3)
+END_OF_DAY = time(23, 59)
 
 
 @dataclass(frozen=True)
-class Task:
+class Tracked:
+    """What the missed-run check needs beyond the registry: how the task's entry is keyed,
+    and the tools its prompt reads first (a test holds them against the prompts)."""
+
     id: str
-    title: str  # English source string, translated in the portal
-    trigger: str
-    schedule: str  # daily, weekly (Sunday) or per_activity
-    due: time | None  # local time by which the run's entry must exist (None: not checked)
-    entry_type: str | None
-    key_prefix: str | None  # idempotency_key prefix of the run's entry
-    prompt: str | None  # docs/coach-prompts/<prompt>.md and KB coach-prompt-<prompt>
+    key_prefix: str
     inputs: tuple[str, ...]
-    output: str
-    decides: tuple[str, ...] = field(default=())
-    asks: tuple[str, ...] = field(default=())
 
 
-TASKS: tuple[Task, ...] = (
-    Task(
-        id="morning",
-        title="Morning report",
-        trigger="Coach via API, daily (Coach → Settings)",
-        schedule="daily",
-        due=time(11, 0),
-        entry_type="morning",
-        key_prefix="morning-",
-        prompt="morning",
-        inputs=(
+TRACKED: tuple[Tracked, ...] = (
+    Tracked(
+        "morning",
+        "morning-",
+        (
             "vibesynergy_today",
             "vibesynergy_recovery",
             "vibesynergy_notes",
@@ -62,86 +56,156 @@ TASKS: tuple[Task, ...] = (
             "vibesynergy_plan_model",
             "vibesynergy_thresholds",
         ),
-        output="one morning entry; new day-9 workouts",
-        decides=("keep, adjust or skip today's session", "fill the plan up to day 9"),
-        asks=("change a planned session", "change a rule or threshold"),
     ),
-    Task(
-        id="evening",
-        title="Evening review",
-        trigger="Coach via API, daily (Coach → Settings)",
-        schedule="daily",
-        due=time(23, 30),
-        entry_type="evening",
-        key_prefix="evening-",
-        prompt="evening",
-        inputs=("vibesynergy_activities", "vibesynergy_recovery", "vibesynergy_plan"),
-        output="one evening entry with a recovery forecast for tomorrow",
-        decides=("assess today's sessions",),
-        asks=("delete duplicate activities",),
+    Tracked(
+        "evening",
+        "evening-",
+        ("vibesynergy_activities", "vibesynergy_recovery", "vibesynergy_plan"),
     ),
-    Task(
-        id="insight",
-        title="Activity insights",
-        trigger="Coach via API, when an activity is made public",
-        schedule="per_activity",
-        due=None,
-        entry_type="activity_assessment",
-        key_prefix="insight-",
-        prompt="insight",
-        inputs=("vibesynergy_activity", "vibesynergy_activity_insights"),
-        output="one public insight per activity",
-        decides=("publish the insight",),
-    ),
-    Task(
-        id="weekly",
-        title="Weekly review",
-        trigger="Coach via API, Sunday (Coach → Settings)",
-        schedule="weekly",
-        due=time(23, 30),
-        entry_type="note",
-        key_prefix="weekreview:",
-        prompt="weekly",
-        inputs=(
+    Tracked(
+        "weekly",
+        "weekreview:",
+        (
             "vibesynergy_week",
             "vibesynergy_volume",
             "vibesynergy_coach_entries",
             "vibesynergy_weather",
         ),
-        output="one weekly review note and a proposal for next week",
-        asks=("next week's plan changes",),
     ),
+    Tracked("insight", "insight-", ("vibesynergy_activity", "vibesynergy_activity_insights")),
 )
+BY_TRACKED = {t.id: t for t in TRACKED}
 
 
-def _due_days(task: Task, now_local: datetime) -> list[date]:
+def schedule_for(rt: Any) -> dict[str, dict[str, Any]]:
+    """The saved schedule (Coach → Settings), or the defaults where it cannot be read."""
+    from vibesynergy.coach_runner import settings as runner_settings
+
+    try:
+        return runner_settings.load(rt).schedule
+    except Exception:
+        return runner_settings.default_schedule()
+
+
+def _cadence(spec: dict[str, Any] | None, task: Any) -> str:
+    if spec is None:
+        events = [g.detail for g in task.triggers if g.kind == "event"]
+        return "per_activity" if "activity.published" in events else "event"
+    if "monthday" in spec:
+        return "monthly"
+    days = spec.get("days") or []
+    if len(days) == 7:
+        return "daily"
+    return "weekly" if len(days) == 1 else "days"
+
+
+def _missing_after(spec: dict[str, Any]) -> time:
+    at = datetime.combine(date(2000, 1, 1), time.fromisoformat(spec["time"]))
+    later = at + MISSING_AFTER
+    return END_OF_DAY if later.date() != at.date() else later.time()
+
+
+def register(
+    schedule: dict[str, dict[str, Any]] | None = None,
+    switches: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Every harness task, in registry order, with its schedule from the settings.
+
+    ``due`` is the scheduled time (``HH:MM``) of a task on a clock, ``None`` for a task
+    started by an event. ``switches`` are the event tasks' on/off (``settings.tasks``)."""
+    from vibesynergy.coach_runner import registry
+    from vibesynergy.coach_runner import settings as runner_settings
+
+    schedule = schedule if schedule is not None else runner_settings.default_schedule()
+    switches = switches or {}
+    out = []
+    for task in registry.TASKS:
+        spec = schedule.get(task.id) if registry.schedule_trigger(task.id) else None
+        tracked = BY_TRACKED.get(task.id)
+        triggers = []
+        for trigger in task.triggers:
+            item: dict[str, Any] = {"kind": trigger.kind, "detail": trigger.detail}
+            if trigger.kind == "schedule" and spec is not None:
+                item["when"] = registry.when(task.id, spec)
+                item["time"] = spec["time"]
+            triggers.append(item)
+        if spec is not None:
+            on = bool(spec.get("on"))
+        else:
+            on = task.status == "live" and (switches.get(task.id) or {}).get("on") is not False
+        out.append(
+            {
+                "id": task.id,
+                "title": task.title,
+                "status": task.status,
+                "runs": task.runs,
+                "on": on,
+                "trigger": "; ".join(t.get("when") or t["detail"] for t in triggers),
+                "triggers": triggers,
+                "schedule": _cadence(spec, task),
+                "due": spec["time"] if spec else None,
+                "days": list(spec.get("days") or []) if spec and "monthday" not in spec else None,
+                "monthday": spec.get("monthday") if spec else None,
+                "missing_after": (
+                    _missing_after(spec).strftime("%H:%M") if spec and tracked else None
+                ),
+                "entry_type": task.contract.entry_type,
+                "key_prefix": tracked.key_prefix if tracked else None,
+                "prompt": task.prompt or None,
+                "inputs": list(tracked.inputs) if tracked else [],
+                "context": list(registry.chain_for(task.id)) if task.runs == "model" else [],
+                "contract": {
+                    "entry_type": task.contract.entry_type,
+                    "required": list(task.contract.required),
+                    "max_words": task.contract.max_words,
+                    "safety_required": task.contract.safety,
+                    "target_day": task.contract.target or None,
+                },
+                "writes": list(task.writes),
+                "approval": list(task.approval),
+                "scopes": list(task.scopes),
+                "requires": list(task.requires),
+                "notes": task.notes,
+            }
+        )
+    return out
+
+
+def _due_days(row: dict[str, Any], now_local: datetime) -> list[date]:
     """Days whose run should exist by now, newest first, within the lookback."""
-    if task.due is None:
+    if row["due"] is None or row["missing_after"] is None:
         return []
+    after = time.fromisoformat(row["missing_after"])
+    days = row["days"]
     out = []
     for back in range(LOOKBACK_DAYS):
         day = now_local.date() - timedelta(days=back)
-        if task.schedule == "weekly" and day.weekday() != 6:
+        if days is not None and day.weekday() not in days:
             continue
-        if datetime.combine(day, task.due, now_local.tzinfo) <= now_local:
+        if row["monthday"] is not None and day.day != row["monthday"]:
+            continue
+        if datetime.combine(day, after, now_local.tzinfo) <= now_local:
             out.append(day)
     return out
 
 
-def _runs(engine: Engine, task: Task, since: date) -> tuple[datetime | None, set[date]]:
-    """Last run of the task and the days it ran on since ``since``."""
-    if task.entry_type is None:
+def _runs(
+    engine: Engine, task_id: str, entry_type: str | None, since: date
+) -> tuple[datetime | None, set[date]]:
+    """Last run of a tracked task and the days it ran on since ``since``."""
+    tracked = BY_TRACKED.get(task_id)
+    if entry_type is None or tracked is None:
         return None, set()
     # A second opinion from an advisory AI coach (#118) is no run of the task.
     role = func.json_extract(coach_decision_log.c.meta, "$.harness.role")
     where = [
-        coach_decision_log.c.entry_type == task.entry_type,
+        coach_decision_log.c.entry_type == entry_type,
         or_(role.is_(None), role != "advisory"),
     ]
-    if task.entry_type == "note" and task.key_prefix:
+    if entry_type == "note":
         # The API runner keys its week review "weekly-<date>" (runner.entry_key); the old
         # routines used "weekreview:". Both count (8-11: a done review showed as skipped).
-        prefixes = [task.key_prefix] + (["weekly-"] if task.id == "weekly" else [])
+        prefixes = [tracked.key_prefix] + (["weekly-"] if task_id == "weekly" else [])
         where.append(or_(*(coach_decision_log.c.idempotency_key.like(f"{p}%") for p in prefixes)))
     with engine.connect() as conn:
         last = conn.execute(select(func.max(coach_decision_log.c.at)).where(*where)).scalar()
@@ -154,19 +218,53 @@ def _runs(engine: Engine, task: Task, since: date) -> tuple[datetime | None, set
     return last, ran
 
 
-def status(engine: Engine, now: datetime, timezone: str) -> list[dict[str, Any]]:
-    """Every task with its last run and the due runs that are missing."""
+def _last_by_task(engine: Engine) -> dict[str, datetime]:
+    """The newest entry per harness task (``meta.harness.task``), for the other tasks."""
+    task = func.json_extract(coach_decision_log.c.meta, "$.harness.task")
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(task, func.max(coach_decision_log.c.at)).where(task.is_not(None)).group_by(task)
+        ).all()
+    return {str(name): at for name, at in rows if name}
+
+
+def status(
+    engine: Engine,
+    now: datetime,
+    timezone: str,
+    schedule: dict[str, dict[str, Any]] | None = None,
+    switches: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Every task with its last run and, for the tracked ones, the due runs that are
+    missing. ``schedule`` is the saved one (``schedule_for``); without it, the defaults."""
     now_local = now.astimezone(ZoneInfo(timezone))
     since = now_local.date() - timedelta(days=LOOKBACK_DAYS)
+    others = _last_by_task(engine)
     out = []
-    for task in TASKS:
-        last, ran = _runs(engine, task, since)
-        # A task that never ran is not set up here (no coach, or a new install): not missing.
-        due = _due_days(task, now_local) if last is not None else []
-        missing = [d.isoformat() for d in due if d not in ran]
-        row = asdict(task)
-        row["due"] = task.due.strftime("%H:%M") if task.due else None
+    for row in register(schedule, switches):
+        if row["id"] in BY_TRACKED:
+            last, ran = _runs(engine, row["id"], row["entry_type"], since)
+            # A task that never ran is not set up here (no coach, a new install): not missing.
+            due = _due_days(row, now_local) if last is not None else []
+            missing = [d.isoformat() for d in due if d not in ran]
+        else:
+            last, missing = others.get(row["id"]), []
+        if isinstance(last, str):
+            last = datetime.fromisoformat(last)
         row["last_run"] = last.isoformat() if last else None
         row["missing"] = missing
         out.append(row)
     return out
+
+
+def status_for(rt: Any, now: datetime | None = None) -> list[dict[str, Any]]:
+    """``status`` with this install's saved schedule and switches (Coach → Settings)."""
+    from vibesynergy.coach_runner import settings as runner_settings
+    from vibesynergy.core.timeutil import utc_now
+
+    try:
+        cfg = runner_settings.load(rt)
+        schedule, switches = cfg.schedule, cfg.tasks
+    except Exception:
+        schedule, switches = runner_settings.default_schedule(), {}
+    return status(rt.engine, now or utc_now(), rt.settings.timezone, schedule, switches)

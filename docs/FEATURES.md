@@ -194,6 +194,14 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   off until you switch it on: morning advice, evening review, week review, race brief,
   check-in, injury and threshold tasks, each with its own switch, schedule and model, a
   monthly cost cap with warnings.
+- **Contact window** (Coach → Settings, default 07:00–23:00): when any AI coach may reach
+  you. Outside it your AI coach still makes its advice and you see it in the portal, but
+  its notice, push and mail wait until the window opens (for a day's advice only the
+  newest version); AI coaches over MCP read the window and keep to it too. Only today's
+  advice to rest because you reported illness or serious pain comes at once.
+- **One handbook for every AI coach**: the handbook an AI app reads over MCP is generated
+  from the same task list, schedule, contract and approval steps the AI coach inside
+  VibeSynergy runs on, and an installed app serves the full protocol text.
 - **Continuous advice**: your AI coach gives the day's advice at 07:00 (time in Coach →
   Settings) and makes a new version when new data comes in: sleep or HRV, your check-in, a
   note, pain or an injury (at once), a workout, a plan change for today or tomorrow, or your

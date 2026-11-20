@@ -42,10 +42,9 @@ def register(kit: PortalKit) -> None:
 
     @router.get("/coach/tasks")
     def coach_tasks_route() -> dict[str, Any]:
-        from vibesynergy.core.timeutil import utc_now
         from vibesynergy.query import coach_tasks
 
-        return envelope({"tasks": coach_tasks.status(engine, utc_now(), rt.settings.timezone)})
+        return envelope({"tasks": coach_tasks.status_for(rt)})
 
     @router.post("/coach/threshold-confirm/{entry_id}")
     def coach_threshold_confirm(entry_id: int) -> dict[str, Any]:

@@ -688,9 +688,7 @@ def _missed_unsent(rt, conn, now: datetime) -> bool:
     from vibesynergy.query import coach_tasks
 
     missing = {
-        (task["id"], day)
-        for task in coach_tasks.status(rt.engine, now, rt.settings.timezone)
-        for day in task["missing"]
+        (task["id"], day) for task in coach_tasks.status_for(rt, now) for day in task["missing"]
     }
     if not missing:
         return False
@@ -715,7 +713,7 @@ def emit_missed(rt, *, now: datetime | None = None) -> list[str]:
     now = now or utc_now()
     subs = _wanting(rt, COACH_RUN_MISSED)
     try:
-        tasks = coach_tasks.status(rt.engine, now, rt.settings.timezone)
+        tasks = coach_tasks.status_for(rt, now)
     except Exception:
         log.exception("agent events: the coach task register could not be read")
         return []

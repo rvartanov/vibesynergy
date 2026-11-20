@@ -8,6 +8,8 @@
 .basedpyright
 tests
 docs
+# The coach protocol is packaged into the wheel (pyproject.toml, #119).
+!docs/COACH_PROTOCOL.md
 tools
 node_modules
 *.sqlite

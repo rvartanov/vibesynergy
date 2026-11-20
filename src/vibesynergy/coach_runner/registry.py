@@ -13,6 +13,7 @@ insight, reply). The others follow one by one, each switchable.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 # The fixed base every task gets before its own chain (decision 9-11).
 BASE_CONTEXT = ("athlete", "communication_rule", "safety", "coach_memory")
@@ -21,7 +22,10 @@ BASE_CONTEXT = ("athlete", "communication_rule", "safety", "coach_memory")
 @dataclass(frozen=True)
 class Trigger:
     kind: str  # "schedule", "event" or "manual"
-    detail: str = ""  # "daily 09:04", "weekly sun 19:44", "activity.published", "reply"
+    # "daily", "weekly", "activity.published", "reply". A schedule's time and days are not
+    # here: they are the settings (Coach → Settings, ``settings.DEFAULT_SCHEDULE``), and
+    # ``when`` puts the two together (#119), so nothing states a time twice.
+    detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,7 +64,7 @@ TASKS: tuple[Task, ...] = (
         title="Morning advice",
         # The fixed advice run (#90); new data after it makes a new version of today's.
         triggers=(
-            Trigger("schedule", "daily 07:00"),
+            Trigger("schedule", "daily"),
             Trigger("event", "new data for today's advice"),
             Trigger("manual", "test now"),
         ),
@@ -88,7 +92,7 @@ TASKS: tuple[Task, ...] = (
         title="Evening review",
         # Its advice is for tomorrow (#90); new data after it makes a new version of that.
         triggers=(
-            Trigger("schedule", "daily 21:45"),
+            Trigger("schedule", "daily"),
             Trigger("event", "new data for tomorrow's advice"),
             Trigger("manual", "test now"),
         ),
@@ -116,7 +120,7 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="weekly",
         title="Week review",
-        triggers=(Trigger("schedule", "weekly sun 19:44"), Trigger("manual", "test now")),
+        triggers=(Trigger("schedule", "weekly"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=150),
         prompt="weekly",
         chain=("week", "fitness", "plan_next_week", "replies", "coach_team", "recent_reports"),
@@ -126,7 +130,7 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="monthly",
         title="Month report",
-        triggers=(Trigger("schedule", "monthly 1st 10:04"), Trigger("manual", "test now")),
+        triggers=(Trigger("schedule", "monthly"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=150),
         prompt="monthly",
         chain=("month", "fitness", "races", "recent_reports", "replies"),
@@ -136,7 +140,10 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="block",
         title="Block review",
-        triggers=(Trigger("schedule", "Sunday a phase ends, 20:14"), Trigger("manual", "test now")),
+        triggers=(
+            Trigger("schedule", "the Sunday a plan phase ends"),
+            Trigger("manual", "test now"),
+        ),
         contract=Contract("note", ("summary", "for_date"), max_words=150),
         prompt="block",
         chain=("block", "fitness", "races", "recent_reports", "replies"),
@@ -146,7 +153,7 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="race",
         title="Race brief",
-        triggers=(Trigger("schedule", "race -7 and -1 days, 18:04"), Trigger("manual", "test now")),
+        triggers=(Trigger("schedule", "7 and 1 days before a race"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=150),
         prompt="race",
         chain=("races", "plan_horizon", "recovery", "fitness", "weather", "replies"),
@@ -169,7 +176,7 @@ TASKS: tuple[Task, ...] = (
         id="thresholds",
         title="Threshold check",
         triggers=(
-            Trigger("schedule", "Monday 09:34, only on a new signal"),
+            Trigger("schedule", "weekly, only on a new signal"),
             Trigger("manual", "test now"),
         ),
         contract=Contract("note", ("summary", "for_date"), max_words=70),
@@ -183,7 +190,7 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="kb",
         title="Knowledge base care",
-        triggers=(Trigger("schedule", "monthly 15th 10:34"), Trigger("manual", "test now")),
+        triggers=(Trigger("schedule", "monthly"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=100),
         prompt="kb",
         chain=("kb_due", "replies"),
@@ -296,6 +303,29 @@ def scheduled() -> tuple[str, ...]:
 def reports() -> tuple[str, ...]:
     """Live tasks that write a report (an entry that is mailed): on a clock or on an event."""
     return tuple(i for i in live() if "report" in BY_ID[i].writes)
+
+
+DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def schedule_trigger(task_id: str) -> Trigger | None:
+    return next((g for g in BY_ID[task_id].triggers if g.kind == "schedule"), None)
+
+
+def when(task_id: str, spec: dict[str, Any]) -> str:
+    """A scheduled task's moment in words, from its trigger and its settings (#119):
+    "every day 07:00", "Sunday 19:44", "the Sunday a plan phase ends: Sunday 20:14"."""
+    trigger = schedule_trigger(task_id)
+    if "monthday" in spec:
+        days = f"day {spec['monthday']} of the month"
+    elif sorted(spec.get("days") or []) == list(range(7)):
+        days = "every day"
+    else:
+        days = ", ".join(DAY_NAMES[d] for d in sorted(spec.get("days") or []))
+    text = f"{days} {spec['time']}"
+    if trigger is not None and trigger.detail not in ("daily", "weekly", "monthly"):
+        text = f"{trigger.detail}: {text}"
+    return text if spec.get("on", True) else f"{text} (switched off)"
 
 
 def entry_types() -> dict[str, str]:

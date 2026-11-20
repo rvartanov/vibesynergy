@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from vibesynergy.coach_runner import JOBS, MODEL, MODELS, prompts, registry, runner
+from vibesynergy.coach_runner import JOBS, MODEL, MODELS, contact, prompts, registry, runner
 from vibesynergy.coach_runner import schedule as runner_schedule
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.query import coach_replies
@@ -39,6 +39,8 @@ def overview(rt) -> dict[str, Any]:
         "over_budget": used["cost_usd"] >= cap,
         "schedule": cfg.schedule,
         "advice": _advice(rt, cfg),
+        # When an AI coach may reach the athlete (#119), for every AI coach.
+        "contact": contact.state(rt),
         "timezone": runner.zone(rt).key,
         "jobs": list(JOBS),
         "last_runs": runner.last_runs(rt),

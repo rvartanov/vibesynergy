@@ -106,13 +106,25 @@ function fillReport(id) {
   };
 }
 
-const SCHEDULES = { daily: N("Every day"), weekly: N("Every Sunday"), per_activity: N("After each activity") };
+// The register is generated from the harness and Coach → Settings (#119): the time is the
+// task's own (due), the days are its schedule.
+const SCHEDULES = { daily: N("Every day"), monthly: N("Every month"), per_activity: N("After each activity"), event: N("When something happens") };
+const DAY_NAMES = [N("Monday"), N("Tuesday"), N("Wednesday"), N("Thursday"), N("Friday"), N("Saturday"), N("Sunday")];
+
+function taskWhen(task) {
+  const days = task.schedule === "weekly" || task.schedule === "days"
+    ? (task.days || []).map((d) => t(DAY_NAMES[d])).join(", ")
+    : t(SCHEDULES[task.schedule] || task.schedule);
+  const at = task.due ? ` · ${t("at {time}", { time: task.due })}` : "";
+  const off = task.on === false ? ` · ${t("Off")}` : "";
+  return `${days}${at}${off}`;
+}
 
 async function fillTasks(el, stale) {
   const { data } = await get("coach/tasks", {}, { timeoutMs: COACH_TIMEOUT_MS });
   if (stale() || !el.isConnected) return;
   const rows = data.tasks.map((task) => {
-    const when = t(SCHEDULES[task.schedule] || task.schedule) + (task.due ? ` · ${t("before {time}", { time: task.due })}` : "");
+    const when = taskWhen(task);
     const last = `${t("Last done")}: ${task.last_run ? userDateTime(task.last_run) : t("Not yet")}`;
     const missing = task.missing.length
       ? `<p class="safety-line">${esc(t("Skipped: {days}", { days: task.missing.map((d) => longDate(d)).join(", ") }))}</p>`

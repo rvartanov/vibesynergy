@@ -470,6 +470,22 @@ provider is an adapter and tests run on a scripted fake with no network.
 - **API key:** stored encrypted in the `coach_runner` secret store, write-only in the page,
   never in a response, log line or audit row (only "set" and when it changed).
 
+## Contact window (#119)
+
+Coach → Settings → **Contact window** (default 07:00–23:00, local time; stored as
+`contact` in the runner's settings) says when any AI coach may reach the athlete. The
+runner always runs at its scheduled time and writes its entry; outside the window
+`report.send` keeps the report in the outbox (`coach_runner/contact.py`, store document
+`contact_outbox`) instead of sending its notice, push and mail, and the run shows "The
+report waits for your contact window" (`mail_error` `waiting for the contact window`). The
+service job `coach_contact` sends the outbox once the window opens: per advice day only the
+version that is current then, and it sets the run's `mailed_at`. A failed run's notice
+waits the same way; sending again by hand does not. Today's red advice from a hard rule the
+athlete's own report set off (illness, a red-flag note, pain 7/10 or more, an injury that
+changes how he moves) is the one exception and goes out at once. The default start
+matches the default 07:00 advice run; with a later start the run still runs at 07:00 and
+only its delivery waits. Details and the decisions: [AI_HARNESS.md](AI_HARNESS.md#contact-window-119).
+
 ## Replies and approvals
 
 Each coach entry on the Coach page has a reply box; the mail links to the report page with
