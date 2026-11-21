@@ -239,6 +239,7 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 /* The colour state of an advice (#147): its colour and meaning, or "Done for today" with the
    recovery colour in a small line; a day that is done calls for no colour. */
 .advice-verdict { margin: 0 0 var(--space-1); display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: baseline; }
+.advice-status .advice-verdict { display: inline; margin: 0; color: var(--ink); }
 .verdict.done { border-left-color: var(--line); }
 .advice-report-head { margin: 0 0 var(--space-3); }
 .advice-report-head h2 { margin: 0; }

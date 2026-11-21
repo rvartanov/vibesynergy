@@ -29,12 +29,12 @@ const POLL_LIMIT_MS = 12 * 60 * 1000;
 
 /** The colour state of an advice view: a chip with the colour and its meaning, or "Done for
  * today" with the recovery colour in a small line beside it. */
-export function verdictHtml(view) {
+export function verdictHtml(view, tag = "p") {
   if (!view || view.state === "none" || !view.verdict) return "";
   if (view.state === "done") {
-    return `<p class="advice-verdict" data-advice-state="done"><span class="chip good">${esc(view.headline)}</span>${view.recovery ? ` <span class="sub" data-advice-recovery>${esc(view.recovery)}</span>` : ""}</p>`;
+    return `<${tag} class="advice-verdict" data-advice-state="done"><span class="chip good">${esc(view.headline)}</span>${view.recovery ? ` <span class="sub" data-advice-recovery>${esc(view.recovery)}</span>` : ""}</${tag}>`;
   }
-  return `<p class="advice-verdict" data-advice-state="colour"><span class="chip ${TONES[view.colour] || ""}">${esc(view.colour_name)}</span> ${esc(view.headline)}</p>`;
+  return `<${tag} class="advice-verdict" data-advice-state="colour"><span class="chip ${TONES[view.colour] || ""}">${esc(view.colour_name)}</span> ${esc(view.headline)}</${tag}>`;
 }
 
 /** The colour class of an advice card: none once the day is done, so the card does not
@@ -278,18 +278,14 @@ export function adviceHtml(advice, { keyPrefix = "dashboard", refresh = false } 
   const because = advice.source === "ai" ? becauseText(advice.entry) : "";
   const details = `<details data-refresh-key="${esc(keyPrefix)}-guidance-details" data-advice-details><summary>${t("Why this advice")}</summary>
       ${why}${because ? `<p>${esc(because)}</p>` : ""}<p class="sub">${esc(sourceLine(advice))}</p>${differencesHtml(advice)}</details>`;
-  // Where the advice stands and the update button on one line, so the card stays within one
-  // screen on a phone.
-  const status = updated || updating || fallback || refresh
-    ? `<p class="sub advice-status${fallback ? " advice-fallback" : ""}">${updated}${updating}${fallback}${refresh ? refreshButtonHtml() : ""}</p>`
+  // The AI coach's colour state first (#147): its colour and meaning, or "done for today".
+  // It opens the status line, with when and why and the update button, so the card stays
+  // within one screen on a phone. The rules' advice keeps its colour on the card's edge.
+  const verdict = advice.view ? verdictHtml(advice.view, "span") : "";
+  const status = verdict || updated || updating || fallback || refresh
+    ? `<p class="sub advice-status${fallback ? " advice-fallback" : ""}">${verdict ? `${verdict} · ` : ""}${updated}${updating}${fallback}${refresh ? refreshButtonHtml() : ""}</p>`
     : "";
-  // The colour state first (#147): the AI coach's view, or the rules' colour and headline.
-  const verdict = advice.view
-    ? verdictHtml(advice.view)
-    : advice.level
-      ? `<p class="advice-verdict" data-advice-state="colour"><span class="chip ${TONES[advice.level] || ""}">${esc(t(COLOURS[advice.level] || advice.level))}</span> ${esc(advice.headline || "")}</p>`
-      : "";
-  return `${verdict}<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}${secondOpinionsHtml(advice, { keyPrefix })}`;
+  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}${secondOpinionsHtml(advice, { keyPrefix })}`;
 }
 
 export function refreshButtonHtml() {
