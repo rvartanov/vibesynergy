@@ -140,7 +140,6 @@ def overview(engine: Engine, today: date) -> dict[str, Any]:
             "start": str(today),
             "end": str(end),
             "items": [_session(i) for i in calendar["items"] if i["kind"] in plan_q.TRAINING_KINDS],
-            "not_in_plan": [_session(i) for i in calendar["not_in_plan"]],
         },
     }
 

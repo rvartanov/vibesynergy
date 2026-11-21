@@ -907,15 +907,16 @@ Planned vs completed training.
     `name` for the same day, sport family and name, `brick` for a part of a brick title,
     `plan_tag` for a title carrying the plan's id such as `(lake27)` on a day with plan
     sessions, and its calendar `mirrors`). Garmin has no id that links the two;
-  - any other Garmin workout (Garmin Coach's "Basis", "Drempel" and so on) is in
-    `not_in_plan` with `in_plan` false and `status` `not_in_plan`. It is not in `items`,
-    `today`, `adherence` or the week, and never reaches the advice;
+  - any other Garmin workout (Garmin Coach's "Basis", "Drempel", one added by hand in
+    Garmin) is not VibeSynergy's and is not shown (#153): it is in no list of this tool or
+    of `vibesynergy_today`, `vibesynergy_week`, the horizon guard or the AI coach's context,
+    and never counted. Its synced row stays in the database;
   - `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
     are the plan's keys such as `lake27:week:03`; a target has no `title`).
   Days before `plan_start`, and an install without a plan, keep the Garmin calendar as the
   plan, with `plan_source` `garmin` on each training item.
-- `adherence` also has `changed`, `missed` and `not_in_plan` (Garmin workouts outside the
-  plan up to today). `planned` and `done` are unchanged in meaning.
+- `adherence` also has `changed` and `missed`. `planned` and `done` are unchanged in
+  meaning.
 - `weeks`: one row per Monday in the window that has a week note or weekly target in the
   plan: `start`, `end`, `note` (`id`, `title`, `text`) and `targets` (`sport`, `family`,
   `time_s`, `distance_m`, `load`, and `done_s` / `done_distance_m` from the activities that
@@ -923,7 +924,7 @@ Planned vs completed training.
 - Races: a VibeSynergy race is an item with `kind` `event`, `source` `vibesynergy` and
   `extra.ownership` `vibesynergy_plan`. A Garmin event on the day of a race (or linked to
   it) is its copy, named in `extra.garmin`; `intervals_id` is the id of its intervals.icu
-  copy. Any other Garmin event is in `not_in_plan`. Migration 0053 moved the races Garmin
+  copy. Any other Garmin event is not shown (#153). Migration 0053 moved the races Garmin
   and intervals.icu held into VibeSynergy once; `vibesynergy plan import-races` repeats
   that copy for races VibeSynergy has not got yet, and never changes one.
 
@@ -1018,9 +1019,9 @@ One call for "how should I train today?".
   uncertainty about the night, not as a short night.
   `date_label` is `d-m-yyyy`; other dates stay ISO. Items carry `source` and `in_plan`;
   `plan_source` says where the plan comes from (`vibesynergy`, or `garmin` before the plan
-  starts or without a plan; never intervals.icu, #111),
-  and `not_in_plan` lists today's Garmin workouts that are not in the plan (see
-  `vibesynergy_plan`).
+  starts or without a plan; never intervals.icu, #111). Garmin workouts that are not
+  VibeSynergy's (Garmin Coach, added by hand) are not shown, in `today` nor in `horizon`
+  (#153; see `vibesynergy_plan`).
   `advice` is the day's current advice, the same as the dashboard, the Coach page and the
   mail (#89): `source` `ai` (the newest valid AI advice decides `level` (colour),
   `safety_level`, `reasons` and `advice`) or `rules`; `mode` is the athlete's setting (`ai`,
@@ -1047,8 +1048,8 @@ Monday to Sunday, planned against what was done.
   done/changed/missed/today/upcoming, matched activity) and totals.
   Saturday and Sunday are included when today is Friday. Also `plan_source`, `note` (the
   plan's week note: `id`, `title`, `text`, or null), `targets` (weekly time targets
-  per sport with `done_s`, as in `vibesynergy_plan` `weeks`) and `not_in_plan` (Garmin workouts
-  that week outside the plan, same shape as `items`).
+  per sport with `done_s`, as in `vibesynergy_plan` `weeks`). Garmin workouts that are not
+  VibeSynergy's are not shown (#153).
 - `progress` (the start page's week card, `query/week_progress.py`): `season`, `note`
   (`title`, `focus`, `text`), `sports` (per sport `target_s`, `planned_s`, `goal_s` with
   `basis` target/planned, `done_s`, `done_distance_m`, `done_load`, `remaining_s`,

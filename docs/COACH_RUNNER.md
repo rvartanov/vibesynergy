@@ -216,8 +216,10 @@ never intervals.icu:
   session. A `structure` deviation means another workout than planned, from the laps;
 - `today` and `week`: `vibesynergy_today` and `vibesynergy_week`, built on
   `vibesynergy_plan`, whose planned sessions, week notes, targets and races are
-  VibeSynergy's own. A Garmin workout that is not in the plan (Garmin Coach's "Basis",
-  "Drempel" and so on) stays under `not_in_plan` and is never planned;
+  VibeSynergy's own. A Garmin workout or event that is not VibeSynergy's (Garmin Coach's
+  "Basis", "Drempel", one added by hand in Garmin) is not in any block, nor in
+  `plan_horizon.guard` (`plan_horizon` and `week` version 2, #153). So the advice never
+  mentions it;
 - `races` (version 2): VibeSynergy's race list with its A/B/C priority; the primary race
   is the next A race (#120).
 

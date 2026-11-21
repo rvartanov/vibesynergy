@@ -341,7 +341,8 @@ def register(kit: ToolKit) -> None:
         (plan_source vibesynergy; items carry session_id): intervals.icu holds a one-way
         copy and is never read as the plan. A Garmin workout that is a copy of a plan
         session is folded into it as garmin_copies; any other Garmin workout or event
-        (Garmin Coach sessions too) is listed under not_in_plan and never counted. Before
+        (Garmin Coach sessions, ones added by hand in Garmin) is not VibeSynergy's and is
+        not shown: it is in no list here and never counted. Before
         plan_start, or without a plan, the Garmin calendar is used. Each planned workout
         says whether it was done (matched to an activity of the same sport that day),
         changed, or missed; also today's session, adherence, weeks (the week's note and time

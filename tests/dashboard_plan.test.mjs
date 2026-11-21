@@ -22,9 +22,7 @@ test("a planned workout with a description opens like in This week", () => {
       },
       { title: "Zwemmen duur 35'", sport: "swimming", status: "today" },
     ],
-    [],
     null,
-    "vibesynergy",
   );
   assert.match(html, /<details class="collapsible wp-details dash-workout"><summary>/);
   assert.match(html, /Korte duurloop 40&#39;/);
@@ -36,9 +34,7 @@ test("a planned workout with a description opens like in This week", () => {
 test("a done workout keeps its link to the activity", () => {
   const html = planHtml(
     [{ title: "Run", sport: "running", status: "done", description: "- 30m Z2", done_by: [{ id: "garmin:1" }] }],
-    [],
     null,
-    "vibesynergy",
   );
   assert.match(html, /href="#\/activity\/garmin%3A1"/);
 });
@@ -54,9 +50,7 @@ test("a changed workout says why, without opening it", async () => {
       deviation: { kind: "harder", above_s: 1680, ceiling: 1 },
       done_by: [{ id: "garmin:2" }],
     }],
-    [],
     null,
-    "vibesynergy",
   );
   assert.match(html, /dash-why">Harder than planned: 28 min above zone 1\./);
   assert.equal(deviationText({ kind: "shorter", planned_s: 3000, actual_s: 1800 }).startsWith("Shorter than planned"), true);
@@ -77,9 +71,7 @@ test("a done or changed workout shows Planned and Done, the reason on top (#116)
       comparison: { check: "differs", planned: "3x300 Middel", done: "5x50 + 3x100", rpe: 3 },
       done_by: [{ id: "garmin:25129577914", sport: "lap_swimming", moving_s: 4064.9, distance_m: 2525 }],
     }],
-    [],
     null,
-    "vibesynergy",
   );
   const why = html.indexOf("dash-why");
   const planned = html.indexOf("Planned:");
@@ -92,4 +84,11 @@ test("a done or changed workout shows Planned and Done, the reason on top (#116)
   // Done with thin laps: the word says so; an upcoming session gets no lines.
   assert.equal(statusWord("done", { check: "not_checked" }, "done"), "done, not checked");
   assert.equal(planLinesHtml({ title: "Run", status: "upcoming", actual: null }), "");
+});
+
+test("only VibeSynergy's own plan shows; no Garmin calendar section (#153)", () => {
+  const html = planHtml([{ title: "Rustige rit Z2 1u", sport: "cycling", status: "today" }], null);
+  assert.doesNotMatch(html, /Garmin/);
+  assert.match(html, /Rustige rit Z2 1u/);
+  assert.match(planHtml([], null), /Nothing planned for this day\./);
 });

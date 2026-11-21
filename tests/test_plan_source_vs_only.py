@@ -172,8 +172,10 @@ def test_garmin_coach_workouts_are_not_in_the_plan_and_no_advice_input(runtime) 
             raw_item_id=stored.id,
         )
     after = plan.plan(runtime.engine, Window(MONDAY, MONDAY), MONDAY)
-    assert {i["source_id"] for i in after["not_in_plan"]} >= {"coach-basis", "coach-drempel"}
-    assert all(i["status"] == "not_in_plan" for i in after["not_in_plan"])
+    # Garmin Coach's workouts are not shown anywhere in the plan (#153).
+    assert "not_in_plan" not in after
+    assert not {"coach-basis", "coach-drempel"} & {i["source_id"] for i in after["items"]}
+    assert "Drempel" not in json.dumps(after, default=str)
     assert [i["title"] for i in after["today"]] == [i["title"] for i in before["today"]]
     assert after["adherence"]["planned"] == before["adherence"]["planned"]
     verdict = dashboard.rules_verdict(runtime, MONDAY)

@@ -79,8 +79,10 @@ def test_a_garmin_race_is_no_race_and_a_sync_changes_nothing(runtime) -> None:
     events = [i for i in out["items"] if i["kind"] == "event"]
     assert [i["source"] for i in events] == ["vibesynergy", "vibesynergy"]
     assert events[1]["extra"]["garmin"]["source_id"] == "event:main"
-    # The race only on Garmin is not in the plan and never reaches the race phase.
-    assert [i["source_id"] for i in out["not_in_plan"]] == ["event:other"]
+    # The race only on Garmin is not in the plan, not shown (#153) and never reaches the
+    # race phase.
+    assert "not_in_plan" not in out
+    assert "event:other" not in json.dumps(out, default=str)
     assert out["next_race"]["name"] == "Main race"
 
     _write(runtime, [CalendarSpan(today, race_day)], key="races-gone")

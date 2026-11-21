@@ -159,8 +159,11 @@ Details: [SOURCES.md](SOURCES.md).
   sport, with a mark in front of the name: one for all, ⚡ by default, one per workout type with multisport joining its sports' marks, or none) and to intervals.icu;
   a triathlon, duathlon or brick is one session per sport linked by slot (`ms1-swim`,
   `ms2-ride`, `ms3-run`), one entry in the calendar and one Garmin multisport workout. A
-  Garmin calendar workout that is not in the plan (Garmin Coach's "Basis", "Drempel" and so
-  on) is listed apart as not in the plan and never counts as planned.
+  Garmin calendar workout or event that is not VibeSynergy's own (Garmin Coach's "Basis",
+  "Drempel", one added by hand in Garmin) is not shown: not on the start page, the day view,
+  the planning page, in the AI apps or to the AI coach, and it never counts as planned
+  (#153). VibeSynergy's own copies on Garmin fold into their session; the synced Garmin
+  calendar stays in the database and VibeSynergy does not change it.
 - **Races**: VibeSynergy's own race list with an A/B/C priority per race (Calendar page,
   `vibesynergy_race_set_priority`); the next A race is the primary race and sets the taper.
   Garmin and intervals.icu events are no races; the races they held moved into VibeSynergy

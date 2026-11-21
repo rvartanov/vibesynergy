@@ -131,9 +131,6 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         "horizon": _horizon(rt, day),
         "today": today_items,
         "plan_source": board["plan"].get("plan_source"),
-        "not_in_plan": [
-            _item(row) for row in board["plan"].get("not_in_plan") or [] if row["date"] == str(day)
-        ],
         "tomorrow": tomorrow_items,
         "done_recent": _recent(engine, day),
         "race": race,
@@ -212,7 +209,6 @@ def week_brief(rt: Runtime, start: date, end: date, today: date) -> dict[str, An
         "end": str(end),
         "plan_source": calendar.get("plan_source"),
         "items": sessions,
-        "not_in_plan": [_week_session(item) for item in calendar.get("not_in_plan") or []],
         "totals": _totals(sessions),
         "note": (this_week or {}).get("note"),
         "targets": targets,
