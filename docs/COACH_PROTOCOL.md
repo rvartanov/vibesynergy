@@ -114,7 +114,7 @@ is applied at once (status `applied`, a version by `lint/editorial`) when every 
 only fixes a warning from the handbook's `warnings` the mechanical way, and nothing else
 changes:
 
-- an old article slug becomes the current one (`claude-coach-loop` → `ai-coach-loop`), the
+- an old article slug becomes the current one (its old name → `ai-coach-loop`), the
   old app name becomes VibeSynergy, a `vitality_*` tool becomes its `vibesynergy_*` tool;
 - a rule range from 1 gets the real end (`ICU-1..4` → `ICU-1..6`);
 - on a plain instruction line (no table, heading, code, date or example, one value), a fixed
