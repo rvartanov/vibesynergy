@@ -3252,5 +3252,22 @@
  "injury check {time}": "injury check {time}",
  "written {time}": "written {time}",
  "Open tomorrow's advice": "Open tomorrow's advice",
- "A notice names another day than the advice it links to ({day}).": "A notice names another day than the advice it links to ({day})."
+ "A notice names another day than the advice it links to ({day}).": "A notice names another day than the advice it links to ({day}).",
+ "Last copy of your plan to intervals.icu: {when}, 1 change": "Last copy of your plan to intervals.icu: {when}, 1 change",
+ "Last copy of your plan to intervals.icu: {when}, {n} changes": "Last copy of your plan to intervals.icu: {when}, {n} changes",
+ "Updated": "Updated",
+ "Moved": "Moved",
+ "Removed": "Removed",
+ "And {n} more.": "And {n} more.",
+ "VibeSynergy copies your plan to intervals.icu after every sync, only what differs. A copy is not a plan change, so it is not in your AI coach's messages.": "VibeSynergy copies your plan to intervals.icu after every sync, only what differs. A copy is not a plan change, so it is not in your AI coach's messages.",
+ "Session moved: {name}, {from} to {date}": "Session moved: {name}, {from} to {date}",
+ "Session added: {name}, {date}": "Session added: {name}, {date}",
+ "Session changed: {name}, {date}": "Session changed: {name}, {date}",
+ "Session taken out of the plan: {name}, {date}": "Session taken out of the plan: {name}, {date}",
+ "Week {week}: note changed": "Week {week}: note changed",
+ "Week {week}: {sport} target removed": "Week {week}: {sport} target removed",
+ "Week {week}: {sport} target changed": "Week {week}: {sport} target changed",
+ "Plan version {n}": "Plan version {n}",
+ "moved in the calendar": "moved in the calendar",
+ "skipped in the calendar": "skipped in the calendar"
 }

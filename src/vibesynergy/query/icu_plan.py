@@ -3,7 +3,8 @@
 Writes go to one event id. An ``external_id`` only finds that id in the cache.
 Nothing bulk-upserts. Every write stores a before and after snapshot on
 ``audit_log`` and a line on the coach feed. Revert puts the before snapshot
-back through the API.
+back through the API. The plan mirror's copies (``mirror_run``) are audit rows only: a copy
+of VibeSynergy's plan is no plan change, so it is not on the coach feed (#141).
 
 intervals.icu is never the plan (#111): the plan is VibeSynergy's own model, and these
 events are its copy, which intervals.icu passes on to other services. An event written here
@@ -74,6 +75,7 @@ def create_event(
     tags: list[str] | None = None,
     targets: dict[str, float] | None = None,
     author: str | None = None,
+    mirror_run: str | None = None,
 ) -> dict[str, Any]:
     _reason(reason)
     if not category.strip() or not name.strip():
@@ -119,6 +121,7 @@ def create_event(
         event_id=str(stored["id"]),
         raw_id=raw_id,
         author=author or current_author(),
+        mirror_run=mirror_run,
         day=start_date,
     )
 
@@ -133,6 +136,7 @@ def update_event(
     event_id: str | None = None,
     external_id: str | None = None,
     author: str | None = None,
+    mirror_run: str | None = None,
 ) -> dict[str, Any]:
     _reason(reason)
     _check_block(changes.get("description"))
@@ -156,6 +160,7 @@ def update_event(
         event_id=str(stored["id"]),
         raw_id=raw_id,
         author=author or current_author(),
+        mirror_run=mirror_run,
         day=row["date"],
     )
 
@@ -170,6 +175,7 @@ def move_event(
     event_id: str | None = None,
     external_id: str | None = None,
     author: str | None = None,
+    mirror_run: str | None = None,
 ) -> dict[str, Any]:
     _reason(reason)
     with engine.connect() as conn:
@@ -194,6 +200,7 @@ def move_event(
         event_id=str(stored["id"]),
         raw_id=raw_id,
         author=author or current_author(),
+        mirror_run=mirror_run,
         day=start_date,
     )
 
@@ -207,6 +214,7 @@ def delete_event(
     event_id: str | None = None,
     external_id: str | None = None,
     author: str | None = None,
+    mirror_run: str | None = None,
 ) -> dict[str, Any]:
     _reason(reason)
     with engine.connect() as conn:
@@ -223,6 +231,7 @@ def delete_event(
         event_id=row["id"],
         raw_id=raw_id,
         author=author or current_author(),
+        mirror_run=mirror_run,
         day=row["date"],
         remove=True,
     )
@@ -361,7 +370,10 @@ def _finish(
     day: date | None,
     remove: bool = False,
     extra: dict | None = None,
+    mirror_run: str | None = None,
 ) -> dict[str, Any]:
+    if mirror_run:
+        extra = {**(extra or {}), "mirror_run": mirror_run}
     with engine.begin() as conn:
         if remove:
             conn.execute(icu_event.delete().where(icu_event.c.id == str(event_id)))
@@ -377,13 +389,14 @@ def _finish(
             author=author,
             extra=extra,
         )
-        _feed(
-            conn,
-            reason=reason,
-            day=day,
-            author=author,
-            meta={"audit_id": audit_id, "action": action, "event_id": str(event_id)},
-        )
+        if not mirror_run:  # a mirror copy is no plan change: audit only (#141)
+            _feed(
+                conn,
+                reason=reason,
+                day=day,
+                author=author,
+                meta={"audit_id": audit_id, "action": action, "event_id": str(event_id)},
+            )
     version = None
     if isinstance(after, dict):
         version = version_token(_updated(after.get("updated")), after)

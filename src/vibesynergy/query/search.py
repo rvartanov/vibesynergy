@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy import Engine, func, select
 
+from vibesynergy.query import coach_workouts
 from vibesynergy.store.schema import activity_unified, coach_decision_log, note
 
 PER_KIND = 8
@@ -106,6 +107,7 @@ def search(rt: Any, query: str) -> dict[str, Any]:
                         "threshold_change",
                     )
                 ),
+                coach_workouts.shown_on_feed(),  # not the mirror's old copies (#141)
             )
             .order_by(coach_decision_log.c.at.desc())
             .limit(PER_KIND)

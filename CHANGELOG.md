@@ -371,6 +371,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **No more empty "Plan change" messages from copies to intervals.icu** (#141): after every
+  sync VibeSynergy copies your plan to intervals.icu, and each copy showed on the Coach page
+  as a "Plan change" that only read "plan mirror: fry27:week:23", up to 17 an hour while
+  another app kept overwriting intervals.icu. A copy is not a change to your plan: it is now
+  kept in the audit log only, and the 362 old copy messages are no longer shown on the Coach
+  page, in search or to the AI coach (they stay in the log, unchanged). Settings → Connections →
+  intervals.icu shows a quiet line instead, "Laatste kopie van je plan naar intervals.icu:
+  19-11-2026 18:16, 3 wijzigingen", with what was copied under Details. A real change to
+  your plan, by your AI coach or by you in the calendar, now shows as a "Plan change" with
+  its reason and, under Details, what changed ("Sessie verplaatst: Duurloop, van 2-11-2026
+  naar 3-11-2026") and the plan version. A "Plan change" without text is never shown.
 - **Every advice is named after the day it is for** (#138): the evening run's advice for
   Saturday came with the notice "Coach avond – vr 20 nov", while the start page showed
   Friday's check-in advice in another colour, so two different advices seemed to be about

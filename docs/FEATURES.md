@@ -51,7 +51,9 @@ Details: [SOURCES.md](SOURCES.md).
   as the plan, the week notes, the targets or the races, and a change made there changes
   nothing in the advice, the reports or the AI coach (#111). Read: the workout library, which
   plan workout an activity was paired with, and its calendar to check the copy. Not read:
-  fitness, load, zones, RPE/Feel, compliance.
+  fitness, load, zones, RPE/Feel, compliance. The copies are kept in the audit log, not on
+  the Coach page: Settings → Connections → intervals.icu shows when the last copy changed
+  something and how many changes it made, with what was copied under Details (#141).
 - **RunSynergy** (the running-group app): the group trainings you give, read from your personal
   calendar link (Settings → Sources → RunSynergy). Each becomes a workout proposal for the
   plan's "Training geven" session that day: warm-up and cool-down until lap, the core on time

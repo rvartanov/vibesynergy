@@ -27,6 +27,8 @@ from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import training_plan, workout_model
 from vibesynergy.query.plan import family
 from vibesynergy.store.schema import (
+    audit_log,
+    coach_decision_log,
     icu_event,
     plan,
     plan_link,
@@ -385,6 +387,52 @@ def mirror_soon(jobs: Any) -> int | None:
     return jobs.enqueue(MIRROR_JOB, {}, dedupe_key=MIRROR_JOB, priority=5)
 
 
+# Copies from before #141 carry no run id; the writes of one run came within this window.
+_OLD_RUN_WINDOW = timedelta(minutes=10)
+_COPY_ITEMS = 20  # at most this many changes listed under the line in Settings
+
+
+def last_copy(engine: Engine) -> dict[str, Any] | None:
+    """The mirror's last copy to intervals.icu that changed something, from the audit log
+    (Settings → Connections → intervals.icu, #141): when, how many changes, and which.
+    ``None`` when it never wrote anything."""
+    mine = (
+        audit_log.c.actor == "plan",
+        audit_log.c.author == MIRROR_AUTHOR,
+        audit_log.c.action.like("icu.%"),
+    )
+    with engine.connect() as conn:
+        last = (
+            conn.execute(select(audit_log).where(*mine).order_by(audit_log.c.id.desc()).limit(1))
+            .mappings()
+            .first()
+        )
+        if last is None:
+            return None
+        run = (last["detail"] or {}).get("mirror_run")
+        if run:
+            same = func.json_extract(audit_log.c.detail, "$.mirror_run") == run
+        else:
+            same = audit_log.c.at >= last["at"] - _OLD_RUN_WINDOW
+        rows = [
+            dict(r)
+            for r in conn.execute(
+                select(audit_log.c.at, audit_log.c.action, audit_log.c.detail)
+                .where(*mine, same, audit_log.c.id <= last["id"])
+                .order_by(audit_log.c.id.desc())
+            ).mappings()
+        ]
+    items = []
+    for r in rows[:_COPY_ITEMS]:
+        detail = r["detail"] or {}
+        event = detail.get("after") or detail.get("before") or {}
+        name = event.get("name") if isinstance(event, dict) else None
+        if not name:
+            name = str(detail.get("reason") or "").removeprefix("plan mirror:").strip()
+        items.append({"at": r["at"].isoformat(), "action": r["action"], "name": name or None})
+    return {"at": last["at"].isoformat(), "changes": len(rows), "items": items}
+
+
 # VibeSynergy leads (step 3) -------------------------------------------------------------------
 
 
@@ -476,6 +524,21 @@ def set_session(
             )
         else:
             conn.execute(insert(plan_session).values(id=ident, plan_id=plan_id, version=n, **row))
+        _feed_change(
+            conn,
+            author=author,
+            reason=reason,
+            day=day,
+            version=n,
+            session_id=ident,
+            change={
+                "action": "session_add" if before is None else "session_change",
+                "name": name,
+                "sport": sport,
+                "date": day.isoformat(),
+                "from_date": before.isoformat() if before not in (None, day) else None,
+            },
+        )
     days = [day] if before in (None, day) else [before, day]
     return {
         "session_id": ident,
@@ -556,6 +619,21 @@ def move_session(
         conn.execute(
             update(plan_session).where(plan_session.c.id == session_id).values(date=day, version=n)
         )
+        _feed_change(
+            conn,
+            author=author,
+            reason=reason,
+            day=day,
+            version=n,
+            session_id=session_id,
+            change={
+                "action": "session_move",
+                "name": row["name"],
+                "sport": row["sport"],
+                "date": day.isoformat(),
+                "from_date": row["date"].isoformat(),
+            },
+        )
     checks = _checks(engine, plan_id, session_id, [row["date"], day], row["name"])
     return {"session_id": session_id, "date": day.isoformat(), "version": n, "checks": checks}
 
@@ -572,6 +650,20 @@ def skip_session(
             update(plan_session)
             .where(plan_session.c.id == session_id)
             .values(status=SKIPPED, version=n)
+        )
+        _feed_change(
+            conn,
+            author=author,
+            reason=reason,
+            day=row["date"],
+            version=n,
+            session_id=session_id,
+            change={
+                "action": "session_skip",
+                "name": row["name"],
+                "sport": row["sport"],
+                "date": row["date"].isoformat(),
+            },
         )
     checks = _checks(engine, plan_id, session_id, [row["date"]], row["name"])
     return {"session_id": session_id, "status": SKIPPED, "version": n, "checks": checks}
@@ -623,6 +715,41 @@ def _ensure_week(conn: Any, plan_id: str, week: int, version: int) -> None:
     conn.execute(insert(plan_week).values(plan_id=plan_id, n=week, monday=monday, version=version))
 
 
+def _week_monday(conn: Any, plan_id: str, week: int) -> date | None:
+    return conn.execute(
+        select(plan_week.c.monday).where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
+    ).scalar()
+
+
+def _feed_change(
+    conn: Any,
+    *,
+    author: str,
+    reason: str,
+    day: date | None,
+    version: int,
+    change: dict[str, Any],
+    session_id: str | None = None,
+) -> None:
+    """One "Plan change" on the coach feed for a change to VibeSynergy's own plan, with its
+    reason and what changed (``meta.plan``). The mirror's copies to intervals.icu are not
+    plan changes and never come here (#141)."""
+    conn.execute(
+        insert(coach_decision_log).values(
+            subject_id=SUBJECT,
+            at=utc_now(),
+            kind="note",
+            author=author or "user",
+            entry_type="plan_change",
+            for_date=day,
+            plan_version_id=str(version),
+            session_id=session_id,
+            text=reason.strip()[:4000],
+            meta={"action": f"plan.{change['action']}", "plan": change, "version": version},
+        )
+    )
+
+
 def set_week(
     engine: Engine, *, week: int, note: str, reason: str, author: str, plan_id: str | None = None
 ) -> dict[str, Any]:
@@ -636,6 +763,14 @@ def set_week(
             update(plan_week)
             .where(plan_week.c.plan_id == plan_id, plan_week.c.n == week)
             .values(note=(note or "").strip() or None, version=n)
+        )
+        _feed_change(
+            conn,
+            author=author,
+            reason=reason,
+            day=_week_monday(conn, plan_id, week),
+            version=n,
+            change={"action": "week_note", "week": week},
         )
     return {"week": week, "version": n}
 
@@ -672,6 +807,19 @@ def set_target(
                     plan_id=plan_id, week=week, sport=sport, version=n, **values
                 )
             )
+        _feed_change(
+            conn,
+            author=author,
+            reason=reason,
+            day=_week_monday(conn, plan_id, week),
+            version=n,
+            change={
+                "action": "week_target",
+                "week": week,
+                "sport": sport,
+                "removed": all(v is None for v in values.values()),
+            },
+        )
     return {"week": week, "sport": sport, "version": n, **values}
 
 
@@ -697,7 +845,7 @@ def _icu_rows(conn: Any, plan_id: str, kind: str) -> dict[tuple, dict[str, Any]]
 
 
 def _mirror_weeks(
-    engine: Engine, client: Any, plan_id: str, *, dry_run: bool, author: str
+    engine: Engine, client: Any, plan_id: str, *, dry_run: bool, author: str, run: str
 ) -> dict[str, list]:
     """Week notes and targets whose intervals.icu copy differs from the model."""
     from vibesynergy.query import icu_plan
@@ -777,6 +925,7 @@ def _mirror_weeks(
                     changes=change,
                     event_id=row["id"],
                     author=author,
+                    mirror_run=run,
                 )
                 out["updated"].append(external)
             else:
@@ -794,6 +943,7 @@ def _mirror_weeks(
                     tags=[plan_id],
                     targets=change.get("targets"),
                     author=author,
+                    mirror_run=run,
                 )
                 out["created"].append(external)
         except Exception as exc:  # one failed week must not stop the others
@@ -802,7 +952,7 @@ def _mirror_weeks(
 
 
 def _mirror_skipped(
-    engine: Engine, client: Any, plan_id: str, *, dry_run: bool, author: str
+    engine: Engine, client: Any, plan_id: str, *, dry_run: bool, author: str, run: str
 ) -> list[str]:
     """Delete the intervals.icu copy of each skipped session that still has one."""
     from vibesynergy.query import icu_plan
@@ -833,6 +983,7 @@ def _mirror_skipped(
                     expected_version=version_token(updated, raw or {}),
                     event_id=remote_id,
                     author=author,
+                    mirror_run=run,
                 )
             except Exception as exc:  # retried on the next run
                 log.warning("could not remove %s from intervals.icu: %s", session_id, exc)
@@ -847,18 +998,24 @@ def _mirror_skipped(
     return removed
 
 
+MIRROR_AUTHOR = "VibeSynergy"  # who the mirror's copies are written as
+
+
 def mirror(
     engine: Engine,
     client: Any,
     *,
     plan_id: str | None = None,
     dry_run: bool = False,
-    author: str = "VibeSynergy",
+    author: str = MIRROR_AUTHOR,
 ) -> dict[str, Any]:
     """One-way: write every session, week note and weekly target whose intervals.icu copy
-    differs from the model."""
+    differs from the model. The copies are audit rows (``mirror_run`` names this run), not
+    plan changes on the coach feed (#141): see ``last_copy``."""
     plan_id = _required_plan(engine, plan_id)
     from vibesynergy.query import icu_plan
+
+    run = utc_now().isoformat(timespec="microseconds")
 
     result: dict[str, Any] = {
         "created": [],
@@ -918,6 +1075,7 @@ def mirror(
                     },
                     event_id=link.remote_id,
                     author=author,
+                    mirror_run=run,
                 )
                 result["updated"].append(s["id"])
             else:
@@ -934,6 +1092,7 @@ def mirror(
                     external_id=external,
                     tags=[plan_id],
                     author=author,
+                    mirror_run=run,
                 )
                 result["created"].append(s["id"])
         except Exception as exc:  # one failed session must not stop the others
@@ -955,8 +1114,10 @@ def mirror(
                     synced_at=utc_now(),
                 )
             )
-    result["removed"] = _mirror_skipped(engine, client, plan_id, dry_run=dry_run, author=author)
-    weekly = _mirror_weeks(engine, client, plan_id, dry_run=dry_run, author=author)
+    result["removed"] = _mirror_skipped(
+        engine, client, plan_id, dry_run=dry_run, author=author, run=run
+    )
+    weekly = _mirror_weeks(engine, client, plan_id, dry_run=dry_run, author=author, run=run)
     result["created"] += weekly["created"]
     result["updated"] += weekly["updated"]
     result["errors"] += weekly["errors"]
