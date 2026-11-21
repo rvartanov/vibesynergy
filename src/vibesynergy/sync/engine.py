@@ -128,6 +128,16 @@ class SyncEngine:
                 )
             except Exception:
                 log.exception("intervals.icu private notes retry failed")
+        if source_id == "garmin" and hasattr(source, "listed"):
+            try:
+                from vibesynergy.core.timeutil import today_in
+                from vibesynergy.query import source_removed
+
+                source_removed.check_recent(
+                    self._engine, source, results, today=today_in(self._settings.timezone)
+                )
+            except Exception:
+                log.exception("Garmin removal check failed")
         self.changed(results)
         if self.on_score is not None:
             try:

@@ -97,7 +97,7 @@ def attempts(rt) -> dict[str, dict[str, Any]]:
 
 
 def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
-    from vibesynergy.query import publication_format
+    from vibesynergy.query import publication_format, source_removed
 
     if not enabled(rt):
         return []
@@ -131,10 +131,11 @@ def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
                 )
             ).scalars()
         )
+        gone = source_removed.removed(conn, [r for row in rows for r in row["sources"] or []])
     tried = attempts(rt)
     out = []
     for row in rows:
-        refs = row["sources"] or []
+        refs = [r for r in row["sources"] or [] if r not in gone]  # live copies only (#151)
         strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
         garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
         if len(strava) != 1 or strava[0] in published:

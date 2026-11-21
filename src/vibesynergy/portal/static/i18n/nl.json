@@ -3284,5 +3284,7 @@
  "View": "Bekijk",
  "The advice for {day} and the day do not match: its colour or “done for today” does not fit the sessions in the plan.": "Het advies voor {day} past niet bij de dag: de kleur of “gedaan voor vandaag” klopt niet met de sessies in het plan.",
  "This morning's advice": "Advies van vanochtend",
- "No morning advice saved for this day.": "Geen ochtendadvies opgeslagen voor deze dag."
+ "No morning advice saved for this day.": "Geen ochtendadvies opgeslagen voor deze dag.",
+ "Garmin copy removed on Garmin": "Garmin-kopie verwijderd op Garmin",
+ "Copy removed at the source": "Kopie verwijderd bij de bron"
 }

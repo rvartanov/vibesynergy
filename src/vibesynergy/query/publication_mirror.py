@@ -25,7 +25,7 @@ from sqlalchemy import select
 
 from vibesynergy.core.errors import RateLimited
 from vibesynergy.core.secrets import SecretStore
-from vibesynergy.query import evidence, publication, publication_format, views
+from vibesynergy.query import evidence, publication, publication_format, source_removed, views
 from vibesynergy.store.schema import activity_unified, publication_mirror
 
 log = logging.getLogger(__name__)
@@ -72,8 +72,9 @@ def _ids(rt, activity_id: str) -> tuple[str, str | None, str, datetime]:
             .mappings()
             .one()
         )
-    strava = [r.split(":", 1)[1] for r in row["sources"] if r.startswith("strava:")]
-    garmin = [r.split(":", 1)[1] for r in row["sources"] if r.startswith("garmin:")]
+        refs = source_removed.live(conn, row["sources"])  # not a copy deleted there (#151)
+    strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
+    garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
     if len(strava) != 1:
         raise publication.Conflict("One matching strava activity is required")
     if len(garmin) > 1:  # Zwift's upload and the watch: the copy the figures come from (#146)
@@ -163,10 +164,58 @@ def _remove_after_manual_strava_edit(
     }
 
 
+# A group holds a few Garmin copies at most (Zwift's upload and the watch).
+MAX_COPIES = 3
+
+
 def sync(
     rt, activity_id: str, *, language: str, strava=None, garmin=None, removal_only: bool = False
 ) -> dict:
-    """One check: Strava block below Strava's text, then Garmin = Strava text + block + title."""
+    """One check: Strava block below Strava's text, then Garmin = Strava text + block + title.
+
+    A Garmin copy that was removed on Garmin (404, re-checked once: ``publication.Gone``) is
+    marked removed and the check goes on with the copy that is left, or ends as
+    ``not_linked`` without one: the watch never keeps retrying a copy that is gone (#151).
+    """
+    gone: list[str] = []
+    for _ in range(MAX_COPIES + 1):
+        try:
+            result = _sync(
+                rt,
+                activity_id,
+                language=language,
+                strava=strava,
+                garmin=garmin,
+                removal_only=removal_only,
+            )
+        except publication.Gone as exc:
+            if exc.destination != "garmin" or exc.source_id in gone:
+                raise
+            source_removed.mark(rt.engine, "garmin", exc.source_id, reason=exc.reason)
+            log.info(
+                "mirror for %s: Garmin copy %s is gone, retargeting", activity_id, exc.source_id
+            )
+            gone.append(exc.source_id)
+            continue
+        if gone:
+            result["garmin_removed"] = gone
+        _retarget(rt, activity_id)
+        return result
+    raise publication.Conflict("Garmin copies keep disappearing; checked again later")
+
+
+def _retarget(rt, activity_id: str) -> None:
+    """The watch names the Garmin copy it writes to: after a removal (here, or found by the
+    Garmin sync check), the copy that is left."""
+    _, garmin_id, group, _ = _ids(rt, activity_id)
+    row = watch(rt, group)
+    if row and row["garmin_id"] != garmin_id:
+        _update(rt, group, garmin_id=garmin_id)
+
+
+def _sync(
+    rt, activity_id: str, *, language: str, strava=None, garmin=None, removal_only: bool = False
+) -> dict:
     strava_id, garmin_id, group, _ = _ids(rt, activity_id)
     strava = strava or publication.provider(rt, "strava")
     result = {"strava": "unchanged", "garmin": "unchanged", "title": "unchanged"}

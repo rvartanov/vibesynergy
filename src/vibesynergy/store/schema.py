@@ -373,6 +373,18 @@ activity_link = Table(
     PrimaryKeyConstraint("source", "source_id"),
 )
 
+# A source copy that no longer exists where it came from (#151): Garmin answered 404 twice.
+# The activity row and its history stay; the copy only leaves the group's live sources.
+source_removed = Table(
+    "source_removed",
+    metadata,
+    Column("source", String, nullable=False),
+    Column("source_id", String, nullable=False),
+    Column("removed_at", UTCDateTime, nullable=False),
+    Column("reason", String, nullable=False),  # write | read | sync
+    PrimaryKeyConstraint("source", "source_id"),
+)
+
 # One row per real-world activity, fields chosen by the best-source rules.
 activity_unified = Table(
     "activity_unified",

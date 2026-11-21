@@ -407,6 +407,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **A Garmin copy you deleted on Garmin is no longer written to** (#151): when a ride has two
+  Garmin copies (Zwift's upload and the watch) and one of them is deleted on Garmin, by you
+  or by Garmin itself, VibeSynergy kept writing the description to the deleted copy and kept
+  retrying. Now, when Garmin says a copy is not there, VibeSynergy asks once more; if it is
+  really gone, the copy is marked as removed. The workout keeps the copy and its history, and
+  its Sources table says "Garmin-kopie verwijderd op Garmin", but the figures, the Garmin
+  description and the title go to the copy that is left, in the same check. After each
+  Garmin sync, VibeSynergy also looks for workouts of the last two weeks that Garmin no longer
+  lists, so a deletion is found without a failed write first. A copy that turns up again on
+  Garmin counts again.
 - **A Zwift ride that the watch also recorded is published again, with its AI insight**
   (#146): Zwift uploads its own copy to Garmin, so a ride you also record on the watch has two
   Garmin copies. VibeSynergy then took the figures from neither: the description preview was
