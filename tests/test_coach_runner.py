@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 
@@ -357,7 +358,8 @@ def test_morning_run_tools_mail_and_audit(rt, mail):
     # The same HTML layout as the morning alert mail, with a button to the report.
     assert page and "Openen in VibeSynergy" in page and f"#/coach/report/{entry['id']}" in page
     assert "HRV binnen band." not in page  # the details stay on the report page (7-11)
-    assert subject == f"Coach ochtend {DASH} zo 1 nov"
+    # Named after the day the advice is for, with the run that wrote it (#138).
+    assert re.fullmatch(r"Advies voor zo 1 nov \(ochtendrun \d\d:\d\d\)", subject), subject
     # The day's colour and headline first, the same as the dashboard's (#89).
     assert body.startswith("Groen: Goed hersteld\n\nAlex, houd de duurloop rustig")
     assert f"https://{TAILNET}:8447/#/coach/report/{entry['id']}" in body

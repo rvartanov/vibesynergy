@@ -13,7 +13,7 @@ import {
 } from "../daily_review.js";
 import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
-import { adviceHtml, adviceLevel, continuityHtml, threadBannerHtml, versionsHtml } from "../daily_advice.js";
+import { adviceHtml, adviceLevel, continuityHtml, entryAdviceLabel, threadBannerHtml, versionsHtml } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
 
 const COACH_TIMEOUT_MS = 15000;
@@ -412,7 +412,10 @@ function authorLabel(entry, names) {
 function coachEntryHtml(entry, names) {
   const { advice, caveat } = coachSummary(entry);
   const type = t(COACH_ENTRY_TYPES[entry.entry_type] || entry.entry_type);
-  const when = entry.at ? userDateTime(entry.at) : "";
+  // A daily advice is named after the day it is for, with the run that wrote it (#138),
+  // the same words as its notice; any other message keeps the time it was written.
+  const label = entryAdviceLabel(entry, isoToday());
+  const when = label || (entry.at ? userDateTime(entry.at) : "");
   // Only "out of date" is worth a chip; the rest of the bookkeeping sits in Details.
   const stale = entry.freshness === "stale" ? ` <span class="chip warning">${esc(t(COACH_FRESHNESS.stale))}</span>` : "";
   // An advisory AI coach's entry (#118): in the same day thread, marked, with who wrote it.
@@ -431,7 +434,7 @@ function coachEntryHtml(entry, names) {
     ? `${safety}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`
     : `${safety}${coach}`;
   return `<article class="coach-entry" data-entry-type="${esc(entry.entry_type || "")}">
-    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span>${second} <span class="sub">${esc(when)}</span>${stale}</header>
+    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span>${second} ${label ? `<strong data-advice-label="${esc(entry.advice_day)}">${esc(when)}</strong>` : `<span class="sub">${esc(when)}</span>`}${stale}</header>
     ${body}
     ${confirm}
     ${coachDetailsHtml(entry, names)}
@@ -466,7 +469,8 @@ async function coachFeed(
     const byDay = (list) => {
       const groups = new Map();
       for (const entry of list) {
-        const day = entry.for_date || (entry.at ? entry.at.slice(0, 10) : "");
+        // An advice under the day it is for (#138): the evening advice under tomorrow.
+        const day = entry.advice_day || entry.for_date || (entry.at ? entry.at.slice(0, 10) : "");
         if (!groups.has(day)) groups.set(day, []);
         groups.get(day).push(entry);
       }

@@ -227,6 +227,10 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 .dash-head-status .sub { margin: 0; color: var(--secondary); }
 .dash-head .notice { flex-basis: 100%; margin: 0; }
 .dash-kicker { font-size: var(--type-secondary); line-height: var(--leading-body); color: var(--secondary); margin: 0 0 var(--space-1); }
+/* Tomorrow's advice under today's, once the evening run wrote it (#138). */
+.dash-tomorrow { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); background: var(--subtle); border-radius: var(--radius); }
+.dash-tomorrow .dash-kicker { margin: 0; }
+.dash-tomorrow p { margin: var(--space-1) 0 0; }
 .dash-today .verdict-advice { font-size: var(--type-h2); line-height: var(--leading-h2); font-weight: 600; max-width: var(--measure); margin: 0 0 var(--space-2); }
 .advice-status { margin: 0 0 var(--space-1); }
 .advice-status .advice-refresh { min-height: 24px; }

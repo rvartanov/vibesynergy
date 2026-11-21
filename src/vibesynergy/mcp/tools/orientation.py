@@ -741,8 +741,10 @@ def register(kit: ToolKit) -> None:
         threshold_change. Each entry includes kb_rules and its predictions. A daily advice
         version also has advice_version (#115): {date (the day it is for), version, of,
         status (current, replaced or invalid), current_id, replaced_by} and its
-        changed_because, the same thread as the start page and vibesynergy_today. Newest
-        first.
+        changed_because, the same thread as the start page and vibesynergy_today, and
+        advice_label (#138): {date, day, run, title}, named after the day the advice is for
+        ("Advice for tomorrow - Sat 21 Nov") with the run that wrote it ("evening run
+        21:46"), the same words as the notice. Newest first.
         """
         from vibesynergy.query import daily_advice
 
@@ -756,6 +758,9 @@ def register(kit: ToolKit) -> None:
             except LookupError:
                 row["advice_version"] = None
             row["changed_because"] = daily_advice.changed_because(row)
+            # The one label of the advice (#138): the day it is for and the run that wrote
+            # it, the same as the notice, the push and the Coach page.
+            row["advice_label"] = daily_advice.label(rt, row)
         return envelope({"entries": rows}, span=span)
 
     @tool(READ, "read")

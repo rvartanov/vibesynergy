@@ -492,3 +492,154 @@ def test_a_second_opinion_needs_no_reason_and_is_no_version(rt, sent):
     assert not found.is_error, found.content[0].text
     assert len(daily_advice.current(rt, today, trigger=False)["versions"]) == 1
     assert _notices(rt) == []
+
+
+# --- one label for every advice: the day it is for (#138) ----------------------------------------
+
+LONG_EVENING = (
+    "Oranje: je herstel is nog niet terug op je eigen niveau, dus morgen de rustige rit van "
+    "1u15 in zone 2 en niets daarboven. Je rustpols ligt twee dagen hoger en je slaap was "
+    "korter dan normaal; je HRV ligt nog net onder normaal, dus houd het rustig en eet goed "
+    "na afloop. Voel je je morgenochtend fris, dan mag de rit iets langer."
+)
+
+
+def _advice_entry(rt, day, entry_type, task, text, safety):
+    with rt.engine.begin() as conn:
+        return conn.execute(
+            insert(coach_decision_log).values(
+                subject_id=1,
+                at=utc_now(),
+                kind="note",
+                author="client:coach-runner",
+                entry_type=entry_type,
+                for_date=day,
+                text=text,
+                meta={"safety": safety, "harness": {"via": "runner", "task": task}},
+            )
+        ).inserted_primary_key[0]
+
+
+def test_an_evening_advice_is_named_after_tomorrow_everywhere(rt, sent):
+    """Robert, 20-11 (#138): a check-in advice for today and the evening run's advice for
+    tomorrow. Every place names each advice after the day it is for, with the same colour."""
+    from vibesynergy.core.user_datetime import format_user_short_day
+
+    today = today_in(rt.settings.timezone)
+    tomorrow = today + timedelta(days=1)
+    checkin = _advice_entry(
+        rt, today, "note", "checkin", "Vandaag blijft rust; hooguit pilates.", SAFE
+    )
+    assert daily_advice.announce(rt, checkin)
+    evening = _advice_entry(rt, today, "evening", "evening", LONG_EVENING, AMBER)
+    assert daily_advice.announce(rt, evening)
+
+    nl = __import__("vibesynergy.i18n").i18n.translator("nl")
+    stored = report.stored(rt, evening)
+    run = daily_advice.run_label(stored, rt.settings.timezone, nl)
+    assert re.fullmatch(r"avondrun \d\d:\d\d", run)
+    short = format_user_short_day(tomorrow, "nl")
+    tomorrow_title = f"Advies voor morgen \N{EN DASH} {short} ({run})"
+    today_title = f"Advies voor vandaag \N{EN DASH} {format_user_short_day(today, 'nl')}"
+
+    # The notices: one per target day, each with the day it is for.
+    notices = {n["key"]: n for n in _notices(rt)}
+    late = notices[f"advice:{tomorrow.isoformat()}"]
+    early = notices[f"advice:{today.isoformat()}"]
+    assert late["entry_id"] == evening and late["advice_day"] == tomorrow.isoformat()
+    assert late["text"].startswith(f"{tomorrow_title}: Oranje")
+    assert early["entry_id"] == checkin and early["text"].startswith(today_title + " (check-in-run")
+    # Cut cleanly: never inside a word, and marked with "…".
+    assert late["text"].endswith("\N{HORIZONTAL ELLIPSIS}") and len(late["text"]) <= 300
+    assert late["text"].removesuffix("\N{HORIZONTAL ELLIPSIS}").rstrip(" .").split()[-1] in (
+        LONG_EVENING.replace(".", " ").replace(",", " ").replace(";", " ").split()
+    )
+
+    # The push and the mail carry the same title.
+    titles = [title for title, _body, url in sent["push"] if url == f"/#/coach/report/{evening}"]
+    assert titles == [tomorrow_title]
+    assert any(subject == tomorrow_title for subject, _ in sent["mail"])
+    push_body = next(b for _t, b, u in sent["push"] if u == f"/#/coach/report/{evening}")
+    assert push_body.startswith("Oranje") and push_body.endswith("\N{HORIZONTAL ELLIPSIS}")
+    assert len(push_body) <= report.SHORT_LIMIT
+
+    # The report page and the Coach page: the entry says the day it is for and its run.
+    client = TestClient(create_portal_app(rt), base_url=f"https://{TAILNET}:8447")
+    page = client.get(f"/api/coach/report/{evening}").json()["data"]
+    assert page["entry"]["advice_day"] == tomorrow.isoformat()
+    assert page["entry"]["advice_job"] == "evening"
+    assert page["thread"]["date"] == tomorrow.isoformat()
+    feed = {e["id"]: e for e in client.get("/api/coach/feed").json()["data"]["entries"]}
+    assert feed[evening]["advice_day"] == tomorrow.isoformat()
+    assert feed[checkin]["advice_day"] == today.isoformat()
+
+    # The start page: today's advice stays the check-in's; tomorrow's is in its own card.
+    card = daily_advice.upcoming(rt, today, tr=nl)
+    assert card is not None and card["entry_id"] == evening and card["date"] == tomorrow.isoformat()
+    assert card["level"] == "amber" and card["colour"] == "Oranje"
+    assert card["label"] == tomorrow_title.split(" (")[0] and card["run"] == run
+    assert card["link"] == late["link"] == f"#/coach/report/{evening}"
+    assert daily_advice.current(rt, today, trigger=False)["entry"]["id"] == checkin
+
+    # The MCP: the same days, the same entries.
+    day = _mcp(rt, "vibesynergy_today").structured_content["data"]
+    assert day["advice"]["entry"]["id"] == checkin
+    assert day["advice"]["label"].startswith("Advice for today")
+    assert day["advice_tomorrow"]["entry_id"] == evening
+    assert day["advice_tomorrow"]["date"] == tomorrow.isoformat()
+    assert day["advice_tomorrow"]["level"] == "amber"
+    assert day["continuity"] == []
+    entries = _mcp(rt, "vibesynergy_coach_entries", period="last_7d").structured_content["data"]
+    labels = {e["id"]: e["advice_label"] for e in entries["entries"]}
+    assert labels[evening]["date"] == tomorrow.isoformat()
+    assert labels[evening]["day"].startswith("Advice for tomorrow")
+    assert labels[evening]["run"].startswith("evening run ")
+    assert labels[checkin]["date"] == today.isoformat()
+
+    # One day and one colour for each advice, in every place.
+    assert {late["advice_day"], card["date"], labels[evening]["date"]} == {tomorrow.isoformat()}
+    assert coach_consistency.check(rt, today)["findings"] == []
+
+
+def test_the_check_flags_a_notice_named_after_the_run_day(rt, sent):
+    """The notice of 20-11 21:46: the evening advice for Saturday labelled "vr 20 nov"."""
+    from vibesynergy.core.user_datetime import format_user_short_day
+
+    today = today_in(rt.settings.timezone)
+    tomorrow = today + timedelta(days=1)
+    evening = _advice_entry(rt, today, "evening", "evening", "Oranje: morgen rustig.", AMBER)
+    store = SecretStore(rt.settings.secrets_dir, alerts.SECRETS)
+    old = f"Coach avond \N{EN DASH} {format_user_short_day(today, 'nl')}: Oranje: morgen rustig."
+    store.set(
+        alerts.ADVICE_STATE,
+        [
+            {
+                "key": f"advice:{tomorrow.isoformat()}",
+                "kind": "advice",
+                "at": utc_now().isoformat(),
+                "text": old,
+                "entry_id": evening,
+                "excerpt": "Oranje: morgen rustig.",
+            }
+        ],
+    )
+    found = coach_consistency.check(rt, today)["findings"]
+    assert [f["rule"] for f in found] == ["notice_day_differs"]
+    assert tomorrow.isoformat() in found[0]["evidence"]
+    # A notice whose own day says another day than its entry is flagged too.
+    store.set(
+        alerts.ADVICE_STATE,
+        [
+            {
+                "key": f"advice:{tomorrow.isoformat()}",
+                "kind": "advice",
+                "text": f"Advies voor {format_user_short_day(tomorrow, 'nl')}: Oranje",
+                "entry_id": evening,
+                "advice_day": today.isoformat(),
+            }
+        ],
+    )
+    (gap,) = coach_consistency.check(rt, today)["findings"]
+    assert gap["rule"] == "notice_day_differs" and "advice_day" in gap["evidence"]
+    page = coach_consistency.for_page(rt, __import__("vibesynergy.i18n").i18n.translator("nl"))
+    assert any("andere dag" in f["message"] for f in page)

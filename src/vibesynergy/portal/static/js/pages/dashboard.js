@@ -6,7 +6,7 @@ import { captureViewState, restoreViewState } from "../refresh_state.js";
 import { get, post } from "../api.js";
 import { recoverySummaryText } from "../recovery_summary.js";
 import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml } from "../daily_review.js";
-import { adviceHtml, adviceLevel, bindAdviceRefresh } from "../daily_advice.js";
+import { adviceHtml, adviceLevel, bindAdviceRefresh, tomorrowAdviceHtml } from "../daily_advice.js";
 import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sportName, userDateTime, weekday } from "../format.js";
 import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
@@ -132,6 +132,7 @@ export async function render(view, { args, query, meta, stale }) {
     html.advice = `<section class="card dash-today verdict ${esc(adviceLevel(d.advice))}" aria-labelledby="dash-today-title">
           <h2 id="dash-today-title" class="dash-kicker">${t("Advice for today")}</h2>
           <div data-dash-advice>${todayAdviceHtml(d, !share)}</div>
+          ${tomorrowAdviceHtml(d.advice_tomorrow, d.date)}
           ${share ? "" : sleepCheckHtml(d.verdict)}
           <div class="dash-plan">
             ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}

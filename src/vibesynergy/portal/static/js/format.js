@@ -1,6 +1,6 @@
 // Display formatting. The API sends SI values (s, m, kg, m/s); pages show them here, in the
 // chosen language's formats (i18n.js).
-import { locale, t } from "./i18n.js";
+import { language, locale, t } from "./i18n.js";
 
 const formats = new Map();
 function nf(digits) {
@@ -191,6 +191,25 @@ export function dayMonth(iso) {
   const monthName = d.toLocaleDateString(locale(), { month: "short", timeZone: "UTC" });
   const day = Number(String(iso).slice(8, 10));
   return `${day} ${monthName}`;
+}
+
+// The same short day as the server's (core/user_datetime.py, format_user_short_day), so a
+// label on a page reads exactly like the notice and the mail: "za 21 nov" / "Sat 21 Nov".
+const SHORT_WEEKDAYS = {
+  en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  nl: ["ma", "di", "wo", "do", "vr", "za", "zo"],
+};
+const SHORT_MONTHS = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  nl: ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
+};
+
+export function shortDay(iso) {
+  if (!validDay(iso)) return MISSING_DAY;
+  const lang = language() === "nl" ? "nl" : "en";
+  const d = parseDay(iso);
+  const weekdayIndex = (d.getUTCDay() + 6) % 7; // Monday first, as in Python
+  return `${SHORT_WEEKDAYS[lang][weekdayIndex]} ${d.getUTCDate()} ${SHORT_MONTHS[lang][d.getUTCMonth()]}`;
 }
 
 export function timeOfDay(isoTimestamp, timeZone = USER_TZ_DEFAULT) {

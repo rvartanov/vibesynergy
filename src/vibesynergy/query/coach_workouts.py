@@ -369,7 +369,14 @@ def _published_coach_row(conn, row) -> dict[str, Any]:
 
 
 def coach_row(row) -> dict[str, Any]:
+    from vibesynergy.query import daily_advice
+
     data = dict(row)
+    # A daily advice is named after the day it is for and the run that wrote it (#138):
+    # the Coach page, the report page and the MCP build its label from these.
+    target = daily_advice.advice_day(data)
+    data["advice_day"] = target.isoformat() if target else None
+    data["advice_job"] = daily_advice.entry_job(data) if target else None
     if "author" in data:
         data["author"] = read_author(data["author"])
     for key in ("at", "valid_until"):
