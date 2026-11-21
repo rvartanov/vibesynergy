@@ -382,7 +382,7 @@ def test_warm_up_and_work_sets_of_one_exercise_are_one_station() -> None:
 
 
 def _no_calendar(monkeypatch) -> None:
-    monkeypatch.setattr(horizon.plan_q, "plan", lambda *a, **k: {"items": [], "not_in_plan": []})
+    monkeypatch.setattr(horizon.plan_q, "plan", lambda *a, **k: {"items": []})
 
 
 def test_outdated_content_and_short_plan_are_reported(runtime, monkeypatch) -> None:

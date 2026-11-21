@@ -2,7 +2,9 @@
 
 Deterministic and read-only. A workout of VibeSynergy's plan (the only plan, #111) counts as
 on Garmin when the calendar merge in ``plan.plan`` folded at least one Garmin copy into it
-(intervals.icu's push, VibeSynergy's own strength workout, a brick's multisport copy). Two
+(intervals.icu's push, VibeSynergy's own strength workout, a brick's multisport copy). Other
+Garmin workouts (Garmin Coach, one added by hand) are not VibeSynergy's: the guard neither
+checks nor lists them (#153). Two
 copies matched by name are fine for strength and pilates (VibeSynergy's emoji copy next to
 intervals.icu's); for other sports they are a duplicate.
 
@@ -99,10 +101,6 @@ def status(
         "outdated": outdated,
         "fill": fill,
         "has_plan": has_plan,
-        "not_in_plan": [
-            {"date": str(i.get("date")), "title": i.get("title")}
-            for i in calendar.get("not_in_plan") or []
-        ],
     }
 
 

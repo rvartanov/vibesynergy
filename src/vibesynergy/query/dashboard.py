@@ -532,11 +532,6 @@ def _plan_view(plan: dict, today: date) -> dict:
         ],
         "adherence": plan["adherence"],
         "plan_source": plan.get("plan_source"),
-        "not_in_plan": [
-            i
-            for i in plan.get("not_in_plan") or []
-            if i["date"] <= str(today + timedelta(days=6 - today.weekday()))
-        ],
         "weeks": plan.get("weeks") or [],
     }
 

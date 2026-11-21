@@ -281,6 +281,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **Only VibeSynergy's own workouts** (#153): workouts and events on your Garmin calendar
+  that are not VibeSynergy's (Garmin Coach's "Basis" or "Drempel", one you added by hand in
+  Garmin) no longer show anywhere. The block "Alleen in je Garmin-agenda" is gone from the
+  start page, the day view and the planning page, and they are no longer in
+  `vibesynergy_plan`, `vibesynergy_today`, `vibesynergy_week`, the horizon guard or the AI
+  coach's context (blocks `plan_horizon` and `week` are version 2), so the advice no longer
+  mentions them ("Garmins drempelrit van vandaag overslaan"). `not_in_plan` and
+  `adherence.not_in_plan` are gone from the replies. VibeSynergy's own copies on Garmin still
+  fold into their session, the horizon guard still reports missing and doubled deliveries,
+  races stay, and the synced Garmin calendar stays in the database untouched.
 - **AI advice and its notices as one clear chain** (#147): the banner, the push, the mail,
   Meldingen, the start page, the Coach page, the report page and the AI apps now show every
   daily advice in the same words, made from the stored advice when you read it. So an old

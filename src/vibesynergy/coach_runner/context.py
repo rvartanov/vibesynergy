@@ -507,9 +507,11 @@ BLOCKS: dict[str, Block] = {
         Block("coach_memory", "Coachgeheugen", 2000, _memory),
         Block("today", "Vandaag", 3000, _today, version=2),
         Block("recovery", "Herstel", 1200, _recovery),
-        Block("plan_horizon", "Plan komende 9 dagen", 10000, _plan_horizon),
+        # Version 2 (#153): Garmin workouts and events that are not VibeSynergy's own
+        # (Garmin Coach, added by hand) are gone from the guard and the week.
+        Block("plan_horizon", "Plan komende 9 dagen", 10000, _plan_horizon, version=2),
         Block("plan_next_week", "Plan volgende week", 2500, _plan_next_week),
-        Block("week", "Deze week", 6000, _week),
+        Block("week", "Deze week", 6000, _week, version=2),
         Block("weather", "Weer", 2000, _weather),
         Block("replies", "Antwoorden op eerdere rapporten", 3000, _replies, version=2),
         Block("recent_reports", "Recente rapporten", 3000, _recent_reports),

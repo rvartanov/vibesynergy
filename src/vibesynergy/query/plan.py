@@ -8,13 +8,14 @@ notes, targets, races) are not planned sessions, and a change made there changes
 here. From the first plan workout on, a Garmin scheduled workout that is a copy of a plan
 workout (same day, sport family and name, or a title carrying the plan's tag such as
 ``(lake27)``) is folded into that workout as ``garmin_copies``. Any other Garmin workout
-from that day on (Garmin Coach's "Basis", "Drempel" and so on) is not in the plan: it goes
-to ``not_in_plan`` and is never counted as planned. Earlier days, and an install without a
-plan, keep the Garmin calendar as the plan.
+from that day on (Garmin Coach's "Basis", "Drempel", one added by hand in Garmin) is not
+VibeSynergy's and is not shown (#153): it is in no list of this result, not counted, and
+not passed on to the pages or the AI coach. Its synced row stays in the database. Earlier
+days, and an install without a plan, keep the Garmin calendar as the plan.
 
 Races come from VibeSynergy's own race list (``races``). A Garmin event is a copy at most:
-one on the day of a race folds into that race (``extra.garmin``), any other is not in the
-plan."""
+one on the day of a race folds into that race (``extra.garmin``); any other is not shown
+either."""
 
 from __future__ import annotations
 
@@ -353,13 +354,13 @@ def plan(
     layer = plan_model.plan_layer(engine, own, window.start, window.end) if own else NO_PLAN
     own_races = races.rows(engine, today)
     upcoming = [r for r in own_races if r["date"] >= today]
-    items, outside_events = _fold_events(
+    # Garmin workouts and events that are not VibeSynergy's own are left out (#153): the
+    # plan is VibeSynergy's, and what Garmin Coach or the athlete put on the Garmin
+    # calendar is no part of it. Only VibeSynergy's own copies fold in (garmin_copies).
+    items, _other_events = _fold_events(
         items, [r for r in own_races if window.start <= r["date"] <= window.end]
     )
-    items, not_in_plan = _merge_plan(items, layer, _model_item)
-    not_in_plan = sorted(
-        not_in_plan + outside_events, key=lambda i: (_as_day(i["date"]), i["kind"])
-    )
+    items, _other_workouts = _merge_plan(items, layer, _model_item)
     # A training you give (coaching rules) is no hard session for you, whatever its title
     # says ("Ext. interval kort"): you run along easy.
     for item in items:
@@ -370,7 +371,6 @@ def plan(
             item["extra"] = {**(item.get("extra") or {}), "intensity": "easy"}
     ledger = calendar_mirror.ledger_index(engine)
     _attach_mirror_ledger(items, ledger)
-    _attach_mirror_ledger(not_in_plan, ledger)
     by_day: dict[tuple[date, str | None], list] = {}
     # A training you give (kind coaching) counts only for a plan workout that is itself a
     # training you give (its title matches the coaching rules, such as "Groepstraining
@@ -397,9 +397,6 @@ def plan(
     planned_counts = Counter(
         (i["date"], family(i["sport"])) for i in items if i["kind"] in TRAINING_KINDS
     )
-    for item in not_in_plan:
-        _common(item)
-        item["status"] = "not_in_plan"
     for item in items:
         _common(item)
         day = date.fromisoformat(item["date"])
@@ -480,7 +477,6 @@ def plan(
         "races": race_rows[:5],
         **race_phase_from_events(upcoming, today),
         "items": items,
-        "not_in_plan": not_in_plan,
         "plan_source": VIBESYNERGY
         if layer["plan_start"] is not None and layer["plan_start"] <= window.end
         else "garmin",
@@ -491,9 +487,6 @@ def plan(
             "done": sum(i["status"] == "done" for i in planned_past),
             "changed": sum(i["status"] == "changed" for i in planned_past),
             "missed": sum(i["status"] == "missed" for i in planned_past),
-            "not_in_plan": sum(
-                i["date"] <= str(today) and i["kind"] in TRAINING_KINDS for i in not_in_plan
-            ),
         },
     }
 
@@ -620,7 +613,8 @@ def _merge_plan(
 ) -> tuple[list[dict], list[dict]]:
     """The layer's workouts become the plan; Garmin copies fold into them.
 
-    Returns the calendar rows and the Garmin workouts that are not in the plan.
+    Returns the calendar rows and the Garmin workouts that are not in the plan (marked
+    ``in_plan`` false). ``plan`` does not show those (#153); they are returned for tests.
     """
     rows = layer["workouts"]
     plan_start = layer["plan_start"]
@@ -682,8 +676,8 @@ def _fold_events(items: list[dict], own_races: list[dict]) -> tuple[list[dict], 
     """VibeSynergy's races join the calendar; Garmin events are copies at most.
 
     A Garmin event linked to a race, or on the day of one, folds into that race as
-    ``extra.garmin``. Any other Garmin event is not in the plan: it is listed, never read as
-    a race. Returns the calendar rows and those other events.
+    ``extra.garmin``. Any other Garmin event is not in the plan and never read as a race.
+    Returns the calendar rows and those other events, which ``plan`` does not show (#153).
     """
     by_link = {
         str((r["extra"].get("links") or {}).get("garmin")): r

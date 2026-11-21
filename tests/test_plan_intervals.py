@@ -104,6 +104,9 @@ EVENTS = [
 ]
 
 
+FOREIGN = "2026-10-31 Threshold Intervals"  # a Garmin workout that is not VibeSynergy's
+
+
 def _seed(runtime) -> None:
     runtime.raw.put(
         source="intervals_icu",
@@ -197,7 +200,7 @@ RIDE_SAT, RUN_SUN = "lake27:2026-10-31:ride", "lake27:2026-11-01:run"
 RIDE_MON, BRICK_MON = "lake27:2026-11-02:ride", "lake27:2026-11-02:brick-run"
 
 
-def test_pushed_copy_is_one_plan_item_and_foreign_is_not_in_plan(runtime) -> None:
+def test_pushed_copy_is_one_plan_item_and_foreign_is_not_shown(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(SATURDAY, SATURDAY), SATURDAY)
     (today,) = out["today"]
@@ -213,10 +216,9 @@ def test_pushed_copy_is_one_plan_item_and_foreign_is_not_in_plan(runtime) -> Non
     ]
     assert today["status"] == "done"
     assert [i["source_id"] for i in _sessions(out)] == [RIDE_SAT]
-    (foreign,) = out["not_in_plan"]
-    assert foreign["source_id"] == "workout:foreign"
-    assert foreign["in_plan"] is False
-    assert foreign["status"] == "not_in_plan"
+    # Not VibeSynergy's (#153): in no list of the result.
+    assert "not_in_plan" not in out
+    assert FOREIGN not in json.dumps(out, default=str)
     assert out["plan_source"] == "vibesynergy"
     assert out["plan_start"] == "2026-10-31"
 
@@ -232,7 +234,7 @@ def test_brick_copy_with_the_plan_tag_folds_in(runtime) -> None:
         ("workout:brick", "plan_tag"),
         ("workout:vbrick", "brick"),
     ]
-    assert out["not_in_plan"] == []
+    assert "not_in_plan" not in out
 
 
 def test_adherence_counts_the_plan(runtime) -> None:
@@ -249,7 +251,6 @@ def test_adherence_counts_the_plan(runtime) -> None:
         "done": 2,
         "changed": 0,
         "missed": 2,
-        "not_in_plan": 1,
     }
 
 
@@ -297,21 +298,28 @@ def test_week_has_the_note_and_targets(runtime, monkeypatch) -> None:
     }
     today_tool = call(runtime, "vibesynergy_today")["data"]
     assert [i["id"] for i in today_tool["today"]] == [i["id"] for i in week_tool["items"]]
-    assert today_tool["not_in_plan"] == []
+    assert "not_in_plan" not in today_tool
 
 
-def test_tools_and_dashboard_agree_on_a_foreign_workout(runtime, monkeypatch) -> None:
+def test_a_foreign_garmin_workout_shows_nowhere(runtime, monkeypatch) -> None:
+    """A Garmin workout on a plan day that is not VibeSynergy's own (Garmin Coach's
+    "Drempel", one added by hand) is not in the start page, the day view, the planning
+    page, the MCP tools, the horizon guard or the AI coach's context (#153). VibeSynergy's
+    own Garmin copy still folds in."""
+    from fastapi.testclient import TestClient
+
+    from vibesynergy.coach_runner import context
+    from vibesynergy.portal.app import create_portal_app
+    from vibesynergy.query import horizon, training_plan
+
     _seed(runtime)
     monkeypatch.setattr("vibesynergy.mcp.server.today_in", lambda tz: SATURDAY)
     today_tool = call(runtime, "vibesynergy_today")["data"]
     assert today_tool["planned_today"]["id"] == f"vibesynergy:{RIDE_SAT}"
-    assert [i["id"] for i in today_tool["not_in_plan"]] == ["garmin:workout:foreign"]
     plan_tool = call(runtime, "vibesynergy_plan", period="this_week")["data"]
     assert [i["title"] for i in plan_tool["today"]] == ["Duurrit Z2 60'"]
-    assert [i["source_id"] for i in plan_tool["not_in_plan"]] == ["workout:foreign"]
+    assert [c["source_id"] for c in plan_tool["today"][0]["garmin_copies"]] == ["workout:copy"]
     week_tool = call(runtime, "vibesynergy_week")["data"]
-    assert "garmin:workout:foreign" not in {i["id"] for i in week_tool["items"]}
-    assert [i["id"] for i in week_tool["not_in_plan"]] == ["garmin:workout:foreign"]
     board = dashboard.dashboard(
         runtime.engine,
         SATURDAY,
@@ -320,8 +328,39 @@ def test_tools_and_dashboard_agree_on_a_foreign_workout(runtime, monkeypatch) ->
         sources=[],
     )
     assert [i["source"] for i in board["plan"]["today"]] == ["vibesynergy"]
-    assert [i["source_id"] for i in board["plan"]["not_in_plan"]] == ["workout:foreign"]
-    assert all(i.get("in_plan", True) for i in board["plan"]["week"])
+    guard = horizon.status(runtime.engine, SATURDAY)
+    overview = training_plan.overview(runtime.engine, SATURDAY)
+    preloaded = {
+        task: context.preload(runtime, task, SATURDAY)["text"] for task in ("morning", "weekly")
+    }
+    for name, found in {
+        "vibesynergy_today": today_tool,
+        "vibesynergy_plan": plan_tool,
+        "vibesynergy_week": week_tool,
+        "dashboard": board,
+        "horizon": guard,
+        "planning": overview,
+        "coach context": preloaded,
+    }.items():
+        text = json.dumps(found, default=str, ensure_ascii=False)
+        assert FOREIGN not in text, name
+        assert "not_in_plan" not in text, name
+    # The portal's day reply (the day view on the start page) has no such list either.
+    portal = TestClient(create_portal_app(runtime), base_url="http://localhost")
+    reply = portal.get("/api/today", params={"date": str(SATURDAY)})
+    assert reply.status_code == 200
+    assert reply.json()["data"]["plan"]  # the plan workout is there
+    assert FOREIGN not in reply.text and "not_in_plan" not in reply.text
+    # The synced row itself stays (nothing is deleted).
+    with runtime.engine.connect() as conn:
+        from sqlalchemy import select
+
+        from vibesynergy.store.schema import planned_item
+
+        kept = conn.execute(
+            select(planned_item.c.title).where(planned_item.c.source_id == "workout:foreign")
+        ).scalar_one()
+    assert kept == FOREIGN
 
 
 def test_races_stay_one_per_day(runtime) -> None:
@@ -371,7 +410,7 @@ def test_no_intervals_plan_keeps_garmin(runtime) -> None:
         )
     out = plan.plan(runtime.engine, Window(SATURDAY, SATURDAY), SATURDAY)
     assert [i["source_id"] for i in out["today"]] == ["workout:x"]
-    assert out["not_in_plan"] == []
+    assert "not_in_plan" not in out
     assert out["plan_source"] == "garmin"
     assert out["weeks"] == []
 

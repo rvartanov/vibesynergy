@@ -13,7 +13,7 @@ def _fake(monkeypatch, items):
     monkeypatch.setattr(
         horizon.plan_q,
         "plan",
-        lambda *a, **k: {"items": items, "not_in_plan": []},
+        lambda *a, **k: {"items": items},
     )
 
 

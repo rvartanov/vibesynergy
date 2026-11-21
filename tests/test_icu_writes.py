@@ -314,7 +314,7 @@ def _garmin(runtime) -> None:
         )
 
 
-def test_pushed_copy_is_folded_and_another_garmin_workout_is_not_in_plan(runtime) -> None:
+def test_pushed_copy_is_folded_and_another_garmin_workout_is_not_shown(runtime) -> None:
     _seed(runtime)
     _garmin(runtime)
     adopt_icu_plan(runtime.engine)  # the plan is VibeSynergy's (#111)
@@ -323,10 +323,9 @@ def test_pushed_copy_is_folded_and_another_garmin_workout_is_not_in_plan(runtime
     (workout,) = data["today"]
     assert workout["source"] == "vibesynergy"
     assert [copy["source_id"] for copy in workout["garmin_copies"]] == ["push-1"]
-    (garmin,) = data["not_in_plan"]
-    assert garmin["source_id"] == "coach-1"
-    assert garmin["in_plan"] is False
-    assert "flag" not in garmin and "duplicate" not in garmin
+    # Garmin Coach's workout is not VibeSynergy's: it is not shown at all (#153).
+    assert "not_in_plan" not in data
+    assert "coach-1" not in json.dumps(data, default=str)
 
 
 def test_plan_write_scope_is_separate(runtime) -> None:

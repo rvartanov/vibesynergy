@@ -11,7 +11,6 @@ import { addDays, esc, hoursMinutes, isNum, km, longDate, number, sourceName, sp
 import { bindEffort, effortHtml } from "../effort.js";
 import { N, t } from "../i18n.js";
 import { bindGroupTrainings, groupTrainingsHtml } from "../group_training.js";
-import { outsidePlanHtml } from "../plan_labels.js";
 import { deviationText, planLinesHtml, statusWord } from "../plan_lines.js";
 import { mountQuickLog } from "../quicklog.js";
 import { sportIcon, sportKey, withSportIcon } from "../symbols.js";
@@ -135,7 +134,7 @@ export async function render(view, { args, query, meta, stale }) {
           ${tomorrowAdviceHtml(d.advice_tomorrow, d.date)}
           ${share ? "" : sleepCheckHtml(d.verdict)}
           <div class="dash-plan">
-            ${planHtml(failed(d.plan) ? null : d.plan?.today, failed(d.plan) ? null : (d.plan?.not_in_plan || []).filter((row) => row.date === date), share, d.plan?.plan_source)}
+            ${planHtml(failed(d.plan) ? null : d.plan?.today, share)}
             ${completedHtml(d.completed?.activities, d.completed, share, { editable: true })}
           </div>
           ${share || failed(d.group_trainings) ? "" : groupTrainingsHtml(d.group_trainings)}
@@ -146,7 +145,7 @@ export async function render(view, { args, query, meta, stale }) {
         <section class="card dash-today" aria-labelledby="dash-plan-title">
           <h2 id="dash-plan-title">${isFuture ? t("Planned") : t("Plan and done")}</h2>
           <div class="dash-plan dash-plan-first">
-            ${planHtml(dayReply.data.plan.filter((row) => TRAINING.has(row.kind)), dayReply.data.not_in_plan || [], share, dayReply.data.plan_source)}
+            ${planHtml(dayReply.data.plan.filter((row) => TRAINING.has(row.kind)), share)}
             ${isFuture ? "" : completedHtml(dayReply.data.day.activities, null, share)}
           </div>
           ${isFuture && !share ? `<div data-day-weather></div>` : ""}
@@ -674,7 +673,8 @@ function combinedTitle(titles) {
 // Why a session is "changed", and the Gepland/Gedaan lines (#103, #116): plan_lines.js.
 export { deviationText };
 
-export function planHtml(sessions, outside, shared, planSource) {
+// Only VibeSynergy's own plan: Garmin workouts that are not its own are not shown (#153).
+export function planHtml(sessions, shared) {
   if (sessions === null) return errorHtml();
   // A planned multisport (#74): the sessions linked by their slot in order (a triathlon, a
   // duathlon, a brick), else a brick run and the ride with it, as one multisport entry.
@@ -722,11 +722,9 @@ export function planHtml(sessions, outside, shared, planSource) {
   const parts = new Set(linked.flat());
   const multi = linked.map((g) => `<li>${withSportIcon("brick", esc(combinedTitle(g.map((x) => x.title || ""))))} <span class="sub">${esc(t("Multisport"))}</span><ul class="trends done-parts">${g.map(one).join("")}</ul></li>`).join("");
   const rows = multi + list.filter((x) => !parts.has(x)).map(one).join("");
-  const plan = rows
+  return rows
     ? `<h3>${t("Planned")}</h3><ul class="trends">${rows}</ul>`
     : `<p class="sub">${t("Nothing planned for this day.")}</p>`;
-  const others = (outside || []).map((item) => `<li>${withSportIcon(item.sport, esc(item.title || sportName(item.sport)))}</li>`).join("");
-  return `${plan}${outsidePlanHtml(planSource, others)}`;
 }
 
 function activityTitle(activity) {

@@ -1,9 +1,10 @@
 """VibeSynergy leads the plan: the readers use its own model, without intervals.icu. Garmin
-copies fold into its sessions, the rest is not in the plan, weeks and targets come from
-the model, and a session can be moved and skipped from the calendar."""
+copies fold into its sessions, other Garmin workouts are not shown (#153), weeks and
+targets come from the model, and a session can be moved and skipped from the calendar."""
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
@@ -134,12 +135,11 @@ def test_the_calendar_is_the_own_plan_without_any_intervals_event(runtime) -> No
         "done": 1,
         "changed": 0,
         "missed": 1,
-        "not_in_plan": 1,
     }
     assert [i["session_id"] for i in out["today"]] == [ids["run"]]
 
 
-def test_a_garmin_copy_folds_in_and_a_foreign_workout_is_not_in_the_plan(runtime) -> None:
+def test_a_garmin_copy_folds_in_and_a_foreign_workout_is_not_shown(runtime) -> None:
     _seed(runtime)
     out = plan.plan(runtime.engine, Window(MONDAY, WEDNESDAY), MONDAY)
     ride, run, _swim = _sessions(out)
@@ -150,18 +150,17 @@ def test_a_garmin_copy_folds_in_and_a_foreign_workout_is_not_in_the_plan(runtime
     assert [(c["source_id"], c["match"]) for c in run["garmin_copies"]] == [
         ("workout:tag", "plan_tag")
     ]
-    (foreign,) = out["not_in_plan"]
-    assert (foreign["source_id"], foreign["in_plan"], foreign["status"]) == (
-        "workout:foreign",
-        False,
-        "not_in_plan",
-    )
+    # Not VibeSynergy's (#153): in no list of the result.
+    assert "not_in_plan" not in out
+    assert "workout:foreign" not in json.dumps(out, default=str)
     # The horizon guard checks the model's sessions: the swim has no copy on Garmin.
     guard = horizon.status(runtime.engine, MONDAY, 3)
     assert guard["has_plan"] is True and guard["checked"] == 3
     assert guard["missing"] == [{"date": "2026-11-04", "title": "Zwemmen techniek"}]
     assert guard["fill"] == {"planned_through": "2026-11-04", "behind": False}
-    assert [i["title"] for i in guard["not_in_plan"]] == ["Threshold"]
+    # The guard neither checks nor lists Garmin's own workouts (#153).
+    assert "not_in_plan" not in guard
+    assert "Threshold" not in json.dumps(guard, default=str)
 
 
 def test_a_skipped_session_is_not_planned(runtime) -> None:
@@ -170,8 +169,8 @@ def test_a_skipped_session_is_not_planned(runtime) -> None:
     out = plan.plan(runtime.engine, Window(MONDAY, WEDNESDAY), WEDNESDAY)
     assert [i["session_id"] for i in _sessions(out)] == [ids["ride"], ids["swim"]]
     assert out["adherence"]["planned"] == 1 and out["adherence"]["missed"] == 0
-    # Its Garmin copy has no session to fold into any more.
-    assert sorted(i["source_id"] for i in out["not_in_plan"]) == ["workout:foreign", "workout:tag"]
+    # Its Garmin copy has no session to fold into any more, so it is not shown either.
+    assert "workout:tag" not in json.dumps(out, default=str)
     # 60' ride and the swim's 10': the skipped run's 40' are gone.
     assert plan.planned_moving_s(runtime.engine, Window(MONDAY, WEDNESDAY)) == 4200
 
@@ -271,7 +270,8 @@ def test_the_calendar_moves_and_skips_a_session_without_an_intervals_copy(runtim
     # The day's plan on the start page says where the plan lives.
     day = api.get("/api/today", params={"date": "2026-11-02"}).json()["data"]
     assert day["plan_source"] == "vibesynergy"
-    assert [i["source_id"] for i in day["not_in_plan"]] == ["workout:foreign"]
+    assert "not_in_plan" not in day
+    assert "workout:foreign" not in json.dumps(day, default=str)
     week = schedule.calendar(runtime.engine, MONDAY, date(2026, 11, 8), TUESDAY)
     assert week["weeks"][0]["note"] == "Rustig instappen."
     assert week["week_planned"]["2026-11-02"]["ride"] == {
