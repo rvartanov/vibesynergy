@@ -639,35 +639,28 @@ def _coach(r: Rec):
         2.6,
     )
     r.click(r.pg.get_by_role("link", name="Geheugen"))
-    r.say(
-        "Geheugen: wat je AI-coach over je onthoudt, en hoe hij praat.",
-        "Memory: what your AI coach remembers about you, and how it talks.",
-    )
     ta = r.pg.locator("textarea[name=instructions]")
     ta.fill("")
     r.type(ta, "Houd het kort en concreet.")
     r.say(
-        "Notities voor je AI-coach worden vanzelf bewaard.",
-        "Notes for your AI coach are saved automatically.",
+        "Geheugen: hoe je AI-coach praat en wat hij onthoudt. Alles wordt vanzelf bewaard.",
+        "Memory: how your AI coach talks and what it remembers. Everything saves by itself.",
     )
-    rows = r.pg.locator("textarea[name=constraint_text]")
+    rows = r.pg.locator("[data-constraint]")
     before = rows.count()
     # Straight from the notes to the button: the first click must work (#35).
     r.click(r.pg.get_by_role("button", name="Notitie toevoegen"))
     r.check(rows.count() == before + 1, "Notitie toevoegen: the first click added no note")
-    r.select(
-        r.pg.locator("main select")
-        .filter(has=r.pg.locator("option", has_text="Beschikbaarheid"))
-        .last,
-        "Beschikbaarheid",
-    )
-    row = r.pg.locator("textarea[name=constraint_text]").last
-    r.type(row, "Ik train het liefst 's ochtends voor het werk.")
+    editing = r.pg.locator("li.editing")
+    r.type(editing.locator("textarea"), "Zaterdag train ik 's ochtends.")
     r.say(
-        "Bij 'Wat te onthouden' leg je vaste afspraken vast, zoals wanneer je kunt trainen.",
-        "Under 'What to remember' you add fixed facts, such as when you can train.",
-        2.6,
+        "Bij 'Wat te onthouden' staat elke notitie op één regel; tik erop om te bewerken. "
+        "Een vaste dag zet je gewoon in de tekst.",
+        "Under 'What to remember' each note is one line; tap it to edit. "
+        "A fixed day simply goes in the text.",
     )
+    r.click(editing.get_by_role("button", name="Sluiten"))
+    r.check(r.pg.locator("li.editing").count() == 0, "Sluiten: the note stayed open")
     r.click(r.pg.get_by_role("link", name="Kennis"))
     r.say(
         "Kennis: artikelen waarop je AI-coach zich baseert. Wijzigingen keur jij goed.",

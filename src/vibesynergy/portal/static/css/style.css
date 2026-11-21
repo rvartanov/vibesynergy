@@ -739,7 +739,26 @@ textarea.btn { font: inherit; resize: vertical; }
 
 [data-coach-kind] [data-source-preview] { white-space: normal; }
 [data-coach-kind] code { overflow-wrap: anywhere; }
-[data-constraints] > .card + .card { margin-top: var(--space-3, 12px); }
+/* Coach memory: one line per note; the row opens it to edit in place (#139). */
+.memory-list { list-style: none; padding: 0; margin: 8px 0 12px; }
+.memory-list > li { border-top: 1px solid var(--subtle); }
+.memory-list > li:last-child { border-bottom: 1px solid var(--subtle); }
+.memory-row {
+  display: flex; align-items: center; gap: var(--space-2, 8px); width: 100%; min-height: var(--control, 44px);
+  padding: 6px 4px; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.memory-row:hover .memory-edit, .memory-row[aria-expanded="true"] .memory-edit { text-decoration: underline; }
+.memory-row:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+.memory-kind {
+  flex: none; font-size: 12px; color: var(--ink-2); padding: 1px 8px;
+  border: 1px solid var(--line); border-radius: 999px; white-space: nowrap;
+}
+.memory-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memory-edit { flex: none; font-size: 13px; color: var(--action); }
+.memory-list > li.editing .memory-text { white-space: normal; overflow-wrap: anywhere; }
+.memory-editor:not([hidden]) { display: grid; gap: var(--space-2, 8px); padding: 4px 4px 12px; }
+.memory-editor textarea { width: 100%; }
+.memory-actions { display: flex; flex-wrap: wrap; gap: var(--space-2, 8px); }
 .coach-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-width: var(--measure, 75ch); }
 
 .assessment-summary { white-space: pre-line; overflow-wrap: anywhere; }

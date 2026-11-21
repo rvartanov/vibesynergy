@@ -281,6 +281,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **"What to remember" is a compact list** (#139): under Coach → Memory every note is one
+  line, its kind as a small label and then the text. Tap a line (or "Bewerken") to edit it
+  in place; the kind, where it came from and "Notitie verwijderen" are there too, and
+  Escape or "Sluiten" folds it back. "Notitie toevoegen" opens one empty note. The seven
+  weekday boxes per note are gone: a fixed day goes in the text. An older note keeps its
+  days, and your AI coach still reads them; when its text names none of them, the short day
+  names ("(vr)") are added to the text once, on the next save. Nothing changes for a note
+  that already names its day.
 - **Only VibeSynergy's own workouts** (#153): workouts and events on your Garmin calendar
   that are not VibeSynergy's (Garmin Coach's "Basis" or "Drempel", one you added by hand in
   Garmin) no longer show anywhere. The block "Alleen in je Garmin-agenda" is gone from the

@@ -22,10 +22,31 @@ const CONSTRAINT_KINDS = [
   ["equipment", N("Equipment")],
   ["self_report", N("Self-report")],
 ];
-const WEEKDAYS = [
-  [1, N("Monday")], [2, N("Tuesday")], [3, N("Wednesday")], [4, N("Thursday")],
-  [5, N("Friday")], [6, N("Saturday")], [7, N("Sunday")],
-];
+// Notes no longer ask for days: the day goes in the text (#139). An older note may still carry
+// `days`; they stay as they are, and when its text names none of them, the short day names are
+// added to the text once, so the note still says it.
+const DAY_SHORT = { 1: N("Mon"), 2: N("Tue"), 3: N("Wed"), 4: N("Thu"), 5: N("Fri"), 6: N("Sat"), 7: N("Sun") };
+const DAY_WORDS = {
+  1: ["maandag", "ma", "monday", "mon"],
+  2: ["dinsdag", "di", "tuesday", "tue"],
+  3: ["woensdag", "wo", "wednesday", "wed"],
+  4: ["donderdag", "do", "thursday", "thu"],
+  5: ["vrijdag", "vr", "friday", "fri"],
+  6: ["zaterdag", "za", "saturday", "sat"],
+  7: ["zondag", "zo", "sunday", "sun"],
+};
+
+export function namesDay(text, day) {
+  const words = String(text).toLowerCase().match(/\p{L}+/gu) || [];
+  // "vrijdagen", "zondags": a day name at the start of a word counts too.
+  return words.some((word) => DAY_WORDS[day]?.some((name) => (name.length > 3 ? word.startsWith(name) : word === name)));
+}
+
+export function withDays(text, days) {
+  const missing = (days || []).filter((day) => DAY_SHORT[day] && !namesDay(text, day));
+  if (!missing.length) return text;
+  return `${text} (${missing.map((day) => t(DAY_SHORT[day])).join(", ")})`;
+}
 
 const cleanups = new WeakMap();
 
@@ -73,7 +94,7 @@ function draw(el, stale, data) {
     <section class="card" data-coach-kind="context" data-context-version="${esc(String(data.context.version))}" aria-labelledby="coach-remember">
       <h2 id="coach-remember">${t("What to remember")}</h2>
       <p class="sub">${t("Add when you can train, a fixed moment, a preference or your equipment. Your diary and races stay where they already are.")}</p>
-      <div data-constraints>${constraints.map((entry) => constraintHtml(entry)).join("")}</div>
+      <ul class="memory-list" data-constraints>${constraints.map((entry) => constraintHtml(entry)).join("")}</ul>
       <button class="btn" type="button" data-add-constraint>${t("Add a note")}</button>
       <p class="sub" data-status role="status" aria-live="polite"></p>
     </section>
@@ -109,11 +130,59 @@ function draw(el, stale, data) {
       contextVersion = await persistKind("context", { constraints: constraintsPayload(context) }, contextVersion);
     },
   });
+  const list = context.querySelector("[data-constraints]");
+  const open = (row) => {
+    for (const other of list.querySelectorAll("[data-constraint].editing")) if (other !== row) close(other, false);
+    row.classList.add("editing");
+    row.querySelector("[data-edit-constraint]").setAttribute("aria-expanded", "true");
+    row.querySelector("[data-constraint-editor]").hidden = false;
+    row.querySelector('[name="constraint_text"]').focus();
+  };
+  const close = (row, focus = true) => {
+    const text = row.querySelector('[name="constraint_text"]').value.trim();
+    // A new note you leave empty simply goes away.
+    if (!text && !row.dataset.archiveKey && !row.dataset.savedText) {
+      row.remove();
+      if (focus) context.querySelector("[data-add-constraint]").focus();
+      return;
+    }
+    row.classList.remove("editing");
+    row.querySelector("[data-constraint-editor]").hidden = true;
+    const toggle = row.querySelector("[data-edit-constraint]");
+    toggle.setAttribute("aria-expanded", "false");
+    if (focus) toggle.focus();
+  };
+  context.addEventListener("input", (event) => {
+    const row = event.target.closest("[data-constraint]");
+    if (!row) return;
+    if (event.target.name === "constraint_text") row.querySelector("[data-row-text]").textContent = event.target.value.trim() || t("New note");
+    if (event.target.name === "constraint_kind") row.querySelector("[data-row-kind]").textContent = kindLabel(event.target.value);
+  });
+  context.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const row = event.target.closest("[data-constraint].editing");
+    if (row) {
+      event.preventDefault();
+      close(row);
+    }
+  });
   context.addEventListener("click", (event) => {
     if (event.target.closest("[data-add-constraint]")) {
-      const list = context.querySelector("[data-constraints]");
-      list.insertAdjacentHTML("beforeend", constraintHtml({ id: crypto.randomUUID(), kind: "preference", text: "", active: true, days: [] }));
-      list.lastElementChild.querySelector('[name="constraint_text"]').focus();
+      list.insertAdjacentHTML("beforeend", constraintHtml({ id: crypto.randomUUID(), kind: "preference", text: "", active: true }));
+      open(list.lastElementChild);
+      return;
+    }
+    const toggle = event.target.closest("[data-edit-constraint]");
+    if (toggle) {
+      const row = toggle.closest("[data-constraint]");
+      if (row.classList.contains("editing")) close(row);
+      else open(row);
+      return;
+    }
+    const done = event.target.closest("[data-close-constraint]");
+    if (done) {
+      close(done.closest("[data-constraint]"));
+      return;
     }
     const remove = event.target.closest("[data-remove-constraint]");
     if (remove) {
@@ -138,33 +207,47 @@ function draw(el, stale, data) {
 
 function constraintsPayload(root) {
   return [...root.querySelectorAll("[data-constraint]")].flatMap((row) => {
-    let text = row.querySelector('[name="constraint_text"]').value.trim();
+    const typed = row.querySelector('[name="constraint_text"]').value.trim();
+    const days = parseList(row.dataset.days);
+    let text = typed ? withDays(typed, days) : "";
     let active = row.dataset.active !== "false";
     if (!text && row.dataset.archiveKey) {
       active = false;
       text = row.dataset.savedText || "";
     }
     if (!text) return [];
-    let links = [];
-    try {
-      links = JSON.parse(row.dataset.links || "[]");
-    } catch {
-      links = [];
-    }
+    const links = parseList(row.dataset.links);
+    // Only your own edit makes a coach item yours, not the day names added above.
+    const edited = row.dataset.source === "coach" && Boolean(typed) && typed !== row.dataset.savedText;
     return [{
       id: row.dataset.constraint,
       kind: row.querySelector('[name="constraint_kind"]').value,
       text,
       // A coach item whose text you change becomes yours, so the coach no longer edits it.
-      source: row.dataset.source === "coach" && text !== row.dataset.savedText ? "user" : row.dataset.source || "user",
-      origin: row.dataset.source === "coach" && text !== row.dataset.savedText ? "user_statement" : row.dataset.origin || "user_statement",
+      source: edited ? "user" : row.dataset.source || "user",
+      origin: edited ? "user_statement" : row.dataset.origin || "user_statement",
       active,
-      days: [...row.querySelectorAll('[name="day"]:checked')].map((box) => Number(box.value)),
+      // Kept as they were, for an older note; a new note has none.
+      days,
       links,
       archive_key: row.dataset.archiveKey || null,
       imported_digest: row.dataset.importedDigest || null,
     }];
   });
+}
+
+function parseList(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function kindLabel(kind) {
+  const found = CONSTRAINT_KINDS.find(([key]) => key === kind);
+  return t(found ? found[1] : "Preference");
 }
 
 function provenanceText(entry) {
@@ -177,21 +260,27 @@ function provenanceText(entry) {
   return t("You wrote this.");
 }
 
+// One line per note: its kind and its text. The row opens the note to edit it in place.
 function constraintHtml(entry) {
-  const days = new Set(entry.days || []);
   const hidden = entry.active === false ? " hidden" : "";
   const id = esc(entry.id);
-  return `<div class="card" data-constraint="${id}" data-active="${entry.active === false ? "false" : "true"}" data-source="${esc(entry.source || "user")}" data-origin="${esc(entry.origin || "user_statement")}" data-archive-key="${esc(entry.archive_key || "")}" data-imported-digest="${esc(entry.imported_digest || "")}" data-saved-text="${esc(entry.text || "")}" data-links="${esc(JSON.stringify(entry.links || []))}"${hidden}>
-    <div class="settings-grid">
-      <div class="settings-field"><label for="kind-${id}">${t("Context type")}</label>${select("constraint_kind", CONSTRAINT_KINDS, entry.kind || "preference", `kind-${id}`)}</div>
-      <div class="settings-field"><label for="text-${id}">${t("Note")}</label><textarea class="btn" id="text-${id}" name="constraint_text" rows="2" maxlength="2000">${esc(entry.text || "")}</textarea></div>
+  const kind = entry.kind || "preference";
+  return `<li data-constraint="${id}" data-active="${entry.active === false ? "false" : "true"}" data-source="${esc(entry.source || "user")}" data-origin="${esc(entry.origin || "user_statement")}" data-archive-key="${esc(entry.archive_key || "")}" data-imported-digest="${esc(entry.imported_digest || "")}" data-saved-text="${esc(entry.text || "")}" data-days="${esc(JSON.stringify(entry.days || []))}" data-links="${esc(JSON.stringify(entry.links || []))}"${hidden}>
+    <button type="button" class="memory-row" data-edit-constraint aria-expanded="false" aria-controls="edit-${id}">
+      <span class="memory-kind" data-row-kind>${esc(kindLabel(kind))}</span>
+      <span class="memory-text" data-row-text>${esc(entry.text || t("New note"))}</span>
+      <span class="memory-edit">${t("Edit")}</span>
+    </button>
+    <div class="memory-editor" id="edit-${id}" data-constraint-editor hidden>
+      <div class="settings-field"><label for="kind-${id}">${t("Context type")}</label>${select("constraint_kind", CONSTRAINT_KINDS, kind, `kind-${id}`)}</div>
+      <div class="settings-field"><label for="text-${id}">${t("Note")}</label><textarea class="btn" id="text-${id}" name="constraint_text" rows="3" maxlength="2000">${esc(entry.text || "")}</textarea></div>
+      <details><summary>${t("Details")}</summary><p>${esc(provenanceText(entry))}</p></details>
+      <div class="memory-actions">
+        <button class="btn" type="button" data-close-constraint>${t("Close")}</button>
+        <button class="btn" type="button" data-remove-constraint>${t("Remove note")}</button>
+      </div>
     </div>
-    <fieldset><legend>${t("Days")}</legend>
-      <div class="settings-grid">${WEEKDAYS.map(([day, label]) => `<label class="check"><input type="checkbox" name="day" value="${day}"${days.has(day) ? " checked" : ""}> ${esc(t(label))}</label>`).join("")}</div>
-    </fieldset>
-    <details><summary>${t("Details")}</summary><p>${esc(provenanceText(entry))}</p></details>
-    <button class="btn" type="button" data-remove-constraint>${t("Remove note")}</button>
-  </div>`;
+  </li>`;
 }
 
 // Name rules: an activity whose name matches is a session you give as a trainer.
