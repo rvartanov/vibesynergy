@@ -9,9 +9,21 @@ adopt existing markers, or modify a human-written description.
 from __future__ import annotations
 
 from vibesynergy.core.config import load_settings
-from vibesynergy.query import coach, evidence, publication_format
+from vibesynergy.query import coach, evidence, publication_format, publication_insight
 
 FORMAT_VERSION = 2
+
+
+def insight(rt, activity_id: str) -> dict:
+    """The coach's current public insight for the activity, for showing beside a blocked
+    block: ``{"state": "present", "entry_id", "text"}`` or ``{"state": "missing"}``."""
+    try:
+        found = publication_insight.for_activity(rt.engine, activity_id)
+    except (LookupError, ValueError):
+        found = None
+    if not found:
+        return {"state": "missing"}
+    return {"state": "present", "entry_id": found["entry_id"], "text": found["text"]}
 
 
 def preview(rt, activity_id: str, *, language: str = "en") -> dict:
@@ -43,7 +55,8 @@ def preview(rt, activity_id: str, *, language: str = "en") -> dict:
         stats = publication_format.strava_stats_lines(fields, language, temperature=scale)
         source = "strava"
     if not stats:
-        return {**result, "reason": "no_public_statistics"}
+        # The coach's public sentence still shows on the workout page, with the reason (#146).
+        return {**result, "reason": "no_public_statistics", "insight": insight(rt, activity_id)}
     labels = publication_format.section_labels(
         load_settings(rt.settings.config_path).publication, language
     )

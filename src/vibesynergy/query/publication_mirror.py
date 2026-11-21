@@ -76,7 +76,9 @@ def _ids(rt, activity_id: str) -> tuple[str, str | None, str, datetime]:
     garmin = [r.split(":", 1)[1] for r in row["sources"] if r.startswith("garmin:")]
     if len(strava) != 1:
         raise publication.Conflict("One matching strava activity is required")
-    return strava[0], garmin[0] if len(garmin) == 1 else None, group, row["start_utc"]
+    if len(garmin) > 1:  # Zwift's upload and the watch: the copy the figures come from (#146)
+        garmin = [publication_format.copy_id(rt, group, "garmin")]
+    return strava[0], garmin[0] if garmin else None, group, row["start_utc"]
 
 
 def watch(rt, group: str) -> dict | None:

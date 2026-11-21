@@ -115,7 +115,10 @@ def _source_id(rt, activity_id: str, destination: str) -> str:
             select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
         )
     matches = [ref.split(":", 1)[1] for ref in sources or [] if ref.startswith(destination + ":")]
-    if len(matches) != 1:
+    if destination == "garmin" and len(matches) > 1:
+        # Zwift's upload and the watch recording: the same copy the figures come from (#146).
+        matches = [publication_format.copy_id(rt, group, "garmin")]
+    if len(matches) != 1 or matches[0] is None:
         raise Conflict(f"One matching {destination} activity is required")
     return matches[0]
 
@@ -218,6 +221,7 @@ def preview(rt, activity_id: str, destination: str, *, language: str = "en", cli
             "reason": block["reason"],
             "assessment_state": block.get("assessment_state"),
             "destination": destination,
+            "insight": block.get("insight") or annotations.insight(rt, activity_id),
         }
     if (
         previous

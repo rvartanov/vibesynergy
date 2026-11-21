@@ -349,39 +349,78 @@ def _label(value) -> str | None:
     return value if re.fullmatch(r"[A-Z0-9_]{1,40}", value) else None
 
 
-def garmin_fields(rt, activity_id: str) -> dict:
-    """The Garmin numbers for the activity's single Garmin record ({} without one)."""
+# Fields that say how complete a copy is, when a group holds more than one copy of a source
+# (Zwift's own upload and the watch recording are both Garmin copies, #146).
+_GARMIN_COMPLETE = (
+    "aerobic_te",
+    "anaerobic_te",
+    "te_label",
+    "training_load",
+    "stamina_start",
+    "stamina_end",
+)
+_STRAVA_COMPLETE = ("relative_effort", "work_kj", "temp_avg")
+
+
+def _group_copies(rt, activity_id: str, source: str) -> tuple[str, list[dict]]:
+    """The group id and the activity rows of its ``source`` copies, in source-id order."""
     group = views.resolve_activity(rt.engine, activity_id)
     with rt.engine.connect() as conn:
         sources = conn.scalar(
             select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
         )
-        ids = [ref.split(":", 1)[1] for ref in sources or [] if ref.startswith("garmin:")]
-        if len(ids) != 1:
-            return {}
-        row = (
-            conn.execute(
-                select(activity).where(
-                    activity.c.source == "garmin", activity.c.source_id == ids[0]
-                )
-            )
-            .mappings()
-            .first()
+        ids = sorted(
+            {
+                str(ref).split(":", 1)[1]
+                for ref in sources or []
+                if str(ref).startswith(f"{source}:")
+            }
         )
-    if row is None:
+        if not ids:
+            return group, []
+        rows = conn.execute(
+            select(activity)
+            .where(activity.c.source == source, activity.c.source_id.in_(ids))
+            .order_by(activity.c.source_id)
+        ).mappings()
+        return group, [dict(row) for row in rows]
+
+
+def _choose(group: str, source: str, rows: list[dict], values, complete: tuple[str, ...]):
+    """One copy, deterministically: the group's own id when it is one of them; otherwise
+    the copy with the most of the ``complete`` fields, then the longest, then the lowest id.
+    Returns (row, values) or (None, {})."""
+    for row in rows:
+        if f"{source}:{row['source_id']}" == group:
+            return row, values(row)
+    best, best_values, best_key = None, {}, None
+    for row in rows:
+        found = values(row)
+        length = number(row.get("elapsed_s")) or number(row.get("moving_s")) or 0.0
+        key = (sum(found.get(k) is not None for k in complete), length)
+        if best_key is None or key > best_key:  # rows are in id order: a tie keeps the lowest
+            best, best_values, best_key = row, found, key
+    return best, best_values
+
+
+def _raw_json(rt, row: dict) -> dict:
+    if not row.get("raw_item_id"):
         return {}
+    try:
+        raw = rt.raw.load(row["raw_item_id"])
+        if raw.content_type == "application/json" and len(raw.payload) <= 2_000_000:
+            return raw.json() or {}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def _garmin_values(rt, row: dict) -> dict:
     extra = row["extra"] or {}
-    summary, detail, weather = {}, {}, None
-    if row["raw_item_id"]:
-        try:
-            raw = rt.raw.load(row["raw_item_id"])
-            if raw.content_type == "application/json" and len(raw.payload) <= 2_000_000:
-                data = raw.json() or {}
-                summary = data.get("summary") or {}
-                detail = (data.get("activity") or {}).get("summaryDTO") or {}
-                weather = data.get("weather")
-        except (OSError, ValueError):
-            pass
+    data = _raw_json(rt, row)
+    summary = data.get("summary") or {}
+    detail = (data.get("activity") or {}).get("summaryDTO") or {}
+    weather = data.get("weather")
 
     def first(*values):
         return next((v for v in (number(x) for x in values) if v is not None), None)
@@ -410,6 +449,41 @@ def garmin_fields(rt, activity_id: str) -> dict:
     }
 
 
+def _strava_values(rt, row: dict) -> dict:
+    extra = row["extra"] or {}
+    data = _raw_json(rt, row)
+    detail = {**(data.get("summary") or {}), **(data.get("detail") or {})}
+    return {
+        "relative_effort": number(extra.get("suffer_score", detail.get("suffer_score"))),
+        "work_kj": number(extra.get("kilojoules", detail.get("kilojoules"))),
+        "temp_avg": number(detail.get("average_temp")),
+    }
+
+
+def _pick(rt, activity_id: str, source: str):
+    group, rows = _group_copies(rt, activity_id, source)
+    if source == "garmin":
+        values, complete = (lambda row: _garmin_values(rt, row)), _GARMIN_COMPLETE
+    else:
+        values, complete = (lambda row: _strava_values(rt, row)), _STRAVA_COMPLETE
+    row, found = _choose(group, source, rows, values, complete)
+    return group, row, found
+
+
+def copy_id(rt, activity_id: str, source: str) -> str | None:
+    """The one ``garmin`` or ``strava`` copy of the activity its figures and description
+    belong to (see ``_choose``); None without one."""
+    _, row, _ = _pick(rt, activity_id, source)
+    return row["source_id"] if row else None
+
+
+def garmin_fields(rt, activity_id: str) -> dict:
+    """The Garmin numbers for the activity's Garmin record ({} without one). With several
+    Garmin copies (Zwift's upload and the watch), the one ``_choose`` picks."""
+    _, row, found = _pick(rt, activity_id, "garmin")
+    return found if row else {}
+
+
 def has_garmin(rt, activity_id: str) -> bool:
     """True when the unified activity has a Garmin copy (its stats come from there), and
     for an activity that cannot be found (nothing to take from Strava either)."""
@@ -425,45 +499,18 @@ def has_garmin(rt, activity_id: str) -> bool:
 
 
 def strava_fields(rt, activity_id: str) -> dict:
-    """The Strava numbers for an activity without a Garmin copy ({} without one Strava
-    record). RPE and feel are on the intervals.icu scales, from intervals.icu or VibeSynergy."""
-    group = views.resolve_activity(rt.engine, activity_id)
-    with rt.engine.connect() as conn:
-        sources = conn.scalar(
-            select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
-        )
-        ids = [ref.split(":", 1)[1] for ref in sources or [] if ref.startswith("strava:")]
-        if len(ids) != 1:
-            return {}
-        row = (
-            conn.execute(
-                select(activity).where(
-                    activity.c.source == "strava", activity.c.source_id == ids[0]
-                )
-            )
-            .mappings()
-            .first()
-        )
+    """The Strava numbers for an activity without a Garmin copy ({} without a Strava
+    record; with several, the one ``_choose`` picks). RPE and feel are on the intervals.icu
+    scales, from intervals.icu or VibeSynergy."""
+    group, row, found = _pick(rt, activity_id, "strava")
     if row is None:
         return {}
-    extra = row["extra"] or {}
-    detail = {}
-    if row["raw_item_id"]:
-        try:
-            raw = rt.raw.load(row["raw_item_id"])
-            if raw.content_type == "application/json" and len(raw.payload) <= 2_000_000:
-                data = raw.json() or {}
-                detail = {**(data.get("summary") or {}), **(data.get("detail") or {})}
-        except (OSError, ValueError):
-            pass
     try:
         effort = activity_effort.for_activity(rt.engine, rt.raw, group)
     except (LookupError, ValueError):
         effort = {}
     return {
-        "relative_effort": number(extra.get("suffer_score", detail.get("suffer_score"))),
-        "work_kj": number(extra.get("kilojoules", detail.get("kilojoules"))),
-        "temp_avg": number(detail.get("average_temp")),
+        **found,
         "icu_rpe": number((effort.get("rpe") or {}).get("value")),
         "icu_feel": number((effort.get("feel") or {}).get("value")),
     }

@@ -388,6 +388,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **A Zwift ride that the watch also recorded is published again, with its AI insight**
+  (#146): Zwift uploads its own copy to Garmin, so a ride you also record on the watch has two
+  Garmin copies. VibeSynergy then took the figures from neither: the description preview was
+  blocked ("no Garmin figures"), your AI coach's insight did not show, and nothing went to
+  Strava by itself. It now uses one copy, always the same: the one the workout is listed under,
+  else the copy with the most figures (training effect, load, stamina), else the longest. The
+  Garmin description goes to that same copy. When the preview is blocked for another reason,
+  the workout page still shows the AI coach's insight, with the reason. A ride that is still
+  within the two days of the automatic publication is picked up by itself.
 - **No more empty "Plan change" messages from copies to intervals.icu** (#141): after every
   sync VibeSynergy copies your plan to intervals.icu, and each copy showed on the Coach page
   as a "Plan change" that only read "plan mirror: fry27:week:23", up to 17 an hour while
