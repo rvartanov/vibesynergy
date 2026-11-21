@@ -81,28 +81,43 @@ def _today(r: Rec):
     details = advice.locator("summary", has_text="Waarom dit advies").first
     r.check(details.count() > 0, "the advice should have its details")
     r.click(details)
+    r.check(
+        "Veranderd omdat" in (advice.locator("[data-advice-details]").first.text_content() or ""),
+        "the details should say why the advice changed (#115)",
+    )
     r.say(
-        "Onder 'Waarom dit advies': de redenen, waar het advies vandaan komt en waar je "
-        "AI-coach en de regels verschillen.",
-        "Under 'Why this advice': the reasons, where the advice comes from and where your AI "
-        "coach and the rules differ.",
-        3.2,
+        "Onder 'Waarom dit advies': de redenen, waarom het advies veranderde, waar het "
+        "vandaan komt en waar je AI-coach en de regels verschillen.",
+        "Under 'Why this advice': the reasons, why the advice changed, where it comes from "
+        "and where your AI coach and the rules differ.",
+        3.4,
     )
     r.click(details)
+    verdict = advice.locator("[data-advice-state]").first
+    r.check(verdict.count() > 0, "the advice should show its colour state (#147)")
+    r.point(verdict)
+    r.say(
+        "De kleur met wat die betekent. Is je training van vandaag gedaan, dan staat hier "
+        "'Gedaan voor vandaag', met je herstel in een kleine regel.",
+        "The colour and what it means. Once today's training is done, it says 'Done for "
+        "today', with your recovery in a small line.",
+        3.2,
+    )
     updated = advice.locator("[data-advice-updated]")
     r.check(updated.count() > 0, "the advice should say when it was updated")
     r.point(updated)
     r.check(
-        "Veranderd omdat" in (updated.first.text_content() or ""),
-        "the update should say why it changed (#115)",
+        "na je check-in" in (updated.first.text_content() or ""),
+        "the update should say why it came, in plain words (#147)",
     )
     r.say(
         "Komen er nieuwe gegevens binnen, zoals je check-in of een training, dan maakt je "
-        "AI-coach een nieuwe versie. Hij bouwt voort op de vorige en zegt wat er verandert "
-        "en waarom.",
+        "AI-coach een nieuwe versie. Hier staat wanneer en waarom: 'Bijgewerkt, na je "
+        "check-in'. Een melding krijg je alleen als het advies echt verandert.",
         "When new data comes in, like your check-in or a workout, your AI coach makes a new "
-        "version. It builds on the previous one and says what changes and why.",
-        3.6,
+        "version. Here it says when and why: 'Updated, after your check-in'. You only get a "
+        "notice when the advice really changes.",
+        4.0,
     )
     second = advice.locator("[data-second-opinions]")
     r.check(second.count() > 0, "the advice card should list the second opinion")
@@ -518,15 +533,20 @@ def _coach(r: Rec):
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
     r.point(chip)
     r.wait(1.2)
-    # Every advice is named after the day it is for, with the run that wrote it (#138).
+    # Every advice is named after the day it is for (#138), with when and why (#147).
     label = r.pg.locator("[data-advice-label]", has_text="Advies voor morgen").first
     r.check(label.count() > 0, "the evening advice should be named after tomorrow (#138)")
-    r.point(label)
+    stamp = label.locator("xpath=..").locator("[data-advice-stamp]")
+    r.check(
+        "avondvooruitblik" in (stamp.first.text_content() or ""),
+        "the evening advice should say it is the evening preview (#147)",
+    )
+    r.point(label.locator("xpath=.."))
     r.say(
-        "Elk advies heet naar de dag waarvoor het is, met de run die het schreef: het "
-        "avondadvies is het advies voor morgen.",
-        "Every advice is named after the day it is for, with the run that wrote it: the "
-        "evening advice is the advice for tomorrow.",
+        "Elk advies heet naar de dag waarvoor het is, met wanneer en waarom het kwam: de "
+        "avondvooruitblik is het advies voor morgen.",
+        "Every advice is named after the day it is for, with when and why it came: the "
+        "evening preview is the advice for tomorrow.",
         2.6,
     )
     # A plan change says why and, under Details, what changed; a copy is no message (#141).
@@ -563,15 +583,20 @@ def _coach(r: Rec):
         2.6,
     )
     r.click(earlier.locator("[data-advice-version] a").first)
+    r.check(
+        r.pg.locator("h1", has_text="Advies").count() > 0,
+        "the report page of an advice should be called Advies (#147)",
+    )
     banner = r.pg.locator('[data-thread-status="replaced"]')
     r.check(banner.count() > 0, "the report page should say the version was replaced")
-    r.point(banner)
+    r.point(r.pg.locator(".advice-report-head").first)
     r.say(
-        "Elke melding opent precies het rapport waar hij over gaat. Is dat een oudere versie, "
-        "dan staat dat erbij, met een link naar het huidige advies.",
-        "Every notice opens exactly the report it is about. When that is an older version, "
-        "it says so, with a link to the current advice.",
-        2.6,
+        "Elke melding opent precies het advies waar hij over gaat, met de dag, wanneer en "
+        "waarom. Is dat een oudere versie, dan staat dat erbij, met een link naar het "
+        "huidige advies.",
+        "Every notice opens exactly the advice it is about, with the day, when and why. When "
+        "that is an older version, it says so, with a link to the current advice.",
+        3.0,
     )
     r.go("coach")
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
@@ -858,6 +883,20 @@ def _search_inbox(r: Rec):
         "An AI coach does not just change your plan: its change waits here as a proposal. "
         "Approve it and VibeSynergy carries it out; you can also reject it.",
         3.6,
+    )
+    advice = r.pg.locator("main [data-advice-notice]", has_text="bijgewerkt om").first
+    r.check(
+        advice.count() > 0,
+        "today's advice should be a notice that says when and why it was updated (#147)",
+    )
+    r.point(advice)
+    r.say(
+        "Bij de meldingen staat het advies van vandaag in één regel: wanneer en waarom het "
+        "bijgewerkt is, en de eerste zin. Bovenaan het scherm staat dezelfde regel, met "
+        "'Bekijk'.",
+        "The notices hold today's advice in one line: when and why it was updated, and its "
+        "first sentence. The top of the screen shows the same line, with 'View'.",
+        3.4,
     )
     notice = r.pg.locator("a", has_text="Second opinion").first
     r.check(notice.count() > 0, "a second opinion that differs should be a notice")

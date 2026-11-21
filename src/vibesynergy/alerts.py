@@ -68,8 +68,9 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     "history": ("A history run finished or got stuck", ["portal", "email"]),
     "import": ("An account export import finished or failed", ["portal", "email"]),
     "daily_coach": ("Messages from your AI coach", ["portal", "push"]),
-    # A new or changed daily advice from the AI coach (#90): only when it changed in colour,
-    # safety level or a session decision. No mail by default (Robert, 18-11-2026).
+    # A new or changed daily advice from the AI coach (#90): a new day's advice, or another
+    # colour, a stricter safety level or a session decision (#147, advice_view.notable).
+    # No mail by default (Robert, 18-11-2026).
     "advice": ("A new or changed daily advice from your AI coach", ["portal", "push"]),
     "token": ("A coach token is about to expire", ["portal", "email"]),
 }
@@ -859,11 +860,14 @@ def _last_successes(engine: Any) -> dict[tuple[str, str], datetime]:
     return {(source, dataset): _aware(at) for source, dataset, at in rows if at is not None}
 
 
-def for_portal(settings: Any, engine: Any = None) -> dict[str, list[dict[str, Any]]]:
+def for_portal(
+    settings: Any, engine: Any = None, *, rt: Any = None, lang: str | None = None
+) -> dict[str, list[dict[str, Any]]]:
     """What the portal shows: open alerts and recent events of the kinds routed to it.
 
     A failed sync job is dropped once the same data synced successfully afterwards: the
-    problem is gone, so the header chip should be too."""
+    problem is gone, so the header chip should be too. With ``rt`` an advice notice is
+    made from the entry it points to when it is read (``advice_text``, #147)."""
     state = SecretStore(settings.secrets_dir, SECRETS).get(STATE) or {}
     shown = {kind for kind, channels in routes(settings).items() if "portal" in channels}
     opened = [a for a in _open(state) if a.get("kind", "health") in shown]
@@ -879,7 +883,9 @@ def for_portal(settings: Any, engine: Any = None) -> dict[str, list[dict[str, An
     if engine is not None and any(e.get("kind") == "job" for e in recent):
         synced = _last_successes(engine)
         recent = [e for e in recent if not _recovered(e, synced)]
-    tr = i18n.for_settings(settings)
+    tr = i18n.translator(lang) if lang else i18n.for_settings(settings)
+    if rt is not None:
+        recent = [advice_text(rt, e, tr) if e.get("kind") == "advice" else e for e in recent]
     recent = [
         e
         if e.get("kind") != "job" or "detail" in e
@@ -980,11 +986,12 @@ def notify_advice(
     html: str | None = None,
     link: str = "#/dashboard",
     version: str | int | None = None,
-    prefix: str = "",
     tag: str | None = None,
     entry_id: int | None = None,
     excerpt: str = "",
     advice_day: str | None = None,
+    notice: str | None = None,
+    state: str | None = None,
     quiet: bool = False,
 ) -> list[str]:
     """A new or changed daily advice, on the channels chosen for the kind ``advice``
@@ -993,40 +1000,36 @@ def notify_advice(
 
     ``key`` is one per target day (#108): a new version replaces the day's notice and its
     push (``tag``). ``version`` is stored with the notice so the portal's dismissal of an
-    older version does not hide the new one; ``prefix`` ("Updated: ") marks a later version.
+    older version does not hide the new one.
 
     ``entry_id`` is the stored version the notice is about (#115): the notice, the push and
-    the mail link to it, and ``excerpt`` is the part of its text they show. ``quiet`` (a
-    version that only rewords the advice) sends nothing: it only points an existing
-    notice for the day at the new version, so the notice never shows a replaced one.
+    the mail link to it, and ``excerpt`` is the part of its text they show. The notice's
+    text is made from that entry when it is read (``advice_text``, #147); ``notice`` is
+    kept only as what it said when it was sent. ``quiet`` (a version that only reports or
+    rewords) sends nothing: it points an existing notice for the day at the new version,
+    so the notice never shows a replaced one, and keeps its ``version``, so a notice the
+    athlete closed stays closed.
 
     ``advice_day`` (ISO) is the day the advice is for, the day its title names (#138); the
-    continuity check holds it against the entry. The notice text is cut on a sentence or
-    word boundary, never inside a word."""
-    title = f"{prefix}{title}"
-    text = clip(f"{title}: {short}", ADVICE_TEXT_LIMIT)
+    continuity check holds it against the entry."""
+    text = notice or clip(f"{title}: {short}", ADVICE_TEXT_LIMIT)
     chosen = routes(rt.settings).get("advice", [])
     used: list[str] = []
     store = SecretStore(rt.settings.secrets_dir, SECRETS)
+    pointer = {
+        "text": text,
+        "link": link,
+        "entry_id": entry_id,
+        "excerpt": excerpt,
+        "advice_day": advice_day,
+        "state": state,
+    }
     if quiet:
         events = store.get(ADVICE_STATE) or []
         if any(e.get("key") == key for e in events):
             store.set(
                 ADVICE_STATE,
-                [
-                    {
-                        **e,
-                        "text": text,
-                        "link": link,
-                        "version": None if version is None else str(version),
-                        "entry_id": entry_id,
-                        "excerpt": excerpt,
-                        "advice_day": advice_day,
-                    }
-                    if e.get("key") == key
-                    else e
-                    for e in events
-                ],
+                [{**e, **pointer} if e.get("key") == key else e for e in events],
             )
         return []
     url = f"/{link}" if link.startswith("#/") else "/#/inbox"
@@ -1039,19 +1042,43 @@ def notify_advice(
         event = {
             "key": key,
             "at": utc_now().isoformat(),
-            "text": text,
             "level": "info",
-            "link": link,
             "kind": "advice",
             "detail": "",
             "version": None if version is None else str(version),
-            "entry_id": entry_id,
-            "excerpt": excerpt,
-            "advice_day": advice_day,
+            **pointer,
         }
         store.set(ADVICE_STATE, [event, *events][:ADVICE_KEPT])
         used.append("portal")
     return used
+
+
+def advice_text(rt: Any, event: dict[str, Any], tr: Any) -> dict[str, Any]:
+    """An advice notice as it reads now (#147): its text, colour state and link made from
+    the entry it points to (``advice_view``), never the text stored when it was sent. So a
+    change of wording reaches old notices too. A notice without a stored entry keeps its
+    own text (the continuity check reports it)."""
+    from vibesynergy.query import advice_view
+
+    if event.get("entry_id") is None:
+        return event
+    try:
+        found = advice_view.for_entry_id(rt, event["entry_id"], tr)
+    except Exception:
+        log.debug("rendering the advice notice failed", exc_info=True)
+        return event
+    if found is None:
+        return event
+    return {
+        **event,
+        "text": found["notice"],
+        "link": found["link"],
+        "advice_day": event.get("advice_day") or found["date"],
+        "state": found["state"],
+        "colour": found["colour"],
+        "label": found["label"],
+        "stamp": found["stamp"],
+    }
 
 
 def deliver(

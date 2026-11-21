@@ -11,5 +11,6 @@ export function screenAlerts(data, now = Date.now()) {
   ]
     .filter((a) => !String(a.key).startsWith("daily:") && a.kind !== "daily_coach" && a.text)
     .filter((a) => !seen.has(a.key) && seen.add(a.key))
-    .map((a) => ({ kind: "screen_alert", text: a.text, link: a.link || "#/dashboard" }));
+    // A daily advice keeps its kind (#147): its text is made by the server from the advice.
+    .map((a) => ({ kind: "screen_alert", advice: a.kind === "advice", text: a.text, link: a.link || "#/dashboard" }));
 }

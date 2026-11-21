@@ -7,6 +7,7 @@ The model is a scripted fake, mail is captured and all data is synthetic.
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import date, timedelta
 
@@ -541,10 +542,11 @@ def test_two_versions_on_one_day_are_one_notice_and_one_push_tag(rt, monkeypatch
     assert len(notices) == 1
     assert notices[0]["key"] == f"advice:{DAY.isoformat()}"
     assert notices[0]["version"] == str(second.entry_id)
-    assert notices[0]["text"].startswith(("Bijgewerkt:", "Updated:"))
+    # A later version says so in the athlete's words (#147), never "version 2".
+    assert re.search(r"(updated at|bijgewerkt om) \d\d:\d\d", notices[0]["text"])
     assert [tag for _, tag in pushes] == [f"advice-{DAY.isoformat()}"] * 2
-    assert not pushes[0][0].startswith(("Bijgewerkt:", "Updated:"))
-    assert pushes[1][0].startswith(("Bijgewerkt:", "Updated:"))
+    assert not re.search("updated|bijgewerkt", pushes[0][0], re.I)
+    assert re.search("updated|bijgewerkt", pushes[1][0], re.I)
 
 
 def test_the_advice_kind_is_in_the_alert_settings() -> None:

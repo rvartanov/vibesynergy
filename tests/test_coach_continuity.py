@@ -99,7 +99,9 @@ def _run(rt, key, summary, safety=SAFE, *, because=None, sessions=None, script=N
 
 
 def _notices(rt):
-    return [e for e in alerts.for_portal(rt.settings)["recent"] if e.get("kind") == "advice"]
+    """The advice notices as the portal reads them: made from their entries (#147)."""
+    found = alerts.for_portal(rt.settings, rt.engine, rt=rt, lang="nl")["recent"]
+    return [e for e in found if e.get("kind") == "advice"]
 
 
 def _text(rt, entry_id):
@@ -535,20 +537,19 @@ def test_an_evening_advice_is_named_after_tomorrow_everywhere(rt, sent):
     assert daily_advice.announce(rt, evening)
 
     nl = __import__("vibesynergy.i18n").i18n.translator("nl")
-    stored = report.stored(rt, evening)
-    run = daily_advice.run_label(stored, rt.settings.timezone, nl)
-    assert re.fullmatch(r"avondrun \d\d:\d\d", run)
     short = format_user_short_day(tomorrow, "nl")
-    tomorrow_title = f"Advies voor morgen \N{EN DASH} {short} ({run})"
+    tomorrow_title = f"Advies voor morgen \N{EN DASH} {short}"
     today_title = f"Advies voor vandaag \N{EN DASH} {format_user_short_day(today, 'nl')}"
 
-    # The notices: one per target day, each with the day it is for.
+    # The notices: one per target day, each with the day it is for, made from the entry
+    # when read (#147), with no run in the words.
     notices = {n["key"]: n for n in _notices(rt)}
     late = notices[f"advice:{tomorrow.isoformat()}"]
     early = notices[f"advice:{today.isoformat()}"]
     assert late["entry_id"] == evening and late["advice_day"] == tomorrow.isoformat()
-    assert late["text"].startswith(f"{tomorrow_title}: Oranje")
-    assert early["entry_id"] == checkin and early["text"].startswith(today_title + " (check-in-run")
+    assert late["text"].startswith(f"{tomorrow_title}: Oranje: je herstel")
+    assert early["entry_id"] == checkin and early["text"].startswith(f"{today_title}: Vandaag")
+    assert not any("run" in n["text"] for n in notices.values())
     # Cut cleanly: never inside a word, and marked with "…".
     assert late["text"].endswith("\N{HORIZONTAL ELLIPSIS}") and len(late["text"]) <= 300
     assert late["text"].removesuffix("\N{HORIZONTAL ELLIPSIS}").rstrip(" .").split()[-1] in (
@@ -563,21 +564,23 @@ def test_an_evening_advice_is_named_after_tomorrow_everywhere(rt, sent):
     assert push_body.startswith("Oranje") and push_body.endswith("\N{HORIZONTAL ELLIPSIS}")
     assert len(push_body) <= report.SHORT_LIMIT
 
-    # The report page and the Coach page: the entry says the day it is for and its run.
+    # The report page and the Coach page: the entry says the day it is for.
     client = TestClient(create_portal_app(rt), base_url=f"https://{TAILNET}:8447")
-    page = client.get(f"/api/coach/report/{evening}").json()["data"]
+    page = client.get(f"/api/coach/report/{evening}?lang=nl").json()["data"]
     assert page["entry"]["advice_day"] == tomorrow.isoformat()
-    assert page["entry"]["advice_job"] == "evening"
     assert page["thread"]["date"] == tomorrow.isoformat()
-    feed = {e["id"]: e for e in client.get("/api/coach/feed").json()["data"]["entries"]}
-    assert feed[evening]["advice_day"] == tomorrow.isoformat()
-    assert feed[checkin]["advice_day"] == today.isoformat()
+    assert page["view"]["label"] == tomorrow_title
+    assert page["view"]["stamp"].startswith("Geschreven ")
+    assert page["view"]["stamp"].endswith(", avondvooruitblik")
+    feed = {e["id"]: e for e in client.get("/api/coach/feed?lang=nl").json()["data"]["entries"]}
+    assert feed[evening]["advice_view"]["label"] == tomorrow_title
+    assert feed[checkin]["advice_view"]["label"] == today_title
 
     # The start page: today's advice stays the check-in's; tomorrow's is in its own card.
     card = daily_advice.upcoming(rt, today, tr=nl)
     assert card is not None and card["entry_id"] == evening and card["date"] == tomorrow.isoformat()
     assert card["level"] == "amber" and card["colour"] == "Oranje"
-    assert card["label"] == tomorrow_title.split(" (")[0] and card["run"] == run
+    assert card["label"] == tomorrow_title and card["stamp"] == page["view"]["stamp"]
     assert card["link"] == late["link"] == f"#/coach/report/{evening}"
     assert daily_advice.current(rt, today, trigger=False)["entry"]["id"] == checkin
 
@@ -585,24 +588,27 @@ def test_an_evening_advice_is_named_after_tomorrow_everywhere(rt, sent):
     day = _mcp(rt, "vibesynergy_today").structured_content["data"]
     assert day["advice"]["entry"]["id"] == checkin
     assert day["advice"]["label"].startswith("Advice for today")
+    assert day["advice"]["view"]["entry_id"] == checkin
     assert day["advice_tomorrow"]["entry_id"] == evening
     assert day["advice_tomorrow"]["date"] == tomorrow.isoformat()
     assert day["advice_tomorrow"]["level"] == "amber"
     assert day["continuity"] == []
     entries = _mcp(rt, "vibesynergy_coach_entries", period="last_7d").structured_content["data"]
-    labels = {e["id"]: e["advice_label"] for e in entries["entries"]}
-    assert labels[evening]["date"] == tomorrow.isoformat()
-    assert labels[evening]["day"].startswith("Advice for tomorrow")
-    assert labels[evening]["run"].startswith("evening run ")
-    assert labels[checkin]["date"] == today.isoformat()
+    views = {e["id"]: e["advice_view"] for e in entries["entries"]}
+    assert views[evening]["date"] == tomorrow.isoformat()
+    assert views[evening]["label"].startswith("Advice for tomorrow")
+    assert views[evening]["stamp"].endswith(", evening preview")
+    assert views[checkin]["date"] == today.isoformat()
 
     # One day and one colour for each advice, in every place.
-    assert {late["advice_day"], card["date"], labels[evening]["date"]} == {tomorrow.isoformat()}
+    assert {late["advice_day"], card["date"], views[evening]["date"]} == {tomorrow.isoformat()}
     assert coach_consistency.check(rt, today)["findings"] == []
 
 
-def test_the_check_flags_a_notice_named_after_the_run_day(rt, sent):
-    """The notice of 20-11 21:46: the evening advice for Saturday labelled "vr 20 nov"."""
+def test_an_old_notice_reads_in_the_new_words_and_a_wrong_day_is_flagged(rt, sent):
+    """The notice of 20-11 21:46: the evening advice for Saturday stored as "Coach avond -
+    vr 20 nov". Since #147 its words are made from its entry when read, so it now names
+    Saturday; a notice whose own day names another day than its entry is still flagged."""
     from vibesynergy.core.user_datetime import format_user_short_day
 
     today = today_in(rt.settings.timezone)
@@ -623,9 +629,12 @@ def test_the_check_flags_a_notice_named_after_the_run_day(rt, sent):
             }
         ],
     )
-    found = coach_consistency.check(rt, today)["findings"]
-    assert [f["rule"] for f in found] == ["notice_day_differs"]
-    assert tomorrow.isoformat() in found[0]["evidence"]
+    assert coach_consistency.check(rt, today)["findings"] == []
+    (shown,) = _notices(rt)
+    assert shown["text"].startswith(
+        f"Advies voor morgen \N{EN DASH} {format_user_short_day(tomorrow, 'nl')}: Oranje"
+    )
+    assert "Coach avond" not in shown["text"]
     # A notice whose own day says another day than its entry is flagged too.
     store.set(
         alerts.ADVICE_STATE,

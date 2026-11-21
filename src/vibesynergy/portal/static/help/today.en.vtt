@@ -1,46 +1,49 @@
 WEBVTT
 
-00:00:10.619 --> 00:00:13.788
+00:00:08.224 --> 00:00:11.362
 The start page shows how you are doing and what to do today.
 
-00:00:13.838 --> 00:00:19.043
+00:00:11.412 --> 00:00:16.466
 At the top: today's advice. Your AI coach decides the colour, the safety and the reasons; without valid advice the fixed rules give it, and say why.
 
-00:00:19.093 --> 00:00:25.121
-Under 'Why this advice': the reasons, where the advice comes from and where your AI coach and the rules differ.
+00:00:16.516 --> 00:00:22.713
+Under 'Why this advice': the reasons, why the advice changed, where it comes from and where your AI coach and the rules differ.
 
-00:00:25.171 --> 00:00:30.677
-When new data comes in, like your check-in or a workout, your AI coach makes a new version. It builds on the previous one and says what changes and why.
+00:00:22.763 --> 00:00:26.861
+The colour and what it means. Once today's training is done, it says 'Done for today', with your recovery in a small line.
 
-00:00:30.727 --> 00:00:35.224
+00:00:26.911 --> 00:00:32.771
+When new data comes in, like your check-in or a workout, your AI coach makes a new version. Here it says when and why: 'Updated, after your check-in'. You only get a notice when the advice really changes.
+
+00:00:32.821 --> 00:00:37.306
 When a second AI coach works with you, its second opinion is listed here. Where it differs from your AI coach, you see it at once. Your own AI coach has the last word.
 
-00:00:35.274 --> 00:00:42.991
+00:00:37.356 --> 00:00:44.945
 VibeSynergy checks every night. When a measurement looks wrong, you see why here, and that night's sleep, HRV or readiness don't count for the advice.
 
-00:00:43.041 --> 00:00:50.280
+00:00:44.995 --> 00:00:52.172
 You decide: 'No, it's right' counts the night after all, 'Yes, incomplete' leaves it out. You can always undo it.
 
-00:00:50.330 --> 00:00:54.025
+00:00:52.222 --> 00:00:55.906
 Update advice first syncs all your sources, then asks your AI coach for new advice.
 
-00:00:54.075 --> 00:00:58.359
+00:00:55.956 --> 00:01:00.239
 Once your AI coach has made tomorrow's advice in the evening, it is here, with its colour and the day it is for. The notice names the same day.
 
-00:00:58.409 --> 00:01:01.506
+00:01:00.289 --> 00:01:03.905
 Recovery compares HRV, sleep and resting heart rate with your normal.
 
-00:01:01.556 --> 00:01:11.885
+00:01:03.955 --> 00:01:14.018
 Fill in the check-in every morning: 1 to 5 per question.
 
-00:01:11.935 --> 00:01:21.080
+00:01:14.068 --> 00:01:23.076
 Your answers are saved right away.
 
-00:01:21.130 --> 00:01:25.210
+00:01:23.126 --> 00:01:27.143
 A note helps your AI coach refine the advice.
 
-00:01:25.260 --> 00:01:31.059
+00:01:27.193 --> 00:01:32.903
 Use ‹ and › or the date to move to other days.
 
-00:01:31.109 --> 00:01:38.501
+00:01:32.953 --> 00:01:40.539
 Further down: last night, body, timeline and best efforts.

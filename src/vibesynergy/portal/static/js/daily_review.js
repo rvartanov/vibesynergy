@@ -4,7 +4,7 @@ import { esc, longDate, userDateTime } from "./format.js";
 import { N, t } from "./i18n.js";
 
 export const DAILY_LABELS = {
-  morning: N("Morning decision"),
+  morning: N("Morning advice"),
   evening: N("Evening review"),
   weekly: N("Week review"),
   block: N("Block review"),
@@ -210,7 +210,7 @@ export function dailyKindHtml(kind, entry, options = {}) {
 export function dashboardCoachingPlan(today, yesterday) {
   if (hasSavedAdvice(today?.evening)) {
     const secondary = hasSavedAdvice(today?.morning)
-      ? { kind: "morning", entry: today.morning, heading: t("This morning's decision"), collapsed: true }
+      ? { kind: "morning", entry: today.morning, heading: t("This morning's advice"), collapsed: true }
       : null;
     return {
       primary: { kind: "evening", entry: today.evening, heading: t("Evening review") },
@@ -280,7 +280,7 @@ export function dashboardCoachingHtml(plan) {
 
 export function dayCoachingHtml(data) {
   const emptyMsg = {
-    morning: t("No morning decision saved for this day."),
+    morning: t("No morning advice saved for this day."),
     evening: t("No evening review saved for this day."),
   };
   const blocks = ["morning", "evening"].map((kind) => {

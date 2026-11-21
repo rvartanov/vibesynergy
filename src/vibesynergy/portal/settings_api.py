@@ -767,9 +767,10 @@ def build_settings_router(rt: Runtime) -> APIRouter:
         return {"data": current()}
 
     @router.get("/alerts")
-    def open_alerts() -> dict[str, Any]:
-        """For the portal's banner: open alerts and recent events routed to the portal."""
-        return {"data": alerts.for_portal(settings, rt.engine)}
+    def open_alerts(lang: str | None = None) -> dict[str, Any]:
+        """For the portal's banner: open alerts and recent events routed to the portal. An
+        advice notice is made from its entry now, in the page's language (#147)."""
+        return {"data": alerts.for_portal(settings, rt.engine, rt=rt, lang=lang)}
 
     @router.post("/alerts/test")
     def alerts_test() -> dict[str, Any]:

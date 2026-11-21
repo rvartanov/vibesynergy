@@ -358,10 +358,11 @@ def test_morning_run_tools_mail_and_audit(rt, mail):
     # The same HTML layout as the morning alert mail, with a button to the report.
     assert page and "Openen in VibeSynergy" in page and f"#/coach/report/{entry['id']}" in page
     assert "HRV binnen band." not in page  # the details stay on the report page (7-11)
-    # Named after the day the advice is for, with the run that wrote it (#138).
-    assert re.fullmatch(r"Advies voor zo 1 nov \(ochtendrun \d\d:\d\d\)", subject), subject
-    # The day's colour and headline first, the same as the dashboard's (#89).
-    assert body.startswith("Groen: Goed hersteld\n\nAlex, houd de duurloop rustig")
+    # Named after the day the advice is for (#138), with no run in it (#147).
+    assert subject == "Advies voor zo 1 nov", subject
+    # The day's colour and headline first, the same as the dashboard's (#89), then when
+    # this version was written (#147).
+    assert re.match(r"Groen \u2013 Goed hersteld\nGeschreven .*\d\d:\d\d\n\nAlex, houd", body), body
     assert f"https://{TAILNET}:8447/#/coach/report/{entry['id']}" in body
     # Audit: every tool call as the runner's client, and the run with its cost.
     mcp_rows = [
@@ -416,7 +417,7 @@ def test_make_again_writes_a_new_report_and_send_again_mails_it(rt, mail):
     mail.clear()
     runner_q.resend(rt, "morning")
     ((_, _, body, _),) = mail
-    assert body.startswith("Groen: Goed hersteld\n\nAlex, toch rustig aan vandaag.")
+    assert re.match(r"Groen \u2013 Goed hersteld\nBijgewerkt .*\n\nAlex, toch rustig", body), body
     with pytest.raises(runner_q.TestRunError):
         runner_q.resend(rt, "weekly")  # nothing to send yet
 

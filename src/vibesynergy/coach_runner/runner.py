@@ -906,8 +906,9 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
         coach_replies.mark_read(rt.engine, [r["id"] for r in replies], row["id"])
         _save(rt, row["id"], status="done", entry_id=entry["id"], finished_at=finished)
         if advice_target is not None and not _real_change(rt, advice_target, entry):
-            # A new version that only rewords the advice: no mail (#90), but the day's
-            # notice now points at this version, never at a replaced one (#115).
+            # A new version that only reports or rewords the advice: no push or mail (#90,
+            # #147), but the day's notice now points at this version, never at a replaced
+            # one (#115).
             _save(rt, row["id"], harness={**harness, "contract": issues, "mail": "no_change"})
             try:
                 report.send(rt, job, for_date, entry, advice_day=advice_target, quiet=True)
@@ -928,8 +929,9 @@ def _advice_target(job: str, for_date: date) -> date | None:
 
 
 def _real_change(rt, target: date, entry: dict[str, Any]) -> bool:
-    """The new version differs from the previous valid advice for that day in colour,
-    safety level or a session decision. The first advice for a day always counts."""
+    """The new version is worth a push or a mail (``advice_view.notable``, #147): the first
+    advice for a day, another colour, a stricter safety level, or a session decision the
+    athlete acts on. A session that is now done, or wording alone, is quiet."""
     from vibesynergy.query import daily_advice
 
     try:

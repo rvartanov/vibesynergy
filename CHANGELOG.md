@@ -264,6 +264,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **AI advice and its notices as one clear chain** (#147): the banner, the push, the mail,
+  Meldingen, the start page, the Coach page, the report page and the AI apps now show every
+  daily advice in the same words, made from the stored advice when you read it. So an old
+  notice no longer shows an old wording ("Bijgewerkt: Coach ochtend – za 21 nov: Oranje: …"
+  cut off mid-word): it reads "Advies voor vandaag bijgewerkt om 12:48, na je training: Robert,
+  de rit van vandaag is gedaan zoals bedoeld; verder niets meer vandaag. · Bekijk". A version
+  says when and why it came in plain words ("Bijgewerkt 12:48, na je training", "na je
+  check-in", "nacht binnen", "plan gewijzigd", "avondvooruitblik") instead of the runner's
+  words ("ochtendrun 12:48", "Ochtendbeslissing", "Versie 5 van 5"). Once the day's sessions
+  are done and your AI coach's version says so, the advice reads "Gedaan voor vandaag" with
+  "Herstel: oranje – …" in a small line, instead of "Oranje: Doe het wat rustiger aan" next
+  to "verder niets meer vandaag". The report page is called "Advies" and shows "Bijgewerkt
+  12:48, na je training · Eerdere versies (4)"; other reports are a "Rapport". A push or mail
+  now comes only for a new day's advice or a real change (another colour, a stricter safety
+  level, or a session kept, adjusted, dropped or proposed differently); a version that only
+  reports a session done is quiet, and a notice you closed stays closed. The author line
+  says "AI-coach" without "(API)". The daily continuity check also flags a colour that does
+  not fit the day. **This changes behaviour**: fewer pushes and mails on a day with several
+  updates.
 - **Cadence band for Z2 rides**: new endurance rides and brick rides from the workout
   library now use 80–95 rpm in the warm-up and the main set (was 90 and 85–95), with the cue
   "cadans 80-95 (eigen keuze binnen die band)". Power and duration are unchanged.

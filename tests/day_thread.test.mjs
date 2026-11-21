@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   becauseText,
   continuityHtml,
-  threadBannerHtml,
+  reportHeadHtml,
   versionsHtml,
 } from "../src/vibesynergy/portal/static/js/daily_advice.js";
 
@@ -20,24 +20,26 @@ test("a later version says why it changed, in one sentence", () => {
   assert.equal(becauseText(versions[1]), "");
 });
 
-test("an earlier version is marked replaced, numbered and linked to its own report", () => {
+test("an earlier version is marked replaced and linked to its own report, without a number", () => {
   const html = versionsHtml({ source: "ai", entry: { id: 1053 }, versions });
   assert.match(html, /data-version-status="replaced"/);
   assert.match(html, /Replaced/);
-  assert.match(html, /Version 1/);
+  assert.doesNotMatch(html, /Version \d/); // #147: the times say the order
   assert.match(html, /href="#\/coach\/report\/1018"/);
   assert.doesNotMatch(html, /data-advice-version="1053"/); // the current one is the card itself
 });
 
 test("the report page says whether a version is current or replaced", () => {
-  const current = threadBannerHtml({ version: 2, of: 2, status: "current", current_id: 1053 }, "Thu 19 Nov");
-  assert.match(current, /Version 2 of 2 of the advice for Thu 19 Nov\./);
-  assert.match(current, /This is the current advice\./);
-  const old = threadBannerHtml({ version: 1, of: 2, status: "replaced", current_id: 1053 }, "Thu 19 Nov");
+  const view = { entry_id: 1053, date: "2026-11-19", label: "Advice for today – Thu 19 Nov", stamp: "Updated 09:57, your night is in", state: "colour", colour: "green", colour_name: "Green", headline: "Well recovered", verdict: "Green – Well recovered", status: "current", current_id: 1053 };
+  const current = reportHeadHtml(view, versions);
+  assert.match(current, /Advice for today – Thu 19 Nov/);
+  assert.match(current, /Updated 09:57, your night is in/);
+  assert.doesNotMatch(current, /data-thread-status="/);
+  const old = reportHeadHtml({ ...view, entry_id: 1018, status: "replaced" }, versions);
   assert.match(old, /data-thread-status="replaced"/);
   assert.match(old, /not the current advice/);
   assert.match(old, /href="#\/coach\/report\/1053"/);
-  assert.equal(threadBannerHtml(null, ""), "");
+  assert.equal(reportHeadHtml(null), "");
 });
 
 test("the continuity check shows only when there is a gap", () => {

@@ -15,9 +15,9 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
 
 | Job | When (Europe/Amsterdam) | Prompt | Writes | Report mail |
 | --- | --- | --- | --- | --- |
-| `morning` | daily 07:00 (the fixed advice run, #90), and on new data for today | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Advies voor vandaag – zo 1 nov (ochtendrun 07:02)", for a new version only on a real change |
-| `evening` | daily 21:45, and on new data for tomorrow; its advice is for tomorrow | `evening.md` | entry `evening`, key `evening-<date>` | "Advies voor morgen – ma 2 nov (avondrun 21:46)": named after the day the advice is for (#138) |
-| `injury`, `checkin` | on pain or an injury (at once), on the check-in (after the wait) | `injury.md`, `checkin.md` | entry `note`, key `<task>-<date>-event-…` | "Advies voor vandaag – … (check-in-run 08:53)", only on a real change |
+| `morning` | daily 07:00 (the fixed advice run, #90), and on new data for today | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Advies voor vandaag – zo 1 nov"; a later version "Advies voor vandaag bijgewerkt – zo 1 nov", only on a real change (#147) |
+| `evening` | daily 21:45, and on new data for tomorrow; its advice is for tomorrow | `evening.md` | entry `evening`, key `evening-<date>` | "Advies voor morgen – ma 2 nov": named after the day the advice is for (#138) |
+| `injury`, `checkin` | on pain or an injury (at once), on the check-in (after the wait) | `injury.md`, `checkin.md` | entry `note`, key `<task>-<date>-event-…` | "Advies voor vandaag bijgewerkt – …", only on a real change |
 | `weekly` | Sunday 19:44 | `weekly.md` | entry `note`, key `weekly-<date>`, summary starts "Weekreview <ISO-week>" | "Coach weekreview – …" |
 | `insight` | on `activity.published` | `insight.md` | `activity_assessment` with `public_insight` | none |
 
@@ -372,8 +372,33 @@ today's AI advice until the 07:00 run. Advice for a past day is archive. Every v
 in the log; `daily_advice.resolve` gives the newest valid one, `versions` (newest first,
 each with `changes`, `trigger` and what really changed against the version before), and
 `entry.changes` / `entry.differences` for the current one. The dashboard says when the
-advice was written and after what ("Updated at 10:32 after your check-in. Changed: colour
-amber → green."); the Coach page lists the earlier versions under the advice card.
+advice was written and why ("Updated 10:32, after your check-in. Changed: colour amber →
+green."); the Coach page lists the earlier versions under the advice card.
+
+**One view per advice (#147).** Every place reads an advice through
+`query/advice_view.view(entry)`: `label` ("Advies voor vandaag – za 21 nov"), `stamp`
+("Bijgewerkt 13:48, na je training", or "Geschreven 21:46, avondvooruitblik" for a first
+version), `why` (from `meta.harness.changes` and `trigger`: na je training, na je
+check-in, nacht binnen, plan gewijzigd, na je notitie, na je pijnmelding, na je reactie,
+op je verzoek, ochtendupdate, avondvooruitblik), `state`, `verdict`, `recovery`, `notice`
+and `push`. The banner, the push, the mail, Meldingen, the start page, the Coach feed, the
+report page and the MCP (`advice.view`, `advice_tomorrow.view`, `advice_view` in
+`vibesynergy_coach_entries`) show those words; none builds its own. A portal notice stores
+only which entry it is about; `alerts.for_portal` makes its text from that entry when it is
+read, so old notices show the current wording. The colour follows the day: `state` is
+`colour` ("Oranje – Doe het wat rustiger aan") until the day's planned sessions are done
+and the version says so (it marks each done, skipped or missed and none is still to keep,
+adjust or propose); then `done` ("Gedaan voor vandaag", with "Herstel: oranje – <the first
+stored reason>"). The colour, its reasons and the decisions come from the stored entry; the
+plan (`query.plan`) only says what was planned and what was done.
+
+**When a version is sent (#147).** `advice_view.notable`: the first version of a day, or
+another colour, a stricter safety level, or a session whose decision changes to keep,
+adjust, skip or proposal (held against the newest earlier version that names it). A
+session that is now done or missed, a milder level in the same colour, or wording is
+quiet: no push and no mail; the day's notice points at the new version and keeps its
+`version`, so a notice the athlete closed stays closed. The contact window and its urgent
+exception (#119) are unchanged.
 
 **The day thread (#115).** The versions are one conversation. Each item in `versions` has
 `version` (1 is the oldest valid one), `of`, `status` (`current`, `replaced` with
@@ -383,10 +408,11 @@ the day it reviews), and the start message names the current version: "De huidig
 voor die dag is advies #1018 … geef changed_because = {"previous": 1018, …}". The output
 contract refuses a later version without `changed_because` citing that id
 (`contract.check_changed_because`), and `contract_issues` fails a run whose entry ignores
-the thread. The dashboard line ends with "Changed because: …"; the Coach page marks earlier
-versions *Replaced*, numbered and linked to their own report; the report page says
-"Version 1 of 2 of the advice for Thu 19 Nov. Replaced by a newer version" with a link to
-the current one (`GET /api/coach/report/<id>` → `thread`).
+the thread. "Changed because: …" is under "Why this advice"; the Coach page marks earlier
+versions *Replaced*, with their time and why, linked to their own report; the report page
+is called "Advies", with the label, the stamp and "Eerdere versies (n)", and a replaced
+version says "Replaced by a newer version" with a link to the current one
+(`GET /api/coach/report/<id>` → `view`, `versions`, `thread`).
 
 **What is sent is what is stored (#115).** `report.send` reads the entry back by id and
 sends only that stored text, linked to `#/coach/report/<id>` (mail, push and notice; the
@@ -395,7 +421,9 @@ never sent, also not by Send again. A version that only rewords is not sent, but
 notice is pointed at it (`quiet`). The continuity check (`query/coach_consistency.py`, once
 a day from the alerts check, live on the Coach page and in `vibesynergy_today`) reports any
 gap: a notice without its entry or with a text not in it, a notice on a replaced version, a
-current advice without a notice, a later version without its reason.
+current advice without a notice, a later version without its reason, and (#147) a label
+that contradicts the day (`label_day_state`: a colour to act on while every session of the
+day is done and no new version is on its way, or "done" while a session is still open).
 
 **Triggers.** Every daily-advice run stores a fingerprint of its inputs at its start
 (`coach_run.harness.inputs`: one short hash per kind). On every scheduler tick
