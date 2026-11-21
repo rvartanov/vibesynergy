@@ -247,6 +247,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   shows a short title on a wide screen. On a phone the week is a list of days ([#20](https://github.com/rvartanov/vibesynergy/pull/20)).
 
 ### Changed
+- **Cadence band for Z2 rides**: new endurance rides and brick rides from the workout
+  library now use 80–95 rpm in the warm-up and the main set (was 90 and 85–95), with the cue
+  "cadans 80-95 (eigen keuze binnen die band)". Power and duration are unchanged.
 - **Routine instructions without another app's tool** (#120): the seed prompts for the
   morning, evening and week review no longer ask for `SendUserMessage`; the message to the
   athlete is the summary of the AI coach's entry, which VibeSynergy sends. Changes go to
