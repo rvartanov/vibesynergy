@@ -884,11 +884,10 @@ def _search_inbox(r: Rec):
         "Approve it and VibeSynergy carries it out; you can also reject it.",
         3.6,
     )
-    advice = r.pg.locator("main [data-advice-notice]").first
-    r.check(advice.count() > 0, "the day's advice should be a notice (#147)")
+    advice = r.pg.locator("main [data-advice-notice]", has_text="bijgewerkt om").first
     r.check(
-        "bijgewerkt om" in (advice.text_content() or ""),
-        "the advice notice should say when and why it was updated (#147)",
+        advice.count() > 0,
+        "today's advice should be a notice that says when and why it was updated (#147)",
     )
     r.point(advice)
     r.say(

@@ -1,49 +1,49 @@
 WEBVTT
 
-00:00:06.894 --> 00:00:10.132
+00:00:08.788 --> 00:00:11.909
 Training → Coach: advies, kennis, regels, geheugen en taken van je AI-coach.
 
-00:00:10.182 --> 00:00:15.860
+00:00:11.959 --> 00:00:17.599
 Bij het advies van vandaag staat de second opinion van een adviserende AI-coach, met waar die afwijkt. In de berichten eronder heeft hij een eigen label.
 
-00:00:15.910 --> 00:00:21.720
-Elk advies heet naar de dag waarvoor het is, met de run die het schreef: het avondadvies is het advies voor morgen.
+00:00:17.649 --> 00:00:23.346
+Elk advies heet naar de dag waarvoor het is, met wanneer en waarom het kwam: de avondvooruitblik is het advies voor morgen.
 
-00:00:21.770 --> 00:00:27.227
+00:00:23.396 --> 00:00:28.780
 Een planaanpassing zegt waarom, en onder Details wat er veranderde. Een kopie naar intervals.icu is geen planaanpassing en staat hier niet.
 
-00:00:27.277 --> 00:00:32.692
+00:00:28.830 --> 00:00:34.209
 Eerdere versies van vandaag staan eronder, met tijd en waarom het advies veranderde. Een oudere versie is gemarkeerd als vervangen.
 
-00:00:32.742 --> 00:00:38.329
-Elke melding opent precies het rapport waar hij over gaat. Is dat een oudere versie, dan staat dat erbij, met een link naar het huidige advies.
+00:00:34.259 --> 00:00:40.137
+Elke melding opent precies het advies waar hij over gaat, met de dag, wanneer en waarom. Is dat een oudere versie, dan staat dat erbij, met een link naar het huidige advies.
 
-00:00:38.379 --> 00:00:41.495
+00:00:40.187 --> 00:00:43.301
 Instellingen: zet je AI-coach aan en kies een AI-aanbieder.
 
-00:00:41.545 --> 00:00:45.058
+00:00:43.351 --> 00:00:46.829
 Plak hier je eigen API-sleutel en kies 'Sleutel opslaan'.
 
-00:00:45.108 --> 00:00:48.608
+00:00:46.879 --> 00:00:50.375
 Nieuwe gegevens maken in de loop van de dag een nieuwe versie van het advies. Kies hoeveel updates per dag hoogstens; je ziet wat dat kost.
 
-00:00:48.658 --> 00:00:53.104
+00:00:50.425 --> 00:00:54.972
 Contactvenster: wanneer een AI-coach je mag bereiken, standaard van 7 tot 23 uur. Daarbuiten maakt hij zijn advies wel, maar meldingen wachten tot het venster opengaat.
 
-00:00:53.154 --> 00:00:57.596
+00:00:55.022 --> 00:00:59.488
 Per taak stel je in wanneer je AI-coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.
 
-00:00:57.646 --> 00:01:02.532
+00:00:59.538 --> 00:01:04.462
 Geheugen: wat je AI-coach over je onthoudt, en hoe hij praat.
 
-00:01:02.582 --> 00:01:12.293
+00:01:04.512 --> 00:01:14.219
 Notities voor je AI-coach worden vanzelf bewaard.
 
-00:01:12.343 --> 00:01:16.875
+00:01:14.269 --> 00:01:18.746
 Bij 'Wat te onthouden' leg je vaste afspraken vast, zoals wanneer je kunt trainen.
 
-00:01:16.925 --> 00:01:21.404
+00:01:18.796 --> 00:01:23.231
 Kennis: artikelen waarop je AI-coach zich baseert. Wijzigingen keur jij goed.
 
-00:01:21.454 --> 00:01:29.542
+00:01:23.281 --> 00:01:30.877
 Logboek: elke wijziging in wat je AI-coach weet, terug te kijken.
