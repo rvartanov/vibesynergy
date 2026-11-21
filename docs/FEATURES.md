@@ -255,7 +255,12 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   an article's earlier slug keeps working (`claude-coach-loop` is now `ai-coach-loop`).
   Methods & rules (and every AI coach, in the handbook) also gets a warning for a text with
   a retired name, a rule range that does not match the rules in use, a tool that does not
-  exist, or a threshold written as a fixed number instead of read live.
+  exist, or a threshold written as a fixed number instead of read live. A fix of such a
+  warning that needs no judgment (an old name, a rule range, a threshold on an instruction
+  line now read live) goes through without your approval, from VibeSynergy's daily check or
+  from your own agent or primary AI coach, never from an advisory AI coach; Methods & rules
+  lists each fix with an undo, and Notices has one line for them. A change that still waits
+  for you shows only the changed lines, with the full text one click away.
 - **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,

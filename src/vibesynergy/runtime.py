@@ -101,6 +101,9 @@ class Runtime:
         from vibesynergy.query import quote_sources
 
         handlers[quote_sources.JOB] = lambda _job: quote_sources.run(self)
+        from vibesynergy.query import kb_editorial
+
+        handlers[kb_editorial.JOB] = lambda _job: kb_editorial.run(self)
         handlers["dropfolder"] = lambda _job: dropfolder.scan(self)
         from vibesynergy.query import plan_model
 

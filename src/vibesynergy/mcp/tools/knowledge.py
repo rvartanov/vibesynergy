@@ -185,8 +185,19 @@ def register(kit: ToolKit) -> None:
         verified_at: str | None = None,
         article_slug: str | None = None,
         replace: bool = False,
+        editorial: bool = False,
     ) -> dict[str, Any]:
         """Suggest a change. The current text stays until the athlete approves it in the portal.
+
+        Except a pure lint fix: when every changed part only fixes a lint warning the
+        mechanical way (old slug -> current slug, the old app name -> VibeSynergy, a rule range
+        from 1 -> the real range, a fixed threshold on an instruction line -> "read live with
+        vibesynergy_thresholds"), nothing else changes, and you are the athlete's own agent or
+        the primary AI coach, the server applies it at once (status ``applied``); the athlete
+        sees it afterwards and can undo it. ``editorial=true`` asks for that, but the server
+        decides: anything more than the fix, or any proposal by an advisory AI coach, waits
+        for approval (``editorial.reason`` says why). Send a lint fix on its own, not mixed
+        with a content change.
 
         For a rule, pass ``target`` as the rule id and the replacement in ``new_text``. A new
         rule needs a free id: text unrelated to an existing rule under that id is refused
@@ -218,7 +229,18 @@ def register(kit: ToolKit) -> None:
                 author=current_author(),
                 changes=changes,
                 replace=replace,
+                editorial=editorial,
             )
         except (LookupError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
-        return envelope(proposal, warnings=knowledge.change_warnings(engine, kind, target, changes))
+        warnings = knowledge.change_warnings(engine, kind, target, changes)
+        check = proposal.get("editorial") or {}
+        if editorial and not check.get("applied"):
+            warnings.append(
+                "Not applied as an editorial fix: "
+                + knowledge.EDITORIAL_REASONS.get(
+                    str(check.get("reason")), str(check.get("reason"))
+                )
+                + ". It waits for the athlete's approval."
+            )
+        return envelope(proposal, warnings=warnings)

@@ -487,16 +487,14 @@ def fitness(r: Rec):
 @scenario("coach", "Je AI-coach instellen en gebruiken", "Setting up and using your AI coach")
 def coach(r: Rec):
     # The day's advice with an advisory AI coach's second opinion beside it (#118).
-    # And an outdated working-method article, so Methods & rules shows its check (#120).
+    # Methods & rules and its check of the texts have their own manual (coach-methods).
     _demo("demo_coach_roles.py", "seed")
-    _demo("demo_kb_lint.py", "seed")
     # A real plan change, and an old copy to intervals.icu that stays hidden (#141).
     _demo("demo_plan_copy.py", "seed")
     try:
         _coach(r)
     finally:
         _demo("demo_plan_copy.py", "clear")
-        _demo("demo_kb_lint.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
 
@@ -514,7 +512,7 @@ def _coach(r: Rec):
         "met waar die afwijkt. In de berichten eronder heeft hij een eigen label.",
         "With today's advice you see the second opinion of an advisory AI coach, and where "
         "it differs. In the messages below it has its own label.",
-        2.8,
+        2.6,
     )
     chip = r.pg.locator("[data-second-opinion-chip]").first
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
@@ -529,7 +527,7 @@ def _coach(r: Rec):
         "avondadvies is het advies voor morgen.",
         "Every advice is named after the day it is for, with the run that wrote it: the "
         "evening advice is the advice for tomorrow.",
-        2.8,
+        2.6,
     )
     # A plan change says why and, under Details, what changed; a copy is no message (#141).
     change = r.pg.locator('article[data-entry-type="plan_change"]')
@@ -548,7 +546,7 @@ def _coach(r: Rec):
         "intervals.icu is geen planaanpassing en staat hier niet.",
         "A plan change says why, and under Details what changed. A copy to intervals.icu is "
         "not a plan change and is not listed here.",
-        2.8,
+        2.6,
     )
     # The day thread (#115): the earlier version, marked replaced, and its own report.
     earlier = r.pg.locator("[data-coach-advice] [data-advice-versions]")
@@ -562,7 +560,7 @@ def _coach(r: Rec):
         "Een oudere versie is gemarkeerd als vervangen.",
         "Earlier versions of today are listed below, with the time and why the advice "
         "changed. An older version is marked replaced.",
-        2.8,
+        2.6,
     )
     r.click(earlier.locator("[data-advice-version] a").first)
     banner = r.pg.locator('[data-thread-status="replaced"]')
@@ -573,7 +571,7 @@ def _coach(r: Rec):
         "dan staat dat erbij, met een link naar het huidige advies.",
         "Every notice opens exactly the report it is about. When that is an older version, "
         "it says so, with a link to the current advice.",
-        2.8,
+        2.6,
     )
     r.go("coach")
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
@@ -597,7 +595,7 @@ def _coach(r: Rec):
         "hoeveel updates per dag hoogstens; je ziet wat dat kost.",
         "New data makes a new version of the advice during the day. Choose how many updates "
         "a day at most; you see what that costs.",
-        2.8,
+        2.6,
     )
     contact_start = r.pg.locator("#coach-contact-start")
     r.check(contact_start.count() > 0, "Settings should show the contact window")
@@ -607,13 +605,13 @@ def _coach(r: Rec):
         "Daarbuiten maakt hij zijn advies wel, maar meldingen wachten tot het venster opengaat.",
         "Contact window: when an AI coach may reach you, from 7 to 23 by default. Outside "
         "it the advice is still made, but notices wait until the window opens.",
-        2.8,
+        2.6,
     )
     r.click(r.pg.locator("summary", has_text="Ochtendadvies").first)
     r.say(
         "Per taak stel je in wanneer je AI-coach werkt, bijvoorbeeld het ochtendadvies om 7 uur.",
         "Per task you set when your AI coach runs, for example the morning advice at 7.",
-        2.8,
+        2.6,
     )
     r.click(r.pg.get_by_role("link", name="Geheugen"))
     r.say(
@@ -643,7 +641,7 @@ def _coach(r: Rec):
     r.say(
         "Bij 'Wat te onthouden' leg je vaste afspraken vast, zoals wanneer je kunt trainen.",
         "Under 'What to remember' you add fixed facts, such as when you can train.",
-        2.8,
+        2.6,
     )
     r.click(r.pg.get_by_role("link", name="Kennis"))
     r.say(
@@ -651,19 +649,65 @@ def _coach(r: Rec):
         "Knowledge: the articles your AI coach relies on. You approve changes.",
         2.6,
     )
-    r.click(r.pg.get_by_role("link", name="Werkwijze & regels"))
-    check = r.pg.locator("[data-kb-lint]")
-    r.check(check.count() > 0, "Methods & rules should show the check of the texts")
-    r.point(check)
-    r.say(
-        "Werkwijze & regels: een verouderde tekst krijgt hier een waarschuwing.",
-        "Methods & rules: an outdated text gets a warning here.",
-        2.2,
-    )
     r.click(r.pg.get_by_role("link", name="Logboek"))
     r.say(
         "Logboek: elke wijziging in wat je AI-coach weet, terug te kijken.",
         "Log: every change in what your AI coach knows, to look back on.",
+    )
+
+
+@scenario(
+    "coach-methods",
+    "Werkwijze & regels: de teksten van je AI-coach",
+    "Methods & rules: the texts your AI coach follows",
+)
+def coach_methods(r: Rec):
+    # A text VibeSynergy fixed without asking, and a content change that waits (#137).
+    _demo("demo_kb_lint.py", "seed")
+    try:
+        _coach_methods(r)
+    finally:
+        _demo("demo_kb_lint.py", "clear")
+
+
+def _coach_methods(r: Rec):
+    r.go("coach/methods")
+    r.say(
+        "Coach → Werkwijze & regels: de teksten en regels die je AI-coach volgt.",
+        "Coach → Methods & rules: the texts and rules your AI coach follows.",
+    )
+    waiting = r.pg.locator("[data-methods-waiting] .kb-proposal").first
+    r.check(waiting.count() > 0, "a content change should wait on Methods & rules")
+    r.check(waiting.locator(".coach-diff ins").count() > 0, "the waiting change shows a diff")
+    r.point(waiting.locator(".coach-diff"))
+    r.say(
+        "Een wijziging die op jou wacht toont alleen de gewijzigde regels, met wat context, "
+        "en de reden.",
+        "A change waiting for you shows only the changed lines, with a little context, and "
+        "the reason.",
+        2.8,
+    )
+    r.click(waiting.locator("[data-full-text] summary"))
+    r.say("De hele tekst staat één klik verder.", "The full text is one click away.", 1.8)
+    fixed = r.pg.locator("[data-kb-editorial] li").first
+    r.check(fixed.count() > 0, "the check of the texts should list the fix made without asking")
+    r.point(fixed)
+    r.say(
+        "Verouderde namen, regelbereiken en vaste drempels verbetert VibeSynergy zelf. Hier "
+        "zie je achteraf wat er veranderde.",
+        "Outdated names, rule ranges and fixed thresholds VibeSynergy fixes itself. Here you "
+        "see afterwards what changed.",
+        3.0,
+    )
+    r.click(fixed.get_by_role("button", name="Ongedaan maken"))
+    r.pg.wait_for_load_state("networkidle")
+    undone = r.pg.locator("[data-kb-editorial] li").first
+    r.check("Ongedaan gemaakt" in undone.inner_text(), "Undo should bring the old text back")
+    r.point(undone)
+    r.say(
+        "Eén klik maakt het ongedaan; het logboek bewaart elke versie.",
+        "One click undoes it; the change log keeps every version.",
+        2.4,
     )
 
 
@@ -773,11 +817,14 @@ def insight(r: Rec):
 
 @scenario("search-inbox", "Zoeken en 'Wacht op jou'", "Search and 'Waiting for you'")
 def search_inbox(r: Rec):
-    # A plan change an AI coach proposed and a second opinion that differs (#118).
+    # A plan change an AI coach proposed and a second opinion that differs (#118), and texts
+    # VibeSynergy fixed itself (#137).
     _demo("demo_coach_roles.py", "seed")
+    _demo("demo_kb_lint.py", "seed")
     try:
         _search_inbox(r)
     finally:
+        _demo("demo_kb_lint.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
 
@@ -819,6 +866,14 @@ def _search_inbox(r: Rec):
         "Bij de meldingen zie je ook wanneer een second opinion afwijkt van je AI-coach.",
         "The notices also say when a second opinion differs from your AI coach.",
         2.8,
+    )
+    texts = r.pg.locator("a", has_text="Teksten bijgewerkt").first
+    r.check(texts.count() > 0, "the texts VibeSynergy fixed should be one notice")
+    r.point(texts)
+    r.say(
+        "En welke teksten VibeSynergy zelf bijwerkte, zonder het te vragen.",
+        "And which texts VibeSynergy updated itself, without asking.",
+        2.4,
     )
 
 

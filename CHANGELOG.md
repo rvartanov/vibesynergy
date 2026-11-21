@@ -11,6 +11,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Text fixes without your approval, and a diff instead of whole articles** (#137): a
+  change to a knowledge-base text that only fixes a warning from the check of the texts, the
+  mechanical way, no longer waits for you. That is an old article name or the old app name
+  replaced by the current one, a range of rules from 1 given its real end ("ICU-1..4" →
+  "ICU-1..6"), or, on a plain instruction line, a threshold written as a number replaced by
+  "read live with vibesynergy_thresholds". VibeSynergy makes these fixes itself once a day,
+  and your own agent or your primary AI coach may send them; a proposal from an advisory AI
+  coach always waits. VibeSynergy checks every changed part: one other word, number, date,
+  day, session or rule anywhere, or a fix that needs a choice (a tool of another app, a rule
+  that does not exist), and the whole proposal waits for you as before. Coach → Methods &
+  rules lists what was fixed under the check of the texts, each with **Undo** (a new version;
+  the change log keeps every one), and Waiting for you → Notices has one line ("Texts updated
+  (3): outdated names, rule ranges"); nothing is pushed or mailed. A change that still waits
+  for you, on Coach → Knowledge, Coach → Methods & rules and Waiting for you, now shows only
+  the changed lines with a little context, and **Show the full text** opens the rest.
+  `vibesynergy_kb_propose_change` takes `editorial=true` as a request, and its reply says
+  whether the fix was applied and, if not, why. Proposals made before stay as they are.
 - **Check of the knowledge-base texts** (#120): Coach → Methods & rules now shows a warning,
   with a link to the article, when a text your AI coach follows uses a retired name (the old
   app name, the removed plan-source command, an old article name), refers to a range of

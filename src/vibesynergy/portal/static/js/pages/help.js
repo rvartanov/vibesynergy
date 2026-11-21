@@ -20,6 +20,7 @@ export const MANUALS = [
     ["group-training", N("Coaching a group training with RunSynergy"), N("Connect RunSynergy and adopt the group schedule as the workout for your Training geven session.")],
     ["fitness", N("Zones, thresholds and form"), N("Change a threshold after a test, and follow your form and best efforts.")],
     ["coach", N("Setting up and using your AI coach"), N("Add your AI key, set your AI coach's tasks, and tell it what to remember.")],
+    ["coach-methods", N("Methods & rules: the texts your AI coach follows"), N("See what changes, what VibeSynergy fixed itself, and undo a fix.")],
   ]],
   [N("Health"), [
     ["health", N("Recovery, sleep and body"), N("Follow HRV, sleep and weight over time.")],

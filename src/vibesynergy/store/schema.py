@@ -1025,6 +1025,9 @@ kb_proposal = Table(
     Column("created_at", UTCDateTime, nullable=False),
     Column("decided_at", UTCDateTime),
     Column("decided_by", String),
+    # The server's check whether this is a pure lint fix (#137): {"applied", "reason",
+    # "fixes": [{"field", "check", "found", "fixed"}]}. Null on proposals made before it.
+    Column("editorial", JSON),
     Index("ix_kb_proposal_status", "status"),
 )
 

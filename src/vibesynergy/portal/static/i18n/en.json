@@ -3269,5 +3269,20 @@
  "Week {week}: {sport} target changed": "Week {week}: {sport} target changed",
  "Plan version {n}": "Plan version {n}",
  "moved in the calendar": "moved in the calendar",
- "skipped in the calendar": "skipped in the calendar"
+ "skipped in the calendar": "skipped in the calendar",
+ "Changed since": "Changed since",
+ "Fixed without asking you": "Fixed without asking you",
+ "Only outdated names, rule ranges and thresholds that are now read live. Nothing else in the text changed. Each fix is in the change log and can be undone.": "Only outdated names, rule ranges and thresholds that are now read live. Nothing else in the text changed. Each fix is in the change log and can be undone.",
+ "outdated names": "outdated names",
+ "rule ranges": "rule ranges",
+ "See the change": "See the change",
+ "Show the full text": "Show the full text",
+ "Texts updated ({count}): {what}. Nothing else changed; you can undo it.": "Texts updated ({count}): {what}. Nothing else changed; you can undo it.",
+ "thresholds now read live": "thresholds now read live",
+ "tool names": "tool names",
+ "Undone": "Undone",
+ "What changes": "What changes",
+ "Methods & rules: the texts your AI coach follows": "Methods & rules: the texts your AI coach follows",
+ "See what changes, what VibeSynergy fixed itself, and undo a fix.": "See what changes, what VibeSynergy fixed itself, and undo a fix.",
+ "VibeSynergy (check of the texts)": "VibeSynergy (check of the texts)"
 }

@@ -1,10 +1,12 @@
-"""Put an outdated working-method article in the demo, or take it out again (#120).
+"""Put an outdated working-method article in the demo, or take it out again (#120, #137).
 
 The demo's knowledge base is clean, so Coach → Methods & rules shows no check of the texts.
 ``seed`` adds a working-method article (topic ``coach-loop``) with rules DEMO-1..3 whose
 text refers to "DEMO-1..2", names the retired ``SendUserMessage`` and writes a threshold as
-"FTP 250 W", so the page shows the warning card. ``clear`` removes the article, its rules
-and their versions.
+"FTP 250 W". Then VibeSynergy's daily fix runs (``knowledge.editorial_sweep``): it fixes the
+rule range and the threshold without asking, and the tool of another app stays a warning.
+Last, the AI coach proposes a content change, which waits as a diff. ``clear`` removes the
+article, its rules, their versions and the proposals for them.
 
 Only for the help-video demo home (``~/vs-help-home``), never for real data. Run with the
 demo's XDG variables::
@@ -19,12 +21,18 @@ import os
 import sys
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 
 from vibesynergy.core.config import load_settings
 from vibesynergy.query import knowledge
 from vibesynergy.runtime import Runtime
-from vibesynergy.store.schema import kb_article, kb_article_revision, kb_rule, kb_rule_revision
+from vibesynergy.store.schema import (
+    kb_article,
+    kb_article_revision,
+    kb_proposal,
+    kb_rule,
+    kb_rule_revision,
+)
 
 DEMO_HOME = Path.home() / "vs-help-home"
 SLUG = "demo-coach-loop"
@@ -36,8 +44,23 @@ def _guard() -> None:
         sys.exit("refused: set XDG_CONFIG_HOME/XDG_DATA_HOME to the demo home (~/vs-help-home)")
 
 
+BODY = (
+    "# Werkwijze (voorbeeld)\n\n"
+    "Regels DEMO-1..2 zijn leidend.\n"
+    "Lees elke ochtend eerst het herstel en de check-in.\n"
+    "Stuur het bericht met SendUserMessage.\n"
+    "Rijd de blokken op FTP 250 W.\n"
+    "Plan een rustdag na twee zware dagen."
+)
+
+
 def clear(rt: Runtime) -> None:
     with rt.engine.begin() as conn:
+        conn.execute(
+            delete(kb_proposal).where(
+                or_(kb_proposal.c.target == SLUG, kb_proposal.c.target.like("DEMO-%"))
+            )
+        )
         ids = conn.execute(select(kb_article.c.id).where(kb_article.c.slug == SLUG)).scalars()
         for article_id in list(ids):
             rules = conn.execute(
@@ -60,14 +83,22 @@ def seed(rt: Runtime) -> None:
         slug=SLUG,
         author="user",
         title="Werkwijze (voorbeeld)",
-        body_md=(
-            "Regels DEMO-1..2 zijn leidend. Stuur het bericht met SendUserMessage. "
-            "Tot de test geldt FTP 250 W."
-        ),
+        body_md=BODY,
         topic="coach-loop",
         evidence_grade="C",
         status="active",
         rules=[{"id": f"DEMO-{n}", "text": f"Regel {n}.", "grade": "C"} for n in (1, 2, 3)],
+    )
+    knowledge.editorial_sweep(rt.engine)  # the daily fix: range and threshold, no approval
+    fixed = knowledge.get_article(rt.engine, SLUG)["body_md"]
+    knowledge.propose_change(
+        rt.engine,
+        kind="article",
+        target=SLUG,
+        rationale="Na twee zware dagen volgt een rustige hersteldag in plaats van een rustdag: zo "
+        "blijft het weekvolume gelijk.",
+        author="client:coach-runner",
+        changes={"body_md": fixed.replace("een rustdag", "een rustige hersteldag")},
     )
 
 

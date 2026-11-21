@@ -709,6 +709,7 @@ def serve(
             agent_events,
             calendar_mirror,
             garmin_strength,
+            kb_editorial,
             publication_auto,
             publication_mirror,
             quote_sources,
@@ -735,6 +736,8 @@ def serve(
                 coach_schedule.SCHEDULE_JOB: lambda: coach_schedule.due(rt),
                 # AI coach deliveries held outside the contact window (#119).
                 coach_contact.JOB: lambda: coach_contact.due(rt),
+                # Editorial fixes of the knowledge-base texts, once a day (#137).
+                kb_editorial.JOB: lambda: kb_editorial.due(rt),
             },
         )
         rt.scheduler = scheduler

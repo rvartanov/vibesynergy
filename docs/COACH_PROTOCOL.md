@@ -109,6 +109,29 @@ Each article in the handbook index says what it is and who keeps it:
 | `method` | plan, workout syntax, data quality | `coach` | you keep them up; plan rules change with the plan |
 | `evidence` | `evidence-*` | `coach` | you propose source and rule corrections (`vibesynergy_kb_propose_change`); the athlete approves |
 
+**Editorial fixes go through without the athlete** (#137). A `vibesynergy_kb_propose_change`
+is applied at once (status `applied`, a version by `lint/editorial`) when every changed part
+only fixes a warning from the handbook's `warnings` the mechanical way, and nothing else
+changes:
+
+- an old article slug becomes the current one (`claude-coach-loop` → `ai-coach-loop`), the
+  old app name becomes VibeSynergy, a `vitality_*` tool becomes its `vibesynergy_*` tool;
+- a rule range from 1 gets the real end (`ICU-1..4` → `ICU-1..6`);
+- on a plain instruction line (no table, heading, code, date or example, one value), a fixed
+  threshold becomes "read live with vibesynergy_thresholds" ("lees live met
+  vibesynergy_thresholds"), keeping its label: `FTP 265 W` → `FTP (read live with
+  vibesynergy_thresholds)`.
+
+Anything else waits for him: other wording, a removed sentence, another number, date, day,
+session or rule id, a new rule, a grade, a source, and a fix where the replacement is a
+choice (the removed plan-source command, a tool of another app such as `SendUserMessage`, a
+rule that does not exist). One such change anywhere sends the whole proposal to him, so send
+a lint fix on its own, never mixed with a content change. A proposal from an **advisory AI
+coach always waits**. `editorial=true` only asks; the reply's `editorial` says whether it was
+applied and why not (`reason`). The athlete sees every fix afterwards on Coach → Methods &
+rules and can undo it; an undone fix is not applied again without him. VibeSynergy makes the
+same fixes itself once a day, so you rarely need to.
+
 `sources` gives `total` and `verified` per article. An evidence rule from an article with
 unverified sources is still usable, but cite it as such and don't build a hard rule on it.
 
@@ -279,7 +302,8 @@ message.
   without `approval_id` stores a proposal (§1), and the athlete approves it under Waiting
   for you or with an 'akkoord' reply, whose id is the `approval_id` (`reply:<id>`).
 - KB rule and threshold changes are approved by the athlete in the portal (Knowledge page;
-  Training → Zones & thresholds), never in chat alone. What the athlete tells you as fact (a check-in,
+  Training → Zones & thresholds), never in chat alone. One exception, decided by the server,
+  not by you: an **editorial fix** of a lint warning goes through without him (#137). What the athlete tells you as fact (a check-in,
   pain, a note) you may log with `diary.write`, after the athlete said or confirmed it.
 
 ## 7. Events and triggers
