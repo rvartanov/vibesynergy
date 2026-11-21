@@ -701,6 +701,19 @@ def _coach_methods(r: Rec):
         "Coach → Werkwijze & regels: de teksten en regels die je AI-coach volgt.",
         "Coach → Methods & rules: the texts and rules your AI coach follows.",
     )
+    # The workout library's values live in the knowledge base (#142).
+    method = r.pg.get_by_text("Trainingsmethode: waarden van de workoutbibliotheek").first
+    r.check(method.count() > 0, "the workout method should be listed under the working method")
+    r.point(method)
+    r.say(
+        "De trainingsmethode houdt de waarden van je trainingen bij: cadans, aanwijzingen, "
+        "intensiteit en warming-up. Je AI-coach stelt een wijziging voor; na jouw akkoord "
+        "geldt die voor de volgende training.",
+        "The workout method holds the values of your workouts: cadence, cues, intensity and "
+        "warm-up. Your AI coach proposes a change; once you approve it, the next workout "
+        "uses it.",
+        3.6,
+    )
     waiting = r.pg.locator("[data-methods-waiting] .kb-proposal").first
     r.check(waiting.count() > 0, "a content change should wait on Methods & rules")
     r.check(waiting.locator(".coach-diff ins").count() > 0, "the waiting change shows a diff")

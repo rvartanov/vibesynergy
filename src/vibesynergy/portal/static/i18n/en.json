@@ -3221,6 +3221,7 @@
  "{ref} refers to {names}, which is not a rule in use.": "{ref} refers to {names}, which is not a rule in use.",
  "{ref} names a tool that does not exist: {names}.": "{ref} names a tool that does not exist: {names}.",
  "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).": "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).",
+ "{ref} misses workout values, has them in the wrong form or names unknown ones: {names}. Until it is fixed, the workout library uses its built-in value for each one that is missing or wrong.": "{ref} misses workout values, has them in the wrong form or names unknown ones: {names}. Until it is fixed, the workout library uses its built-in value for each one that is missing or wrong.",
  "Check of the texts": "Check of the texts",
  "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change.": "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change.",
  "Advice for today – {day}": "Advice for today – {day}",

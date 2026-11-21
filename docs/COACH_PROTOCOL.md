@@ -78,6 +78,7 @@ puts it in the stats block (no `publish` scope needed).
 | What | Where | Read with | Write with |
 | --- | --- | --- | --- |
 | The plan (workouts, week notes, weekly targets) | VibeSynergy's plan model; VibeSynergy leads since 7-11-2026 and mirrors every change to intervals.icu within minutes, which pushes to Zwift | `vibesynergy_plan_model` (sessions with steps, weeks with note and targets) | `vibesynergy_plan_session_set`, `_session_move`, `_session_skip`, `vibesynergy_plan_week_set`, `vibesynergy_plan_target_set` (`plan.write`), always with a reason |
+| Workout values: cadence bands, cues, % FTP and zones, warm-up and cool-down minutes, exercises, names of the library's templates | Knowledge base, article `workout-method` (one `toml` block, one table per template); the code holds only each template's structure | `vibesynergy_workout_library` (with `method.version`), `vibesynergy_kb_get(slug="workout-method")`, `vibesynergy_explain(metric="workout:<template>")` | `vibesynergy_kb_propose_change` (`kind` `article`, `target` `workout-method`, the whole new text); the athlete approves, no code change or deploy. Then, on request, `vibesynergy_workout_rerender` for planned sessions |
 | Method, plan rules, workout syntax, insight rules, evidence | Knowledge base (versioned) | `vibesynergy_coach_handbook` (index), `vibesynergy_kb_get`, `vibesynergy_kb_search` | `vibesynergy_kb_propose_change` (`plan.propose`); `vibesynergy_kb_upsert` (`coach.write`) only for your own working notes or when the athlete asked for the change |
 | The athlete's style and notes for the AI coach | Coach → Settings | `vibesynergy_coach_state` | The athlete only |
 | Things to remember (availability, fixed moments, preferences, equipment) | Coach → Memory | `vibesynergy_coach_state` | The athlete, and you with `vibesynergy_coach_memory_write` for your own items |
@@ -107,7 +108,20 @@ Each article in the handbook index says what it is and who keeps it:
 | --- | --- | --- | --- |
 | `routine` | the run prompts (`coach-prompts`) and the coach loop (`coach-loop`) | `athlete` | The athlete edits them in the portal, or you change them when he asked |
 | `method` | plan, workout syntax, data quality | `coach` | you keep them up; plan rules change with the plan |
+| `workout` | `workout-method`: every value of the workout library (cadence bands, cues, % FTP and zones, warm-up and cool-down minutes, exercises, names) | `athlete` | you propose the whole new text with `vibesynergy_kb_propose_change` (target `workout-method`); the athlete approves the diff. `vibesynergy_kb_upsert` refuses it |
 | `evidence` | `evidence-*` | `coach` | you propose source and rule corrections (`vibesynergy_kb_propose_change`); the athlete approves |
+
+**Workout values are knowledge, not code** (#142). The workout library's templates
+(`vibesynergy_workout_library`, the plan builder) hold only the structure of a workout. A
+cadence band, a cue, a % FTP or zone, a warm-up length or an exercise is a value in the
+article `workout-method`, read every time a workout is built. To change one, read the
+article, change the value in its `toml` block and propose the whole new text with
+`vibesynergy_kb_propose_change` (`kind` `article`, `target` `workout-method`, your reason in
+`rationale`). It waits for the athlete; nobody needs to change code or deploy. Once it is
+approved, new workouts use it; for sessions already planned, list the effect with
+`vibesynergy_workout_rerender` (`dry_run` true) and write it with his approval. Put a library
+workout in the plan with `vibesynergy_plan_session_set` and `template_id`, so it can be
+rebuilt later; a session you wrote or changed by hand is never rebuilt.
 
 **Editorial fixes go through without the athlete** (#137). A `vibesynergy_kb_propose_change`
 is applied at once (status `applied`, a version by `lint/editorial`) when every changed part

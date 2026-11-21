@@ -3221,6 +3221,7 @@
  "{ref} refers to {names}, which is not a rule in use.": "{ref} verwijst naar {names}; dat is geen regel in gebruik.",
  "{ref} names a tool that does not exist: {names}.": "{ref} noemt een tool die niet bestaat: {names}.",
  "{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds).": "{ref} noemt drempels als vaste getallen: {names}. Die veranderen na elke test; je AI-coach hoort ze live te lezen (Training → Zones & drempels).",
+ "{ref} misses workout values, has them in the wrong form or names unknown ones: {names}. Until it is fixed, the workout library uses its built-in value for each one that is missing or wrong.": "{ref} mist workoutwaarden, heeft ze in de verkeerde vorm of noemt onbekende: {names}. Tot dat is opgelost, gebruikt de workoutbibliotheek voor elke ontbrekende of verkeerde waarde de ingebouwde waarde.",
  "Check of the texts": "Controle van de teksten",
  "Your AI coach gets these warnings too. Change the text, or ask your AI coach to suggest a change.": "Je AI-coach krijgt deze waarschuwingen ook. Pas de tekst aan, of vraag je AI-coach om een voorstel.",
  "Advice for today – {day}": "Advies voor vandaag – {day}",

@@ -11,6 +11,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 ## Unreleased
 
 ### Added
+- **Workout values from the method, not the code** (#142): every coaching value of the
+  workout library (the cadence band, cues, % FTP and zones, warm-up and cool-down minutes,
+  distances, rests, strength exercises, names and descriptions) now lives in the
+  knowledge-base article "Trainingsmethode: waarden van de workoutbibliotheek"
+  (`workout-method`, under Coach → Methods & rules); the code only knows how a workout is
+  built. The update adds the article with exactly the values of before, so no workout
+  changes, including the 80–95 rpm band of the Z2 rides. Your AI coach changes a value by
+  proposing a new version of the article (`vibesynergy_kb_propose_change`); it waits for
+  you, shown as a diff, and once approved the next workout uses it, without an update.
+  Sessions planned from a template remember the template and the method version; after a
+  change, `vibesynergy_workout_rerender` (or `vibesynergy plan rerender --from <date>`) lists
+  and, on request, rebuilds the planned ones from tomorrow on. Done sessions and sessions
+  written by hand never change. A value the article lacks or holds in the wrong form comes
+  from the built-in values, with a warning in the check of the texts and in
+  `vibesynergy_explain` (`workout:<template>`). `vibesynergy_kb_upsert` refuses the article,
+  and `vibesynergy_plan_session_set` takes `template_id` and `template_params` instead of
+  the step text. A template parameter sent as 75.0 is now 75 in the name ("Duurrit Z2 75'").
 - **Text fixes without your approval, and a diff instead of whole articles** (#137): a
   change to a knowledge-base text that only fixes a warning from the check of the texts, the
   mechanical way, no longer waits for you. That is an old article name or the old app name

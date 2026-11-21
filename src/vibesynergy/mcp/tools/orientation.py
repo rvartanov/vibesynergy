@@ -212,24 +212,50 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_plan_session_set(
         reason: str,
         date: str,
-        name: str,
-        description: str,
+        name: str = "",
+        description: str = "",
         sport: str | None = None,
         session_id: str | None = None,
         slot: str | None = None,
         approval_id: str | None = None,
+        template_id: str | None = None,
+        template_params: dict[str, float] | None = None,
     ) -> dict[str, Any]:
         """Create or change one session in VibeSynergy's plan (only when vibesynergy_plan_model says
         source vibesynergy). description is intervals.icu step text (cue first, then steps);
-        unknown steps are refused. The change reaches intervals.icu (and from there Zwift and
-        Garmin) within minutes; changes made in intervals.icu itself are put back. Keep the
-        week note and week targets in step (COACH-5). slot names a new session's id; slots
-        ms1-swim, ms2-ride, ms3-run (ms<n>-<sport>, msb1-... for a second one that day) link
-        that day's sessions into one multisport in that order: a triathlon, duathlon or
-        brick, one Garmin multisport workout. approval_id: the athlete's approval, see
-        vibesynergy_coach_handbook (connection); without it an AI coach's change is stored
-        as a proposal (written: false). Only the primary AI coach adding a new session (no
-        session_id) in a slot that held none, in a week that has its note, needs none."""
+        unknown steps are refused. Or pass template_id (and template_params) from
+        vibesynergy_workout_library instead of description: VibeSynergy builds the text from
+        the workout method in the knowledge base and records the template and method
+        version, so vibesynergy_workout_rerender can rebuild it after a method change (name
+        and sport default to the template's). The change reaches intervals.icu (and from
+        there Zwift and Garmin) within minutes; changes made in intervals.icu itself are put
+        back. Keep the week note and week targets in step (COACH-5). slot names a new
+        session's id; slots ms1-swim, ms2-ride, ms3-run (ms<n>-<sport>, msb1-... for a second
+        one that day) link that day's sessions into one multisport in that order: a
+        triathlon, duathlon or brick, one Garmin multisport workout. approval_id: the
+        athlete's approval, see vibesynergy_coach_handbook (connection); without it an AI
+        coach's change is stored as a proposal (written: false). Only the primary AI coach
+        adding a new session (no session_id) in a slot that held none, in a week that has its
+        note, needs none."""
+        from vibesynergy.query import workout_library, workout_method, workout_rerender
+
+        template = None
+        if template_id:
+            if description.strip():
+                raise ToolError("pass description or template_id, not both")
+            method = workout_method.load(engine)
+            try:
+                built = workout_library.render(template_id, "nl", method, **(template_params or {}))
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            description = built["text"]
+            name = name.strip() or built["name"]
+            sport = sport or built["type"]
+            template = workout_rerender.stamp(built, method, "nl")
+        elif not description.strip():
+            raise ToolError("description (intervals.icu text) or template_id is required")
+        if not name.strip():
+            raise ToolError("name is required")
         return _plan_write(
             "vibesynergy_plan_session_set",
             {
@@ -239,10 +265,50 @@ def register(kit: ToolKit) -> None:
                 "sport": sport,
                 "session_id": session_id,
                 "slot": slot,
+                "template": template,
             },
             reason,
             approval_id,
         )
+
+    @tool(ICU_WRITE, "plan.write")
+    def vibesynergy_workout_rerender(
+        reason: str,
+        from_date: str,
+        dry_run: bool = True,
+        approval_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Build the planned sessions from from_date again with the current workout method
+        (knowledge-base article workout-method), after an approved change to it. Only
+        sessions still planned and dated after today that a template built (written with
+        template_id, or text exactly as a template gives it); a session written or changed
+        by hand stays, and done sessions never change. dry_run (default) lists each change
+        (before and after); dry_run=false writes each one as vibesynergy_plan_session_set
+        with its session_id, so the usual approval applies: the athlete's own agent writes,
+        the primary AI coach needs approval_id, and otherwise each change is stored as a
+        proposal the athlete approves under Waiting for you. Written changes reach
+        intervals.icu, Zwift and Garmin within minutes."""
+        from vibesynergy.query import workout_rerender
+
+        try:
+            found = workout_rerender.changes(engine, _date(from_date), today())
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        if dry_run:
+            return envelope({**found, "written": False, "dry_run": True})
+        results = []
+        for change in found["changes"]:
+            args = {
+                "date": change["date"],
+                "name": change["name"],
+                "description": change["description"],
+                "sport": change["sport"],
+                "session_id": change["session_id"],
+                "template": change["template"],
+            }
+            out = _plan_write("vibesynergy_plan_session_set", args, reason, approval_id)
+            results.append({"session_id": change["session_id"], "result": out.get("data", out)})
+        return envelope({**found, "dry_run": False, "results": results})
 
     @tool(ICU_WRITE, "plan.write")
     def vibesynergy_plan_session_move(
@@ -985,7 +1051,20 @@ def register(kit: ToolKit) -> None:
         record behind each and the best-source rule that chose between them. A metric from
         the night (sleep, HRV, readiness, resting HR) adds `sleep_check`: the automatic
         check of that night (state ok/suspect/incomplete/bad, reasons, the user's choice)
-        and whether this value counts for the advice and the baselines."""
+        and whether this value counts for the advice and the baselines.
+
+        metric workout:<template id> (or workout for all; date is then ignored): where the
+        workout library's values come from, the knowledge-base article workout-method and
+        its version, the values in use and the ones taken from the built-in seed because
+        the article lacks them or holds them in the wrong form."""
+        if metric == "workout" or metric.startswith("workout:"):
+            from vibesynergy.query import workout_method
+
+            try:
+                found = workout_method.explain(engine, metric.partition(":")[2] or None)
+            except ValueError as exc:
+                raise ToolError(str(exc)) from exc
+            return envelope(found)
         return envelope(
             views.explain(
                 engine,

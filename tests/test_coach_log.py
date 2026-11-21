@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import anyio
 import pytest
+from conftest import drop_workout_method
 from fastapi.testclient import TestClient
 from mcp import Client
 
@@ -35,6 +36,7 @@ def _client(runtime) -> TestClient:
 
 
 def test_methods_groups_prompts_method_and_evidence_and_hides_retired(runtime) -> None:
+    drop_workout_method(runtime)
     _article(runtime)
     _article(runtime, slug="ai-coach-loop", topic="coach-loop", rules=[], sources=[])
     _article(runtime, slug="swim-data-quality", topic="swim", rules=[], sources=[])
@@ -253,6 +255,7 @@ def test_mcp_reads_a_routine_prompt(runtime) -> None:
 
 
 def test_portal_endpoints_edit_log_diff_revert_archive_and_seed(runtime) -> None:
+    drop_workout_method(runtime)
     _article(runtime)
     client = _client(runtime)
 

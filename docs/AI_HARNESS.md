@@ -263,6 +263,14 @@ layers (#60, #61, #62):
      for the athlete, who sees it as a diff. Coaching facts (content, rule meaning, plan
      facts, new rules) always need approval. Applied fixes are listed on Coach → Methods &
      rules with an undo.
+   - **Workout values** (#142): the workout library's coaching values are the article
+     `workout-method` (a `toml` block per template), not code. `vibesynergy_kb_upsert`
+     refuses it; a change is a `vibesynergy_kb_propose_change` that waits for the athlete.
+     A value it lacks or holds in the wrong form comes from the built-in seed and is a
+     `workout_value` lint warning. `tests/test_workout_method.py` fails when a template in
+     `query/workout_library.py` holds a coaching value again. Sessions record the template
+     and method version (`workout.template`); `vibesynergy_workout_rerender` rebuilds only
+     planned sessions after today, through the plan gate.
 2. **AI auditor** (#61): an independent harness task that reviews the plan, the notes, the
    rules and recent change reasons, and proposes fixes. Planned.
 3. **Weekly harness audit** (#62): tasks, contracts, pending approvals, missing rules. Each

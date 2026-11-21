@@ -376,12 +376,17 @@ STRENGTH_DAYS = (0, 3)
 
 
 def _sessions(
-    start: date, phase: str, kind: str, minutes: dict[str, float], current: dict[str, Any]
+    start: date,
+    phase: str,
+    kind: str,
+    minutes: dict[str, float],
+    current: dict[str, Any],
+    method: Any = None,
 ) -> list[dict[str, Any]]:
     """The week's sessions. Sessions of a fixed length (intervals, tests, strength, swims,
     the brick) count against the week's hours; the endurance sessions share what is left,
     so the week stays within its hours (#34). When even that does not fit, strength and then
-    test sessions are left out."""
+    test sessions are left out. ``method``: the workout method the templates read (#142)."""
     from vibesynergy.query import workout_library
 
     key = kind if kind in ("recovery", "taper", "race") else phase
@@ -393,7 +398,7 @@ def _sessions(
             rows.append(TESTS[sport] + (None,))
         for day, template, share in rows:
             wanted = total * share if share is not None else None
-            if "minutes" not in workout_library.BY_ID[template].defaults:
+            if "minutes" not in workout_library.defaults(template, method):
                 wanted = None
             specs.append((day, sport, template, wanted))
     if current.get("sport") == "triathlon" and phase in ("build", "peak") and kind == "load":
@@ -405,7 +410,7 @@ def _sessions(
     def render(day: int, sport: str, template: str, params: dict[str, Any]) -> dict[str, Any]:
         if template == "swim_technique":  # the drill focus of that week (swim_drills)
             params["week"] = (start + timedelta(days=day)).isocalendar()[1]
-        done = workout_library.render(template, "nl", **params)
+        done = workout_library.render(template, "nl", method, **params)
         return {
             "date": (start + timedelta(days=day)).isoformat(),
             "sport": sport,
@@ -486,11 +491,15 @@ def draft(engine: Any, data_dir: Any, today: date) -> dict[str, Any]:
     else:
         split = SPLITS["run"]
     now = _current_weeks(engine, start, start + timedelta(days=7 * n))
+    from vibesynergy.query import workout_method
+
+    method = workout_method.load(engine)
     weeks = []
     for i, ((phase, kind), total) in enumerate(zip(phases, hours, strict=True)):
         monday = start + timedelta(days=7 * i)
         minutes = {sport: total * 60 * share for sport, share in split.items()}
-        sessions = _when(monday, kind, _sessions(monday, phase, kind, minutes, current), current)
+        found = _sessions(monday, phase, kind, minutes, current, method)
+        sessions = _when(monday, kind, found, current)
         weeks.append(
             {
                 "start": monday.isoformat(),

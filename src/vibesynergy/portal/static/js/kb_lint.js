@@ -1,6 +1,7 @@
 // The knowledge-base lint on Coach → Methods & rules (#96, #120): warnings about the text
 // your AI coach follows (a model name, a retired name, a rule range that does not match the
-// rules in use, a tool that does not exist, a threshold written as a number). The server
+// rules in use, a tool that does not exist, a threshold written as a number, a workout value
+// the workout method lacks, #142). The server
 // sends one item per finding ({check, kind, ref, article, names, expected}); the text is
 // built here so it follows the portal language. A warning only: you decide about the text.
 //
@@ -18,6 +19,7 @@ const MESSAGES = {
   unknown_rule: N("{ref} refers to {names}, which is not a rule in use."),
   unknown_tool: N("{ref} names a tool that does not exist: {names}."),
   fixed_threshold: N("{ref} has thresholds as fixed numbers: {names}. They change after every test; your AI coach should read them live (Training → Zones & thresholds)."),
+  workout_value: N("{ref} misses workout values, has them in the wrong form or names unknown ones: {names}. Until it is fixed, the workout library uses its built-in value for each one that is missing or wrong."),
 };
 
 export function lintText(item) {

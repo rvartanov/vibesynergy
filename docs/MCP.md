@@ -668,7 +668,12 @@ Documentation of the SQL views for `vibesynergy_sql`: tables, columns, types, un
 example queries. Also available as resource `vibesynergy://schema`.
 
 #### `vibesynergy_explain`
-- Params: `metric` + `date`, or `activity_id` + `field`.
+- Params: `metric` + `date`, or `activity_id` + `field`. `metric` `workout:<template id>` (or
+  `workout` for every template; `date` is then ignored) explains the workout library's
+  values instead (#142): the knowledge-base article `workout-method` and its `version`,
+  `source` (`knowledge_base`, or `seed` when the article is missing or archived), the values
+  in use per template, `from_seed` (the values the article lacks or holds in the wrong form,
+  taken from the built-in seed) and `problems`.
 - Returns: provenance (§2.8) and alternative values from other sources. A metric from the
   night (sleep, HRV, readiness, resting HR) adds `sleep_check` (#100): the night's mark
   (`state`, `auto_state`, `override`, `metrics`, `not_counted`, `reasons` with `rule`,
@@ -950,7 +955,29 @@ Create or change one session.
   then the steps; unknown steps are refused), `sport` (optional), `session_id` (the session
   to change; omit to create one), `slot` (optional, for a new session's id; `ms1-swim`, `ms2-ride`, `ms3-run` link the
   sessions of one day into one multisport in that order, such as a triathlon).
+- Or `template_id` and `template_params` (from `vibesynergy_workout_library`) instead of
+  `description` (#142): VibeSynergy builds the text from the current workout method and
+  records the template, its parameters and the method version in the session
+  (`workout.template`); `name` and `sport` default to the template's. A session whose text
+  is exactly a template's workout under the template's name is recognised and recorded too.
+  Only such sessions are rebuilt by `vibesynergy_workout_rerender`.
 - Returns: `session_id`, `version`.
+
+#### `vibesynergy_workout_rerender` *(scope `plan.write`)*
+Build planned sessions again with the current workout method (#142), after an approved
+change to the knowledge-base article `workout-method`.
+- Params: `reason`, `from_date`, `dry_run` (default true), `approval_id`.
+- Only sessions still `planned`, dated after today (never today or earlier), that a template
+  built (written with `template_id`, or recognised); a session written or changed by hand
+  stays as it is, and done sessions never change. A name the template gave follows the
+  method; a name the AI coach gave stays.
+- `dry_run` true returns `changes` (per session `session_id`, `date`, `name`, `before`
+  `{name, text}`, `description`, `template`, `built_with`: the method version it was built
+  with), `unchanged`, `not_from_a_template` and the method `version`. `dry_run` false writes
+  each change as a `vibesynergy_plan_session_set` with its `session_id`: the athlete's own
+  agent writes, the primary AI coach needs `approval_id`, otherwise each change is a plan
+  proposal the athlete approves. The mirror takes the changes to intervals.icu, Zwift and
+  Garmin. The CLI equivalent is `vibesynergy plan rerender --from <date> [--apply]`.
 
 #### `vibesynergy_plan_session_move` *(scope `plan.write`)*
 Move one planned session to another day.
@@ -1118,8 +1145,25 @@ reaches intervals.icu. VibeSynergy then delivers the session to Garmin itself (b
 #### `vibesynergy_workout_library`
 `template_id` (omit for the catalogue), `lang` (`nl`/`en`), `params`. The workout library: run, ride, swim and strength templates (strength as a `[garmin]` block without weights; add `weight=` per exercise), relative targets only. The catalogue gives id,
 sport, purpose, phases, load (easy/moderate/hard), params with defaults and the easier
-alternative; a template gives `name`, `type`, `text` (intervals.icu syntax) and planned
-`seconds`, ready for `vibesynergy_icu_create_event`. Scope `read`.
+alternative; a template gives `name`, `type`, `text` (intervals.icu syntax), planned
+`seconds`, the `params` used and `method` (`slug`, `version`, `source`, `fallback`): the
+version of the workout method that built it. Put it in the plan with
+`vibesynergy_plan_session_set` and the same `template_id` and `params`. Scope `read`.
+
+**Where the values live** (#142). The code holds only each template's structure (which
+steps, repeats, which parameter sets a length, rendering for intervals.icu, Zwift and
+Garmin). Every coaching value (cadence bands, cues, % FTP, % LTHR, HR and pace zones,
+warm-up and cool-down minutes, distances, rests, exercises, names, purposes, phases, load,
+the easier alternative, parameter defaults) is in the knowledge-base article
+`workout-method`: one fenced `toml` block, one table per template, read each time a workout
+is built. To change a value, an AI coach proposes the whole new article text with
+`vibesynergy_kb_propose_change` (`kind` `article`, `target` `workout-method`); it is a
+coaching fact, so it waits for the athlete, who sees it as a diff. `vibesynergy_kb_upsert`
+refuses this article. Once approved, new workouts use it at once, without a code change or
+deploy; planned ones change with `vibesynergy_workout_rerender`. A value the article lacks or
+holds in the wrong form comes from the built-in seed (`docs/workout-method.md`, copied into
+the knowledge base once by migration 0058); the lint warns `workout_value` and
+`vibesynergy_explain` (`workout:<template>`) names it.
 
 #### `vibesynergy_weather`
 `days` (1–14, default 9). Daily forecast from Open-Meteo (no key; independent of

@@ -73,3 +73,18 @@ def _portal_login_off(request: pytest.FixtureRequest, monkeypatch: pytest.Monkey
     from vibesynergy.portal import auth_gate
 
     monkeypatch.setattr(auth_gate, "auth_required", lambda settings: False)
+
+
+def drop_workout_method(rt) -> None:
+    """Remove the workout method that migration 0058 seeds into every new database (#142),
+    for a test that counts the knowledge-base articles it writes itself."""
+    from sqlalchemy import text
+
+    with rt.engine.begin() as conn:
+        ids = conn.execute(text("SELECT id FROM kb_article WHERE slug = 'workout-method'"))
+        for (article_id,) in ids.all():
+            conn.execute(
+                text("DELETE FROM kb_article_revision WHERE article_id = :i"), {"i": article_id}
+            )
+            conn.execute(text("DELETE FROM kb_article WHERE id = :i"), {"i": article_id})
+        conn.execute(text("DROP TABLE IF EXISTS kb_fts"))
