@@ -4,6 +4,10 @@ The current row is what search and the portal show. Every change appends a revis
 older version can be copied forward. A proposal stores the change only; the current row
 moves when the athlete approves it.
 
+A proposal that only fixes ``lint`` warnings mechanically (an old name, a rule range, a
+fixed threshold now read live) is applied at once as a version by ``lint/editorial`` (#137):
+the server decides, never the caller. Every other proposal waits for the athlete.
+
 The FTS5 table ``kb_fts`` is derived. It is created on use, not in the migration, so the
 relational schema stays what Alembic compares.
 """
@@ -12,7 +16,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -21,7 +25,7 @@ from sqlalchemy.engine import Connection, Engine
 
 from vibesynergy.core.ids import new_id
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.query import kb_lint, neutral
+from vibesynergy.query import kb_fix, kb_lint, neutral, text_diff
 from vibesynergy.store.schema import (
     kb_article,
     kb_article_revision,
@@ -225,8 +229,14 @@ def propose_change(
     author: str,
     changes: dict[str, Any],
     replace: bool = False,
+    editorial: bool = False,
 ) -> dict[str, Any]:
     """Store a change for the athlete to approve. The current text stays as it is.
+
+    Unless it is a pure lint fix (#137, ``editorial_check``): then it is applied at once as
+    a new version by ``lint/editorial`` (status ``applied``), and the athlete sees it
+    afterwards, with an undo. ``editorial`` is the caller's request only; the server
+    decides. The check's outcome is stored with the proposal either way.
 
     A new proposal replaces the same author's proposal for the same target that is still
     waiting: the older one becomes ``superseded``, so the athlete only sees the latest
@@ -242,6 +252,7 @@ def propose_change(
     cleaned = _clean_changes(kind, changes)
     if not cleaned:
         raise ValueError("nothing to change")
+    trusted = _trusted_author(engine, author)
     with engine.begin() as conn:
         _check_proposal_shape(conn, kind, target, cleaned)
         base = _version_of(conn, kind, target)
@@ -249,6 +260,10 @@ def propose_change(
             _refuse_unrelated_rule(conn, target, str(cleaned["text"]))
         proposal_id = new_id("kbprop")
         now = utc_now()
+        check = _editorial_check(
+            conn, _lint_context(conn), kind, target, cleaned, trusted=trusted, author=author
+        )
+        check["requested"] = bool(editorial)
         conn.execute(
             kb_proposal.update()
             .where(
@@ -272,8 +287,18 @@ def propose_change(
                 created_at=now,
                 decided_at=None,
                 decided_by=None,
+                editorial=check,
             )
         )
+        if check["applied"]:
+            row = {"kind": kind, "target": target, "changes": cleaned, "author": author}
+            _apply_proposal(conn, row, author=EDITORIAL_AUTHOR)
+            conn.execute(
+                kb_proposal.update()
+                .where(kb_proposal.c.id == proposal_id)
+                .values(status="applied", decided_at=now, decided_by=EDITORIAL_AUTHOR)
+            )
+            _rebuild(conn)
     return get_proposal(engine, proposal_id)
 
 
@@ -538,6 +563,322 @@ def change_warnings(
     return [item["message"] for item in found]
 
 
+# --- editorial fixes without approval (#137) ---------------------------------------------
+
+# The author of a version an editorial fix writes, and of the proposals the daily fix job
+# makes. The proposal keeps who asked for the fix.
+EDITORIAL_AUTHOR = "lint/editorial"
+EDITORIAL_DAYS = 30  # Coach → Methods & rules lists the fixes of this many days
+NOTICE_DAYS = 7  # Waiting for you → Notices has one line for the fixes of this many days
+# Why a proposal is not an editorial fix, for the AI coach (the portal has its own words).
+EDITORIAL_REASONS = {
+    "source": "a source is never an editorial fix",
+    "advisory_author": "a proposal from an advisory AI coach always waits",
+    "new": "it adds something new",
+    "not_text": "it changes more than the text (evidence, status, topic or the article)",
+    "content": "a changed part is not a mechanical fix of a lint warning",
+    "no_change": "it fixes no lint warning",
+    "new_warning": "the new text has a lint warning the current one does not",
+    "undone": "the athlete undid this fix before",
+    "other_pending": "another proposal for this text waits",
+}
+
+
+def _trusted_author(engine: Engine, author: str) -> bool:
+    """May this author's lint fix go through without approval? VibeSynergy's own fix job,
+    the athlete's own agent and the primary AI coach may; an advisory AI coach never."""
+    if author == EDITORIAL_AUTHOR:
+        return True
+    from vibesynergy.mcp import roles  # mcp imports query
+
+    return roles.author_role(engine, author) in (roles.OWN, roles.PRIMARY)
+
+
+def _editorial_subject(conn: Connection, kind: str, target: str) -> dict[str, Any] | None:
+    """The current texts and other fields of an article or rule, and how the lint reads
+    them. ``None`` when it does not exist yet."""
+    if kind == "article":
+        row = _one(conn, kb_article, kb_article.c.slug == canonical_slug(target))
+        if row is None:
+            return None
+        return {
+            "ref": row["slug"],
+            "article": row["slug"],
+            "texts": {"title": row["title"], "body_md": row["body_md"]},
+            "values": {
+                "topic": row["topic"],
+                "evidence_grade": row["evidence_grade"],
+                "status": row["status"],
+            },
+            "prompt": row["topic"] == PROMPT_TOPIC,
+            "thresholds": in_threshold_scope(row["slug"], row["topic"]),
+        }
+    if kind == "rule":
+        row = _one(conn, kb_rule, kb_rule.c.id == target)
+        if row is None:
+            return None
+        article = _one(conn, kb_article, kb_article.c.id == row["article_id"])
+        if article is None:
+            return None
+        coach = row["id"].upper().startswith(COACH_RULE_PREFIX)
+        return {
+            "ref": row["id"],
+            "article": article["slug"],
+            "texts": {"text": row["text"]},
+            "values": {
+                "grade": row["grade"],
+                "active": bool(row["active"]),
+                "article_slug": article["slug"],
+            },
+            "prompt": coach,
+            "thresholds": coach or in_threshold_scope(article["slug"], article["topic"]),
+        }
+    return None
+
+
+def _fix_slots(ctx: Mapping[str, Any], text_value: str, thresholds: bool) -> list[kb_fix.Slot]:
+    return kb_fix.slots(
+        text_value,
+        slug_aliases=SLUG_ALIASES,
+        families=ctx["families"],
+        tools=ctx["tools"],
+        thresholds=thresholds,
+    )
+
+
+def _finding_names(ctx, kind: str, subject: Mapping[str, Any], texts) -> set[tuple[str, str]]:
+    found = _text_warnings(
+        ctx,
+        kind,
+        subject["ref"],
+        subject["article"],
+        tuple(texts.values()),
+        prompt=subject["prompt"],
+        thresholds=subject["thresholds"],
+    )
+    return {(item["check"], name) for item in found for name in item["names"]}
+
+
+def _editorial_check(
+    conn: Connection,
+    ctx: Mapping[str, Any],
+    kind: str,
+    target: str,
+    changes: Mapping[str, Any],
+    *,
+    trusted: bool,
+    author: str,
+) -> dict[str, Any]:
+    """Is this proposal a pure lint fix? ``{"applied", "reason", "fixes"}``.
+
+    Applied only when all of these hold: the author may (``_trusted_author``); the article
+    or rule exists; no field other than its text changes; every changed part of every text
+    is a mechanical fix of a lint finding (``kb_fix.explain``: per hunk, so one content
+    change anywhere sends the whole proposal to the athlete); the result has no lint
+    finding the current text did not have; the same fix was not undone before; and no other
+    proposal for it waits (applying would make that one stale)."""
+
+    def wait(reason: str, fixes: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        return {"applied": False, "reason": reason, "fixes": fixes or []}
+
+    if kind == "source":
+        return wait("source")
+    if not trusted:
+        return wait("advisory_author")
+    subject = _editorial_subject(conn, kind, target)
+    if subject is None:
+        return wait("new")
+    for field, value in changes.items():
+        if field in subject["values"] and value != subject["values"][field]:
+            return wait("not_text")
+    fixes: list[dict[str, str]] = []
+    after = dict(subject["texts"])
+    for field, before in subject["texts"].items():
+        if field not in changes:
+            continue
+        old, new = kb_fix.normal(before), kb_fix.normal(changes[field])
+        if old == new:
+            continue
+        explained = kb_fix.explain(old, new, _fix_slots(ctx, old, subject["thresholds"]))
+        if explained is None:
+            return wait("content")
+        fixes += [{"field": field, **fix.as_dict()} for fix in explained]
+        after[field] = new
+    if not fixes:
+        return wait("no_change")
+    if _finding_names(ctx, kind, subject, after) - _finding_names(
+        ctx, kind, subject, subject["texts"]
+    ):
+        return wait("new_warning", fixes)
+    earlier = conn.execute(
+        select(kb_proposal.c.changes).where(
+            kb_proposal.c.kind == kind,
+            kb_proposal.c.target.in_([target, subject["ref"]]),
+            kb_proposal.c.status == "applied",
+        )
+    ).scalars()
+    wanted = {
+        field: kb_fix.normal(changes[field]) for field in subject["texts"] if field in changes
+    }
+    for old_changes in earlier:
+        if {f: kb_fix.normal((old_changes or {}).get(f)) for f in wanted} == wanted:
+            return wait("undone", fixes)  # applied once and taken back: the athlete decides
+    others = conn.execute(
+        select(func.count())
+        .select_from(kb_proposal)
+        .where(
+            kb_proposal.c.kind == kind,
+            kb_proposal.c.target.in_([target, subject["ref"]]),
+            kb_proposal.c.status == "pending",
+            kb_proposal.c.author != author,
+        )
+    ).scalar()
+    if others:
+        return wait("other_pending", fixes)
+    return {"applied": True, "reason": None, "fixes": fixes}
+
+
+def editorial_check(
+    engine: Engine, kind: str, target: str, changes: Mapping[str, Any], *, author: str
+) -> dict[str, Any]:
+    """The same check as a proposal gets, without storing anything."""
+    kind = _kind(kind)
+    target = _target(kind, target)
+    cleaned = _clean_changes(kind, dict(changes))
+    trusted = _trusted_author(engine, _author(author))
+    with engine.connect() as conn:
+        return _editorial_check(
+            conn, _lint_context(conn), kind, target, cleaned, trusted=trusted, author=author
+        )
+
+
+def _fix_rationale(fixes: list[dict[str, str]]) -> str:
+    shown = "; ".join(f"{fix['found']} → {fix['fixed']}" for fix in fixes[:8])
+    more = f" (and {len(fixes) - 8} more)" if len(fixes) > 8 else ""
+    return f"Editorial fix from the check of the texts (#137): {shown}{more}. Nothing else changes."
+
+
+def editorial_sweep(engine: Engine) -> dict[str, Any]:
+    """Fix every article and rule in use whose lint findings have a mechanical fix, through
+    the same path as a proposal (``propose_change`` by ``lint/editorial``). A text whose fix
+    would wait (undone before, another proposal waiting) is left alone: its warning stays on
+    Coach → Methods & rules, where the athlete decides."""
+    todo: list[tuple[str, str, dict[str, str], list[dict[str, str]]]] = []
+    with engine.connect() as conn:
+        ctx = _lint_context(conn)
+        targets = [
+            ("article", slug)
+            for slug in conn.execute(
+                select(kb_article.c.slug)
+                .where(kb_article.c.status == "active")
+                .order_by(kb_article.c.slug)
+            ).scalars()
+        ]
+        targets += [
+            ("rule", rule_id)
+            for rule_id in conn.execute(
+                select(kb_rule.c.id)
+                .join(kb_article, kb_article.c.id == kb_rule.c.article_id)
+                .where(kb_rule.c.active.is_(True), kb_article.c.status == "active")
+                .order_by(kb_rule.c.id)
+            ).scalars()
+        ]
+        for kind, target in targets:
+            subject = _editorial_subject(conn, kind, target)
+            if subject is None:
+                continue
+            changes: dict[str, str] = {}
+            fixes: list[dict[str, str]] = []
+            for field, value in subject["texts"].items():
+                old = kb_fix.normal(value)
+                fixed, found = kb_fix.autofix(old, _fix_slots(ctx, old, subject["thresholds"]))
+                if found:
+                    changes[field] = fixed
+                    fixes += [{"field": field, **fix.as_dict()} for fix in found]
+            if changes:
+                check = _editorial_check(
+                    conn, ctx, kind, target, changes, trusted=True, author=EDITORIAL_AUTHOR
+                )
+                if check["applied"]:
+                    todo.append((kind, target, changes, fixes))
+    applied = []
+    for kind, target, changes, fixes in todo:
+        proposal = propose_change(
+            engine,
+            kind=kind,
+            target=target,
+            rationale=_fix_rationale(fixes),
+            author=EDITORIAL_AUTHOR,
+            changes=changes,
+            editorial=True,
+        )
+        if proposal["status"] == "applied":
+            applied.append({"kind": kind, "target": target, "fixes": fixes})
+    return {"applied": applied}
+
+
+def editorial_changes(
+    engine: Engine, *, days: int = EDITORIAL_DAYS, limit: int = 20
+) -> list[dict[str, Any]]:
+    """Editorial fixes applied without approval in the last ``days``, newest first, each
+    with whether its version is still the current one (then one click undoes it)."""
+    since = utc_now() - timedelta(days=days)
+    with engine.connect() as conn:
+        rows = (
+            conn.execute(
+                select(kb_proposal)
+                .where(kb_proposal.c.status == "applied", kb_proposal.c.decided_at >= since)
+                .order_by(kb_proposal.c.decided_at.desc())
+                .limit(limit)
+            )
+            .mappings()
+            .all()
+        )
+        out = []
+        for row in rows:
+            current = _current_snapshot(conn, row["kind"], row["target"])
+            if current is None:
+                continue
+            version = int(row["base_version"]) + 1
+            if int(current["version"]) == version:
+                state = "current"
+            elif _same_as_version(conn, row["kind"], row["target"], int(row["base_version"])):
+                state = "undone"
+            else:
+                state = "changed"
+            out.append(
+                {
+                    "id": row["id"],
+                    "kind": row["kind"],
+                    "target": current.get("slug") or row["target"],
+                    "title": current.get("title") or row["target"],
+                    "article": current.get("slug") or current.get("article_slug"),
+                    "author": row["author"],
+                    "at": _iso(row["decided_at"]),
+                    "version": version,
+                    "base_version": int(row["base_version"]),
+                    "state": state,
+                    "fixes": list((row["editorial"] or {}).get("fixes") or []),
+                }
+            )
+        return out
+
+
+def _same_as_version(conn: Connection, kind: str, target: str, version: int) -> bool:
+    """Is the current text that of ``version`` again (an undo)?"""
+    if kind == "article":
+        row = _one(conn, kb_article, kb_article.c.slug == canonical_slug(target))
+        if row is None:
+            return False
+        old = _revision(conn, kb_article_revision, row["id"], version, "article_id")
+        return old is not None and (old["title"], old["body_md"]) == (row["title"], row["body_md"])
+    row = _one(conn, kb_rule, kb_rule.c.id == target)
+    if row is None:
+        return False
+    old = _revision(conn, kb_rule_revision, target, version, "rule_id")
+    return old is not None and old["text"] == row["text"]
+
+
 def archived_articles(engine: Engine) -> list[dict[str, Any]]:
     """Articles out of use (draft or retired): hidden from the normal views, never deleted."""
     return [row for row in list_articles(engine) if row["status"] != "active"]
@@ -617,8 +958,22 @@ def methods_index(engine: Engine) -> dict[str, Any]:
                 }
             )
     # The knowledge-base lint (#96, #120), shown above the groups: the same warnings every
-    # AI coach gets in the handbook.
-    return {"groups": groups, "warnings": lint(engine)}
+    # AI coach gets in the handbook, with the fixes applied without approval (#137) and the
+    # changes to these texts that wait for the athlete.
+    slugs = {article["slug"] for group in groups.values() for article in group}
+    waiting = [
+        proposal
+        for proposal in pending_proposals(engine)
+        if (proposal.get("current") or {}).get("slug") in slugs
+        or (proposal.get("current") or {}).get("article_slug") in slugs
+        or (proposal["kind"] == "rule" and proposal["changes"].get("article_slug") in slugs)
+    ]
+    return {
+        "groups": groups,
+        "warnings": lint(engine),
+        "editorial": editorial_changes(engine),
+        "proposals": waiting,
+    }
 
 
 def edit_article(
@@ -772,9 +1127,11 @@ def reject_proposal(engine: Engine, proposal_id: str, *, actor: str) -> dict[str
     return get_proposal(engine, proposal_id)
 
 
-def _apply_proposal(conn: Connection, row: Any) -> None:
+def _apply_proposal(conn: Connection, row: Any, *, author: str | None = None) -> None:
+    """Write a proposal's change. The new version's author is the proposal's, or ``author``
+    (``lint/editorial`` for an editorial fix)."""
     changes = dict(row["changes"])
-    author = row["author"]
+    author = str(author or row["author"])
     kind, target = row["kind"], row["target"]
     if kind == "article":
         # A proposal made for an old slug (#96) applies to the article under its new one.
@@ -1298,7 +1655,43 @@ def _history(conn: Connection, table, where) -> list[dict[str, Any]]:
 def _proposal_view(conn: Connection, row) -> dict[str, Any]:
     view = _public(row)
     view["current"] = _current_snapshot(conn, row["kind"], row["target"])
+    view["diff"] = proposal_diff(row["kind"], view["current"], dict(row["changes"] or {}))
     return view
+
+
+# What a proposal changes, field by field: text fields as a line diff with a little context,
+# other fields as before -> after (#137). A new article, rule or source has no diff.
+_DIFF_TEXT = {"article": ("title", "body_md"), "rule": ("text",), "source": ("citation",)}
+_DIFF_VALUE = {
+    "article": ("topic", "evidence_grade", "status"),
+    "rule": ("grade", "active", "article_slug"),
+    "source": ("doi", "url", "verified_at", "article_slug"),
+}
+
+
+def proposal_diff(
+    kind: str, current: Mapping[str, Any] | None, changes: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    if current is None:
+        return []
+    out: list[dict[str, Any]] = []
+    for field in _DIFF_TEXT[kind]:
+        if field not in changes:
+            continue
+        before, after = str(current.get(field) or ""), str(changes[field] or "")
+        if kb_fix.normal(before) != kb_fix.normal(after):
+            out.append({"field": field, "type": "text", "lines": text_diff.lines(before, after)})
+    for field in _DIFF_VALUE[kind]:
+        if field in changes and changes[field] != current.get(field):
+            out.append(
+                {
+                    "field": field,
+                    "type": "value",
+                    "before": current.get(field),
+                    "after": changes[field],
+                }
+            )
+    return out
 
 
 def _current_snapshot(conn: Connection, kind: str, target: str) -> dict[str, Any] | None:

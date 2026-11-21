@@ -3,8 +3,9 @@
 Decisions are proposals only the athlete can take or leave: plan changes from an AI coach
 (approved or rejected in the list itself, #118), knowledge-base changes from
 the coach (Coach → Change log) and new threshold values (Training → Zones & thresholds).
-Notices need no decision but are worth a look: a coach routine that did not run
-and a plan horizon that is not on Garmin as it should be. Each item links to the
+Notices need no decision but are worth a look: a coach routine that did not run,
+a plan horizon that is not on Garmin as it should be, and the knowledge-base texts
+VibeSynergy fixed itself (#137). Each item links to the
 page where it is handled, so a proposal handled there leaves this list by itself. The
 portal shows the decision count next to the bell in the header.
 """
@@ -39,10 +40,32 @@ def _kb(engine: Engine) -> list[dict[str, Any]]:
                 "what": p.get("kind"),
                 "why": p.get("rationale"),
                 "at": p.get("created_at"),
+                # What changes, not the whole article (#137).
+                "diff": p.get("diff") or [],
                 "link": "#/coach/knowledge",
             }
         )
     return out
+
+
+def _editorial(engine: Engine) -> list[dict[str, Any]]:
+    """One line for the texts VibeSynergy fixed without asking (#137): how many, and what
+    kind of fix. The list with an undo per fix is on Coach → Methods & rules."""
+    from vibesynergy.query import kb_fix, knowledge
+
+    fixed = knowledge.editorial_changes(engine, days=knowledge.NOTICE_DAYS)
+    if not fixed:
+        return []
+    checks = {fix["check"] for item in fixed for fix in item["fixes"]}
+    return [
+        {
+            "kind": "kb_editorial",
+            "count": len({(item["kind"], item["target"]) for item in fixed}),
+            "checks": [check for check in kb_fix.FIXABLE if check in checks],
+            "at": fixed[0]["at"],
+            "link": "#/coach/methods",
+        }
+    ]
 
 
 def _thresholds(engine: Engine) -> list[dict[str, Any]]:
@@ -121,6 +144,8 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     with contextlib.suppress(Exception):  # a notice must never break the list
         out.extend(_disagreements(rt, today))
+    with contextlib.suppress(Exception):
+        out.extend(_editorial(rt.engine))
     try:
         for task in coach_tasks.status_for(rt):
             for day in task["missing"]:

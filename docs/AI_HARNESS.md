@@ -24,7 +24,8 @@ reads, and when the role is called anything but AI coach; the knowledge base war
 (`knowledge.lint`, in the handbook's warnings and at a proposal) when a routine instruction
 (topic `coach-prompts`) or a COACH rule names a model. The same lint (#120) warns on retired
 names, rule ranges that do not match the rules in use, tools that do not exist and thresholds
-written as numbers; Coach → Methods & rules shows the warnings too. See
+written as numbers; Coach → Methods & rules shows the warnings too. The warnings with a
+mechanical fix are fixed without approval (#137, see the KB rule under Principles). See
 [Any provider](#any-provider).
 
 ## Principles
@@ -252,7 +253,16 @@ layers (#60, #61, #62):
      - every plan write returns them;
      - the start page and `vibesynergy_today` (`plan_checks`) list the next two weeks.
    - **Knowledge base:** a KB proposal that would replace a rule with unrelated text needs
-     `replace=true`.
+     `replace=true`. **The KB rule** (#137): a proposal whose every changed part is a
+     mechanical fix of a `knowledge.lint` warning (an old name or slug, a rule range from 1,
+     a fixed threshold on a plain instruction line → "read live with vibesynergy_thresholds")
+     and that changes nothing else is applied at once as a version by `lint/editorial`,
+     when it comes from the athlete's own agent, the primary AI coach or VibeSynergy's
+     daily fix job (`query/kb_editorial.py`). The server decides per hunk
+     (`query/kb_fix.py`); anything more, and every proposal from an advisory AI coach, waits
+     for the athlete, who sees it as a diff. Coaching facts (content, rule meaning, plan
+     facts, new rules) always need approval. Applied fixes are listed on Coach → Methods &
+     rules with an undo.
 2. **AI auditor** (#61): an independent harness task that reviews the plan, the notes, the
    rules and recent change reasons, and proposes fixes. Planned.
 3. **Weekly harness audit** (#62): tasks, contracts, pending approvals, missing rules. Each

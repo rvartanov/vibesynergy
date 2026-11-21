@@ -3,7 +3,10 @@
 // works: the routine instructions, the working method and the evidence, with their rules.
 // Both open the same article page, where text and rules are edited in place and save at once.
 // Archived articles leave these views; they stay in the change log.
-import { lintCard } from "./kb_lint.js";
+// A change waiting for you shows only what it changes, with the full text one click away
+// (#137); a pure lint fix does not wait at all (Methods & rules lists it, with an undo).
+import { linesHtml } from "./kb_diff.js";
+import { bindEditorial, lintCard } from "./kb_lint.js";
 import { gradeChip } from "./symbols.js";
 import { get, post } from "./api.js";
 import { coachShell } from "./coach_tabs.js";
@@ -60,15 +63,35 @@ function textBlock(label, value) {
   return `<h3>${esc(label)}</h3><div class="kb-body">${esc(value)}</div>`;
 }
 
+const DIFF_FIELDS = { title: N("Title"), body_md: N("Text"), text: N("Text"), citation: N("Citation") };
+
+// The changed lines with a little context, then the full proposed text behind a click.
+function proposalDiff(proposal) {
+  const changes = proposal.changes || {};
+  const parts = (proposal.diff || [])
+    .filter((change) => change.type === "text")
+    .map((change) => `<h4>${esc(t(DIFF_FIELDS[change.field] || change.field))}</h4>${linesHtml(change.lines)}`);
+  const full = changes.text || changes.body_md || changes.citation || "";
+  if (full) {
+    parts.push(`<details data-full-text><summary>${esc(t("Show the full text"))}</summary><div class="kb-body">${esc(full)}</div></details>`);
+  }
+  return parts.join("");
+}
+
 function proposalBody(proposal) {
   const changes = proposal.changes || {};
   const current = proposal.current || {};
   const next = changes.text || changes.body_md || changes.citation || "";
   const previous = current.text || current.body_md || current.citation || "";
   const lines = [];
-  if (next) lines.push(textBlock(t("It would say"), next));
-  if (previous && previous !== next) lines.push(textBlock(t("It says now"), previous));
-  if (changes.title && changes.title !== current.title) {
+  const diffed = Boolean(proposal.current && proposal.diff?.length);
+  if (diffed) {
+    lines.push(proposalDiff(proposal));
+  } else {
+    if (next) lines.push(textBlock(t("It would say"), next));
+    if (previous && previous !== next) lines.push(textBlock(t("It says now"), previous));
+  }
+  if (!diffed && changes.title && changes.title !== current.title) {
     lines.push(`<p>${esc(t("Title would be {title}.", { title: changes.title }))}</p>`);
     if (current.title) lines.push(`<p>${esc(t("Title is {title} now.", { title: current.title }))}</p>`);
   }
@@ -221,7 +244,15 @@ export async function renderMethods(view, { args = [], stale, share = null }) {
   const body = coachShell(view, "methods", {
     intro: t("How your AI coach works, and the rules it follows. Change a text here and your AI coach uses it from the next run."),
   });
-  body.innerHTML = lintCard(data.warnings) + GROUPS.map(([key, label, hint]) => {
+  const waiting = data.proposals || [];
+  const waitingCard = waiting.length
+    ? `<p class="notice info" id="kb-status" role="status" hidden></p>
+      <section class="card" aria-labelledby="methods-waiting" data-methods-waiting>
+        <h2 id="methods-waiting">${esc(t("Changes waiting for you"))}</h2>
+        ${waiting.map((proposal) => proposalCard(proposal, { canDecide: !share || share.can_write })).join("")}
+      </section>`
+    : "";
+  body.innerHTML = waitingCard + lintCard(data.warnings, data.editorial, { canUndo: !share || share.can_write }) + GROUPS.map(([key, label, hint]) => {
     const articles = data.groups?.[key] || [];
     const empty = key === "prompts"
       ? `<p class="empty">${esc(t("The routine instructions are not here yet."))}</p>
@@ -235,7 +266,13 @@ export async function renderMethods(view, { args = [], stale, share = null }) {
     </section>`;
   }).join("");
   cleanups.get(view)?.();
-  cleanups.set(view, bindRules(body, () => renderMethods(view, { args, stale, share })));
+  const refresh = () => renderMethods(view, { args, stale, share });
+  cleanups.set(view, bindRules(body, refresh));
+  bindEditorial(body, async () => {
+    if (stale() || !view.isConnected) return;
+    await refresh();
+  });
+  if (waiting.length) bindDecisions(view, stale, refresh);
   body.querySelector("[data-seed-prompts]")?.addEventListener("click", async (event) => {
     const button = event.currentTarget;
     const status = body.querySelector("[data-seed-status]");

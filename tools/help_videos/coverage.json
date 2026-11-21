@@ -59,8 +59,12 @@
   ],
   "coach": [
     "pages/coach.js",
-    "coach_*.js",
-    "kb_lint.js"
+    "coach_*.js"
+  ],
+  "coach-methods": [
+    "coach_knowledge.js",
+    "kb_lint.js",
+    "kb_diff.js"
   ],
   "health": [
     "pages/recovery.js",

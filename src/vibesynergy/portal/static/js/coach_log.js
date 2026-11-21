@@ -5,6 +5,7 @@ import { get, post } from "./api.js";
 import { coachShell } from "./coach_tabs.js";
 import { gradeLabel, statusLabel } from "./coach_knowledge.js";
 import { esc, userDateTime } from "./format.js";
+import { linesHtml } from "./kb_diff.js";
 import { N, t } from "./i18n.js";
 
 const KINDS = {
@@ -57,6 +58,7 @@ const AUTHORS = {
   ai_coach: N("AI coach"),
   legacy: N("Coach (before identities)"),
   system: N("System"),
+  "lint/editorial": N("VibeSynergy (check of the texts)"),
 };
 
 function who(author, names) {
@@ -89,17 +91,6 @@ function entryHtml(entry, names) {
       <div data-diff><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></div>
     </details>
   </li>`;
-}
-
-function linesHtml(lines) {
-  return `<div class="coach-diff">${lines
-    .map((line) => {
-      if (line.op === "gap") return `<p class="coach-diff-gap">${esc(t("… {count} lines unchanged", { count: line.text }))}</p>`;
-      if (line.op === "add") return `<ins><span class="visually-hidden">${esc(t("Added:"))} </span><span aria-hidden="true">+ </span>${esc(line.text)}</ins>`;
-      if (line.op === "del") return `<del><span class="visually-hidden">${esc(t("Removed:"))} </span><span aria-hidden="true">− </span>${esc(line.text)}</del>`;
-      return `<p class="coach-diff-same"><span aria-hidden="true">&nbsp;&nbsp;</span>${esc(line.text)}</p>`;
-    })
-    .join("")}</div>`;
 }
 
 function diffHtml(diff) {

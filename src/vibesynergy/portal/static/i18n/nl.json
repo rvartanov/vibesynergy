@@ -3269,5 +3269,20 @@
  "Week {week}: {sport} target changed": "Week {week}: weekdoel {sport} aangepast",
  "Plan version {n}": "Planversie {n}",
  "moved in the calendar": "verplaatst in de kalender",
- "skipped in the calendar": "uit het plan gehaald in de kalender"
+ "skipped in the calendar": "uit het plan gehaald in de kalender",
+ "Changed since": "Sindsdien gewijzigd",
+ "Fixed without asking you": "Zonder jou te vragen verbeterd",
+ "Only outdated names, rule ranges and thresholds that are now read live. Nothing else in the text changed. Each fix is in the change log and can be undone.": "Alleen verouderde namen, regelbereiken en drempels die nu live worden gelezen. Verder is er niets in de tekst veranderd. Elke verbetering staat in het logboek en kun je ongedaan maken.",
+ "outdated names": "verouderde namen",
+ "rule ranges": "regelbereiken",
+ "See the change": "Bekijk de wijziging",
+ "Show the full text": "Toon de hele tekst",
+ "Texts updated ({count}): {what}. Nothing else changed; you can undo it.": "Teksten bijgewerkt ({count}): {what}. Verder is er niets veranderd; je kunt het ongedaan maken.",
+ "thresholds now read live": "drempels nu live gelezen",
+ "tool names": "toolnamen",
+ "Undone": "Ongedaan gemaakt",
+ "What changes": "Wat er verandert",
+ "Methods & rules: the texts your AI coach follows": "Werkwijze & regels: de teksten van je AI-coach",
+ "See what changes, what VibeSynergy fixed itself, and undo a fix.": "Zie wat er verandert, wat VibeSynergy zelf verbeterde, en maak een verbetering ongedaan.",
+ "VibeSynergy (check of the texts)": "VibeSynergy (controle van de teksten)"
 }

@@ -7,14 +7,13 @@ before, and a revert that copies an older version forward. Nothing is ever delet
 
 from __future__ import annotations
 
-import difflib
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.engine import Connection, Engine
 
-from vibesynergy.query import coach, knowledge
+from vibesynergy.query import coach, knowledge, text_diff
 from vibesynergy.store.schema import (
     coach_head,
     coach_revision,
@@ -331,25 +330,7 @@ def _text(snap: dict[str, Any] | None, field: str) -> str:
 
 
 def _lines(before: str, after: str) -> list[dict[str, str]]:
-    """A line diff with a little context around each change; long unchanged runs collapse."""
-    old, new = before.splitlines(), after.splitlines()
-    out: list[dict[str, str]] = []
-    matcher = difflib.SequenceMatcher(a=old, b=new, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            same = old[i1:i2]
-            if len(same) > 2 * _CONTEXT_LINES + 1:
-                head = same[:_CONTEXT_LINES] if i1 > 0 else []
-                tail = same[-_CONTEXT_LINES:] if i2 < len(old) else []
-                out.extend({"op": "same", "text": line} for line in head)
-                out.append({"op": "gap", "text": str(len(same) - len(head) - len(tail))})
-                out.extend({"op": "same", "text": line} for line in tail)
-            else:
-                out.extend({"op": "same", "text": line} for line in same)
-            continue
-        out.extend({"op": "del", "text": line} for line in old[i1:i2])
-        out.extend({"op": "add", "text": line} for line in new[j1:j2])
-    return out
+    return text_diff.lines(before, after, context=_CONTEXT_LINES)
 
 
 def _cursor(before: str | None) -> datetime | None:

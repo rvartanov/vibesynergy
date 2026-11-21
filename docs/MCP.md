@@ -187,8 +187,24 @@ provider or model, and the server enforces them for every write tool
   `5:10/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
-  or rejects it on the portal (Coach → Knowledge). Nothing in the current text changes
-  until then. A new proposal for the same target replaces the same author's proposal that
+  or rejects it on the portal (Coach → Knowledge, and Coach → Methods & rules for the texts
+  there), where it shows as a diff: the changed lines with two lines of context
+  (`diff`, from `query/text_diff.py`), the full text one click away. Nothing in the current
+  text changes until then, except for an **editorial fix** (#137): when every changed part
+  of the text is a mechanical fix of a lint warning (`query/kb_fix.py`: old slug → current
+  slug, Vitality → VibeSynergy, `vitality_*` → its `vibesynergy_*` tool, a rule range from 1
+  → the real range, and on a plain instruction line a fixed threshold → "read live with
+  vibesynergy_thresholds"), no other field changes, the result adds no warning, and the
+  author is the athlete's own agent, the primary AI coach or VibeSynergy's own daily fix job
+  (`kb_editorial`), the server applies it at once: status `applied`, a new version by
+  `lint/editorial`, and `editorial` (`applied`, `reason`, `fixes`) on the proposal. The check
+  works per hunk: one change that is not such a fix, a proposal from an advisory AI coach, a
+  source, a new article or rule, a fix the athlete undid before, or another proposal waiting
+  for the same text sends it to the athlete as usual. The optional `editorial=true` is a
+  request only; when it is not applied, `meta.warnings` says why. Coach → Methods & rules
+  lists the fixes of the last 30 days, each with an undo (the change log's revert), and
+  Waiting for you → Notices has one line for those of the last week; nothing is pushed or
+  mailed. Proposals made before #137 keep their rows (`editorial` null). A new proposal for the same target replaces the same author's proposal that
   is still waiting (status `superseded`), so the athlete only decides on the latest
   wording. The athlete can also edit articles and rules directly (Coach → Methods &
   rules); those versions have author `user` and show in Coach → Change log with a diff and

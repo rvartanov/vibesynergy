@@ -4,6 +4,8 @@
 import { get, post } from "../api.js";
 import { esc, longDate, number } from "../format.js";
 import { N, t } from "../i18n.js";
+import { linesHtml } from "../kb_diff.js";
+import { fixKinds } from "../kb_lint.js";
 import { screenAlerts } from "../screen_alerts.js";
 import { sportLabel } from "../symbols.js";
 
@@ -67,9 +69,14 @@ function decisionHtml(item) {
   if (item.kind === "plan_proposal") return proposalHtml(item);
   if (item.kind === "kb_proposal") {
     const what = t(KB_KINDS[item.what] || item.what || "");
+    // What changes, not the whole article (#137).
+    const lines = (item.diff || []).filter((change) => change.type === "text").flatMap((change) => change.lines);
+    const diff = lines.length
+      ? `<details data-kb-diff><summary>${esc(t("What changes"))}</summary>${linesHtml(lines)}</details>`
+      : "";
     return `<li><span class="chip info">${esc(t("Knowledge base"))}</span>
       <a href="${esc(item.link)}">${esc(t("Change to the {what} {target}", { what, target: item.target || "" }))}</a>
-      ${item.why ? `<p class="sub">${esc(item.why)}</p>` : ""}</li>`;
+      ${item.why ? `<p class="sub">${esc(item.why)}</p>` : ""}${diff}</li>`;
   }
   const value = `${number(item.value, item.value % 1 ? 1 : 0)} ${item.unit || ""}`.trim();
   return `<li><span class="chip planned">${esc(t("Thresholds"))}</span>
@@ -91,6 +98,8 @@ function noticeText(item) {
       return t("Your plan runs only to {day}. Ask your AI coach to fill it up to {end}.", { day, end: item.end ? longDate(item.end) : "" });
     case "coach_disagreement":
       return disagreementText(item);
+    case "kb_editorial":
+      return t("Texts updated ({count}): {what}. Nothing else changed; you can undo it.", { count: item.count, what: fixKinds(item.checks) });
     case "screen_alert":
       return item.text;
     default:
