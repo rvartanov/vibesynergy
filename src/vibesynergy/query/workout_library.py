@@ -108,10 +108,14 @@ def _run_test(minutes: int) -> Steps:
     ]
 
 
+# Z2 rides: a cadence band, the athlete picks within it (Robert, 21-11-2026).
+Z2_CADENCE_CUE = "cadans 80-95 (eigen keuze binnen die band)"
+
+
 def _ride_endurance(minutes: int) -> Steps:
     return [
-        _time("warmup", 15, _ftp(50, 65), cadence=[90, 90]),
-        _time("work", minutes - 25, _ftp(62, 72), cadence=[85, 95]),
+        _time("warmup", 15, _ftp(50, 65), cadence=[80, 95]),
+        _time("work", minutes - 25, _ftp(62, 72), cadence=[80, 95], cue=Z2_CADENCE_CUE),
         _time("cooldown", 10, _ftp(55)),
     ]
 
@@ -120,8 +124,8 @@ def _ride_brick(minutes: int) -> Steps:
     """The ride of a brick (BRICK-4): a warm-up, then Z2 to the end and no
     cool-down, so the run starts straight off the bike's effort."""
     return [
-        _time("warmup", 15, _ftp(50, 65), cadence=[90, 90]),
-        _time("work", minutes - 15, _ftp(62, 72), cadence=[85, 95]),
+        _time("warmup", 15, _ftp(50, 65), cadence=[80, 95]),
+        _time("work", minutes - 15, _ftp(62, 72), cadence=[80, 95], cue=Z2_CADENCE_CUE),
     ]
 
 
