@@ -348,11 +348,20 @@ def register(kit: PortalKit) -> None:
         return envelope(search.search(rt, q[:200]))
 
     @router.get("/coach/feed")
-    def coach_feed_route() -> dict[str, Any]:
-        from vibesynergy.query import coach_replies
+    def coach_feed_route(lang: str | None = None) -> dict[str, Any]:
+        from vibesynergy import i18n
+        from vibesynergy.query import advice_view, coach_replies
 
         entries = coach_workouts.coach_feed(rt)
         replies = coach_replies.for_entries(engine, [e["id"] for e in entries if e.get("id")])
+        # A daily advice in its one view (#147): the same label, stamp and colour state as
+        # its notice, the start page and the report page.
+        tr = i18n.translator(lang) if lang else i18n.for_settings(rt.settings)
+        try:
+            shown = advice_view.views(rt, entries, tr)
+        except Exception:
+            shown = {}
         for entry in entries:
             entry["replies"] = replies.get(entry.get("id"), [])
+            entry["advice_view"] = shown.get(entry.get("id"))
         return envelope({"entries": entries})

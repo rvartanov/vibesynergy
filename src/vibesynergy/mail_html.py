@@ -100,11 +100,30 @@ def _coach(record: dict[str, Any], tr: Any) -> str:
     rich = record.get("rich") or {}
     parts = []
     verdict = rich.get("verdict") or {}
-    if verdict.get("level") in VERDICT_COLOURS:
+    if verdict.get("state") == "done":
+        # The day's sessions are done (#147): no colour to act on, the recovery in a line.
+        parts.append(
+            '<p style="margin:0 0 8px">'
+            + _chip("✓", verdict.get("headline") or "", "#1b6b33", "#e3f4e8")
+            + (
+                f'<br><span style="color:#444;font-size:13px">'
+                f"{html.escape(verdict.get('recovery') or '')}</span>"
+                if verdict.get("recovery")
+                else ""
+            )
+            + "</p>"
+        )
+    elif verdict.get("level") in VERDICT_COLOURS:
         symbol, label, ink, wash = VERDICT_COLOURS[verdict["level"]]
         parts.append(
             f'<p style="margin:0 0 8px">{_chip(symbol, tr(label), ink, wash)} '
             f'<b style="color:#111">{html.escape(verdict.get("headline") or "")}</b></p>'
+        )
+    if verdict.get("stamp"):
+        # When and why this version came (#147): "Bijgewerkt 13:48, na je training".
+        parts.append(
+            f'<p style="margin:0 0 8px;color:#444;font-size:13px">'
+            f"{html.escape(verdict['stamp'])}</p>"
         )
     parts.append(_lead(rich.get("text") or ""))
     sessions = rich.get("sessions") or []

@@ -196,11 +196,15 @@ def test_every_view_gives_the_same_text_colour_and_level(rt):
     tr = i18n.translator(report.language(rt.settings))
     in_mail = report.advice_for(rt, "morning", _day(rt), tr)
     assert _shape(in_mail) == _shape(advice)
+    # The mail leads with the advice's one view (#147): the colour, its meaning and when
+    # this version was written, in the mail's language.
+    view = daily_advice.current(rt, tr=tr, trigger=False)["view"]
+    assert view["verdict"] == f"{tr('Amber')} \N{EN DASH} {in_mail['headline']}"
     entry = {"id": 1, "text": advice["advice"]}
-    body = report.body(rt, entry, in_mail)
-    assert body.startswith(f"{tr('Amber')}: {in_mail['headline']}\n\n{advice['advice']}")
-    html = report.html(rt, "Coach", entry, in_mail)
-    assert tr("Amber") in html and in_mail["headline"] in html
+    body = report.body(rt, entry, view)
+    assert body.startswith(f"{view['verdict']}\n{view['stamp']}\n\n{advice['advice']}")
+    html = report.html(rt, "Coach", entry, view)
+    assert tr("Amber") in html and in_mail["headline"] in html and view["stamp"] in html
     # The coach page shows the AI's words without the rules' safety line beside them.
     morning = daily_coach.read(rt, _day(rt))["morning"]
     assert morning["display"]["mode"] == "advice" and morning["ai_safety"]["level"] == "ease"

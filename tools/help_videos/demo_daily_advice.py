@@ -1,9 +1,10 @@
 """Put an AI coach's morning advice in the demo for today, or take it out (#89, #90).
 
 Two versions: the 07:00 advice, and the update after the check-in that replaced it, so the
-start page shows "Updated at … after your check-in. Changed because: …" and the Coach page
-its earlier version, marked replaced (#115). And the evening run's advice for tomorrow, so
-the start page shows the card "Advies voor morgen - ..." under today's advice (#138).
+start page shows "Bijgewerkt …, na je check-in" with "Veranderd omdat: …" under "Why this
+advice" and the Coach page its earlier version, marked replaced (#115, #147). And the
+evening run's advice for tomorrow, so the start page shows the card "Advies voor morgen -
+..." under today's advice (#138).
 
 Only for the help-video demo home (``~/vs-help-home``), never for real data: the scenario
 ``today`` seeds before it records and clears afterwards, so the advice card shows what an

@@ -236,9 +236,12 @@ def register(kit: ToolKit) -> None:
         thread and what was sent (a notice without its entry, a replaced version in a
         notice, a later version without its reason); empty when all is in line.
         advice.label names the day the advice is for ("Advice for today - Fri 20 Nov",
-        #138). advice_tomorrow is tomorrow's advice once your evening run wrote it (date,
-        level, headline, advice, entry_id, label, run), the same as the start page's
-        Tomorrow card and the notice; null until then."""
+        #138); advice.view is the one view every place shows (#147): stamp (when and why
+        this version came), state (colour, or done once the day's sessions are done and
+        your version says so), verdict, recovery, notice and push. advice_tomorrow is
+        tomorrow's advice once your evening run wrote it (date, level, headline, advice,
+        entry_id, label, stamp, view), the same as the start page's Tomorrow card and the
+        notice; null until then."""
         from vibesynergy.query import coach_consistency
 
         when = _date(date) if date else today()

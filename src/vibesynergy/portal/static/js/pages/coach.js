@@ -13,7 +13,7 @@ import {
 } from "../daily_review.js";
 import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
-import { adviceHtml, adviceLevel, continuityHtml, entryAdviceLabel, threadBannerHtml, versionsHtml } from "../daily_advice.js";
+import { adviceHtml, adviceLevel, continuityHtml, reportHeadHtml, versionsHtml, viewHeadHtml } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
 
 const COACH_TIMEOUT_MS = 15000;
@@ -98,9 +98,15 @@ function fillReport(id) {
     const { data } = await get(`coach/report/${encodeURIComponent(id)}`, {}, { timeoutMs: COACH_TIMEOUT_MS });
     if (stale() || !el.isConnected) return;
     const entry = { ...data.entry, replies: data.replies };
-    // Where this report stands in its day thread (#115): current, or replaced by which one.
-    const banner = data.thread ? threadBannerHtml(data.thread, longDate(data.thread.date)) : "";
-    el.innerHTML = `<section class="card coach-section" aria-label="${esc(t("Report"))}">${banner}<div class="coach-feed">${coachEntryHtml(entry, {})}</div>
+    // A daily advice is "Advice" (#147): its label, when and why this version came, its
+    // colour state and its earlier versions; a replaced version says so (#115).
+    const advice = data.view || null;
+    const title = advice ? t("Advice") : t("Report");
+    const head = el.parentElement?.querySelector(".page-head h1");
+    if (head) head.textContent = title;
+    document.title = `${title} · ${t("Coach")} · VibeSynergy`;
+    const top = advice ? reportHeadHtml(advice, data.versions) : "";
+    el.innerHTML = `<section class="card coach-section" aria-label="${esc(title)}">${top}<div class="coach-feed">${coachEntryHtml(entry, {}, { head: !advice })}</div>
       <p><a href="#/coach">${esc(t("All messages from your AI coach"))}</a></p></section>`;
     bindReplies(el, () => entry);
   };
@@ -347,7 +353,7 @@ async function daily(rhythmEl, stale, { dailyCoaching } = {}) {
 
 const COACH_ENTRY_TYPES = {
   activity_assessment: N("Activity review"),
-  morning: N("Morning decision"),
+  morning: N("Morning advice"),
   evening: N("Evening review"),
   weekly: N("Week review"),
   block: N("Block review"),
@@ -362,7 +368,7 @@ const COACH_AUTHORS = {
   legacy: N("Coach (before identities)"),
   system: N("System"),
   "client:shared": N("Shared link"),
-  "client:coach-runner": N("AI coach (API)"),
+  "client:coach-runner": N("AI coach"),
   portal: N("You"),
 };
 
@@ -438,13 +444,13 @@ function authorLabel(entry, names) {
   return entry.author || "";
 }
 
-function coachEntryHtml(entry, names) {
+function coachEntryHtml(entry, names, { head = true } = {}) {
   const { advice, caveat } = coachSummary(entry);
-  const type = t(COACH_ENTRY_TYPES[entry.entry_type] || entry.entry_type);
-  // A daily advice is named after the day it is for, with the run that wrote it (#138),
-  // the same words as its notice; any other message keeps the time it was written.
-  const label = entryAdviceLabel(entry, isoToday());
-  const when = label || (entry.at ? userDateTime(entry.at) : "");
+  // A daily advice is "Advice" with the day it is for and when and why this version came
+  // (#147), the same words as its notice; any other message keeps its type and time.
+  const view = entry.advice_view || null;
+  const type = view ? t("Advice") : t(COACH_ENTRY_TYPES[entry.entry_type] || entry.entry_type);
+  const when = entry.at ? userDateTime(entry.at) : "";
   // Only "out of date" is worth a chip; the rest of the bookkeeping sits in Details.
   const stale = entry.freshness === "stale" ? ` <span class="chip warning">${esc(t(COACH_FRESHNESS.stale))}</span>` : "";
   // An advisory AI coach's entry (#118): in the same day thread, marked, with who wrote it.
@@ -463,7 +469,7 @@ function coachEntryHtml(entry, names) {
     ? `${safety}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`
     : `${safety}${coach}`;
   return `<article class="coach-entry" data-entry-type="${esc(entry.entry_type || "")}">
-    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span>${second} ${label ? `<strong data-advice-label="${esc(entry.advice_day)}">${esc(when)}</strong>` : `<span class="sub">${esc(when)}</span>`}${stale}</header>
+    <header><span class="chip ${entryTone(entry.entry_type)}">${esc(type)}</span>${second} ${view ? (head ? viewHeadHtml(view) : "") : `<span class="sub">${esc(when)}</span>`}${stale}</header>
     ${body}
     ${confirm}
     ${coachDetailsHtml(entry, names)}

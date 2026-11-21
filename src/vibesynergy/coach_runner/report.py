@@ -2,11 +2,13 @@
 an en dash), and a link to the report in the portal where the athlete can reply or approve a
 proposal.
 
-A daily advice is named after the day it is for, not the day of its run (#138): the
-evening run of Friday sends "Advies voor morgen - za 21 nov (avondrun 21:46)"
-(``daily_advice.label``), the same words in the notice, the push, the mail, the report page,
-the Coach page and on the start page. Its notice and push texts are cut on a sentence or
-word boundary, with "…" (``core.text.clip``).
+A daily advice is named after the day it is for, not the day of its run (#138), and all its
+words come from one view (``query.advice_view``, #147): the evening run of Friday sends
+"Advies voor morgen - za 21 nov"; a later version "Advies voor vandaag bijgewerkt - za 21
+nov" with "Bijgewerkt 13:48, na je rit". The notice, the push, the mail, the report page, the
+Coach page and the start page say the same. Texts are cut on a sentence or word boundary,
+with "…" (``core.text.clip``). Only a new day's advice or a real change is pushed or mailed
+(``advice_view.notable``); a version that only reports is quiet.
 
 Sent through the existing alert channel (``alerts.deliver``: ``[mail]`` and the alert
 address from Settings → Alerts). The subject and the line around the link follow the portal
@@ -62,13 +64,11 @@ def subject(settings, job: str, day: date) -> str:
     return tr(SUBJECTS[job], day=format_user_short_day(day, lang))
 
 
-def advice_title(rt, entry: dict[str, Any], target: date, tr) -> str:
-    """The title of a daily advice's notice, push and mail: the day it is for, said from
-    the day it goes out, and the run that wrote it (#138)."""
-    from vibesynergy.query import daily_advice
+def advice_view(rt, entry: dict[str, Any], target: date, tr) -> dict[str, Any] | None:
+    """The one view of a daily advice (#147): its title, short text and colour state."""
+    from vibesynergy.query import advice_view as view_q
 
-    named = daily_advice.label(rt, entry, tr, day=target)
-    return named["title"] if named else ""
+    return view_q.view(rt, entry, tr)
 
 
 def advice_for(rt, job: str, day: date, tr) -> dict[str, Any] | None:
@@ -85,39 +85,46 @@ def advice_for(rt, job: str, day: date, tr) -> dict[str, Any] | None:
     return found if found.get("level") else None
 
 
-def _verdict_line(advice: dict[str, Any] | None, tr) -> str:
-    if not advice:
-        return ""
-    from vibesynergy.query import daily_advice
+def _verdict_lines(view: dict[str, Any] | None) -> list[str]:
+    """The colour and its meaning ("Oranje - Doe het wat rustiger aan"), or "Gedaan voor
+    vandaag" with the recovery line; then when and why this version came."""
+    if not view:
+        return []
+    return [line for line in (view["verdict"], view["recovery"], view["stamp"]) if line]
 
-    return f"{daily_advice.colour_name(advice['level'], tr)}: {advice['headline']}"
 
-
-def body(rt, entry: dict[str, Any], advice: dict[str, Any] | None = None) -> str:
+def body(rt, entry: dict[str, Any], view: dict[str, Any] | None = None) -> str:
     tr = i18n.translator(language(rt.settings))
     text = (entry.get("text") or "").strip()
-    if line := _verdict_line(advice, tr):
-        text = f"{line}\n\n{text}"
+    if lines := _verdict_lines(view):
+        text = "\n".join(lines) + f"\n\n{text}"
     link = alerts.portal_url(rt, f"#/coach/report/{entry['id']}")
     footer = tr("Reply or approve a proposal in VibeSynergy: {link}", link=link) if link else ""
     return f"{text}\n\n{footer}\n\n— VibeSynergy" if footer else f"{text}\n\n— VibeSynergy"
 
 
-def html(rt, title: str, entry: dict[str, Any], advice: dict[str, Any] | None = None) -> str:
+def html(rt, title: str, entry: dict[str, Any], view: dict[str, Any] | None = None) -> str:
     """The same layout as the morning mail: the note, a chip per session and a button
     to the report. The coach's details (evidence, rule ids, figures) stay out of the mail:
     the athlete found them unreadable there (7-11); the report page keeps them collapsed."""
     from vibesynergy import mail_html
 
     meta = entry.get("meta") or {}
+    verdict = None
+    if view and view["state"] != "none":
+        verdict = {
+            "level": view["colour"],
+            "state": view["state"],
+            "headline": view["headline"],
+            "recovery": view["recovery"],
+            "stamp": view["stamp"],
+        }
     record = {
         "kind": "daily_coach",
         "rich": {
             "text": (entry.get("text") or "").strip(),
             "sessions": meta.get("sessions") or [],
-            "verdict": (
-                {"level": advice["level"], "headline": advice["headline"]} if advice else None
-            ),
+            "verdict": verdict,
         },
     }
     tr = i18n.translator(language(rt.settings))
@@ -209,16 +216,16 @@ def send(
             log.info("coach report %s waits for the contact window", entry["id"])
             return []
     tr = i18n.translator(language(rt.settings))
-    # A daily advice is named after the day it is for (#138); another report after its run.
-    title = advice_title(rt, entry, target, tr) if advice_job else subject(rt.settings, job, day)
-    advice = advice_for(rt, job, target, tr)
+    # A daily advice is named after the day it is for (#138), in its one view (#147);
+    # another report after its run.
+    view = advice_view(rt, entry, target, tr) if advice_job else None
+    title = view["heading"] if view else subject(rt.settings, job, day)
     if advice_job and not by_mail:
         # A daily advice goes where Settings → Alerts sends the kind "advice": by default
         # a push and a notice in the portal, no mail (Robert, 18-11-2026).
         # One notice and one push per target day (#108): a new version replaces the old
-        # ones; its id is the version, so an older dismissal does not hide it. The notice
-        # links to exactly this version (#115).
-        update = bool(state and (state["version"] or 0) > 1)
+        # ones. The notice stores which entry it is about (#115); its text is made from
+        # that entry when it is read (#147), so it never shows an old wording.
         return alerts.notify_advice(
             rt,
             key=f"advice:{target.isoformat()}",
@@ -227,28 +234,26 @@ def send(
             entry_id=entry["id"],
             excerpt=excerpt(entry),
             tag=f"advice-{target.isoformat()}",
-            prefix=tr("Updated:") + " " if update else "",
             title=title,
-            short=short(entry, advice, tr),
-            body=body(rt, entry, advice),
-            html=html(rt, title, entry, advice),
+            short=view["push"]["body"] if view else clip(excerpt(entry), SHORT_LIMIT),
+            notice=view["notice"] if view else None,
+            body=body(rt, entry, view),
+            html=html(rt, title, entry, view),
             link=report_link(entry["id"]),
             quiet=quiet,
+            state=view["state"] if view else None,
         )
     if quiet:
         return []
     return alerts.deliver(
         rt,
         title,
-        body(rt, entry, advice),
+        body(rt, entry, view),
         only=["email"],
-        html=html(rt, title, entry, advice),
+        html=html(rt, title, entry, view),
     )
 
 
-def short(entry: dict[str, Any], advice: dict[str, Any] | None, tr) -> str:
-    """One or two lines for a push or a portal notice: the verdict and the coach's summary."""
-    summary = excerpt(entry)
-    line = _verdict_line(advice, tr)
-    text = f"{line}. {summary}" if line and summary else line or summary
-    return clip(text, SHORT_LIMIT)
+def short(entry: dict[str, Any], view: dict[str, Any] | None) -> str:
+    """One or two lines for a push: the view's push body, else the coach's summary."""
+    return view["push"]["body"] if view else clip(excerpt(entry), SHORT_LIMIT)

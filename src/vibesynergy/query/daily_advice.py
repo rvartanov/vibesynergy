@@ -269,26 +269,19 @@ def target_day(job: str, run_day: date) -> date:
     return run_day + timedelta(days=1) if job == "evening" else run_day
 
 
-# --- one label for every advice (#138) ----------------------------------------------------------
+# --- one label for every advice (#138, #147) ---------------------------------------------------
 #
 # An advice is named after the day it is for, never the day its run was: the evening run of
-# Friday writes "Advice for tomorrow - Sat 21 Nov". The run that wrote it stays beside it as
-# a subtitle ("evening run 21:46"). The notice, the push, the mail, the report page, the
-# Coach page, the start page and the MCP all use these, so they cannot differ. The portal
-# builds the same words from ``advice_day`` and ``advice_job`` (``daily_advice.js``).
+# Friday writes "Advice for tomorrow - Sat 21 Nov". When and why a version came is said in
+# the athlete's words ("Updated 13:48, after your ride"), never with the runner's task.
+# The notice, the push, the mail, the report page, the Coach page, the start page and the
+# MCP all read it from one view (``query.advice_view``), so they cannot differ.
 
 DAY_LABELS = {
     "today": "Advice for today \u2013 {day}",
     "tomorrow": "Advice for tomorrow \u2013 {day}",
     "yesterday": "Advice for yesterday \u2013 {day}",
     "other": "Advice for {day}",
-}
-RUN_LABELS = {
-    "morning": "morning run {time}",
-    "evening": "evening run {time}",
-    "checkin": "check-in run {time}",
-    "injury": "injury check {time}",
-    None: "written {time}",
 }
 
 
@@ -326,50 +319,14 @@ def day_label(day: date, today: date, tr: Translator = ENGLISH) -> str:
     return tr(DAY_LABELS[which], day=format_user_short_day(day, tr.lang))
 
 
-def run_label(entry: dict[str, Any], timezone: str, tr: Translator = ENGLISH) -> str:
-    """The label "evening run 21:46": which run wrote the advice and when (local time)."""
-    from zoneinfo import ZoneInfo
-
-    at = entry.get("at")
-    if isinstance(at, str):
-        at = datetime.fromisoformat(at)
-    if not isinstance(at, datetime):
-        return ""
-    time = _aware(at).astimezone(ZoneInfo(timezone)).strftime("%H:%M")
-    return tr(RUN_LABELS[entry_job(entry)], time=time)
-
-
-def label(
-    rt,
-    entry: dict[str, Any],
-    tr: Translator = ENGLISH,
-    today: date | None = None,
-    *,
-    day: date | None = None,
-) -> dict[str, Any] | None:
-    """``{"date", "day", "run", "title"}`` for an advice entry, or ``None`` for any other:
-    the day it is for (ISO), its day label said from ``today`` (default: now), its run
-    label, and both as one line, the title of the notice, the push and the mail. ``day``
-    names the day when the caller already knows it (a report sent for its target day)."""
-    day = day or advice_day(entry)
-    if day is None:
-        return None
-    tz = rt.settings.timezone
-    named = day_label(day, today or today_in(tz), tr)
-    run = run_label(entry, tz, tr)
-    return {
-        "date": day.isoformat(),
-        "day": named,
-        "run": run,
-        "title": f"{named} ({run})" if run else named,
-    }
-
-
 def upcoming(rt, today: date, *, tr: Translator = ENGLISH) -> dict[str, Any] | None:
     """Tomorrow's advice on today's start page (#138), once an AI coach wrote it (the
     evening run, #90): the same advice the notice names and the page for tomorrow shows
-    (``resolve``), in short. ``None`` while there is none, outside AI mode, or when the
-    rules would give tomorrow's advice (nothing of the AI coach to point at yet)."""
+    (``resolve``), in short, with its view (``advice_view``). ``None`` while there is
+    none, outside AI mode, or when the rules would give tomorrow's advice (nothing of the
+    AI coach to point at yet)."""
+    from vibesynergy.query import advice_view
+
     if rt is None or mode(rt) != "ai":
         return None
     day = today + timedelta(days=1)
@@ -384,7 +341,7 @@ def upcoming(rt, today: date, *, tr: Translator = ENGLISH) -> dict[str, Any] | N
     if found.get("source") != "ai" or not found.get("entry"):
         return None
     entry = next(e for e in entries if e["id"] == found["entry"]["id"])
-    named = label(rt, entry, tr, today) or {}
+    shown = advice_view.view(rt, entry, tr, today=today) or {}
     return {
         "date": day.isoformat(),
         "level": found["level"],
@@ -392,10 +349,10 @@ def upcoming(rt, today: date, *, tr: Translator = ENGLISH) -> dict[str, Any] | N
         "headline": found["headline"],
         "advice": found["advice"],
         "entry_id": entry["id"],
-        "job": entry_job(entry),
         "at": found["entry"]["at"],
-        "label": named.get("day"),
-        "run": named.get("run"),
+        "label": shown.get("label"),
+        "stamp": shown.get("stamp"),
+        "view": shown or None,
         "link": f"#/coach/report/{int(entry['id'])}",
     }
 
@@ -594,6 +551,8 @@ def versions(entries: list[dict[str, Any]], tr: Translator = ENGLISH) -> list[di
     valid versions from 1 (the oldest), ``status`` is ``current`` (the newest valid one),
     ``replaced`` (with ``replaced_by``) or ``invalid``, and ``changed_because`` is the AI
     coach's own reason for a later version."""
+    from vibesynergy.query import advice_view
+
     valid = [e for e in entries if ai_safety(e.get("meta")) is not None]
     numbers = {e["id"]: n for n, e in enumerate(sorted(valid, key=lambda e: e["id"]), start=1)}
     current = valid[0]["id"] if valid else None
@@ -622,6 +581,10 @@ def versions(entries: list[dict[str, Any]], tr: Translator = ENGLISH) -> list[di
                 "advice": _summary(entry),
                 "differences": compare(older, entry) if safety else [],
                 "first": safety is not None and older is None,
+                # Why this version came, in the athlete's words (#147).
+                "why": advice_view.why_text(
+                    advice_view.why_keys(entry, first=safety is not None and older is None), tr
+                ),
             }
         )
     return out
@@ -751,14 +714,17 @@ def thread(rt, day: date) -> dict[str, Any]:
 
 
 def real_change(rt, day: date, entry: dict[str, Any]) -> bool:
-    """A new version for ``day`` that differs from the previous valid one in colour,
-    safety level or a session decision: worth a mail. The first version always is."""
-    entries = _entries(rt, day)
-    older = next(
-        (e for e in entries if e["id"] < entry["id"] and ai_safety(e.get("meta")) is not None),
-        None,
-    )
-    return older is None or bool(compare(older, entry))
+    """A new version for ``day`` worth a push or a mail (#147, ``advice_view.notable``): the
+    first version, another colour, a stricter safety level, or a session decision the
+    athlete acts on. A version that only reports (a session done) or rewords is quiet."""
+    from vibesynergy.query import advice_view
+
+    older = [
+        e
+        for e in _entries(rt, day)
+        if e["id"] < entry["id"] and ai_safety(e.get("meta")) is not None
+    ]
+    return bool(advice_view.notable(older, entry))
 
 
 def _new_hard(entry: dict[str, Any], rules: dict[str, Any] | None) -> list[str]:
@@ -856,6 +822,9 @@ def resolve(
     # The one label of this advice (#138): the day it is for, said from today.
     settings = getattr(rt, "settings", None)
     base["label"] = day_label(day, today_in(settings.timezone), tr) if settings else None
+    # The one view of the advice shown (#147): its label, when and why it came, and the
+    # colour or "done for today". ``None`` while the fixed rules give the advice.
+    base["view"] = None
     if rt is None or base.get("mode") != "ai":
         return base
     try:
@@ -864,6 +833,14 @@ def resolve(
         base["second_opinions"] = second_opinions(rt, day, primary, base.get("safety_level"))
     except Exception:  # the advice must still answer
         log.exception("reading the second opinions failed")
+        primary = None
+    if primary is not None:
+        from vibesynergy.query import advice_view
+
+        try:
+            base["view"] = advice_view.view(rt, primary, tr)
+        except Exception:  # the advice must still answer
+            log.exception("building the advice view failed")
     return base
 
 

@@ -742,11 +742,13 @@ def register(kit: ToolKit) -> None:
         version also has advice_version (#115): {date (the day it is for), version, of,
         status (current, replaced or invalid), current_id, replaced_by} and its
         changed_because, the same thread as the start page and vibesynergy_today, and
-        advice_label (#138): {date, day, run, title}, named after the day the advice is for
-        ("Advice for tomorrow - Sat 21 Nov") with the run that wrote it ("evening run
-        21:46"), the same words as the notice. Newest first.
+        advice_view (#147): the one view every place shows: label (the day it is for,
+        "Advice for tomorrow - Sat 21 Nov"), stamp (when and why this version came,
+        "Updated 13:48, after your ride"), state (colour, or done once the day's sessions
+        are done), verdict, recovery, notice and push, the same words as the notice.
+        Newest first.
         """
-        from vibesynergy.query import daily_advice
+        from vibesynergy.query import advice_view, daily_advice
 
         span = window(period, None, None, "last_28d")
         rows = predictions.coach_entries(engine, span, entry_type)
@@ -758,9 +760,9 @@ def register(kit: ToolKit) -> None:
             except LookupError:
                 row["advice_version"] = None
             row["changed_because"] = daily_advice.changed_because(row)
-            # The one label of the advice (#138): the day it is for and the run that wrote
-            # it, the same as the notice, the push and the Coach page.
-            row["advice_label"] = daily_advice.label(rt, row)
+            # The one view of the advice (#147): the same label, stamp and colour state as
+            # the notice, the push and the Coach page.
+            row["advice_view"] = advice_view.view(rt, row)
         return envelope({"entries": rows}, span=span)
 
     @tool(READ, "read")

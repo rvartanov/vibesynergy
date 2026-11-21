@@ -231,6 +231,13 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 .dash-tomorrow { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); background: var(--subtle); border-radius: var(--radius); }
 .dash-tomorrow .dash-kicker { margin: 0; }
 .dash-tomorrow p { margin: var(--space-1) 0 0; }
+/* The colour state of an advice (#147): its colour and meaning, or "Done for today" with the
+   recovery colour in a small line; a day that is done calls for no colour. */
+.advice-verdict { margin: 0 0 var(--space-1); display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: baseline; }
+.verdict.done { border-left-color: var(--line); }
+.advice-report-head { margin: 0 0 var(--space-3); }
+.advice-report-head h2 { margin: 0; }
+.advice-report-head > p { margin: var(--space-1) 0 0; }
 .dash-today .verdict-advice { font-size: var(--type-h2); line-height: var(--leading-h2); font-weight: 600; max-width: var(--measure); margin: 0 0 var(--space-2); }
 .advice-status { margin: 0 0 var(--space-1); }
 .advice-status .advice-refresh { min-height: 24px; }

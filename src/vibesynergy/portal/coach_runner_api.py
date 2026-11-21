@@ -150,9 +150,12 @@ def build_coach_runner_router(rt: Runtime) -> APIRouter:
         return {"data": {"findings": coach_consistency.for_page(rt, tr)}}
 
     @router.get("/coach/report/{entry_id}")
-    def coach_report(entry_id: int) -> Any:
+    def coach_report(entry_id: int, lang: str | None = None) -> Any:
+        from vibesynergy import i18n
+
+        tr = i18n.translator(lang) if lang else i18n.for_settings(rt.settings)
         try:
-            return {"data": runner_q.report(rt, entry_id)}
+            return {"data": runner_q.report(rt, entry_id, tr)}
         except LookupError:
             return _bad("This report no longer exists.", 404)
 

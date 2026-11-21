@@ -441,8 +441,12 @@ async function alertBanner() {
     notices.innerHTML = warnNotices
       .slice(0, 2)
       .map(
-        (a) => `<span class="header-sync-chip warn">
-          ${a.link ? `<a href="${esc(a.link)}">${esc(a.text)}</a>` : `<span>${esc(a.text)}</span>`}
+        // A daily advice (#147): one or two lines the server makes from the entry it points
+        // to ("Advice for today updated at 13:48, after your workout: …"), then "View".
+        (a) => `<span class="header-sync-chip warn"${a.kind === "advice" ? ` data-advice-notice="${esc(a.state || "")}"` : ""}>
+          ${a.kind === "advice" && a.link
+            ? `<span>${esc(a.text)}</span> · <a href="${esc(a.link)}">${esc(t("View"))}</a>`
+            : a.link ? `<a href="${esc(a.link)}">${esc(a.text)}</a>` : `<span>${esc(a.text)}</span>`}
           <button type="button" class="btn small" data-dismiss="${esc(dismissKey(a))}" aria-label="${esc(t("Dismiss"))}">×</button>
         </span>`,
       )

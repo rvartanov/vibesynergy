@@ -140,8 +140,9 @@ def clear_key(rt, provider: str = "anthropic") -> dict[str, Any]:
     return overview(rt)
 
 
-def report(rt, entry_id: int) -> dict[str, Any]:
-    """One coach entry with its replies, for the report page the mail links to."""
+def report(rt, entry_id: int, tr=None) -> dict[str, Any]:
+    """One coach entry with its replies, for the report page the mail links to. A daily
+    advice has its one view (``advice_view``, #147): the page's title and header."""
     from vibesynergy.query.coach_workouts import _coach_row
 
     with rt.engine.connect() as conn:
@@ -158,8 +159,18 @@ def report(rt, entry_id: int) -> dict[str, Any]:
     # Where this report stands in its day thread (#115): a notice links here, and an
     # older version says it was replaced and by which one.
     thread = daily_advice.version_state(rt, entry_id)
+    from vibesynergy.i18n import ENGLISH
+    from vibesynergy.query import advice_view
+
+    tr = tr or ENGLISH
+    shown = advice_view.view(rt, dict(row), tr)
+    entry["advice_view"] = shown
+    day = daily_advice.advice_day(dict(row)) if shown and not shown["second_opinion"] else None
     return {
         "entry": entry,
+        "view": shown,
+        # The day's versions, newest first, for "earlier versions" on the page.
+        "versions": daily_advice.versions(daily_advice._entries(rt, day), tr) if day else [],
         "replies": coach_replies.for_entries(rt.engine, [entry_id])[entry_id],
         "thread": {**thread, "changed_because": daily_advice.changed_because(dict(row))}
         if thread
