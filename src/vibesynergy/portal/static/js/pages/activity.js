@@ -151,7 +151,8 @@ export async function render(view, { args, meta, stale }) {
     if (el && !stale() && r.data?.line) el.textContent = `${t("Weather")}: ${r.data.line}`;
   }, () => {});
   if (!meta.data.share) annotationPreview(view.querySelector("[data-annotation-preview]"), id, stale,
-    sources.map((source) => source.id.split(":")[0]).filter((source) => ["strava", "garmin"].includes(source)));
+    sources.filter((source) => !source.removed_at).map((source) => source.id.split(":")[0])
+      .filter((source) => ["strava", "garmin"].includes(source)));
   let marker = null;
   if (hasRoute) marker = routeMap(view.querySelector(".map"), cols, meta.data.tiles);
   if (panels.length) streamCharts(view.querySelector(".streams"), cols, panels, marker, zones);
@@ -581,7 +582,11 @@ function sourcesHtml(sources, a) {
   const rows = sources
     .map((s) => {
       const [source] = s.id.split(":");
-      return `<tr><td>${esc(sourceName(source))}${s.id.startsWith(a.primary_source) ? ` <span class="chip">${t("main")}</span>` : ""}</td><td>${esc(s.name || "–")}</td><td class="muted">${esc(s.device || "")}</td></tr>`;
+      // A copy deleted at its source stays listed, with a line saying so (#151).
+      const gone = s.removed_at
+        ? `<div class="sub">${esc(source === "garmin" ? t("Garmin copy removed on Garmin") : t("Copy removed at the source"))}</div>`
+        : "";
+      return `<tr><td>${esc(sourceName(source))}${s.id.startsWith(a.primary_source) ? ` <span class="chip">${t("main")}</span>` : ""}${gone}</td><td>${esc(s.name || "–")}</td><td class="muted">${esc(s.device || "")}</td></tr>`;
     })
     .join("");
   return `<h2>${t("Sources")}</h2><p class="sub" style="margin-top:0">${t("The same session as recorded by each service, merged into this one activity.")}</p>

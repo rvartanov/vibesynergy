@@ -161,6 +161,14 @@ class GarminSource(Source):
             self._activity_lists[window] = list(found or [])
         return self._activity_lists[window]
 
+    def listed(self, window: Window) -> set[str] | None:
+        """The activity ids in the list this sync fetched for ``window`` (None: not
+        fetched). The removal check of #151 compares it with the stored copies."""
+        found = self._activity_lists.get(window)
+        if found is None:
+            return None
+        return {str(a["activityId"]) for a in found if a.get("activityId") is not None}
+
     def _activities(self, window: Window) -> Iterator[FetchedItem]:
         details = bool(self.ctx.config.get("activity_details", True))
         for summary in self._list_activities(window, fresh=True):

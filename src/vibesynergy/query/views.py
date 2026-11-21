@@ -539,6 +539,10 @@ def activity_detail(engine: Engine, parquet: ParquetStore, activity_id: str) -> 
     group = resolve_activity(engine, activity_id)
     unified = _rows(engine, select(activity_unified).where(activity_unified.c.group_id == group))[0]
     members = []
+    from vibesynergy.query import source_removed
+
+    with engine.connect() as conn:
+        gone = source_removed.removed(conn, unified["sources"])
     for key in unified["sources"]:
         source, source_id = key.split(":", 1)
         row = _rows(
@@ -548,7 +552,14 @@ def activity_detail(engine: Engine, parquet: ParquetStore, activity_id: str) -> 
         if row:
             r = row[0]
             members.append(
-                {"id": key, "name": r["name"], "device": r["device"], "extra": r["extra"]}
+                {
+                    "id": key,
+                    "name": r["name"],
+                    "device": r["device"],
+                    "extra": r["extra"],
+                    # Deleted where it came from (#151): kept here, no longer a live source.
+                    "removed_at": gone[key].isoformat() if key in gone else None,
+                }
             )
 
     def fetch_laps(source, source_id):

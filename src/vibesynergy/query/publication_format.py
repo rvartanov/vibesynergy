@@ -16,7 +16,7 @@ from sqlalchemy import select
 
 from vibesynergy.core import weather_units
 from vibesynergy.core.config import ConfigError
-from vibesynergy.query import activity_effort, views
+from vibesynergy.query import activity_effort, source_removed, views
 from vibesynergy.store.schema import activity, activity_unified
 
 DEFAULT_OPENER = "[/*]"
@@ -363,12 +363,14 @@ _STRAVA_COMPLETE = ("relative_effort", "work_kj", "temp_avg")
 
 
 def _group_copies(rt, activity_id: str, source: str) -> tuple[str, list[dict]]:
-    """The group id and the activity rows of its ``source`` copies, in source-id order."""
+    """The group id and the activity rows of its live ``source`` copies (not the ones
+    removed at the source, #151), in source-id order."""
     group = views.resolve_activity(rt.engine, activity_id)
     with rt.engine.connect() as conn:
         sources = conn.scalar(
             select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
         )
+        sources = source_removed.live(conn, sources)  # a copy deleted there is no choice (#151)
         ids = sorted(
             {
                 str(ref).split(":", 1)[1]
@@ -485,15 +487,18 @@ def garmin_fields(rt, activity_id: str) -> dict:
 
 
 def has_garmin(rt, activity_id: str) -> bool:
-    """True when the unified activity has a Garmin copy (its stats come from there), and
+    """True when the unified activity has a live Garmin copy (its stats come from there), and
     for an activity that cannot be found (nothing to take from Strava either)."""
     try:
         group = views.resolve_activity(rt.engine, activity_id)
     except (LookupError, ValueError):
         return True
     with rt.engine.connect() as conn:
-        sources = conn.scalar(
-            select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
+        sources = source_removed.live(
+            conn,
+            conn.scalar(
+                select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
+            ),
         )
     return any(str(ref).startswith(("garmin:", "garmin_export:")) for ref in sources or [])
 

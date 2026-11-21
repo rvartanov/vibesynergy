@@ -20,6 +20,7 @@ from vibesynergy.query import (
     publication_format,
     publication_insight,
     publication_plugins,
+    source_removed,
     views,
 )
 from vibesynergy.sources import oauth
@@ -28,6 +29,16 @@ from vibesynergy.store.schema import activity_unified, audit_log, publication_le
 
 class Conflict(ValueError):
     pass
+
+
+class Gone(Conflict):
+    """The source answered 404 for this copy twice in a row: it was removed there (#151).
+
+    The copy is then marked in ``source_removed``; callers pick another live copy."""
+
+    def __init__(self, destination: str, source_id: str, reason: str = "read"):
+        super().__init__(f"This {destination} copy ({source_id}) was removed on {destination}")
+        self.destination, self.source_id, self.reason = destination, str(source_id), reason
 
 
 class Provider(Protocol):
@@ -62,19 +73,38 @@ class StravaProvider:
 
 class GarminProvider:
     def __init__(self, rt):
+        self.rt = rt
         self.store = SecretStore(rt.settings.secrets_dir, "garmin")
 
     def _call(self, method: str, *args):
+        from garminconnect import GarminConnectNotFoundError
+
         from vibesynergy.sources.garmin.client import GarminAuthError, connect, save_tokens
 
         try:
             with self.store.lock("tokens"):
                 client = connect(self.store)
-                result = getattr(client, method)(*args)
+                try:
+                    result = getattr(client, method)(*args)
+                except GarminConnectNotFoundError:
+                    # 404 for an activity: ask once more before calling it removed (#151).
+                    try:
+                        client.get_activity(args[0])
+                    except GarminConnectNotFoundError:
+                        save_tokens(self.store, client)
+                        reason = "read" if method == "get_activity" else "write"
+                        self._removed(str(args[0]), reason)
+                        raise Gone("garmin", str(args[0]), reason) from None
+                    raise  # it is there: an odd 404 of this call, retried later
                 save_tokens(self.store, client)
                 return result, getattr(client, "profile_id", None)
         except GarminAuthError as exc:
             raise Conflict(str(exc)) from exc
+
+    def _removed(self, source_id: str, reason: str) -> None:
+        from vibesynergy.query import source_removed
+
+        source_removed.mark(self.rt.engine, "garmin", source_id, reason=reason)
 
     def read(self, source_id: str) -> dict:
         detail, profile_id = self._call("get_activity", source_id)
@@ -114,6 +144,7 @@ def _source_id(rt, activity_id: str, destination: str) -> str:
         sources = conn.scalar(
             select(activity_unified.c.sources).where(activity_unified.c.group_id == group)
         )
+        sources = source_removed.live(conn, sources)  # not the copies deleted there (#151)
     matches = [ref.split(":", 1)[1] for ref in sources or [] if ref.startswith(destination + ":")]
     if destination == "garmin" and len(matches) > 1:
         # Zwift's upload and the watch recording: the same copy the figures come from (#146).
