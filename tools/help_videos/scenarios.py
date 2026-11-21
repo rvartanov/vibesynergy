@@ -514,7 +514,7 @@ def _coach(r: Rec):
         "met waar die afwijkt. In de berichten eronder heeft hij een eigen label.",
         "With today's advice you see the second opinion of an advisory AI coach, and where "
         "it differs. In the messages below it has its own label.",
-        3.4,
+        2.8,
     )
     chip = r.pg.locator("[data-second-opinion-chip]").first
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
@@ -529,7 +529,7 @@ def _coach(r: Rec):
         "avondadvies is het advies voor morgen.",
         "Every advice is named after the day it is for, with the run that wrote it: the "
         "evening advice is the advice for tomorrow.",
-        3.2,
+        2.8,
     )
     # A plan change says why and, under Details, what changed; a copy is no message (#141).
     change = r.pg.locator('article[data-entry-type="plan_change"]')
@@ -538,7 +538,7 @@ def _coach(r: Rec):
     r.click(change.locator("details summary").first)
     # The whole message in view, reason and Details, not under the page header.
     change.first.evaluate("e => e.scrollIntoView({block: 'center'})")
-    r.wait(0.6)
+    r.wait(0.3)
     r.check(
         change.locator("details", has_text="Sessie verplaatst").count() > 0,
         "the plan change's Details should say what changed",
@@ -548,7 +548,7 @@ def _coach(r: Rec):
         "intervals.icu is geen planaanpassing en staat hier niet.",
         "A plan change says why, and under Details what changed. A copy to intervals.icu is "
         "not a plan change and is not listed here.",
-        3.4,
+        2.8,
     )
     # The day thread (#115): the earlier version, marked replaced, and its own report.
     earlier = r.pg.locator("[data-coach-advice] [data-advice-versions]")
@@ -562,7 +562,7 @@ def _coach(r: Rec):
         "Een oudere versie is gemarkeerd als vervangen.",
         "Earlier versions of today are listed below, with the time and why the advice "
         "changed. An older version is marked replaced.",
-        3.4,
+        2.8,
     )
     r.click(earlier.locator("[data-advice-version] a").first)
     banner = r.pg.locator('[data-thread-status="replaced"]')
@@ -573,7 +573,7 @@ def _coach(r: Rec):
         "dan staat dat erbij, met een link naar het huidige advies.",
         "Every notice opens exactly the report it is about. When that is an older version, "
         "it says so, with a link to the current advice.",
-        3.4,
+        2.8,
     )
     r.go("coach")
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
