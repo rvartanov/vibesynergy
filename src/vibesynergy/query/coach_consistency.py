@@ -10,6 +10,9 @@ The rules:
 * ``notice_without_entry``: a notice (kind ``advice`` or ``daily_coach``) that names no
   stored entry, or one that no longer exists. Nothing may be sent that is not stored.
 * ``notice_text_not_in_entry``: the text a notice shows is not in the entry it links to.
+* ``notice_day_differs`` (#138): an advice notice that names another day than the day its
+  entry is for: its key or ``advice_day``, or the day in its text (an evening advice
+  labelled with the day of its run).
 * ``notice_replaced``: the day's advice notice points at a version that is no longer the
   current one.
 * ``entry_without_notice``: the day's current advice has no notice, while notices go to
@@ -46,6 +49,8 @@ FIXES = {
     "notice_without_entry": "Never send a text that is not stored; the notice is dropped "
     "at the next version.",
     "notice_text_not_in_entry": "Send the stored text of the entry, never a rewritten one.",
+    "notice_day_differs": "Name an advice after the day it is for (daily_advice.label), "
+    "never the day of its run.",
     "notice_replaced": "Point the day's notice at the current version.",
     "entry_without_notice": "Send the notice for the current version (Coach → Settings → "
     "Send again), or check Settings → Alerts.",
@@ -63,6 +68,30 @@ def text_in_entry(shown: Any, entry_text: Any) -> bool:
     """The text a notice shows (its excerpt) is part of the stored entry's text."""
     part = _norm(shown).removesuffix("…").strip()
     return bool(part) and part in _norm(entry_text)
+
+
+def day_gap(notice: dict[str, Any], entry: dict[str, Any]) -> str | None:
+    """How an advice notice names another day than its entry is for (#138), or ``None``:
+    the day in its key, its ``advice_day`` and the short day in its text ("za 21 nov", in
+    either language) must all be the entry's target day."""
+    from vibesynergy.core.user_datetime import format_user_short_day
+    from vibesynergy.query import daily_advice
+
+    target = daily_advice.advice_day(entry)
+    if target is None:
+        return None
+    key_day = str(notice.get("key") or "").removeprefix("advice:")
+    for name, value in (("key", key_day), ("advice_day", notice.get("advice_day"))):
+        if value and value != target.isoformat():
+            return f"its {name} names {value}; entry #{entry['id']} is for {target.isoformat()}"
+    text = _norm(notice.get("text"))
+    named = {_norm(format_user_short_day(target, lang)) for lang in ("en", "nl")}
+    if text and not any(day in text for day in named):
+        return (
+            f"its text “{str(notice.get('text') or '')[:80]}” does not name "
+            f"{target.isoformat()}, the day entry #{entry['id']} is for"
+        )
+    return None
 
 
 def _finding(rule: str, where: str, evidence: str, level: str = WARNING) -> dict[str, Any]:
@@ -130,6 +159,8 @@ def check(rt, day: date | None = None) -> dict[str, Any]:
                 )
             )
             continue
+        if kind == "advice" and (gap := day_gap(notice, entry)):
+            findings.append(_finding("notice_day_differs", where, gap))
         shown = notice.get("excerpt")
         if shown is not None and not text_in_entry(shown, entry.get("text")):
             findings.append(
@@ -241,6 +272,7 @@ def daily(rt, now=None) -> dict[str, Any] | None:
 MESSAGES = {
     "notice_without_entry": "A notice shows a text that is not stored with your AI coach.",
     "notice_text_not_in_entry": "A notice shows a text that is not in the report it links to.",
+    "notice_day_differs": "A notice names another day than the advice it links to ({day}).",
     "notice_replaced": "The notice for {day} shows an older version of the advice.",
     "entry_without_notice": "The current advice for {day} got no notice.",
     "contradiction": "A later version of the advice for {day} changed without saying why.",

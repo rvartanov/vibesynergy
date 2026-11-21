@@ -2,7 +2,8 @@
 
 Two versions: the 07:00 advice, and the update after the check-in that replaced it, so the
 start page shows "Updated at … after your check-in. Changed because: …" and the Coach page
-its earlier version, marked replaced (#115).
+its earlier version, marked replaced (#115). And the evening run's advice for tomorrow, so
+the start page shows the card "Advies voor morgen - ..." under today's advice (#138).
 
 Only for the help-video demo home (``~/vs-help-home``), never for real data: the scenario
 ``today`` seeds before it records and clears afterwards, so the advice card shows what an
@@ -33,6 +34,7 @@ from vibesynergy.store.schema import coach_decision_log
 DEMO_HOME = Path.home() / "vs-help-home"
 KEY = "demo-daily-advice"
 EARLIER = "demo-daily-advice-0700"
+TOMORROW = "demo-daily-advice-evening"
 
 
 def _guard() -> None:
@@ -45,15 +47,16 @@ def clear(rt: Runtime) -> None:
     with rt.engine.begin() as conn:
         conn.execute(
             delete(coach_decision_log).where(
-                coach_decision_log.c.idempotency_key.in_((KEY, EARLIER))
+                coach_decision_log.c.idempotency_key.in_((KEY, EARLIER, TOMORROW))
             )
         )
-    # The day's advice notice that ``seed`` sent goes with it.
+    # The advice notices that ``seed`` sent (today and tomorrow) go with them.
     store = SecretStore(rt.settings.secrets_dir, alerts.SECRETS)
-    key = f"advice:{today_in(rt.settings.timezone).isoformat()}"
+    day = today_in(rt.settings.timezone)
+    keys = {f"advice:{d.isoformat()}" for d in (day, day + timedelta(days=1))}
     store.set(
         alerts.ADVICE_STATE,
-        [e for e in store.get(alerts.ADVICE_STATE) or [] if e.get("key") != key],
+        [e for e in store.get(alerts.ADVICE_STATE) or [] if e.get("key") not in keys],
     )
 
 
@@ -124,6 +127,38 @@ def seed(rt: Runtime) -> None:
         ).inserted_primary_key[0]
     # The notice for the current version, as the AI coach's run sends it (#115).
     daily_advice.announce(rt, current)
+    # The evening run's advice for tomorrow (#90): the start page's card for tomorrow and a
+    # notice named after tomorrow (#138).
+    with rt.engine.begin() as conn:
+        evening = conn.execute(
+            insert(coach_decision_log).values(
+                subject_id=1,
+                at=utc_now(),
+                kind="coach",
+                author="client:coach-runner",
+                entry_type="evening",
+                idempotency_key=TOMORROW,
+                for_date=day,
+                text="Morgen de rustige rit van 1 uur in zone 2; je herstel is nog niet "
+                "helemaal terug.",
+                meta={
+                    "author_name": "AI coach (API)",
+                    "safety": {
+                        "level": "ease",
+                        "colour": "amber",
+                        "reasons": ["Je rusthartslag is twee dagen hoger"],
+                    },
+                    "harness": {
+                        "version": 3,
+                        "via": "runner",
+                        "task": "evening",
+                        "target": (day + timedelta(days=1)).isoformat(),
+                        "trigger": "schedule",
+                    },
+                },
+            )
+        ).inserted_primary_key[0]
+    daily_advice.announce(rt, evening)
 
 
 def main() -> None:

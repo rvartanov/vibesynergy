@@ -371,6 +371,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **Every advice is named after the day it is for** (#138): the evening run's advice for
+  Saturday came with the notice "Coach avond – vr 20 nov", while the start page showed
+  Friday's check-in advice in another colour, so two different advices seemed to be about
+  the same day. Now the notice, the push, the mail, Waiting for you, the report page, the
+  Coach page and the AI apps (`vibesynergy_today`, `vibesynergy_coach_entries`) all say
+  "Advies voor morgen – za 21 nov" or "Advies voor vandaag – vr 20 nov", with the run that
+  wrote it beside it ("avondrun 21:46"). On the Coach page an evening advice stands under
+  the day it is for. Once the evening run has written tomorrow's advice, the start page
+  shows it in a small card under today's advice, with its colour, its first line and a link
+  to the same report the notice opens. Notice and push texts end on a whole sentence or word
+  with "…" instead of in the middle of a word ("onder norma"). The daily continuity check
+  now also reports a notice that names another day than the advice it links to.
 - **The installed app serves the coach protocol** (#119): `protocol_md` and
   `protocol_version` in `vibesynergy_coach_handbook` were empty in an installed app,
   because `docs/COACH_PROTOCOL.md` was not in the package. The wheel now carries it.

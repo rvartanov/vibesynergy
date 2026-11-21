@@ -26,6 +26,7 @@ from sqlalchemy import select
 
 from vibesynergy import i18n, mailer
 from vibesynergy.core.secrets import SecretStore
+from vibesynergy.core.text import clip
 from vibesynergy.core.timeutil import today_in, utc_now
 from vibesynergy.portal import prefs
 from vibesynergy.query import dashboard, workouts
@@ -38,6 +39,7 @@ SECRETS = "alerts"
 STATE = "state"
 ADVICE_STATE = "advice_events"  # portal notices for a changed advice, kept apart from STATE
 ADVICE_KEPT = 10
+ADVICE_TEXT_LIMIT = 300  # a portal notice for an advice: its title and short text
 CHECKED = "_checked_at"  # in the state: when the previous check ran
 RECENT = "_recent"  # in the state: the latest one-off events, for the portal
 SENT = "_sent"  # when a one-off, or an advice alert, was last mailed (ISO, or ISO|level)
@@ -982,6 +984,7 @@ def notify_advice(
     tag: str | None = None,
     entry_id: int | None = None,
     excerpt: str = "",
+    advice_day: str | None = None,
     quiet: bool = False,
 ) -> list[str]:
     """A new or changed daily advice, on the channels chosen for the kind ``advice``
@@ -995,8 +998,13 @@ def notify_advice(
     ``entry_id`` is the stored version the notice is about (#115): the notice, the push and
     the mail link to it, and ``excerpt`` is the part of its text they show. ``quiet`` (a
     version that only rewords the advice) sends nothing: it only points an existing
-    notice for the day at the new version, so the notice never shows a replaced one."""
+    notice for the day at the new version, so the notice never shows a replaced one.
+
+    ``advice_day`` (ISO) is the day the advice is for, the day its title names (#138); the
+    continuity check holds it against the entry. The notice text is cut on a sentence or
+    word boundary, never inside a word."""
     title = f"{prefix}{title}"
+    text = clip(f"{title}: {short}", ADVICE_TEXT_LIMIT)
     chosen = routes(rt.settings).get("advice", [])
     used: list[str] = []
     store = SecretStore(rt.settings.secrets_dir, SECRETS)
@@ -1008,11 +1016,12 @@ def notify_advice(
                 [
                     {
                         **e,
-                        "text": f"{title}: {short}"[:300],
+                        "text": text,
                         "link": link,
                         "version": None if version is None else str(version),
                         "entry_id": entry_id,
                         "excerpt": excerpt,
+                        "advice_day": advice_day,
                     }
                     if e.get("key") == key
                     else e
@@ -1030,7 +1039,7 @@ def notify_advice(
         event = {
             "key": key,
             "at": utc_now().isoformat(),
-            "text": f"{title}: {short}"[:300],
+            "text": text,
             "level": "info",
             "link": link,
             "kind": "advice",
@@ -1038,6 +1047,7 @@ def notify_advice(
             "version": None if version is None else str(version),
             "entry_id": entry_id,
             "excerpt": excerpt,
+            "advice_day": advice_day,
         }
         store.set(ADVICE_STATE, [event, *events][:ADVICE_KEPT])
         used.append("portal")

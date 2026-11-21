@@ -157,6 +157,21 @@ def _today(r: Rec):
         "Update advice first syncs all your sources, then asks your AI coach for new advice.",
         2.8,
     )
+    # Tomorrow's advice from the evening run, under today's (#138).
+    tomorrow = advice.locator("[data-advice-tomorrow]")
+    r.check(tomorrow.count() > 0, "the start page should show tomorrow's advice (#138)")
+    r.check(
+        "Advies voor morgen" in (tomorrow.first.text_content() or ""),
+        "tomorrow's card should be named after tomorrow",
+    )
+    r.point(tomorrow)
+    r.say(
+        "Heeft je AI-coach 's avonds het advies voor morgen al gemaakt, dan staat het hier, "
+        "met de kleur en de dag waarvoor het is. De melding noemt dezelfde dag.",
+        "Once your AI coach has made tomorrow's advice in the evening, it is here, with its "
+        "colour and the day it is for. The notice names the same day.",
+        3.4,
+    )
     r.point(card(r, "Herstel"))
     r.say(
         "Herstel vergelijkt HRV, slaap en rusthartslag met wat normaal is voor jou.",
@@ -502,6 +517,17 @@ def _coach(r: Rec):
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
     r.point(chip)
     r.wait(1.2)
+    # Every advice is named after the day it is for, with the run that wrote it (#138).
+    label = r.pg.locator("[data-advice-label]", has_text="Advies voor morgen").first
+    r.check(label.count() > 0, "the evening advice should be named after tomorrow (#138)")
+    r.point(label)
+    r.say(
+        "Elk advies heet naar de dag waarvoor het is, met de run die het schreef: het "
+        "avondadvies is het advies voor morgen.",
+        "Every advice is named after the day it is for, with the run that wrote it: the "
+        "evening advice is the advice for tomorrow.",
+        3.2,
+    )
     # The day thread (#115): the earlier version, marked replaced, and its own report.
     earlier = r.pg.locator("[data-coach-advice] [data-advice-versions]")
     r.check(earlier.count() > 0, "the Coach page should list the earlier version")

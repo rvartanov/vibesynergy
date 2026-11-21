@@ -15,9 +15,9 @@ report), `query/coach_runner.py` and `query/coach_replies.py` for the portal,
 
 | Job | When (Europe/Amsterdam) | Prompt | Writes | Report mail |
 | --- | --- | --- | --- | --- |
-| `morning` | daily 07:00 (the fixed advice run, #90), and on new data for today | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Coach ochtend – zo 1 nov", for a new version only on a real change |
-| `evening` | daily 21:45, and on new data for tomorrow; its advice is for tomorrow | `evening.md` | entry `evening`, key `evening-<date>` | "Coach avond – …" |
-| `injury`, `checkin` | on pain or an injury (at once), on the check-in (after the wait) | `injury.md`, `checkin.md` | entry `note`, key `<task>-<date>-event-…` | only on a real change |
+| `morning` | daily 07:00 (the fixed advice run, #90), and on new data for today | `docs/coach-prompts/morning.md` | entry `morning`, key `morning-<date>` | "Advies voor vandaag – zo 1 nov (ochtendrun 07:02)", for a new version only on a real change |
+| `evening` | daily 21:45, and on new data for tomorrow; its advice is for tomorrow | `evening.md` | entry `evening`, key `evening-<date>` | "Advies voor morgen – ma 2 nov (avondrun 21:46)": named after the day the advice is for (#138) |
+| `injury`, `checkin` | on pain or an injury (at once), on the check-in (after the wait) | `injury.md`, `checkin.md` | entry `note`, key `<task>-<date>-event-…` | "Advies voor vandaag – … (check-in-run 08:53)", only on a real change |
 | `weekly` | Sunday 19:44 | `weekly.md` | entry `note`, key `weekly-<date>`, summary starts "Weekreview <ISO-week>" | "Coach weekreview – …" |
 | `insight` | on `activity.published` | `insight.md` | `activity_assessment` with `public_insight` | none |
 

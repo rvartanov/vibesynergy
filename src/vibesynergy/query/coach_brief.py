@@ -36,6 +36,10 @@ _RECOVERY = (
 )
 
 
+def _tomorrow(found: Any) -> dict[str, Any] | None:
+    return found if isinstance(found, dict) and not found.get("error") else None
+
+
 def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
     """What a coach needs for one day. Dates in ``date`` stay ISO; ``date_label`` is for people."""
     engine = rt.engine
@@ -139,6 +143,8 @@ def today_brief(rt: Runtime, day: date) -> dict[str, Any]:
         # the rules' own outcome, which a coach's safety is checked against.
         "verdict": _verdict(advice),
         "advice": advice,
+        # Tomorrow's advice once the evening run wrote it (#138), as on the start page.
+        "advice_tomorrow": _tomorrow(board.get("advice_tomorrow")),
         "attention": [
             {"level": item["level"], "area": item["area"], "message": item["message"]}
             for item in board["attention"][:12]

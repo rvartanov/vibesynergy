@@ -216,6 +216,12 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   review's advice is for tomorrow. There is one current advice per day: the start page says
   when it was written and after what, the Coach page lists the earlier versions, and a mail
   comes only when the colour, the safety level or a session decision changes.
+- **One label per advice** (#138): every advice is named after the day it is for, with the
+  run that wrote it beside it: "Advies voor morgen – za 21 nov (avondrun 21:46)", the same
+  in the notice, the push, the mail, Waiting for you, the report page, the Coach page and
+  the AI apps. From the evening run until midnight the start page shows tomorrow's advice
+  in a small card under today's, with its colour, its first line and a link to its report.
+  Notice and push texts end on a whole sentence or word, with "…".
 - **One ongoing conversation per day** (#115): every run of your AI coach (07:00, an
   update, the evening, a check-in, pain) starts from the day so far: the earlier versions
   of the advice and your replies. A new version says what changed and why ("Changed

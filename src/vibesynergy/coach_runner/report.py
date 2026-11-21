@@ -1,6 +1,12 @@
-"""The report mail: the coach entry's text, a subject like "Coach ochtend - zo 1 nov" (with
+"""The report mail: the coach entry's text, a subject like "Coach weekreview - zo 1 nov" (with
 an en dash), and a link to the report in the portal where the athlete can reply or approve a
 proposal.
+
+A daily advice is named after the day it is for, not the day of its run (#138): the
+evening run of Friday sends "Advies voor morgen - za 21 nov (avondrun 21:46)"
+(``daily_advice.label``), the same words in the notice, the push, the mail, the report page,
+the Coach page and on the start page. Its notice and push texts are cut on a sentence or
+word boundary, with "…" (``core.text.clip``).
 
 Sent through the existing alert channel (``alerts.deliver``: ``[mail]`` and the alert
 address from Settings → Alerts). The subject and the line around the link follow the portal
@@ -24,14 +30,15 @@ from datetime import date
 from typing import Any
 
 from vibesynergy import alerts, i18n
+from vibesynergy.core.text import clip
 from vibesynergy.core.user_datetime import format_user_short_day
 from vibesynergy.portal import prefs
 
 log = logging.getLogger(__name__)
 
+# The other reports, named after the day of their run. A daily advice (morning, evening,
+# checkin, injury) is named after the day it is for: ``daily_advice.label``.
 SUBJECTS = {
-    "morning": "Coach morning \u2013 {day}",
-    "evening": "Coach evening \u2013 {day}",
     "weekly": "Coach week review \u2013 {day}",
     "monthly": "Coach month report \u2013 {day}",
     "block": "Coach block review \u2013 {day}",
@@ -39,9 +46,8 @@ SUBJECTS = {
     "test": "Coach test evaluation \u2013 {day}",
     "thresholds": "Coach threshold check \u2013 {day}",
     "kb": "Coach knowledge base care \u2013 {day}",
-    "injury": "Coach injury check \u2013 {day}",
-    "checkin": "Coach on your check-in \u2013 {day}",
 }
+SHORT_LIMIT = 240  # a push or a notice: one or two lines
 
 
 def language(settings) -> str:
@@ -50,9 +56,19 @@ def language(settings) -> str:
 
 
 def subject(settings, job: str, day: date) -> str:
+    """The subject of a report that is no daily advice: its task and the day of its run."""
     lang = language(settings)
     tr = i18n.translator(lang)
     return tr(SUBJECTS[job], day=format_user_short_day(day, lang))
+
+
+def advice_title(rt, entry: dict[str, Any], target: date, tr) -> str:
+    """The title of a daily advice's notice, push and mail: the day it is for, said from
+    the day it goes out, and the run that wrote it (#138)."""
+    from vibesynergy.query import daily_advice
+
+    named = daily_advice.label(rt, entry, tr, day=target)
+    return named["title"] if named else ""
 
 
 def advice_for(rt, job: str, day: date, tr) -> dict[str, Any] | None:
@@ -173,7 +189,6 @@ def send(
             state["current_id"],
         )
         return []
-    title = subject(rt.settings, job, day)
     target = advice_day or (
         daily_advice.target_day(job, day) if job in daily_advice.ADVICE_JOBS else day
     )
@@ -194,6 +209,8 @@ def send(
             log.info("coach report %s waits for the contact window", entry["id"])
             return []
     tr = i18n.translator(language(rt.settings))
+    # A daily advice is named after the day it is for (#138); another report after its run.
+    title = advice_title(rt, entry, target, tr) if advice_job else subject(rt.settings, job, day)
     advice = advice_for(rt, job, target, tr)
     if advice_job and not by_mail:
         # A daily advice goes where Settings → Alerts sends the kind "advice": by default
@@ -205,6 +222,7 @@ def send(
         return alerts.notify_advice(
             rt,
             key=f"advice:{target.isoformat()}",
+            advice_day=target.isoformat(),
             version=entry["id"],
             entry_id=entry["id"],
             excerpt=excerpt(entry),
@@ -233,4 +251,4 @@ def short(entry: dict[str, Any], advice: dict[str, Any] | None, tr) -> str:
     summary = excerpt(entry)
     line = _verdict_line(advice, tr)
     text = f"{line}. {summary}" if line and summary else line or summary
-    return text[:240]
+    return clip(text, SHORT_LIMIT)

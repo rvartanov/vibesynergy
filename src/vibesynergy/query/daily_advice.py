@@ -177,9 +177,7 @@ def _entries(rt, day: date, *, second: bool = False) -> list[dict[str, Any]]:
         )
     out = []
     for row in rows:
-        meta = row["meta"] or {}
-        task = (meta.get("harness") or {}).get("task")
-        if meta.get("safety") is None and task not in ADVICE_JOBS and row["entry_type"] == "note":
+        if not is_advice_entry(dict(row)):
             continue  # a plain note is no daily advice
         if entry_target(dict(row)) != day:
             continue
@@ -269,6 +267,137 @@ def target_day(job: str, run_day: date) -> date:
     advice run (morning, a refresh, a pain or check-in reaction, a new signal) its own day.
     A run's failure only ever affects the advice for this day."""
     return run_day + timedelta(days=1) if job == "evening" else run_day
+
+
+# --- one label for every advice (#138) ----------------------------------------------------------
+#
+# An advice is named after the day it is for, never the day its run was: the evening run of
+# Friday writes "Advice for tomorrow - Sat 21 Nov". The run that wrote it stays beside it as
+# a subtitle ("evening run 21:46"). The notice, the push, the mail, the report page, the
+# Coach page, the start page and the MCP all use these, so they cannot differ. The portal
+# builds the same words from ``advice_day`` and ``advice_job`` (``daily_advice.js``).
+
+DAY_LABELS = {
+    "today": "Advice for today \u2013 {day}",
+    "tomorrow": "Advice for tomorrow \u2013 {day}",
+    "yesterday": "Advice for yesterday \u2013 {day}",
+    "other": "Advice for {day}",
+}
+RUN_LABELS = {
+    "morning": "morning run {time}",
+    "evening": "evening run {time}",
+    "checkin": "check-in run {time}",
+    "injury": "injury check {time}",
+    None: "written {time}",
+}
+
+
+def is_advice_entry(entry: dict[str, Any]) -> bool:
+    """A coach entry that is a version of a daily advice (the same choice as ``_entries``):
+    a morning or evening entry, or a note that carries a safety outcome or claims a
+    daily-advice task. A second opinion counts too: it is about the same day."""
+    if entry.get("entry_type") not in ADVICE_ENTRY_TYPES:
+        return False
+    meta = entry.get("meta") or {}
+    task = (meta.get("harness") or {}).get("task")
+    plain_note = entry["entry_type"] == "note" and meta.get("safety") is None
+    return not (plain_note and task not in ADVICE_JOBS)
+
+
+def advice_day(entry: dict[str, Any]) -> date | None:
+    """The day an entry's advice is for, or ``None`` for an entry that is no daily advice."""
+    return entry_target(entry) if is_advice_entry(entry) else None
+
+
+def entry_job(entry: dict[str, Any]) -> str | None:
+    """The daily-advice task that wrote the entry (morning, evening, checkin, injury), or
+    ``None`` when it does not say (an entry an AI coach wrote over MCP without a task)."""
+    task = ((entry.get("meta") or {}).get("harness") or {}).get("task")
+    return task if task in ADVICE_JOBS else None
+
+
+def day_label(day: date, today: date, tr: Translator = ENGLISH) -> str:
+    """The label "Advice for tomorrow - Sat 21 Nov": the day the advice is for, said from
+    ``today``."""
+    from vibesynergy.core.user_datetime import format_user_short_day
+
+    shift = (day - today).days
+    which = {0: "today", 1: "tomorrow", -1: "yesterday"}.get(shift, "other")
+    return tr(DAY_LABELS[which], day=format_user_short_day(day, tr.lang))
+
+
+def run_label(entry: dict[str, Any], timezone: str, tr: Translator = ENGLISH) -> str:
+    """The label "evening run 21:46": which run wrote the advice and when (local time)."""
+    from zoneinfo import ZoneInfo
+
+    at = entry.get("at")
+    if isinstance(at, str):
+        at = datetime.fromisoformat(at)
+    if not isinstance(at, datetime):
+        return ""
+    time = _aware(at).astimezone(ZoneInfo(timezone)).strftime("%H:%M")
+    return tr(RUN_LABELS[entry_job(entry)], time=time)
+
+
+def label(
+    rt,
+    entry: dict[str, Any],
+    tr: Translator = ENGLISH,
+    today: date | None = None,
+    *,
+    day: date | None = None,
+) -> dict[str, Any] | None:
+    """``{"date", "day", "run", "title"}`` for an advice entry, or ``None`` for any other:
+    the day it is for (ISO), its day label said from ``today`` (default: now), its run
+    label, and both as one line, the title of the notice, the push and the mail. ``day``
+    names the day when the caller already knows it (a report sent for its target day)."""
+    day = day or advice_day(entry)
+    if day is None:
+        return None
+    tz = rt.settings.timezone
+    named = day_label(day, today or today_in(tz), tr)
+    run = run_label(entry, tz, tr)
+    return {
+        "date": day.isoformat(),
+        "day": named,
+        "run": run,
+        "title": f"{named} ({run})" if run else named,
+    }
+
+
+def upcoming(rt, today: date, *, tr: Translator = ENGLISH) -> dict[str, Any] | None:
+    """Tomorrow's advice on today's start page (#138), once an AI coach wrote it (the
+    evening run, #90): the same advice the notice names and the page for tomorrow shows
+    (``resolve``), in short. ``None`` while there is none, outside AI mode, or when the
+    rules would give tomorrow's advice (nothing of the AI coach to point at yet)."""
+    if rt is None or mode(rt) != "ai":
+        return None
+    day = today + timedelta(days=1)
+    entries = _entries(rt, day)
+    if not any(ai_safety(e.get("meta")) is not None for e in entries):
+        return None
+    try:
+        # The same call as the notice's (``report.advice_for``): the same colour and words.
+        found = current(rt, day, tr=tr, trigger=False)
+    except RuntimeError:  # no advice to show: neither the AI coach's nor the rules'
+        return None
+    if found.get("source") != "ai" or not found.get("entry"):
+        return None
+    entry = next(e for e in entries if e["id"] == found["entry"]["id"])
+    named = label(rt, entry, tr, today) or {}
+    return {
+        "date": day.isoformat(),
+        "level": found["level"],
+        "colour": colour_name(found["level"], tr),
+        "headline": found["headline"],
+        "advice": found["advice"],
+        "entry_id": entry["id"],
+        "job": entry_job(entry),
+        "at": found["entry"]["at"],
+        "label": named.get("day"),
+        "run": named.get("run"),
+        "link": f"#/coach/report/{int(entry['id'])}",
+    }
 
 
 def _runs(rt, day: date) -> list[dict[str, Any]]:
@@ -375,6 +504,8 @@ def _entry_info(entry: dict[str, Any]) -> dict[str, Any]:
         "at": at.isoformat() if at else None,
         "via": harness.get("via"),
         "task": harness.get("task"),
+        # The run that wrote it (#138): the subtitle beside the day label.
+        "job": entry_job(entry),
         "model": (entry.get("meta") or {}).get("model_id"),
         # Why this version was made (#90): the trigger and what came in before it.
         "trigger": harness.get("trigger"),
@@ -722,6 +853,9 @@ def resolve(
     the advice shown in safety level or a session decision. Only in AI mode."""
     base = _resolve(rt, day, rules, tr=tr, allow_ai=allow_ai, trigger=trigger)
     base["second_opinions"] = []
+    # The one label of this advice (#138): the day it is for, said from today.
+    settings = getattr(rt, "settings", None)
+    base["label"] = day_label(day, today_in(settings.timezone), tr) if settings else None
     if rt is None or base.get("mode") != "ai":
         return base
     try:

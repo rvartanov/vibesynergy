@@ -234,7 +234,11 @@ def register(kit: ToolKit) -> None:
         A daily advice you write for a day that has a current version replaces it: pass
         changed_because to vibesynergy_coach_write. continuity lists gaps between the
         thread and what was sent (a notice without its entry, a replaced version in a
-        notice, a later version without its reason); empty when all is in line."""
+        notice, a later version without its reason); empty when all is in line.
+        advice.label names the day the advice is for ("Advice for today - Fri 20 Nov",
+        #138). advice_tomorrow is tomorrow's advice once your evening run wrote it (date,
+        level, headline, advice, entry_id, label, run), the same as the start page's
+        Tomorrow card and the notice; null until then."""
         from vibesynergy.query import coach_consistency
 
         when = _date(date) if date else today()

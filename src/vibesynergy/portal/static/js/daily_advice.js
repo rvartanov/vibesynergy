@@ -6,7 +6,7 @@
 // the reasons, where it came from and where the AI and the rules differ. The update button
 // syncs every source and then asks the AI coach for new advice, with its progress.
 import { get, post } from "./api.js";
-import { esc, userTime } from "./format.js";
+import { esc, shortDay, userTime } from "./format.js";
 import { N, t } from "./i18n.js";
 
 const COLOURS = { green: N("Green"), amber: N("Amber"), red: N("Red") };
@@ -30,6 +30,59 @@ const CHANGES = {
 const TONES = { green: "good", amber: "warning", red: "danger" };
 const POLL_MS = 3000;
 const POLL_LIMIT_MS = 12 * 60 * 1000;
+
+// One label for every advice (#138): the day it is for, never the day of its run, and the
+// run that wrote it beside it. The same words as the server's (query/daily_advice.py,
+// DAY_LABELS and RUN_LABELS), so the notice, the mail and the pages read alike.
+const DAY_LABELS = {
+  today: N("Advice for today – {day}"),
+  tomorrow: N("Advice for tomorrow – {day}"),
+  yesterday: N("Advice for yesterday – {day}"),
+  other: N("Advice for {day}"),
+};
+const RUN_LABELS = {
+  morning: N("morning run {time}"),
+  evening: N("evening run {time}"),
+  checkin: N("check-in run {time}"),
+  injury: N("injury check {time}"),
+};
+const WRITTEN = N("written {time}");
+
+/** "Advice for tomorrow – Sat 21 Nov": the day ``iso`` said from ``today`` (both ISO days). */
+export function adviceDayLabel(iso, today) {
+  const shift = Math.round((Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`) - Date.parse(`${String(today).slice(0, 10)}T00:00:00Z`)) / 86400000);
+  const which = { 0: "today", 1: "tomorrow", "-1": "yesterday" }[shift] || "other";
+  return t(DAY_LABELS[which], { day: shortDay(iso) });
+}
+
+/** "evening run 21:46": which run wrote the advice, and when. */
+export function adviceRunLabel(job, at) {
+  if (!at) return "";
+  return t(RUN_LABELS[job] || WRITTEN, { time: userTime(at) });
+}
+
+/** The label of a coach entry that is a daily advice, or "" for any other entry. */
+export function entryAdviceLabel(entry, today) {
+  if (!entry?.advice_day) return "";
+  const run = adviceRunLabel(entry.advice_job, entry.at);
+  const day = adviceDayLabel(entry.advice_day, today);
+  return run ? `${day} (${run})` : day;
+}
+
+/** Tomorrow's advice on today's start page (#138), once the evening run wrote it: compact,
+ * with its colour, its first line, the run and a link to its report (where the notice
+ * links too). Empty while there is none. */
+export function tomorrowAdviceHtml(item, today) {
+  if (!item || item.error || !item.level) return "";
+  const label = adviceDayLabel(item.date, today);
+  const run = adviceRunLabel(item.job, item.at);
+  const colour = `<span class="chip ${TONES[item.level] || ""}">${esc(t(COLOURS[item.level] || item.level))}</span>`;
+  return `<section class="dash-tomorrow verdict ${esc(item.level)}" data-advice-tomorrow="${esc(item.date)}" aria-labelledby="dash-tomorrow-title">
+    <h3 id="dash-tomorrow-title" class="dash-kicker">${esc(label)}</h3>
+    <p>${colour} ${esc(item.advice || item.headline || "")}</p>
+    <p class="sub">${run ? `${esc(run)} · ` : ""}<a href="${esc(item.link || `#/coach/report/${item.entry_id}`)}">${esc(t("Open tomorrow's advice"))}</a></p>
+  </section>`;
+}
 
 export function failedAdvice(advice) {
   return !advice || (advice.error === "unavailable" && Object.keys(advice).length === 1);

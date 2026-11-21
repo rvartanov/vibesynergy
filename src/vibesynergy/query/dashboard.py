@@ -173,6 +173,12 @@ def dashboard(
             rt, today, None if _failed(verdict) else verdict, tr=tr, allow_ai=allow_ai
         )
     )
+    # Tomorrow's advice once the evening run wrote it (#138): a card under today's.
+    tomorrow = (
+        _block(lambda: daily_advice.upcoming(rt, today, tr=tr))
+        if allow_ai and rt is not None
+        else None
+    )
     plan_view = _block(lambda: _plan_view(plan, today))
     week = _block(lambda: _week(engine, today, None if _failed(plan) else plan))
     progress = _block(
@@ -192,6 +198,7 @@ def dashboard(
         "completed": completed,
         "verdict": verdict,
         "advice": advice,
+        "advice_tomorrow": tomorrow,
         "attention": attention,
         "recovery": recovery,
         "load": load,
