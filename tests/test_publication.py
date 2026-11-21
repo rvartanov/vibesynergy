@@ -199,6 +199,7 @@ def test_no_garmin_fields_blocks_publication(runtime):
         "reason": "no_public_statistics",
         "assessment_state": None,
         "destination": "garmin",
+        "insight": {"state": "missing"},  # the coach's insight still shows beside it (#146)
     }
 
 

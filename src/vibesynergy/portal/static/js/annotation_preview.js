@@ -20,6 +20,14 @@ function blockedMessage(data) {
   return t("This activity has no Garmin figures to publish yet.");
 }
 
+// Blocked: the AI coach's public insight still shows, with why nothing is published (#146).
+function blockedHtml(data) {
+  const insight = data.insight?.state === "present" && data.insight.text
+    ? `<p class="assessment-summary"><strong>${esc(t("Insight from your AI coach"))}:</strong> ${esc(data.insight.text)}</p>`
+    : "";
+  return `${insight}<p class="sub">${esc(t("Not published: {reason}", { reason: blockedMessage(data) }))}</p>`;
+}
+
 function publishResult(destination, data) {
   const mirror = data?.mirror;
   if (destination === "strava" && mirror?.error) return t("Published on Strava. Garmin will be tried again.");
@@ -67,7 +75,7 @@ export function annotationPreview(el, id, stale, destinations = []) {
       if (stale() || !el.isConnected) return;
       output.innerHTML = data.state === "preview"
         ? `<p class="assessment-summary">${esc(data.block)}</p><p class="sub">${t("These are the Garmin figures recorded for this activity. Your private assessment stays private. Quote, weather and the short insight are in the full description when you turn them on.")}</p>`
-        : `<p>${t("A current saved assessment with public statistics is required before preview.")}</p>`;
+        : blockedHtml(data);
     } catch (error) {
       if (!stale() && el.isConnected) output.textContent = error.message;
     } finally {
@@ -86,7 +94,7 @@ export function annotationPreview(el, id, stale, destinations = []) {
       const {data} = await get("activity-publication-preview", {id, destination, lang: language()});
       if (stale() || !el.isConnected) return;
       if (data.state !== "ready" && data.state !== "undo_pending") {
-        output.textContent = blockedMessage(data);
+        output.innerHTML = blockedHtml(data);
         return;
       }
       output.innerHTML = `<p>${data.state === "undo_pending" ? t("Finish removing the VibeSynergy section.") : data.already_published ? t("Already published.") : t("Ready to publish. Review the complete text below.")}</p>

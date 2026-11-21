@@ -9,9 +9,10 @@ the scheduler looks for new activities every 5 minutes. A candidate:
 
 - started after the switch went on (``auto_publish_since``) and within the last two days,
   and at least ``SETTLE`` ago, so Garmin's figures are in;
-- has exactly one Garmin and one Strava copy in the unified activity, or only one Strava copy
-  and still no Garmin copy ``WAIT_FOR_GARMIN`` after it ended (its block then carries
-  whatever Strava has);
+- has exactly one Strava copy and a Garmin copy in the unified activity (with several Garmin
+  copies, such as Zwift's upload and the watch recording, the one the figures come from), or
+  only one Strava copy and still no Garmin copy ``WAIT_FOR_GARMIN`` after it ended (its block
+  then carries whatever Strava has);
 - has no publication ledger row on Strava yet (published by hand, or already done).
 
 Each candidate goes through the same guarded path as the Publish button: preview, publish
@@ -96,6 +97,8 @@ def attempts(rt) -> dict[str, dict[str, Any]]:
 
 
 def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    from vibesynergy.query import publication_format
+
     if not enabled(rt):
         return []
     now = now or datetime.now(UTC)
@@ -134,8 +137,10 @@ def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
         refs = row["sources"] or []
         strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
         garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
-        if len(strava) != 1 or len(garmin) > 1 or strava[0] in published:
+        if len(strava) != 1 or strava[0] in published:
             continue
+        if len(garmin) > 1:  # Zwift's upload and the watch: the copy the figures come from
+            garmin = [publication_format.copy_id(rt, row["group_id"], "garmin")]
         if not garmin and not _no_garmin_coming(row, now):
             continue
         seen = tried.get(strava[0]) or {}

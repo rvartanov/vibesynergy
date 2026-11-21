@@ -280,7 +280,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 - **Activity descriptions** on Strava, Garmin and intervals.icu: a block with statistics (in
   your temperature unit), the weather and an optional quote, added beside your own text and
-  never replacing it. Automatic after an activity, or per activity.
+  never replacing it. Automatic after an activity, or per activity. A ride recorded twice on
+  Garmin (Zwift's upload and the watch) takes its figures from one copy. When nothing can be
+  published, the workout page still shows your AI coach's insight and says why.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 
