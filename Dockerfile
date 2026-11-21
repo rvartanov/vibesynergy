@@ -10,8 +10,10 @@ WORKDIR /src
 COPY pyproject.toml uv.lock README.md LICENSE THIRD_PARTY.md ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
-# The coach protocol, which the wheel carries (pyproject.toml force-include, #119).
+# The coach protocol and the workout method's seed, which the wheel carries (pyproject.toml
+# force-include, #119, #142).
 COPY docs/COACH_PROTOCOL.md ./docs/COACH_PROTOCOL.md
+COPY docs/workout-method.md ./docs/workout-method.md
 RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.13-slim

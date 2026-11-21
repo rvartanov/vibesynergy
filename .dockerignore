@@ -8,8 +8,10 @@
 .basedpyright
 tests
 docs
-# The coach protocol is packaged into the wheel (pyproject.toml, #119).
+# The coach protocol and the workout method seed are packaged into the wheel (pyproject.toml,
+# #119, #142).
 !docs/COACH_PROTOCOL.md
+!docs/workout-method.md
 tools
 node_modules
 *.sqlite
