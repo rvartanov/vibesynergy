@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
-from sqlalchemy import Engine, desc, select, update
+from sqlalchemy import Engine, and_, desc, func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from vibesynergy.core.timeutil import utc_now
@@ -45,6 +45,29 @@ COACH_FEED_ENTRY_TYPES = frozenset(
         "plan_change",
     }
 )
+
+
+def hidden_from_feed():
+    """Decision-log rows that stay in the log but are not shown on the coach feed, in search
+    or to the AI coach (#141), filtered at read time; the rows themselves are never changed:
+
+    * the plan mirror's copies to intervals.icu from before #141 (author VibeSynergy, an
+      ``icu.*`` action or the ``plan mirror`` text): a copy is no plan change;
+    * a plan change without any text: a "Plan change" with nothing in it says nothing.
+    """
+    col = coach_decision_log.c
+    action = func.coalesce(func.json_extract(col.meta, "$.action"), "")
+    text = func.coalesce(col.text, "")
+    mirror_copy = and_(
+        func.coalesce(col.author, "") == "VibeSynergy",
+        or_(action.like("icu.%"), text.like("plan mirror%")),
+    )
+    return and_(col.entry_type == "plan_change", or_(mirror_copy, func.trim(text) == ""))
+
+
+def shown_on_feed():
+    """The opposite of ``hidden_from_feed``, for a ``where``."""
+    return not_(hidden_from_feed())
 
 
 def _resolve_author(author: str | None) -> str:
@@ -407,6 +430,7 @@ def coach_feed(rt, *, subject_id: int = 1, limit: int = 80) -> list[dict[str, An
                 .where(
                     coach_decision_log.c.subject_id == subject_id,
                     coach_decision_log.c.entry_type.in_(tuple(COACH_FEED_ENTRY_TYPES)),
+                    shown_on_feed(),
                 )
                 .order_by(desc(coach_decision_log.c.id))
                 .limit(limit)

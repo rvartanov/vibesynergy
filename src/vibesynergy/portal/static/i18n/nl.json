@@ -3252,5 +3252,22 @@
  "injury check {time}": "blessurecheck {time}",
  "written {time}": "geschreven {time}",
  "Open tomorrow's advice": "Open het advies voor morgen",
- "A notice names another day than the advice it links to ({day}).": "Een melding noemt een andere dag dan het advies waar die naar linkt ({day})."
+ "A notice names another day than the advice it links to ({day}).": "Een melding noemt een andere dag dan het advies waar die naar linkt ({day}).",
+ "Last copy of your plan to intervals.icu: {when}, 1 change": "Laatste kopie van je plan naar intervals.icu: {when}, 1 wijziging",
+ "Last copy of your plan to intervals.icu: {when}, {n} changes": "Laatste kopie van je plan naar intervals.icu: {when}, {n} wijzigingen",
+ "Updated": "Bijgewerkt",
+ "Moved": "Verplaatst",
+ "Removed": "Verwijderd",
+ "And {n} more.": "En nog {n}.",
+ "VibeSynergy copies your plan to intervals.icu after every sync, only what differs. A copy is not a plan change, so it is not in your AI coach's messages.": "VibeSynergy kopieert je plan na elke synchronisatie naar intervals.icu, alleen wat verschilt. Een kopie is geen planaanpassing en staat dus niet bij de berichten van je AI-coach.",
+ "Session moved: {name}, {from} to {date}": "Sessie verplaatst: {name}, van {from} naar {date}",
+ "Session added: {name}, {date}": "Sessie toegevoegd: {name}, {date}",
+ "Session changed: {name}, {date}": "Sessie aangepast: {name}, {date}",
+ "Session taken out of the plan: {name}, {date}": "Sessie uit het plan gehaald: {name}, {date}",
+ "Week {week}: note changed": "Week {week}: weeknotitie aangepast",
+ "Week {week}: {sport} target removed": "Week {week}: weekdoel {sport} verwijderd",
+ "Week {week}: {sport} target changed": "Week {week}: weekdoel {sport} aangepast",
+ "Plan version {n}": "Planversie {n}",
+ "moved in the calendar": "verplaatst in de kalender",
+ "skipped in the calendar": "uit het plan gehaald in de kalender"
 }

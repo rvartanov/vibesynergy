@@ -1,7 +1,7 @@
 // Settings → Sources (split from pages/settings.js): each source's card with its
 // connection, data and sync frequency, Garmin delivery per sport and intervals.icu notes.
 import { get } from "./api.js";
-import { esc, number, sourceName, timeOfDay } from "./format.js";
+import { esc, number, sourceName, timeOfDay, userDateTime } from "./format.js";
 import { N, t } from "./i18n.js";
 import { icuConnectHtml } from "./icu_connect.js";
 import { runsynergyConnectHtml } from "./runsynergy_connect.js";
@@ -47,6 +47,7 @@ export function connectionCard(src, { shared, settings }) {
     ${shared ? "" : id === "strava" ? stravaConnect(src) : ""}
     ${shared ? "" : id === "intervals_icu" ? icuConnectHtml(src) : ""}
     ${shared ? "" : id === "intervals_icu" ? icuNotesHtml(src) : ""}
+    ${shared ? "" : id === "intervals_icu" ? icuPlanCopyHtml(src.plan_copy) : ""}
     ${shared ? "" : id === "runsynergy" ? runsynergyConnectHtml(src) : ""}
     ${shared ? "" : id === "garmin" ? garminDeliveryHtml(src) : ""}
     ${shared ? "" : `<p><button class="btn" type="button" data-sync-now="${esc(id)}">${t("Sync now")}</button></p>
@@ -125,6 +126,37 @@ export function icuNotesHtml(src) {
   return `<label class="check"><input type="checkbox" name="icu_private_notes" data-autosave-skip${src.private_notes ? " checked" : ""}> ${t("Copy my diary notes to intervals.icu")}</label>
   <p class="sub">${t("They go to the day's wellness comments, only while those are private on intervals.icu (Settings → Private wellness data → Comments). Otherwise they stay in VibeSynergy.")}</p>
   <p class="sub" data-icu-notes-status role="status"></p>`;
+}
+
+// The plan mirror's last copy to intervals.icu (#141): a quiet line with the audit as
+// details. A copy is not a plan change, so it is not in the AI coach's messages.
+const COPY_ACTIONS = {
+  "icu.create": N("Added"),
+  "icu.update": N("Updated"),
+  "icu.move": N("Moved"),
+  "icu.delete": N("Removed"),
+};
+
+export function icuPlanCopyHtml(copy) {
+  if (!copy || !copy.at) return "";
+  const when = userDateTime(copy.at);
+  const line = copy.changes === 1
+    ? t("Last copy of your plan to intervals.icu: {when}, 1 change", { when })
+    : t("Last copy of your plan to intervals.icu: {when}, {n} changes", { when, n: copy.changes });
+  const items = (copy.items || []).map((item) => {
+    const action = COPY_ACTIONS[item.action] ? t(COPY_ACTIONS[item.action]) : item.action;
+    return `<li>${esc(action)}: ${esc(item.name || "")} <span class="sub">${esc(userDateTime(item.at))}</span></li>`;
+  });
+  const more = copy.changes > items.length
+    ? `<p class="sub">${esc(t("And {n} more.", { n: copy.changes - items.length }))}</p>`
+    : "";
+  return `<div data-icu-plan-copy>
+    <p class="sub">${esc(line)}</p>
+    <details><summary>${t("Details")}</summary>
+    <p class="sub">${t("VibeSynergy copies your plan to intervals.icu after every sync, only what differs. A copy is not a plan change, so it is not in your AI coach's messages.")}</p>
+    ${items.length ? `<ul>${items.join("")}</ul>` : ""}${more}
+    </details>
+  </div>`;
 }
 
 export async function icuNotesCheck(status) {

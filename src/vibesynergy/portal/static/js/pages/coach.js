@@ -2,7 +2,7 @@
 // and the tabs Knowledge, Methods & rules, Memory, Change log and Settings.
 import { get, post } from "../api.js";
 import { captureViewState, restoreViewState } from "../refresh_state.js";
-import { esc, longDate, userDateTime } from "../format.js";
+import { esc, longDate, sportName, userDate, userDateTime } from "../format.js";
 import { coachMemory, coachSettings } from "../coach_settings.js";
 import { coachShell, coachTabsHtml } from "../coach_tabs.js";
 import { coachRunnerSettings } from "../coach_runner_settings.js";
@@ -363,6 +363,7 @@ const COACH_AUTHORS = {
   system: N("System"),
   "client:shared": N("Shared link"),
   "client:coach-runner": N("AI coach (API)"),
+  portal: N("You"),
 };
 
 const COACH_FRESHNESS = {
@@ -374,14 +375,42 @@ const CONFIRM_THRESHOLD = N("Confirm threshold");
 const COACH_ADVICE_LABEL = N("AI coach advice");
 
 function coachSummary(entry) {
-  const advice = entry.advice_text || (entry.text || "").split("\n")[0] || "";
+  let advice = entry.advice_text || (entry.text || "").split("\n")[0] || "";
+  // The calendar's own reasons are fixed English texts ("moved in the calendar").
+  if (entry.entry_type === "plan_change") advice = t(advice);
   const caveat = entry.caveat || (entry.text || "").split("\n")[1] || "";
   return { advice, caveat };
+}
+
+// What a change to VibeSynergy's own plan did (meta.plan, #141), for its Details.
+function planChangeLine(plan) {
+  if (!plan || !plan.action) return "";
+  const name = plan.name || "";
+  const date = userDate(plan.date);
+  const sport = plan.sport ? sportName(plan.sport) : "";
+  if (plan.action === "session_move" || (plan.action === "session_change" && plan.from_date)) {
+    return t("Session moved: {name}, {from} to {date}", { name, from: userDate(plan.from_date), date });
+  }
+  if (plan.action === "session_add") return t("Session added: {name}, {date}", { name, date });
+  if (plan.action === "session_change") return t("Session changed: {name}, {date}", { name, date });
+  if (plan.action === "session_skip") return t("Session taken out of the plan: {name}, {date}", { name, date });
+  if (plan.action === "week_note") return t("Week {week}: note changed", { week: plan.week });
+  if (plan.action === "week_target") {
+    return plan.removed
+      ? t("Week {week}: {sport} target removed", { week: plan.week, sport })
+      : t("Week {week}: {sport} target changed", { week: plan.week, sport });
+  }
+  return "";
 }
 
 function coachDetailsHtml(entry, names) {
   const meta = entry.meta || {};
   const bits = [];
+  if (entry.entry_type === "plan_change") {
+    const line = planChangeLine(meta.plan);
+    if (line) bits.push(esc(line));
+    if (meta.version) bits.push(esc(t("Plan version {n}", { n: meta.version })));
+  }
   const author = authorLabel(entry, names);
   if (author) bits.push(`${t("Written by")}: ${esc(author)}`);
   const freshKey = entry.freshness || "current";

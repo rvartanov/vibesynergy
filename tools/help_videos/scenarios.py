@@ -490,9 +490,12 @@ def coach(r: Rec):
     # And an outdated working-method article, so Methods & rules shows its check (#120).
     _demo("demo_coach_roles.py", "seed")
     _demo("demo_kb_lint.py", "seed")
+    # A real plan change, and an old copy to intervals.icu that stays hidden (#141).
+    _demo("demo_plan_copy.py", "seed")
     try:
         _coach(r)
     finally:
+        _demo("demo_plan_copy.py", "clear")
         _demo("demo_kb_lint.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
@@ -511,7 +514,7 @@ def _coach(r: Rec):
         "met waar die afwijkt. In de berichten eronder heeft hij een eigen label.",
         "With today's advice you see the second opinion of an advisory AI coach, and where "
         "it differs. In the messages below it has its own label.",
-        3.4,
+        2.8,
     )
     chip = r.pg.locator("[data-second-opinion-chip]").first
     r.check(chip.count() > 0, "the second opinion should be marked in the messages")
@@ -526,7 +529,26 @@ def _coach(r: Rec):
         "avondadvies is het advies voor morgen.",
         "Every advice is named after the day it is for, with the run that wrote it: the "
         "evening advice is the advice for tomorrow.",
-        3.2,
+        2.8,
+    )
+    # A plan change says why and, under Details, what changed; a copy is no message (#141).
+    change = r.pg.locator('article[data-entry-type="plan_change"]')
+    r.check(change.count() == 1, "only the real plan change should be listed, not the copy")
+    r.point(change)
+    r.click(change.locator("details summary").first)
+    # The whole message in view, reason and Details, not under the page header.
+    change.first.evaluate("e => e.scrollIntoView({block: 'center'})")
+    r.wait(0.3)
+    r.check(
+        change.locator("details", has_text="Sessie verplaatst").count() > 0,
+        "the plan change's Details should say what changed",
+    )
+    r.say(
+        "Een planaanpassing zegt waarom, en onder Details wat er veranderde. Een kopie naar "
+        "intervals.icu is geen planaanpassing en staat hier niet.",
+        "A plan change says why, and under Details what changed. A copy to intervals.icu is "
+        "not a plan change and is not listed here.",
+        2.8,
     )
     # The day thread (#115): the earlier version, marked replaced, and its own report.
     earlier = r.pg.locator("[data-coach-advice] [data-advice-versions]")
@@ -540,7 +562,7 @@ def _coach(r: Rec):
         "Een oudere versie is gemarkeerd als vervangen.",
         "Earlier versions of today are listed below, with the time and why the advice "
         "changed. An older version is marked replaced.",
-        3.4,
+        2.8,
     )
     r.click(earlier.locator("[data-advice-version] a").first)
     banner = r.pg.locator('[data-thread-status="replaced"]')
@@ -551,7 +573,7 @@ def _coach(r: Rec):
         "dan staat dat erbij, met een link naar het huidige advies.",
         "Every notice opens exactly the report it is about. When that is an older version, "
         "it says so, with a link to the current advice.",
-        3.4,
+        2.8,
     )
     r.go("coach")
     r.click(r.pg.get_by_role("link", name="Instellingen", exact=True).last)
@@ -802,6 +824,15 @@ def _search_inbox(r: Rec):
 
 @scenario("sources", "Bronnen koppelen en synchroniseren", "Connecting and syncing sources")
 def sources(r: Rec):
+    # A copy of the plan to intervals.icu, for the line on its card (#141).
+    _demo("demo_plan_copy.py", "seed")
+    try:
+        _sources(r)
+    finally:
+        _demo("demo_plan_copy.py", "clear")
+
+
+def _sources(r: Rec):
     r.go("settings/sources")
     r.say(
         "Instellingen → Bronnen: koppel Garmin, Strava, Withings, intervals.icu of een agenda.",
@@ -837,6 +868,17 @@ def sources(r: Rec):
         2.6,
     )
     r.click(r.pg.locator("input[name=garmin_mark_mode][value=one]"))
+    copy = r.pg.locator("[data-icu-plan-copy]")
+    r.check(copy.count() > 0, "the intervals.icu card should show the last copy of the plan")
+    r.point(copy)
+    r.click(copy.locator("summary"))
+    r.say(
+        "intervals.icu krijgt een kopie van je plan. Hier zie je de laatste kopie en wat er "
+        "gekopieerd is; in je berichten staan alleen echte planaanpassingen.",
+        "intervals.icu gets a copy of your plan. Here you see the last copy and what was "
+        "copied; your messages only list real plan changes.",
+        3.4,
+    )
     r.scroll(1200, 5)
     r.say(
         "Oude gegevens? Importeer de export-zip van Garmin of Strava.",

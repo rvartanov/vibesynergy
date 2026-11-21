@@ -452,6 +452,10 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 from vibesynergy.query import icu_notes
 
                 row["private_notes"] = icu_notes.enabled(settings.data_dir)
+                # The plan mirror's last copy: a quiet line, not the coach feed (#141).
+                from vibesynergy.query import plan_model
+
+                row["plan_copy"] = plan_model.last_copy(rt.engine)
             if sid == "garmin":
                 from vibesynergy.portal import prefs as portal_prefs
                 from vibesynergy.query import garmin_strength
