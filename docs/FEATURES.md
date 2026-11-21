@@ -277,6 +277,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   from your own agent or primary AI coach, never from an advisory AI coach; Methods & rules
   lists each fix with an undo, and Notices has one line for them. A change that still waits
   for you shows only the changed lines, with the full text one click away.
+  Memory's "What to remember" is a compact list: one line per note (its kind, then the
+  text); tap a line to edit it in place, with where it came from and Remove. A fixed day
+  goes in the text; there is no weekday picker.
 - **Any AI app over MCP** (Claude, ChatGPT, local models): 101 tools to read your data,
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,
