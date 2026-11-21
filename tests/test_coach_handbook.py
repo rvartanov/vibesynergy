@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import anyio
+from conftest import drop_workout_method
 from mcp import Client
 
 from vibesynergy.mcp.identity import reset_connection, set_connection
@@ -59,6 +60,7 @@ def _call(runtime, arguments: dict, scopes: frozenset[str] | None = None):
 
 
 def test_handbook_returns_protocol_and_active_kb_index(runtime) -> None:
+    drop_workout_method(runtime)
     _seed(runtime)
     result = _call(runtime, {})
     assert not result.is_error
@@ -85,6 +87,7 @@ def test_handbook_returns_protocol_and_active_kb_index(runtime) -> None:
 
 
 def test_handbook_without_protocol_and_with_missing_scopes(runtime) -> None:
+    drop_workout_method(runtime)
     result = _call(runtime, {"include_protocol": False}, scopes=frozenset({"read"}))
     assert not result.is_error
     data = result.structured_content["data"]

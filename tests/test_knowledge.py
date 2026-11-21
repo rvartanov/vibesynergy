@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import anyio
 import pytest
+from conftest import drop_workout_method
 from fastapi.testclient import TestClient
 from mcp import Client
 from sqlalchemy import text
@@ -159,6 +160,7 @@ def test_search_uses_fts_and_can_filter_by_topic(runtime) -> None:
 
 
 def test_invalid_grade_and_slug_are_refused(runtime) -> None:
+    drop_workout_method(runtime)
     with pytest.raises(ValueError, match="grade"):
         _article(runtime, evidence_grade="Z")
     with pytest.raises(ValueError, match="slug"):

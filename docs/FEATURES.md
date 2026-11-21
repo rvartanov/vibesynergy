@@ -165,6 +165,12 @@ Details: [SOURCES.md](SOURCES.md).
   `vibesynergy_race_set_priority`); the next A race is the primary race and sets the taper.
   Garmin and intervals.icu events are no races; the races they held moved into VibeSynergy
   once, and `vibesynergy plan import-races` copies new ones on request.
+- **Workout library from the method**: run, ride, swim and strength templates whose every
+  coaching value (cadence band, cues, % FTP and zones, warm-up and cool-down minutes,
+  distances, exercises, names) is the knowledge-base article `workout-method` (Coach →
+  Methods & rules), not code. An AI coach proposes a change, you approve it as a diff, and
+  the next workout uses it; sessions planned from a template are rebuilt on request
+  (`vibesynergy_workout_rerender`, `vibesynergy plan rerender`), done sessions never change.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport.

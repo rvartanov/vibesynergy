@@ -190,6 +190,50 @@ def plan_mirror(
     typer.echo(_json.dumps(out, indent=2, ensure_ascii=False))
 
 
+@plan_app.command("rerender")
+def plan_rerender(
+    from_date: Annotated[str, typer.Option("--from", help="first day (YYYY-MM-DD)")],
+    apply: Annotated[bool, typer.Option("--apply", help="write; without it only list")] = False,
+    config: ConfigOpt = None,
+) -> None:
+    """Build planned sessions again with the current workout method (#142). Only sessions
+    still planned, dated after today, that a template built; done sessions never change.
+    Lists the changes, unless --apply. The mirror takes them to intervals.icu."""
+    from datetime import date
+
+    from vibesynergy.core.timeutil import today_in
+    from vibesynergy.query import plan_model, plan_proposals, workout_rerender
+
+    rt = _runtime(config)
+    try:
+        found = workout_rerender.changes(
+            rt.engine, date.fromisoformat(from_date), today_in(rt.settings.timezone)
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    for change in found["changes"]:
+        console.print(f"{change['date']} {change['name']} ({change['session_id']})")
+    console.print(
+        f"{len(found['changes'])} to change, {found['unchanged']} unchanged, "
+        f"{found['not_from_a_template']} not from a template "
+        f"(method v{found['method']['version']})"
+    )
+    if not apply or not found["changes"]:
+        return
+    reason = f"rebuilt with workout method v{found['method']['version']}"
+    for change in found["changes"]:
+        plan_proposals.execute(
+            rt.engine,
+            "vibesynergy_plan_session_set",
+            {k: change[k] for k in ("date", "name", "description", "sport", "session_id")}
+            | {"template": change["template"]},
+            author="cli",
+            reason=reason,
+        )
+    plan_model.mirror_soon(rt.jobs)
+    console.print(f"Written: {len(found['changes'])}")
+
+
 @plan_app.command("garmin-compare")
 def plan_garmin_compare(
     days: Annotated[int, typer.Option(help="days ahead, from today")] = 9,

@@ -180,7 +180,8 @@ _THRESHOLD = re.compile(
             # a threshold named with a bare value: FTP 265, LTHR lopen 162 / fiets 150,
             # CSS 135 (three digits, so "FTP 20'" and "wk 27" are no thresholds)
             r"(?:FTP|LTHR|CSS|HRmax|drempeltempo|threshold pace)\b[^.\n;:()]{0,20}?"
-            r"(?<![\d.,/])\d{3}(?:\s?W(?![A-Za-z]))?(?![\d%'\u2019])",
+            # (not "CSS-test 400/200": distances of a test, written with a slash)
+            r"(?<![\d.,/])\d{3}(?:\s?W(?![A-Za-z]))?(?![\d%'\u2019/])",
             # a heart-rate zone with bare bounds: Z2 122-133
             rf"(?<![A-Za-z])Z\d\s\d{{2,3}}{_DASH}\d{{2,3}}(?![\d%])",
         )

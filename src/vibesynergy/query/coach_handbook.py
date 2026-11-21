@@ -60,10 +60,15 @@ def protocol_text() -> str | None:
 # the athlete's: changed in the portal or with their approval. Evidence and methods the coach
 # keeps up, with source corrections proposed (vibesynergy_kb_propose_change), not applied.
 ROUTINE_TOPICS = frozenset({"coach-prompts", "coach-loop"})
+# The workout library's values (#142): coaching facts, proposed and approved, never upserted.
+WORKOUT_TOPIC = "workout-method"
 
 
 def article_kind(slug: str, topic: str) -> tuple[str, str]:
-    """(kind, owner) of one article: routine/athlete, evidence/coach or method/coach."""
+    """(kind, owner) of one article: routine/athlete, workout/athlete (the workout method's
+    values, #142), evidence/coach or method/coach."""
+    if topic == WORKOUT_TOPIC:
+        return "workout", "athlete"
     if topic in ROUTINE_TOPICS:
         return "routine", "athlete"
     if slug.startswith("evidence-"):

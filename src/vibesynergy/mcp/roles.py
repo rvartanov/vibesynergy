@@ -97,6 +97,9 @@ WRITE_POLICY: dict[str, str] = {
     "vibesynergy_coach_log": OPEN,
     "vibesynergy_coach_threshold_propose": OPEN,
     "vibesynergy_kb_propose_change": OPEN,
+    # Rebuilds planned sessions after a workout-method change (#142): each one goes through
+    # the plan gate as a vibesynergy_plan_session_set, so a proposal unless approved.
+    "vibesynergy_workout_rerender": OPEN,
     "vibesynergy_model_run_write": OPEN,
     "vibesynergy_refresh": OPEN,
     # The plan in VibeSynergy.

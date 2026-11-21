@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+from conftest import drop_workout_method
 from fastapi.testclient import TestClient
 
 from vibesynergy.portal.app import create_portal_app
@@ -56,6 +57,7 @@ def _seed(runtime) -> None:
 
 
 def test_one_search_finds_activities_notes_and_coach_messages(runtime) -> None:
+    drop_workout_method(runtime)
     _seed(runtime)
     out = search.search(runtime, "SYNTHET")
     kinds = {g["kind"]: g["hits"] for g in out["groups"]}

@@ -85,3 +85,7 @@ jobs:
           /tmp/app/bin/vibesynergy status
       - name: the installed app serves the coach protocol
         run: /tmp/app/bin/python -c "from vibesynergy.query import coach_handbook as h; t = h.protocol_text(); assert t and t.startswith('# Coach protocol'), h._protocol_path(); assert '/_docs/' in str(h._protocol_path())"
+      - name: the installed app carries the workout method and init put it in the knowledge base
+        run: |
+          /tmp/app/bin/python -c "from vibesynergy.query import workout_method as m; assert '/_docs/' in str(m.seed_path()), m.seed_path(); assert m.seed_method().templates and not m.lint_body(m.seed_body())"
+          /tmp/app/bin/python -c "import sqlite3; c = sqlite3.connect('/tmp/home/data/vibesynergy/db/vibesynergy.sqlite'); assert c.execute(\"select version from kb_article where slug = 'workout-method'\").fetchone() == (1,)"

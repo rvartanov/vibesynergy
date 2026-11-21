@@ -138,8 +138,10 @@ def register(kit: ToolKit) -> None:
         Author comes from the connection. ``revert_to`` copies that article version forward.
         Omit rules or sources to leave them as they are.
 
-        The AI coach's own instructions (topic ``coach-prompts``) are not written here: suggest
-        the change with ``vibesynergy_kb_propose_change`` and the athlete approves it.
+        The AI coach's own instructions (topic ``coach-prompts``) and the workout method
+        (``workout-method``: cadence, cues, intensities, warm-ups of the workout library) are
+        not written here: suggest the change with ``vibesynergy_kb_propose_change`` and the
+        athlete approves it.
         """
         if knowledge.is_prompt_article(engine, slug, topic):
             # These articles are what the unattended coach is told to do. An app that may
@@ -147,6 +149,13 @@ def register(kit: ToolKit) -> None:
             raise ToolError(
                 "The AI coach's instructions change only with the athlete's approval. Suggest "
                 "this with vibesynergy_kb_propose_change (kind 'article')."
+            )
+        if knowledge.is_workout_method(engine, slug, topic):
+            # The workout values are coaching facts (#142): the athlete approves each change.
+            raise ToolError(
+                "The workout method's values are coaching facts and change only with the "
+                "athlete's approval. Propose the whole new article text with "
+                "vibesynergy_kb_propose_change (kind 'article', target 'workout-method')."
             )
         try:
             saved = knowledge.upsert_article(

@@ -158,6 +158,7 @@ def execute(
             reason=reason,
             author=author,
             slot=a.get("slot"),
+            template=a.get("template"),
         )
     if tool == "vibesynergy_plan_session_move":
         return plan_model.move_session(

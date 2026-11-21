@@ -41,7 +41,10 @@ STATUSES = frozenset({"draft", "active", "retired"})
 KINDS = frozenset({"article", "rule", "source"})
 # Coach → Methods & rules: the routine prompts, the working method and the evidence.
 PROMPT_TOPIC = "coach-prompts"
-METHOD_TOPICS = frozenset({"coach-loop", "intervals-icu"})
+# The workout method (#142): every coaching value of the workout library, read when a
+# workout is built. Changed only through a proposal the athlete approves.
+WORKOUT_METHOD_TOPIC = "workout-method"
+METHOD_TOPICS = frozenset({"coach-loop", "intervals-icu", WORKOUT_METHOD_TOPIC})
 PLAN_SUFFIX = "-plan"  # the athlete's plan article (phases, weekly structure), whatever its name
 EVIDENCE_PREFIX = "evidence-"
 # Old slug -> the slug an article has now (#96). An old slug keeps working wherever a slug is
@@ -357,6 +360,8 @@ _MESSAGES = {
     "VibeSynergy tool, or remove it.",
     "fixed_threshold": "{kind} {ref} writes thresholds as fixed numbers ({found}). Thresholds "
     "change after every test: write 'read live with " + kb_lint.THRESHOLD_TOOL + "' instead.",
+    "workout_value": "{kind} {ref}: workout values missing, in the wrong form or unknown "
+    "({found}); the workout library uses its built-in value for each missing or wrong one.",
 }
 
 
@@ -454,6 +459,17 @@ def _text_warnings(
     return out
 
 
+def _workout_warnings(kind: str, slug: str, body_md: str | None) -> list[dict[str, Any]]:
+    """The workout method's own check (#142): values the article lacks or holds in the wrong
+    form, which the library then takes from its built-in seed."""
+    from vibesynergy.query import workout_method
+
+    if canonical_slug(slug) != workout_method.SLUG:
+        return []
+    found = workout_method.lint_body(body_md)
+    return [_warning(kind, slug, slug, "workout_value", found)] if found else []
+
+
 def lint(engine: Engine) -> list[dict[str, Any]]:
     """Warnings about the knowledge base's own text, for every article and rule in use.
 
@@ -461,7 +477,9 @@ def lint(engine: Engine) -> list[dict[str, Any]]:
       names a model or provider;
     - ``retired_name``, ``rule_range``, ``unknown_rule``, ``unknown_tool`` (#120): any text;
     - ``fixed_threshold`` (#120): an instruction, working-method or plan article, or a rule
-      of one, or a COACH rule, writes a threshold as a number.
+      of one, or a COACH rule, writes a threshold as a number;
+    - ``workout_value`` (#142): the workout method lacks a value, or holds it in the wrong
+      form, so the library uses its built-in value.
 
     Articles first (by slug), then rules (by id). A warning only; the athlete decides about
     the text."""
@@ -492,6 +510,7 @@ def lint(engine: Engine) -> list[dict[str, Any]]:
                     thresholds=in_threshold_scope(row.slug, row.topic),
                 )
             )
+            out.extend(_workout_warnings("article", row.slug, row.body_md))
         rules = conn.execute(
             select(kb_rule.c.id, kb_rule.c.text, kb_rule.c.article_id)
             .where(kb_rule.c.active.is_(True))
@@ -535,6 +554,8 @@ def change_warnings(
                 prompt=topic == PROMPT_TOPIC,
                 thresholds=in_threshold_scope(slug, topic),
             )
+            if changes.get("body_md") is not None:
+                found += _workout_warnings("article", slug, changes["body_md"])
         elif kind == "rule":
             rule_id = str(target).strip()
             current = _one(conn, kb_rule, kb_rule.c.id == rule_id)
@@ -891,6 +912,18 @@ def is_prompt_article(engine: Engine, slug: str, topic: str | None = None) -> bo
     with engine.connect() as conn:
         article = _one(conn, kb_article, kb_article.c.slug == canonical_slug(str(slug).strip()))
     return article is not None and article.topic == PROMPT_TOPIC
+
+
+def is_workout_method(engine: Engine, slug: str, topic: str | None = None) -> bool:
+    """Is this (existing or about to be created) article the workout method (#142)? Its
+    values are coaching facts: they change only through a proposal the athlete approves."""
+    from vibesynergy.query import workout_method
+
+    if topic == WORKOUT_METHOD_TOPIC or canonical_slug(str(slug).strip()) == workout_method.SLUG:
+        return True
+    with engine.connect() as conn:
+        article = _one(conn, kb_article, kb_article.c.slug == canonical_slug(str(slug).strip()))
+    return article is not None and article.topic == WORKOUT_METHOD_TOPIC
 
 
 def method_group(article: Mapping[Any, Any]) -> str | None:

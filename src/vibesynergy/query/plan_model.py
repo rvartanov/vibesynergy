@@ -475,8 +475,14 @@ def set_session(
     author: str,
     plan_id: str | None = None,
     slot: str | None = None,
+    template: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Create or change one session in the model. ``description`` is intervals.icu text."""
+    """Create or change one session in the model. ``description`` is intervals.icu text.
+
+    ``template`` records the workout-library template and method version that built it
+    (#142, ``workout_rerender``); without it, a text that is exactly a template's workout
+    under its name is recognised as one. A session written by hand records none, so a
+    later method change never rebuilds it."""
     plan_id = _required_plan(engine, plan_id)
     if not (reason or "").strip():
         raise ValueError("a reason is required")
@@ -499,6 +505,9 @@ def set_session(
         "description": parsed.intro,
         "status": "planned",
     }
+    made = template or _recognised(engine, name, day, description)
+    if made:
+        row["workout"]["template"] = made
     with engine.begin() as conn:
         current = conn.execute(select(plan).where(plan.c.id == plan_id)).mappings().first()
         if not current:
@@ -545,6 +554,17 @@ def set_session(
         "version": n,
         "checks": _checks(engine, plan_id, ident, days, name),
     }
+
+
+def _recognised(engine: Engine, name: str, day: date, description: str) -> dict | None:
+    """The template the current workout method builds this exact text with, if any."""
+    from vibesynergy.query import workout_method, workout_rerender
+
+    try:
+        return workout_rerender.recognise(name, day, description, [workout_method.load(engine)])
+    except Exception:  # recognising must never block a plan write
+        log.warning("recognising the template of %s failed", name, exc_info=True)
+        return None
 
 
 def _checks(engine: Engine, plan_id: str, ident: str, days: list[date], name: str | None) -> list:

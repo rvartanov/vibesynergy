@@ -22,6 +22,7 @@ from pathlib import Path
 
 import anyio
 import pytest
+from conftest import drop_workout_method
 from sqlalchemy import select, text, update
 
 from vibesynergy import alerts, mailer
@@ -267,6 +268,7 @@ def _loop_article(rt, slug: str = "ai-coach-loop") -> dict:
 
 
 def test_old_slug_is_an_alias_everywhere_a_slug_is_read(runtime) -> None:
+    drop_workout_method(runtime)
     _loop_article(runtime)
     assert knowledge.SLUG_ALIASES == {"claude-coach-loop": "ai-coach-loop"}
     old = knowledge.get_article(runtime.engine, "claude-coach-loop")
@@ -379,6 +381,7 @@ def _as_before_the_rename(rt) -> dict[str, str]:
 
 
 def test_migration_renames_the_slug_and_waiting_proposals_still_apply(runtime) -> None:
+    drop_workout_method(runtime)
     ids = _as_before_the_rename(runtime)
     _run_migration(runtime)
     _run_migration(runtime)  # a second run changes nothing
@@ -415,6 +418,7 @@ def test_migration_renames_the_slug_and_waiting_proposals_still_apply(runtime) -
 def test_waiting_proposal_under_the_old_slug_applies_without_the_migration_too(runtime) -> None:
     """A proposal that still names the old slug (a restored backup, a proposal made between
     the deploy and the migration) is resolved through the alias when it is approved."""
+    drop_workout_method(runtime)
     ids = _as_before_the_rename(runtime)
     with runtime.engine.begin() as conn:  # only the article was renamed
         conn.execute(update(kb_article).values(slug="ai-coach-loop"))
@@ -426,6 +430,7 @@ def test_waiting_proposal_under_the_old_slug_applies_without_the_migration_too(r
 
 
 def test_migration_leaves_an_existing_new_article_alone_and_goes_back(runtime) -> None:
+    drop_workout_method(runtime)
     _as_before_the_rename(runtime)
     _run_migration(runtime)
     _run_migration(runtime, "downgrade")

@@ -200,15 +200,31 @@ def register(kit: ToolKit) -> None:
         Without template_id: the catalogue (id, sport, purpose, phases, load
         easy/moderate/hard, params with defaults, the easier alternative). With template_id
         (and params to change the defaults): the workout's name, intervals.icu type and
-        text and planned seconds, ready for vibesynergy_icu_create_event. Fill day 9 from here
-        rather than typing steps.
-        """
-        from vibesynergy.query import workout_library
+        text and planned seconds. Fill day 9 from here rather than typing steps: pass the
+        same template_id and params to vibesynergy_plan_session_set.
 
+        Every value (cadence band, cues, % FTP, zones, warm-up and cool-down minutes,
+        exercises, names) comes from the knowledge-base article workout-method; method says
+        which version built it. To change a value, propose the new article text with
+        vibesynergy_kb_propose_change (target workout-method); the athlete approves it,
+        and no code change is needed.
+        """
+        from vibesynergy.query import workout_library, workout_method
+
+        method = workout_method.load(engine)
         if template_id is None:
-            return envelope({"templates": workout_library.catalogue(lang)})
+            return envelope(
+                {
+                    "templates": workout_library.catalogue(lang, method),
+                    "method": {
+                        "slug": workout_method.SLUG,
+                        "version": method.version,
+                        "source": method.source,
+                    },
+                }
+            )
         try:
-            return envelope(workout_library.render(template_id, lang, **(params or {})))
+            return envelope(workout_library.render(template_id, lang, method, **(params or {})))
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
 

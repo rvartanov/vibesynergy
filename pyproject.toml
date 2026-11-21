@@ -64,9 +64,11 @@ build-backend = "hatchling.build"
 packages = ["src/vibesynergy"]
 
 # The coach protocol lives in docs/ and is served by the app (vibesynergy_coach_handbook,
-# #119): the wheel carries a copy inside the package.
+# #119): the wheel carries a copy inside the package. So does the seed of the workout method
+# (#142), which migration 0058 copies into the knowledge base and the library falls back on.
 [tool.hatch.build.targets.wheel.force-include]
 "docs/COACH_PROTOCOL.md" = "vibesynergy/_docs/COACH_PROTOCOL.md"
+"docs/workout-method.md" = "vibesynergy/_docs/workout-method.md"
 
 [tool.ruff]
 line-length = 100
