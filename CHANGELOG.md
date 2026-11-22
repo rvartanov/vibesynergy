@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.4 – 22-11-2026
+
 - **An alert when another app keeps overwriting your plan** (#110): when another app or
   device keeps changing your plan in intervals.icu, Garmin or your calendar, you get an alert
   (portal, mail and push) that says where, which sessions, since when and, where it is known,
