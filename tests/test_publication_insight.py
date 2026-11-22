@@ -189,6 +189,11 @@ def test_later_insight_updates_the_published_block_and_the_garmin_copy(runtime, 
     assert not publication_auto.due(runtime, now=later + timedelta(minutes=5))
     assert publication_auto.run(runtime, now=later + timedelta(minutes=5))["insight_updated"] == 0
     assert len(strava.writes) == writes
+    # A redo (#158): a newer entry with its own key replaces the line on both.
+    write(runtime, "a-redo", activity_id="garmin:1", public_insight="Rustige trail, in Z2.")
+    assert publication_auto.run(runtime, now=later + timedelta(minutes=7))["insight_updated"] == 1
+    assert "Rustige trail, in Z2." in strava.text and PUBLIC not in strava.text
+    assert garmin.text.endswith(strava.text.split("\n\n", 1)[1])
     # Withdrawn: the line goes again.
     write(runtime, "b", activity_id="garmin:1", public_insight="")
     assert publication_auto.run(runtime, now=later + timedelta(minutes=10))["insight_updated"] == 1

@@ -348,6 +348,36 @@ def entry_key(job: str, for_date: date, run_key: str | None = None) -> str:
     return key
 
 
+def insight_key(activity_id: str, run_key: str | None = None, *, redo: bool = False) -> str:
+    """The insight entry's idempotency key: ``insight-<id>``, and for a redo (#158) with
+    the redo's run key, so the new entry does not get the earlier one back."""
+    key = f"insight-{activity_id}"
+    return f"{key}-{run_key}" if redo and run_key else key
+
+
+def _insight_lines(payload: dict[str, Any], run_key: str | None) -> str:
+    """The keys the insight writes with, and for a redo that it replaces an existing one."""
+    ids = [str(i) for i in payload.get("activity_ids") or []]
+    if not ids:
+        return ""
+    redo = bool(payload.get("redo"))
+    keys = ", ".join(
+        f'activity_id "{i}": idempotency_key "{insight_key(i, run_key, redo=redo)}"' for i in ids
+    )
+    lines = [f"Schrijf per activiteit met deze idempotency_key: {keys}."]
+    if redo:
+        replaces = payload.get("replaces")
+        which = f" (entry #{replaces})" if replaces else ""
+        lines.append(
+            f"Dit is een redo: deze activiteit heeft al een inzicht{which}, en de atleet vraagt "
+            "een nieuw inzicht. Sla haar dus niet over omdat er al een is (ook al staat ze in "
+            "vibesynergy_activity_insights als present): schrijf een vervangend inzicht met de "
+            "idempotency_key hierboven. Het nieuwste inzicht telt; het vorige blijft in het "
+            "log staan."
+        )
+    return "\n" + "\n".join(lines)
+
+
 def start_message(
     rt,
     job: str,
@@ -372,6 +402,7 @@ def start_message(
         fire = f"event={p.get('event_type', 'activity.published')} event_id={p.get('event_id', '')}"
         return (
             f"{head}\n<routine-fire-payload>{fire} activity_ids={ids}</routine-fire-payload>"
+            + _insight_lines(p, run_key)
             + _preloaded(rt, job, for_date, harness, activity_ids=p.get("activity_ids") or [])
         )
     key = entry_key(job, for_date, run_key)
@@ -752,7 +783,15 @@ def _loop(rt, cfg, row, job, for_date, payload, client, started) -> RunResult:
             rt,
             INSIGHT_SCOPES,
             only=INSIGHT_TOOLS,
-            guard=insight_guard(rt.engine, ids),
+            # A redo (#158) writes with its own key: the run's key would otherwise
+            # return the earlier insight unchanged.
+            guard=insight_guard(
+                rt.engine,
+                ids,
+                keys=[insight_key(i, row["run_key"], redo=True) for i in ids]
+                if (payload or {}).get("redo")
+                else None,
+            ),
             run=under,
         )
         replies: list[dict[str, Any]] = []

@@ -120,3 +120,92 @@ def test_long_step_text_and_daily_series_are_shortened():
     assert context._short("x" * 900).endswith(" …") and len(context._short("x" * 900)) < 710
     points = [{"date": f"2026-11-0{i}", "value": i} for i in range(1, 6)]
     assert context._series_ends(points) == {"from": points[0], "to": points[-1], "n": 5}
+
+
+# --- the activity block (#158) -------------------------------------------------------------
+
+OWN = "Toch nog een trail gelopen.\nPrachtig weer en lekker gelopen."
+BLOCK = (
+    "[/*]\n-Persoonlijke AI inzicht: oude regel.\n-Stats:\n  📊 Training load: 177\n"
+    "[Generated with VibeSynergy */]"
+)
+
+
+def _brick_with_long_garmin_extra(rt):
+    from dataclasses import replace
+
+    from test_evidence import START, activity, put
+
+    from vibesynergy.model import ActivityLap, ActivityZoneTime
+    from vibesynergy.query import journal
+
+    noise = {
+        "userRoles": ["SCOPE_GOLF_API_READ", "SCOPE_CONNECT_WRITE"] * 40,
+        "ownerProfileImageUrlLarge": "https://example.invalid/profile-large.png",
+        "ownerFullName": "Some Owner",
+        "ownerDisplayName": "owner-display",
+        "splitSummaries": [{"splitType": f"S{i}", "duration": i * 1.5} for i in range(120)],
+        "description": BLOCK,
+        "rpe": 30,
+        "feel": 50,
+    }
+    garmin = replace(activity(), name="Ochtendsessie trailrunning", extra=noise)
+    laps = [
+        ActivityLap("1", i, elapsed_s=300, distance_m=1000, avg_hr=130 + i, avg_power=250,
+                    avg_speed=3.3, extra={"intensityType": "ACTIVE", "lengthDTOs": [1] * 50})
+        for i in range(1, 31)
+    ]  # fmt: skip
+    zones = [ActivityZoneTime("1", "hr", z, 120.0 * z, low=100 + 10 * z) for z in range(1, 6)]
+    put(rt, "garmin", garmin, *laps, *zones)
+    strava = replace(
+        activity(), source_id="2", name="Eigen titel", fit_id=None,
+        extra={"description": f"{OWN}\n\n{BLOCK}", "private": False},
+    )  # fmt: skip
+    put(rt, "strava", strava)
+    journal.add_note(rt.engine, text="Linkerkuit iets stijf na afloop.", start=START.date(),
+                     activity_id="garmin:1")  # fmt: skip
+    return "garmin:1"
+
+
+def test_activity_block_carries_the_own_words_not_the_provider_extra(rt):
+    group = _brick_with_long_garmin_extra(rt)
+    found = context.preload(rt, "insight", DAY, activity_ids=[group])
+    text = found["text"]
+    block = text[text.index('<context name="activity" v="2">') :]
+    block = block[: block.index("</context>")]
+    assert "Prachtig weer en lekker gelopen." in block
+    assert "Linkerkuit iets stijf na afloop." in block
+    assert "Eigen titel" in block
+    for gone in ("userRoles", "ownerProfileImageUrl", "ownerFullName", "splitSummaries",
+                 "lengthDTOs", "oude regel", "[/*]", "ingekort"):  # fmt: skip
+        assert gone not in block, gone
+    # The athlete's words come before the numbers, and the effort has its label.
+    assert block.index("Prachtig weer") < block.index('"summary"')
+    assert '"rpe": {"value": 3' in block and '"label"' in block
+    assert '"intensity": "ACTIVE"' in block and '"zones"' in block
+    report = next(b for b in found["blocks"] if b["name"] == "activity")
+    assert report["ok"] and report["chars"] <= context.ACTIVITY_BUDGET
+
+
+def test_the_own_text_drops_only_vibesynergys_block():
+    assert context.own_text(f"{OWN}\n\n{BLOCK}") == OWN
+    assert context.own_text(BLOCK) is None
+    assert context.own_text(f"{BLOCK}\n\nOnder het blok geschreven.") == (
+        "Onder het blok geschreven."
+    )
+
+
+def test_a_brick_of_five_fits_and_the_own_words_are_never_cut():
+    own = {"sources": [{"source": "strava", "title": "t", "description": "w" * 1500}],
+           "notes": ["n" * 300]}  # fmt: skip
+    laps = [{"i": i, "duration": "5:00", "distance": "1.00 km", "avg_hr": 140} for i in range(60)]
+    views = [
+        {"id": f"garmin:{n}", "own_words": own, "summary": {"sport": "running"},
+         "laps": laps, "zones": {"hr": [{"zone": 1, "s": 10}]}}
+        for n in range(5)
+    ]  # fmt: skip
+    fitted = context.fit_activities(views, context.ACTIVITY_BUDGET)
+    assert all(v["own_words"] == own for v in fitted)
+    assert all(v.get("laps_total", 0) == 60 for v in fitted)
+    rendered = context._render(context.BLOCKS["activity"], fitted)
+    assert "w" * 1500 in rendered and "ingekort" not in rendered

@@ -60,9 +60,13 @@ def _group(engine, activity_id: str) -> str:
         return activity_id
 
 
-def insight_guard(engine, activity_ids: Iterable[str] | None = None) -> Guard:
-    """Only activity assessments, only the event's activities, nothing private in public."""
+def insight_guard(
+    engine, activity_ids: Iterable[str] | None = None, *, keys: Iterable[str] | None = None
+) -> Guard:
+    """Only activity assessments, only the event's activities, nothing private in public.
+    ``keys``, when given (a redo, #158), are the only idempotency keys the run may use."""
     allowed = {_group(engine, str(a)) for a in activity_ids or ()}
+    wanted = sorted(set(keys or ()))
 
     def check(name: str, arguments: dict[str, Any]) -> str | None:
         if name != "vibesynergy_coach_write":
@@ -71,6 +75,12 @@ def insight_guard(engine, activity_ids: Iterable[str] | None = None) -> Guard:
             return "In this run only entry_type activity_assessment may be written."
         if allowed and _group(engine, str(arguments.get("activity_id") or "")) not in allowed:
             return f"Only these activities belong to this run: {', '.join(sorted(allowed))}."
+        if wanted and str(arguments.get("idempotency_key") or "") not in wanted:
+            return (
+                "This run replaces an existing insight: write it with idempotency_key "
+                + " or ".join(f'"{k}"' for k in wanted)
+                + "."
+            )
         line = str(arguments.get("public_insight") or "")
         if publication_insight.PRIVATE.search(line):
             return (

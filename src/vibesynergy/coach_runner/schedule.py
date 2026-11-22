@@ -36,6 +36,7 @@ from vibesynergy.coach_runner import runner, triggers
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import multisport
+from vibesynergy.store.schema import activity_unified
 from vibesynergy.store.schema import job as job_table
 
 log = logging.getLogger(__name__)
@@ -189,6 +190,69 @@ def enqueue_test(rt, job: str, now: datetime | None = None) -> int:
     if not job_id:
         raise TestRunError("A test of this report is already running.")
     return job_id
+
+
+REDO_EVENT = "insight.redo"
+
+
+def enqueue_insight_redo(rt, activity_id: str, now: datetime | None = None) -> dict[str, Any]:
+    """Queue a new insight for one activity that already has one (#158). The run gets its
+    own run key, so the entry gets its own idempotency key: the newest entry for the
+    activity wins, and the earlier one stays in the coach log as it was. Automatic
+    publication then puts the new line in the block on Strava, Garmin and intervals.icu.
+    It costs like any run."""
+    from vibesynergy.query import publication_insight, views
+
+    cfg = _active(rt)
+    if cfg is None:
+        raise TestRunError("Switch Coach via API on first.")
+    if cfg.tasks.get("insight", {}).get("on") is False:
+        raise TestRunError("The insight task is switched off.")
+    try:
+        group = views.resolve_activity(rt.engine, str(activity_id))
+    except (LookupError, ValueError, IndexError) as exc:
+        raise TestRunError("Unknown activity.") from exc
+    with rt.engine.connect() as conn:
+        day = conn.scalar(
+            select(activity_unified.c.local_date).where(activity_unified.c.group_id == group)
+        )
+    if day is None:
+        raise TestRunError("Unknown activity.")
+    try:
+        current = publication_insight.for_activity(rt.engine, group)
+    except (LookupError, ValueError):
+        current = None
+    now = now or utc_now()
+    run_key = f"redo-{group}-{now.strftime('%Y%m%dT%H%M%S')}"
+    payload = {
+        "job": "insight",
+        "run_key": run_key,
+        "for_date": day.isoformat() if isinstance(day, date) else str(day),
+        "trigger": "redo",
+        "payload": {
+            "event_type": REDO_EVENT,
+            "event_id": run_key,
+            "activity_ids": [group],
+            "redo": True,
+            "replaces": current["entry_id"] if current else None,
+        },
+    }
+    job_id = rt.jobs.enqueue(
+        JOB,
+        payload,
+        dedupe_key=dedupe_key("insight", run_key),
+        max_attempts=MAX_ATTEMPTS,
+        priority=5,
+    )
+    if not job_id:
+        raise TestRunError("A redo of this insight is already queued.")
+    return {
+        "job_id": job_id,
+        "activity_id": group,
+        "run_key": run_key,
+        "idempotency_key": runner.insight_key(group, run_key, redo=True),
+        "replaces": payload["payload"]["replaces"],
+    }
 
 
 def enqueue_advice(

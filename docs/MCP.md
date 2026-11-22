@@ -213,8 +213,10 @@ provider or model, and the server enforces them for every write tool
 - AI harness ([AI_HARNESS.md](AI_HARNESS.md)): `vibesynergy_harness_tasks` (`read`) lists
   every coach task with its trigger, context chain, approval, switch, schedule, provider,
   model and last run; `vibesynergy_harness_runs(task?, limit?)` (`read`) is the run log, with
-  what was preloaded and the output-contract result; `vibesynergy_harness_run(task)`
-  (`coach.write`) starts one run of a report task now, like Test now (it costs like any run).
+  what was preloaded and the output-contract result; `vibesynergy_harness_run(task, activity_id?)`
+  (`coach.write`) starts one run of a report task now, like Test now (it costs like any run);
+  `task="insight"` with `activity_id` writes that activity's public insight again (#158), with
+  its own idempotency key: the newest wins, the earlier entry stays in the coach log.
 - Task instructions: `vibesynergy_coach_prompt(job, include_context?, date?, activity_ids?)`
   (`read`; `job` is one of the harness's model tasks, e.g. `morning`, `evening`, `weekly` or
   `insight`) returns what the coach inside VibeSynergy gets for that task, from the same
