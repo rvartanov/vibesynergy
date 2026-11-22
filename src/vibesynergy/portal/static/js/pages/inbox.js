@@ -2,7 +2,7 @@
 // what went wrong or needs attention, and what changed per version (#140). Each line links to the page where it is handled; once handled there it leaves
 // this list by itself.
 import { get, post } from "../api.js";
-import { esc, longDate, number } from "../format.js";
+import { esc, longDate, number, userDateTime } from "../format.js";
 import { N, t } from "../i18n.js";
 import { linesHtml } from "../kb_diff.js";
 import { historyHtml } from "../release_news.js";
@@ -124,18 +124,55 @@ function noticeText(item) {
   }
 }
 
+// Another app keeps overwriting the plan in a mirror (#110). The same words as the alert.
+const MIRRORS = { intervals: N("intervals.icu"), garmin: N("Garmin"), calendar: N("your calendar") };
+const SHOWN = 4;
+
+function writerText(writer) {
+  if (writer.startsWith("icu-app:")) return t("the app with number {id} in intervals.icu", { id: writer.slice(8) });
+  if (writer.startsWith("icu-user:")) return t("the intervals.icu account {id}", { id: writer.slice(9) });
+  return writer.replace(/^calendar-app:/, "");
+}
+
+export function conflictText(item) {
+  const all = item.names || [];
+  const shown = all.slice(0, SHOWN).join(", ");
+  const names = all.length > SHOWN ? t("{names} and {n} more", { names: shown, n: all.length - SHOWN }) : shown;
+  const parts = [t("Another app or device keeps changing your plan in {mirror} (since {since}): {names}.", { mirror: t(MIRRORS[item.mirror] || item.mirror), since: userDateTime(item.since), names })];
+  if (item.writer) parts.push(t("It was written by {writer}.", { writer: writerText(item.writer) }));
+  if (item.mirror === "calendar") parts.push(t("VibeSynergy leaves calendar items as they are, so nothing was put back."));
+  else if (item.held) parts.push(t("VibeSynergy put your plan back {n} times and has now stopped. Stop the other app first, then put your plan back here.", { n: item.count }));
+  else parts.push(t("VibeSynergy put your plan back {n} times. Check which app writes there.", { n: item.count }));
+  return parts.join(" ");
+}
+
+function conflictHtml(item) {
+  const resume = item.held && item.mirror !== "calendar"
+    ? `<p class="actions"><button class="btn primary" type="button" data-conflict-resume="${esc(item.mirror)}">${esc(t("The other app is stopped: put my plan back"))}</button>
+      <span class="sub" data-conflict-status role="status"></span></p>`
+    : "";
+  return `<li data-plan-conflict="${esc(item.mirror)}"><span class="chip warning">${esc(t("Plan"))}</span>
+    <span>${esc(conflictText(item))}</span> <a href="${esc(item.link)}">${esc(t("Open your plan"))}</a>${resume}</li>`;
+}
+
+function noticeHtml(n) {
+  if (n.kind === "plan_conflict") return conflictHtml(n);
+  return `<li${n.advice ? " data-advice-notice" : ""}><span class="chip ${n.advice ? "info" : "warning"}">${esc(n.advice ? t("Advice") : t("Notice"))}</span> <a href="${esc(n.link)}">${esc(noticeText(n))}</a></li>`;
+}
+
 export async function render(view, { stale }) {
   document.title = `${t("Waiting for you")} · VibeSynergy`;
   const [{ data }, alerts] = await Promise.all([get("inbox"), get("alerts").catch(() => null)]);
   if (stale()) return;
   const decisions = data.decisions || [];
-  const notices = [...(data.notices || []), ...screenAlerts(alerts?.data)];
+  // A plan conflict has its own line with the confirmation (#110): not twice.
+  const notices = [...(data.notices || []), ...screenAlerts(alerts?.data).filter((a) => a.alertKind !== "plan_conflict")];
   view.innerHTML = `<div class="page-head"><div><h1>${esc(t("Waiting for you"))}</h1>
       <p class="sub">${esc(t("Proposals only you can take or leave, then notices about what went wrong or needs attention. Each one opens where you handle it."))}</p></div></div>
     <section class="card" aria-labelledby="inbox-decisions"><h2 id="inbox-decisions">${esc(t("Your decision ({n})", { n: decisions.length }))}</h2>
       ${decisions.length ? `<ul class="inbox-list">${decisions.map(decisionHtml).join("")}</ul>` : `<p class="empty">${esc(t("Nothing waits for your decision."))}</p>`}</section>
     <section class="card" aria-labelledby="inbox-notices"><h2 id="inbox-notices">${esc(t("Notices ({n})", { n: notices.length }))}</h2>
-      ${notices.length ? `<ul class="inbox-list">${notices.map((n) => `<li${n.advice ? " data-advice-notice" : ""}><span class="chip ${n.advice ? "info" : "warning"}">${esc(n.advice ? t("Advice") : t("Notice"))}</span> <a href="${esc(n.link)}">${esc(noticeText(n))}</a></li>`).join("")}</ul>` : `<p class="empty">${esc(t("All quiet."))}</p>`}
+      ${notices.length ? `<ul class="inbox-list">${notices.map(noticeHtml).join("")}</ul>` : `<p class="empty">${esc(t("All quiet."))}</p>`}
       ${historyHtml(data.releases)}</section>`;
   // A plan proposal is decided here: approving carries it out (#118).
   const decide = (button, decision) => {
@@ -156,4 +193,21 @@ export async function render(view, { stale }) {
   };
   view.querySelectorAll("[data-proposal-approve]").forEach((b) => decide(b, "approve"));
   view.querySelectorAll("[data-proposal-reject]").forEach((b) => decide(b, "reject"));
+  // The other app is stopped: the mirror puts the plan back again (#110).
+  view.querySelectorAll("[data-conflict-resume]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const row = button.closest("[data-plan-conflict]");
+      const status = row.querySelector("[data-conflict-status]");
+      button.disabled = true;
+      try {
+        await post(`plan_conflict/${button.dataset.conflictResume}/resume`, {});
+        if (stale()) return;
+        await render(view, { stale });
+      } catch (error) {
+        if (stale() || !row.isConnected) return;
+        status.textContent = t(error.message);
+        button.disabled = false;
+      }
+    });
+  });
 }

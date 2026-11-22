@@ -289,6 +289,22 @@ def register(kit: PortalKit) -> None:
             return JSONResponse(status_code=400, content={"error": str(exc)})
         return envelope({"proposal": found, "inbox": inbox.inbox(rt, today())})
 
+    @router.post("/plan_conflict/{mirror}/resume")
+    def plan_conflict_resume(mirror: str):
+        """The athlete confirms the other app is stopped (#110): the mirror puts the plan
+        back again, now for intervals.icu, at its next run for Garmin."""
+        from vibesynergy.query import garmin_strength, inbox, plan_conflict, plan_model
+
+        try:
+            done = plan_conflict.resume(engine, mirror, by="athlete")
+        except ValueError:
+            return JSONResponse(status_code=404, content={"error": "not_found"})
+        if mirror == plan_conflict.INTERVALS:
+            plan_model.mirror_soon(rt.jobs)
+        elif mirror == plan_conflict.GARMIN:
+            rt.jobs.enqueue(garmin_strength.JOB, {}, dedupe_key=garmin_strength.JOB, priority=5)
+        return envelope({**done, "inbox": inbox.inbox(rt, today())})
+
     @router.get("/releases/news")
     def release_news_route(request: Request) -> dict[str, Any]:
         """The "What changed" card, once after a release (#140): the unseen releases with

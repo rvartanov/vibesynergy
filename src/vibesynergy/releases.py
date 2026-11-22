@@ -106,6 +106,14 @@ ITEMS: tuple[Item, ...] = (
         "vibesynergy_activity has workout_steps and rounds for Garmin structured workouts "
         "and HIIT; each lap names its step in extra.wktStepIndex.",
     ),
+    Item(
+        "110-plan-conflict",
+        "you",
+        "When another app or device keeps overwriting your plan in intervals.icu, Garmin or "
+        "your calendar, you get an alert that says where, which sessions and since when. After "
+        "a few times VibeSynergy stops putting it back until you confirm under Waiting for "
+        "you → Notices.",
+    ),
 )
 
 VERSION = RELEASES[0].version

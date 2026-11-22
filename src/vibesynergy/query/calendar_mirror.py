@@ -85,6 +85,8 @@ class Action:
     body: bytes | None = None
     error: str | None = None
     state: str | None = None
+    name: str | None = None  # the item's title, for the alert on outside edits (#110)
+    writer: str | None = None  # the app that edited it, from its PRODID, when not ours
 
 
 @dataclass(frozen=True)
@@ -143,6 +145,20 @@ def _inspect(calendar) -> tuple[str, date, date, int]:
         raise ValueError("Verified mirror is missing an all-day date or sequence")
     summary = str(event.get("SUMMARY") or "")
     return content_fingerprint(summary, start, end), start, end, sequence
+
+
+def _edited_by(parsed) -> str | None:
+    from vibesynergy.query import plan_conflict
+    from vibesynergy.sources.caldav.ics import PRODID
+
+    return plan_conflict.calendar_writer(parsed.get("PRODID"), PRODID)
+
+
+def _summary_of(parsed) -> str | None:
+    events = parsed.walk("VEVENT")
+    if not events:
+        return None
+    return str(events[0].get("SUMMARY") or "") or None
 
 
 def plan_actions(
@@ -250,7 +266,7 @@ def plan_actions(
                     )
                 )
             continue
-        obj, _parsed, remote_fp, start = found
+        obj, parsed_found, remote_fp, start = found
         if row is None or row.get("fingerprint") != remote_fp:
             state = (
                 "conflict"
@@ -272,6 +288,8 @@ def plan_actions(
                         event_date=start,
                         error=error,
                         state="conflict",
+                        name=item.title,
+                        writer=_edited_by(parsed_found),
                     )
                 )
             else:
@@ -320,7 +338,7 @@ def plan_actions(
             )
         )
 
-    for origin, (obj, _parsed, remote_fp, start) in mirrors.items():
+    for origin, (obj, parsed_obj, remote_fp, start) in mirrors.items():
         if origin in wanted or origin in recovered:
             continue
         href, uid = href_for(calendar_url, origin), uid_for(origin)
@@ -356,6 +374,8 @@ def plan_actions(
                         event_date=start,
                         error="external_edit",
                         state="conflict",
+                        name=_summary_of(parsed_obj),
+                        writer=_edited_by(parsed_obj),
                     )
                 )
             elif start < today or row is None or not may_delete or not mutate:
@@ -526,6 +546,7 @@ def apply_actions(
     if any(item.op == "abort" for item in actions):
         return {"skipped": next(item.error for item in actions if item.op == "abort"), **counts}
     known = {row["origin_id"]: row for row in ledger}
+    edited: list[dict[str, Any]] = []
     for action in actions:
         row = known.get(action.origin_id)
         try:
@@ -539,6 +560,19 @@ def apply_actions(
                     and row.get("last_error") == action.error
                 ):
                     continue
+                if (
+                    action.state == "conflict"
+                    and action.error == "external_edit"
+                    and (row is None or row.get("etag") != action.etag)
+                ):
+                    # Another app or device edited our copy once more (#110). It stays.
+                    edited.append(
+                        {
+                            "item": action.origin_id,
+                            "name": action.name,
+                            "writer": action.writer,
+                        }
+                    )
                 changed = True
                 _save(
                     engine,
@@ -600,6 +634,10 @@ def apply_actions(
             )
             counts["conflicts"] += 1
             log.info("calendar mirror %s %s %s", action.op, action.origin_id, code)
+    if edited:
+        from vibesynergy.query import plan_conflict
+
+        plan_conflict.record(engine, plan_conflict.CALENDAR, edited, put_back=False)
     return {"skipped": None, **counts}
 
 

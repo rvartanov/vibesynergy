@@ -333,7 +333,9 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
     assert len(queued) == 1  # one pending mirror covers both changes
     ran = []
     monkeypatch.setattr(
-        plan_model, "mirror", lambda engine, client, plan_id: ran.append(plan_id) or {"drift": []}
+        plan_model,
+        "mirror",
+        lambda engine, client, plan_id, **_k: ran.append(plan_id) or {"drift": []},
     )
     monkeypatch.setattr(
         "vibesynergy.sources.intervals_icu.client.IntervalsIcuClient.from_env",

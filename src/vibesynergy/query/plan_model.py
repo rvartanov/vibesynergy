@@ -24,7 +24,7 @@ from typing import Any
 from sqlalchemy import Engine, and_, delete, func, insert, or_, select, update
 
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.query import training_plan, workout_model
+from vibesynergy.query import plan_conflict, training_plan, workout_model
 from vibesynergy.query.plan import family
 from vibesynergy.store.schema import (
     audit_log,
@@ -376,10 +376,14 @@ def run_mirror(engine: Engine, settings: Any = None) -> dict[str, Any] | None:
 
     plan_id = current_plan_id(engine)
     out: dict[str, Any] | None = None
+    run = utc_now().isoformat(timespec="microseconds")  # one run for the plan and the races
+    rules = plan_conflict.limits(settings)
     if plan_id and source(engine, plan_id) == "vibesynergy":
-        out = mirror(engine, IntervalsIcuClient.from_env(), plan_id=plan_id)
-        if out["drift"]:
-            log.warning("plan: changed in intervals.icu, put back: %s", out["drift"])
+        out = mirror(engine, IntervalsIcuClient.from_env(), plan_id=plan_id, run=run, rules=rules)
+        if out.get("put_back"):
+            log.warning("plan: changed in intervals.icu, put back: %s", out["put_back"])
+        if out.get("held"):
+            log.warning("plan: changed in intervals.icu, not put back (held): %s", out["held"])
     if credentials.load() is None:
         return out
     from vibesynergy import i18n
@@ -388,7 +392,9 @@ def run_mirror(engine: Engine, settings: Any = None) -> dict[str, Any] | None:
 
     tr = i18n.for_settings(settings) if settings is not None else i18n.ENGLISH
     day = today_in(settings.timezone) if settings is not None else None
-    copied = race_mirror.mirror(engine, IntervalsIcuClient.from_env(), today=day, tr=tr)
+    copied = race_mirror.mirror(
+        engine, IntervalsIcuClient.from_env(), today=day, tr=tr, run=run, rules=rules
+    )
     if copied["errors"]:
         log.warning("race mirror: %s", copied["errors"])
     if out is None:
@@ -609,7 +615,16 @@ def drift(engine: Engine, plan_id: str | None = None) -> list[dict[str, Any]]:
         for r in rows:
             now = fingerprint(r["date"], r["name"], r["type"], _normalised(r["description"]))
             if r["fingerprint"] and now != r["fingerprint"]:
-                out.append({"session_id": r["session_id"], "event_id": r["id"], "name": r["name"]})
+                out.append(
+                    {
+                        "session_id": r["session_id"],
+                        "event_id": r["id"],
+                        "name": r["name"],
+                        # When and by whom, where intervals.icu says (#110).
+                        "changed_at": r["updated"],
+                        "writer": plan_conflict.icu_writer(r["raw"]),
+                    }
+                )
     return out
 
 
@@ -1043,14 +1058,19 @@ def mirror(
     plan_id: str | None = None,
     dry_run: bool = False,
     author: str = MIRROR_AUTHOR,
+    run: str | None = None,
+    rules: plan_conflict.Limits | None = None,
 ) -> dict[str, Any]:
     """One-way: write every session, week note and weekly target whose intervals.icu copy
     differs from the model. The copies are audit rows (``mirror_run`` names this run), not
-    plan changes on the coach feed (#141): see ``last_copy``."""
+    plan changes on the coach feed (#141): see ``last_copy``.
+
+    A session another app changed there is put back (``put_back``) and noted in
+    ``plan_conflict`` (#110); while that mirror is held, it is left as it is (``held``)."""
     plan_id = _required_plan(engine, plan_id)
     from vibesynergy.query import icu_plan
 
-    run = utc_now().isoformat(timespec="microseconds")
+    run = run or utc_now().isoformat(timespec="microseconds")
 
     result: dict[str, Any] = {
         "created": [],
@@ -1058,8 +1078,13 @@ def mirror(
         "removed": [],
         "unchanged": 0,
         "errors": [],
+        "put_back": [],
+        "held": [],
     }
-    drifted = {d["session_id"] for d in drift(engine, plan_id)}
+    outside = {d["session_id"]: d for d in drift(engine, plan_id)}
+    drifted = set(outside)
+    stopped = not dry_run and plan_conflict.held(engine, plan_conflict.INTERVALS)
+    put_back: list[dict[str, Any]] = []
     with engine.connect() as conn:
         sessions = [
             dict(r)
@@ -1079,6 +1104,11 @@ def mirror(
         link = links.get(s["id"])
         if link and link.fingerprint == fp and s["id"] not in drifted:
             result["unchanged"] += 1
+            continue
+        # Only the other app's change, not one of VibeSynergy's own: a put-back (#110).
+        restoring = bool(link and link.fingerprint == fp and s["id"] in drifted)
+        if restoring and stopped:
+            result["held"].append(s["id"])
             continue
         if dry_run:
             result["updated" if link and link.remote_id else "created"].append(s["id"])
@@ -1113,6 +1143,16 @@ def mirror(
                     mirror_run=run,
                 )
                 result["updated"].append(s["id"])
+                if restoring:
+                    found_out = outside[s["id"]]
+                    put_back.append(
+                        {
+                            "item": s["id"],
+                            "name": s["name"],
+                            "changed_at": found_out.get("changed_at"),
+                            "writer": found_out.get("writer"),
+                        }
+                    )
             else:
                 external = s["id"] if ":icu:" not in s["id"] else None
                 done = icu_plan.create_event(
@@ -1157,6 +1197,9 @@ def mirror(
     result["updated"] += weekly["updated"]
     result["errors"] += weekly["errors"]
     result["drift"] = sorted(drifted)
+    result["put_back"] = [p["item"] for p in put_back]
+    if put_back:
+        plan_conflict.record(engine, plan_conflict.INTERVALS, put_back, run=run, rules=rules)
     return result
 
 
