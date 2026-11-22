@@ -405,6 +405,8 @@ a.week-day:hover { background: var(--wash); }
 /* Settings → System: portal domains. */
 .host-list { list-style: none; margin: var(--space-2) 0; padding: 0; }
 .host-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: var(--control); }
+.alias-list { list-style: none; margin: 0; padding: 0; }
+.alias-list li + li { margin-top: var(--space-1); }
 .host-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
 .host-add label { display: flex; flex-direction: column; gap: 4px; }
 .settings-inline-more > summary { cursor: pointer; font-weight: 600; padding: 12px 0; }

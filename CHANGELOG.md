@@ -13,6 +13,14 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Links open on your own domain** (#117): login and reset links, mails, notices, push and
+  the links your AI apps get now always use VibeSynergy's own address (the first domain under
+  Settings → System → Portal domains, or `canonical_url`), also when you asked for them on the
+  tailnet name. Settings → System shows that address, with the other addresses below it under
+  "Also reachable at". Those keep working; with `redirect_aliases = true` the portal's pages
+  move on to the own address. Addresses that services on the internet call (coach apps,
+  webhooks, share links) stay on the public address.
+
 ## 0.1.0-beta.0.4 – 22-11-2026
 
 - **An alert when another app keeps overwriting your plan** (#110): when another app or

@@ -657,11 +657,15 @@ rendering for clients that ignore structure:
     "truncated": false,
     "next_cursor": null,
     "result_set": "rs_…",
-    "portal_url": "https://server.your-tailnet.ts.net:8447/metrics?m=body.weight&p=…",
+    "portal_url": "https://app.example.org",
     "warnings": ["Withings has no data 2026-09-10..2026-09-12"]
   }
 }
 ```
+
+`meta.portal_url` is the portal's canonical address (#117): your own domain when one is set,
+else the tailnet name. A `link` in the data, such as `#/coach/report/7`, opens at
+`<portal_url>/#/coach/report/7`. It is never an alias, whatever address the MCP call came in on.
 
 ### 2.6 Output size control
 - `detail`: `summary` (default) | `standard` | `full`.

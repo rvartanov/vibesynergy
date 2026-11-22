@@ -45,6 +45,13 @@ Status: beta (version 0.1.0-beta.0.N, see Versions below). The portal is in Dutc
 - **Backups**: `vibesynergy db backup` (online, safe while running).
 - **Reaching it from other devices**: behind HTTPS (a reverse proxy or Tailscale), with the
   name in `[portal] hosts`. The portal itself only listens on the computer it runs on.
+- **One own address** (#117): the canonical address (`[server] canonical_url`, else the first
+  `[portal] hosts` domain, else the tailnet name) is in every link VibeSynergy shows or sends:
+  login and reset mails, alert mails, notices, push, the coach report links and MCP
+  `meta.portal_url`. Other names (the tailnet name, more `[portal] hosts`, `[server] aliases`)
+  are aliases: an explicit list, accepted as host and origin, never used for links; any other
+  Host is refused. Settings → System shows the address and "Also reachable at".
+  `[server] redirect_aliases = true` sends portal pages opened on an alias to the address.
 
 ## Sources
 

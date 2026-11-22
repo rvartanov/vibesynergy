@@ -100,7 +100,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The portal only answers on the computer it runs on, on purpose. To use it from your phone,
 put it behind HTTPS: a reverse proxy such as Caddy, or Tailscale. Then add that name to
-`[portal] hosts` in the config. Never publish port 8447 without HTTPS. The login needs a
+`[portal] hosts` in the config. The first name there is VibeSynergy's own address: every link
+in mail, notices and push uses it, also when you open the portal on another name (an alias).
+Never publish port 8447 without HTTPS. The login needs a
 secure connection (or the computer itself), so it won't work over plain `http://` from
 another device. See [deploy/README.md](deploy/README.md).
 

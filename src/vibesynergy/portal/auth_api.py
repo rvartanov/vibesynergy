@@ -98,9 +98,16 @@ def _cleared(body: dict[str, Any]) -> JSONResponse:
 
 
 def _base_url(rt, request: Request) -> str:
-    """Where links in mail point: the address this request came in on (a known host)."""
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    return f"{proto}://{request.headers.get('host', request.url.netloc)}"
+    """Where links in mail point: the canonical address (#117), whatever name the request
+    came in on, so a link asked for on the tailnet opens on your own domain and logs you
+    in there. Never the Host header. Without any address: this computer, on the portal
+    port (the only place such a portal is reached)."""
+    from vibesynergy.core.config import DEFAULT_PORTAL_PORT
+    from vibesynergy.portal.hosts import canonical_url
+
+    settings = rt.settings
+    port = settings.portal.get("port", DEFAULT_PORTAL_PORT)
+    return canonical_url(settings) or f"http://localhost:{port}"
 
 
 def _mail(rt, to: str, subject: str, body: str) -> bool:

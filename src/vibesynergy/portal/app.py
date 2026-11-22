@@ -10,8 +10,11 @@ Pages are static files (plain ES modules, no build step) that call the JSON API 
 numbers.
 
 Guards, in addition to the tailnet boundary:
-- Host check: only localhost and the tailnet name (from ``[server] public_url``) plus any
-  ``[portal] hosts`` are served, which blocks DNS-rebinding attacks from web pages.
+- Host check: only localhost, the canonical address, the tailnet name (from ``[server]
+  public_url``), ``[portal] hosts`` and ``[server] aliases`` are served, which blocks
+  DNS-rebinding attacks from web pages. Links never use the request's Host (#117).
+- With ``[server] redirect_aliases = true`` a portal page opened on an alias is sent on to
+  the canonical address.
 - Writes (POST) need the ``X-VibeSynergy: portal`` header and a same-origin ``Origin``; a
   foreign web page cannot send that header without a CORS preflight, which is refused.
 - A strict Content-Security-Policy, no framing, no referrer.
@@ -24,6 +27,7 @@ import logging
 import mimetypes
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -38,7 +42,7 @@ from vibesynergy.portal.api import build_router, tile_cache, tile_cache_enabled,
 from vibesynergy.portal.caldav_api import build_caldav_router
 from vibesynergy.portal.coach_runner_api import build_coach_runner_router
 from vibesynergy.portal.events_api import build_events_router
-from vibesynergy.portal.hosts import allowed_hosts
+from vibesynergy.portal.hosts import allowed_hosts, redirect_target
 from vibesynergy.portal.settings_api import build_settings_router
 from vibesynergy.portal.start_api import build_start_router
 from vibesynergy.portal.thresholds_api import build_thresholds_router
@@ -63,6 +67,8 @@ DEFAULT_PORT = DEFAULT_PORTAL_PORT
 SHARE_TILES_PER_HOUR = 1500  # per share link: plenty for viewing, not for bulk downloads
 WRITE_HEADER = ("x-vibesynergy", "portal")
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+# The portal's pages (everything else is the API, files or tiles): what an alias redirect moves.
+PAGE_PATHS = {"/", "/login"}
 # Tiles rarely change; let the browser keep them for a day (the pages are always revalidated).
 TILE_HEADERS = {"cache-control": "private, max-age=86400"}
 
@@ -101,8 +107,14 @@ def content_security_policy(tile_origins: list[str]) -> str:
 class PortalGuard:
     """Host check, write protection and security headers for every request."""
 
-    def __init__(self, app: ASGIApp, hosts: set[str], csp: str) -> None:
-        self.app, self.hosts, self.csp = app, hosts, csp
+    def __init__(
+        self,
+        app: ASGIApp,
+        hosts: set[str],
+        csp: str,
+        redirect: Callable[[str], str | None] | None = None,
+    ) -> None:
+        self.app, self.hosts, self.csp, self.redirect = app, hosts, csp, redirect
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -113,6 +125,14 @@ class PortalGuard:
         if _hostname(host) not in self.hosts:
             await _reject(scope, receive, send, 421, "unknown host")
             return
+        if self.redirect and scope["method"] in ("GET", "HEAD") and scope["path"] in PAGE_PATHS:
+            # The target comes from the config, never from the Host header.
+            target = self.redirect(_hostname(host))
+            if target:
+                query = scope.get("query_string", b"").decode("latin-1")
+                location = f"{target}{scope['path']}{'?' + query if query else ''}"
+                await RedirectResponse(location, status_code=308)(scope, receive, send)
+                return
         if scope["method"] not in SAFE_METHODS:
             origin = headers.get("origin")
             if headers.get(WRITE_HEADER[0]) != WRITE_HEADER[1]:
@@ -286,7 +306,12 @@ def create_portal_app(rt: Runtime, *, share_mode: bool = False, caldav_http=None
         from vibesynergy.portal.auth_gate import AuthGate
 
         inner = AuthGate(app, rt)
-    guarded = PortalGuard(inner, allowed_hosts(settings), content_security_policy(tile_origins(rt)))
+    guarded = PortalGuard(
+        inner,
+        allowed_hosts(settings),
+        content_security_policy(tile_origins(rt)),
+        None if share_mode else (lambda host: redirect_target(settings, host)),
+    )
     return ShareGuard(guarded) if share_mode else guarded
 
 

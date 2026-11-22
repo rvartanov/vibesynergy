@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -275,6 +276,7 @@ def _validate(settings: Settings) -> None:
     url = settings.server.get("public_url")
     if url and not str(url).startswith("https://"):
         raise ConfigError("[server] public_url must start with https://")
+    _check_addresses(settings.server)
     port = settings.portal.get("port", DEFAULT_PORTAL_PORT)
     if not isinstance(port, int) or not 0 < port < 65536:
         raise ConfigError(f"[portal] port must be a port number, got {port!r}")
@@ -337,6 +339,46 @@ def detect_timezone() -> str:
     return "UTC"
 
 
+_HOSTNAME = re.compile(
+    r"(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]"
+)
+
+
+def _check_addresses(server: dict[str, Any]) -> None:
+    """[server] canonical_url, aliases and redirect_aliases (#117)."""
+    from urllib.parse import urlsplit
+
+    url = server.get("canonical_url")
+    if url is not None:
+        parts = urlsplit(str(url).strip())
+        if (
+            parts.scheme != "https"
+            or not parts.hostname
+            or parts.username
+            or parts.password
+            or parts.path.strip("/")
+            or parts.query
+            or parts.fragment
+        ):
+            raise ConfigError(
+                "[server] canonical_url must be an https address without a path, "
+                'e.g. "https://app.example.org"'
+            )
+    names = server.get("aliases")
+    if names is not None and (
+        not isinstance(names, list)
+        or not all(
+            isinstance(n, str) and _HOSTNAME.fullmatch(n.strip().lower().rstrip(".")) for n in names
+        )
+    ):
+        raise ConfigError(
+            '[server] aliases must be a list of host names, e.g. ["box.example.ts.net"]'
+        )
+    redirect = server.get("redirect_aliases")
+    if redirect is not None and not isinstance(redirect, bool):
+        raise ConfigError("[server] redirect_aliases must be true or false")
+
+
 DEFAULT_CONFIG = """\
 # VibeSynergy configuration.
 
@@ -357,6 +399,13 @@ units = "metric"   # metric | imperial
 # Public address of this machine (Tailscale Funnel); needed for Withings/Strava login
 # and for instant updates (webhooks). Example: "https://server.example.ts.net"
 # public_url = ""
+# The app's own address for every link VibeSynergy shows or sends (mail, notices, push).
+# Default: the first domain in [portal] hosts, else the tailnet name on the portal port.
+# canonical_url = "https://app.example.org"
+# Other names the portal answers on (aliases); links still use canonical_url.
+# aliases = ["server.example.ts.net"]
+# Send portal pages opened on an alias to canonical_url (default false).
+# redirect_aliases = false
 
 # Sources are disabled until enabled here. Each source documents its own options.
 # See docs/SOURCES.md. To try VibeSynergy without any account, enable the demo source

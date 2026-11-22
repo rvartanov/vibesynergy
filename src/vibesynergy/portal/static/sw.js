@@ -45,10 +45,12 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url || "/", self.location.origin).href;
+  // The server sends the canonical address (#117); a window already open there is reused.
+  const target = new URL(event.notification.data?.url || "/", self.location.origin);
+  const url = target.href;
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
-      const open = windows.find((w) => w.url.startsWith(self.location.origin));
+      const open = target.origin === self.location.origin && windows.find((w) => w.url.startsWith(self.location.origin));
       if (open) return open.navigate(url).then((w) => (w || open).focus());
       return self.clients.openWindow(url);
     }),

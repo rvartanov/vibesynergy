@@ -938,11 +938,11 @@ def for_portal(
 
 
 def portal_url(rt: Any, page: str = "#/dashboard") -> str:
-    """The address of ``page`` on the portal: on your own domain when one is set, else on the
-    tailnet; "" when the portal has no address."""
-    from vibesynergy.portal.hosts import portal_address
+    """The address of ``page`` on the portal, on the canonical address (#117): your own
+    domain when one is set, else the tailnet name; "" when the portal has no address."""
+    from vibesynergy.portal.hosts import canonical_url
 
-    base = portal_address(rt.settings)
+    base = canonical_url(rt.settings)
     page = page if page.startswith("#/") else "#/dashboard"
     return f"{base}/{page}" if base else ""
 
@@ -966,7 +966,7 @@ def _send_with_html(send, subject, text, channel, rt, records, link):
 
 def _footer(rt: Any, link: str = "#/dashboard") -> str:
     portal = portal_url(rt, link)
-    return f"\n\n— VibeSynergy{f' · {portal} (tailnet)' if portal else ''}"
+    return f"\n\n— VibeSynergy{f' · {portal}' if portal else ''}"
 
 
 # Channels ---------------------------------------------------------------------------------
