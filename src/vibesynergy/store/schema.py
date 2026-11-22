@@ -1471,3 +1471,34 @@ activity_zone_own = Table(
     Column("computed_at", UTCDateTime, nullable=False),
     PrimaryKeyConstraint("group_id", "kind"),
 )
+
+# A mirror's copy that another app or device changed, and that VibeSynergy put back
+# (query.plan_conflict, #110): one row per item per mirror run. ``mirror`` is intervals,
+# garmin or calendar; ``put_back`` is false for the calendar, which is never put back.
+# ``changed_at`` is when the outside change was made, where the mirror says; ``writer`` who
+# made it, where known.
+mirror_putback = Table(
+    "mirror_putback",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("mirror", String, nullable=False),
+    Column("item", String, nullable=False),
+    Column("name", String),
+    Column("run", String, nullable=False),
+    Column("at", UTCDateTime, nullable=False),
+    Column("changed_at", UTCDateTime),
+    Column("writer", String),
+    Column("put_back", Boolean, nullable=False, server_default="1"),
+    Index("ix_mirror_putback_mirror_at", "mirror", "at"),
+)
+
+# A mirror VibeSynergy stopped putting back (#110): ``held_at`` while it waits for the
+# athlete, ``None`` after they confirmed (``reset_at``: put-backs before it no longer count).
+mirror_hold = Table(
+    "mirror_hold",
+    metadata,
+    Column("mirror", String, primary_key=True),
+    Column("held_at", UTCDateTime),
+    Column("reset_at", UTCDateTime),
+    Column("reset_by", String),
+)

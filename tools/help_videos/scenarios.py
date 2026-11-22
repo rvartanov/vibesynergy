@@ -971,11 +971,14 @@ def insight(r: Rec):
 def search_inbox(r: Rec):
     # A plan change an AI coach proposed and a second opinion that differs (#118), and texts
     # VibeSynergy fixed itself (#137).
+    # And another app that keeps overwriting the plan in intervals.icu (#110).
     _demo("demo_coach_roles.py", "seed")
     _demo("demo_kb_lint.py", "seed")
+    _demo("demo_plan_conflict.py", "seed")
     try:
         _search_inbox(r)
     finally:
+        _demo("demo_plan_conflict.py", "clear")
         _demo("demo_kb_lint.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
@@ -1010,6 +1013,24 @@ def _search_inbox(r: Rec):
         "An AI coach does not just change your plan: its change waits here as a proposal. "
         "Approve it and VibeSynergy carries it out; you can also reject it.",
         3.6,
+    )
+    conflict = r.pg.locator("[data-plan-conflict]").first
+    r.check(conflict.count() > 0, "another app overwriting the plan should be a notice (#110)")
+    r.point(conflict)
+    r.say(
+        "Overschrijft een andere app steeds je schema in intervals.icu, Garmin of je agenda? "
+        "Dan zie je hier waar, welke trainingen en sinds wanneer.",
+        "Does another app keep overwriting your plan in intervals.icu, Garmin or your "
+        "calendar? Here you see where, which sessions and since when.",
+        3.4,
+    )
+    r.point(conflict.get_by_role("button", name="De andere app staat uit: zet mijn schema terug"))
+    r.say(
+        "Na drie keer stopt VibeSynergy met terugzetten. Zet de andere app uit en zet je "
+        "schema dan hier terug.",
+        "After three times VibeSynergy stops putting it back. Stop the other app, then put "
+        "your plan back here.",
+        3.2,
     )
     advice = r.pg.locator("main [data-advice-notice]", has_text="bijgewerkt om").first
     r.check(

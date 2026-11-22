@@ -120,10 +120,14 @@ def mirror(
     dry_run: bool = False,
     tr: Translator = ENGLISH,
     run: str | None = None,
+    rules: Any = None,
 ) -> dict[str, Any]:
     """Copy every upcoming race and event whose intervals.icu copy differs; remove the copy
-    of one that was deleted. One failure never stops the others."""
-    from vibesynergy.query import icu_plan
+    of one that was deleted. One failure never stops the others.
+
+    A copy another app changed is put back and noted in ``plan_conflict`` (#110), with the
+    plan's sessions under the same mirror; while it is held, it is left as it is."""
+    from vibesynergy.query import icu_plan, plan_conflict
     from vibesynergy.query.icu_plan import version_token
 
     today = today or date.today()
@@ -135,7 +139,11 @@ def mirror(
         "unchanged": 0,
         "not_ours": [],
         "errors": [],
+        "put_back": [],
+        "held": [],
     }
+    stopped = not dry_run and plan_conflict.held(engine, plan_conflict.INTERVALS)
+    put_back: list[dict[str, Any]] = []
     with engine.connect() as conn:
         rows = [dict(r) for r in conn.execute(select(race)).mappings()]
         links = {
@@ -205,6 +213,11 @@ def mirror(
                     _remember(engine, ident, copy["id"], None, fp)
                 out["unchanged"] += 1
                 continue
+            # The copy is as VibeSynergy last wrote it, yet differs: another app changed it.
+            restoring = copy is not None and link is not None and link.fingerprint == fp
+            if restoring and stopped:
+                out["held"].append(ident)
+                continue
             if dry_run:
                 out["updated" if copy is not None else "created"].append(ident)
                 continue
@@ -220,6 +233,15 @@ def mirror(
                     mirror_run=run,
                 )
                 out["updated"].append(ident)
+                if restoring:
+                    put_back.append(
+                        {
+                            "item": _link_key(ident),
+                            "name": r["name"],
+                            "changed_at": copy.get("updated"),
+                            "writer": plan_conflict.icu_writer(copy.get("raw")),
+                        }
+                    )
             else:
                 done = icu_plan.create_event(
                     engine,
@@ -240,6 +262,9 @@ def mirror(
         except Exception as exc:  # one failed race must not stop the others
             log.warning("race mirror: %s failed: %s", ident, exc)
             out["errors"].append({"race_id": ident, "error": str(exc)[:300]})
+    out["put_back"] = [p["item"].removeprefix("race:") for p in put_back]
+    if put_back:
+        plan_conflict.record(engine, plan_conflict.INTERVALS, put_back, run=run, rules=rules)
     return out
 
 

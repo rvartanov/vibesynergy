@@ -734,23 +734,34 @@ def reconcile(
     sports: tuple[str, ...] = (),
     lookahead: int = LOOKAHEAD_DAYS,
     mark: Marks = MARK,
+    rules: Any = None,
 ) -> dict[str, Any]:
-    from vibesynergy.query import garmin_endurance
+    from vibesynergy.query import garmin_endurance, plan_conflict
 
     api = _Lazy(api_factory)
     wanted = desired(engine, today, lookahead, mark)
     # Endurance sports switched on for direct delivery ride the same machinery.
     wanted.update(garmin_endurance.desired(engine, today, sports, lookahead, mark))
     known = _deliveries(engine)
-    result = {"delivered": 0, "withdrawn": 0, "errors": 0}
+    result: dict[str, Any] = {"delivered": 0, "withdrawn": 0, "errors": 0}
     calendar_at = _calendar_synced_at(engine)
+    stopped = plan_conflict.held(engine, plan_conflict.GARMIN)
+    put_back: list[dict[str, Any]] = []
     for event_id, want in wanted.items():
         row = known.get(event_id) or {}
         try:
             if _went_missing(engine, row, want["date"], calendar_at):
+                if stopped and row.get("fingerprint") == want["fingerprint"]:
+                    # Another app keeps removing it (#110): wait for the athlete. A change
+                    # VibeSynergy made to the session itself still goes out.
+                    result.setdefault("held", []).append(event_id)
+                    continue
                 # Gone from Garmin's calendar (removed there by hand): put it back.
                 log.info("Garmin strength: event %s is no longer on Garmin, redelivering", event_id)
                 row = {**row, "state": "missing"}
+                missing = row.get("fingerprint") == want["fingerprint"]
+            else:
+                missing = False
             if row.get("fingerprint") != want["fingerprint"] or row.get("state") != "delivered":
                 if row.get("state") in ("delivered", "uploaded", "missing"):
                     _withdraw(api, row)
@@ -774,10 +785,14 @@ def reconcile(
                 _save(engine, event_id, scheduled_id=scheduled_id, state="delivered")
                 row = {**row, "workout_id": workout_id, "scheduled_id": scheduled_id}
                 result["delivered"] += 1
+                if missing:
+                    put_back.append({"item": event_id, "name": want["name"]})
         except Exception as exc:
             log.warning("Garmin strength: event %s not delivered (%s)", event_id, exc)
             _save(engine, event_id, event_date=want["date"], last_error=str(exc)[:500])
             result["errors"] += 1
+    if put_back:
+        plan_conflict.record(engine, plan_conflict.GARMIN, put_back, rules=rules)
     try:
         result["copies_removed"] = _drop_copies(engine, api, wanted)
     except Exception as exc:
@@ -811,4 +826,7 @@ def run(rt) -> dict[str, Any]:
     lookahead = prefs.horizon_days(rt.settings.data_dir) - 1
     with SecretStore(rt.settings.secrets_dir, "garmin").lock("calendar-read-write"):
         mark = mark_for(rt.settings.data_dir)
-        return reconcile(rt.engine, lambda: _api(rt), today, sports, lookahead, mark)
+        from vibesynergy.query import plan_conflict
+
+        rules = plan_conflict.limits(rt.settings)
+        return reconcile(rt.engine, lambda: _api(rt), today, sports, lookahead, mark, rules)

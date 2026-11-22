@@ -3,7 +3,8 @@
 Decisions are proposals only the athlete can take or leave: plan changes from an AI coach
 (approved or rejected in the list itself, #118), knowledge-base changes from
 the coach (Coach → Change log) and new threshold values (Training → Zones & thresholds).
-Notices need no decision but are worth a look: a coach routine that did not run,
+Notices need no decision but are worth a look: another app that keeps overwriting the plan
+in a mirror (#110, confirmed here once it is stopped), a coach routine that did not run,
 a plan horizon that is not on Garmin as it should be, and the knowledge-base texts
 VibeSynergy fixed itself (#137). What changed per version (#140) is listed with the notices.
 Each item links to the
@@ -139,11 +140,25 @@ def _disagreements(rt: Any, today: date) -> list[dict[str, Any]]:
     return out
 
 
+def _plan_conflicts(rt: Any) -> list[dict[str, Any]]:
+    """Another app keeps overwriting the plan in a mirror (#110): which one, which
+    sessions, since when and by whom where known. A held mirror waits for the athlete's
+    confirmation here (``plan_conflict.resume``)."""
+    from vibesynergy.query import plan_conflict
+
+    return [
+        {"kind": "plan_conflict", **item, "link": "#/planning"}
+        for item in plan_conflict.status(rt.engine, plan_conflict.limits(rt.settings))
+    ]
+
+
 def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
     from vibesynergy.query import coach_tasks, horizon
 
     out: list[dict[str, Any]] = []
     with contextlib.suppress(Exception):  # a notice must never break the list
+        out.extend(_plan_conflicts(rt))
+    with contextlib.suppress(Exception):
         out.extend(_disagreements(rt, today))
     with contextlib.suppress(Exception):
         out.extend(_editorial(rt.engine))

@@ -258,6 +258,14 @@ password; optionally IMAP to keep a copy in Sent), press **Send test alert**, an
 the service when the notice asks. The WhatsApp channel and its bridge were removed on
 31-10-2026. An old `[alerts] whatsapp_phone` is ignored with a warning.
 
+Another app overwriting the plan (#110): three optional numbers under `[alerts]` say when a
+put-back in intervals.icu, Garmin or the calendar is a fight and when VibeSynergy stops.
+`plan_conflict_repeats` (default 2, at least 2): the same session put back this often, or
+the same known app behind this many put-backs, is a fight. `plan_conflict_hours` (default
+3): put-backs further apart start a new count. `plan_conflict_stop_after` (default 3, never
+below the repeats): after this many put-backs in a fight that mirror is no longer put back
+until you confirm under Waiting for you → Notices.
+
 Push notifications: **Settings → Alerts → Push notifications → Turn on for this
 device** (on an iPhone from the home-screen app, iOS 16.4+). Alerts then also arrive as a
 notification; per kind of alert the Push column chooses which. VibeSynergy sends them itself

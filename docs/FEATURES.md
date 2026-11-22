@@ -345,6 +345,17 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   changed daily advice from your AI coach (by default push and portal, no email), a coach
   token about to expire. A failed sync job leaves the portal header as soon as the same data
   syncs successfully again.
+- **Another app overwriting your plan** (#110, portal, mail and push by default): when
+  another app or device keeps changing VibeSynergy's copy of your plan in intervals.icu
+  (sessions, races and events), Garmin (a delivered workout that keeps being removed) or your
+  calendar, the alert says where, which sessions, since when and, where the mirror says so,
+  which app wrote it. One change by hand is no alert: it takes the same session put back
+  twice within 3 hours (or the same app behind two put-backs). After 3 put-backs VibeSynergy
+  stops putting that mirror back and says so; under Waiting for you → Notices you confirm the
+  other app is stopped, and your plan goes back. Your own changes keep going out meanwhile.
+  The calendar is never put back, so its alert only names what changed. The numbers are
+  settings: `[alerts] plan_conflict_repeats`, `plan_conflict_hours`,
+  `plan_conflict_stop_after`.
 
 ## Settings
 

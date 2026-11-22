@@ -7,7 +7,8 @@ that only follows from that complaint. The same warning is not repeated the same
 login or a quiet source does get one note when it is back. One-off events (a failed job, a
 finished history run) are sent once. The kinds are in KINDS.
 
-Configuration under ``[alerts]``: ``enabled`` (default true) and ``email_to``, sent through
+Configuration under ``[alerts]``: ``enabled`` (default true), ``email_to`` and the
+``plan_conflict_*`` thresholds (``query.plan_conflict``, #110), sent through
 the generic mailer (``[mail]``, see ``vibesynergy.mailer``). Nothing secret is in the config
 file. Which kinds go to the portal and which by email is a portal preference
 (``alert_routes``).
@@ -73,6 +74,8 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     # No mail by default (Robert, 18-11-2026).
     "advice": ("A new or changed daily advice from your AI coach", ["portal", "push"]),
     "token": ("A coach token is about to expire", ["portal", "email"]),
+    # Another app keeps overwriting the plan in intervals.icu, Garmin or the calendar (#110).
+    "plan_conflict": ("Another app keeps overwriting your plan", ALL),
 }
 RECENT_KEPT = 20  # one-off events kept for the portal's list
 
@@ -407,7 +410,32 @@ def collect(rt: Any, today: date, since: datetime | None = None) -> list[Alert]:
 
     out += _daily(rt, contact.coach_since(rt, since), today)
     out += _expiring_tokens(rt)
+    out += _plan_conflicts(rt)
     return Collected(out, frozenset(hold))
+
+
+def _plan_conflicts(rt: Any) -> list[Alert]:
+    """One open alert per mirror another app keeps overwriting (#110). It gets stricter
+    (and is sent again) when VibeSynergy stops putting the plan back; it ends when the
+    mirror is quiet again."""
+    from vibesynergy.query import plan_conflict
+
+    try:
+        found = plan_conflict.status(rt.engine, plan_conflict.limits(rt.settings))
+    except Exception:  # an alert check never breaks the others
+        log.warning("reading the plan conflicts failed", exc_info=True)
+        return []
+    tr = i18n.for_settings(rt.settings)
+    return [
+        Alert(
+            f"plan_conflict:{item['mirror']}",
+            "stop" if item["held"] else "warn",
+            plan_conflict.alert_text(item, tr, rt.settings.timezone),
+            "#/inbox",
+            kind="plan_conflict",
+        )
+        for item in found
+    ]
 
 
 def _expiring_tokens(rt: Any) -> list[Alert]:

@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **An alert when another app keeps overwriting your plan** (#110): when another app or
+  device keeps changing your plan in intervals.icu, Garmin or your calendar, you get an alert
+  (portal, mail and push) that says where, which sessions, since when and, where it is known,
+  which app. After 3 put-backs in a row VibeSynergy stops putting that copy back until you
+  confirm under Waiting for you → Notices that the other app is stopped.
+
 ## 0.1.0-beta.0.3 – 22-11-2026
 
 - **More Garmin data as measurements** (#125): your morning training readiness and what
