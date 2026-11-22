@@ -110,6 +110,11 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
     thread = None
     try:
         _seed(rt)
+        # The everyday start page: the "What changed" card of a release (#140) shows once,
+        # above it, and is already seen here.
+        from vibesynergy.query import release_news
+
+        release_news.news(rt.engine)
         server = uvicorn.Server(
             uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
         )
