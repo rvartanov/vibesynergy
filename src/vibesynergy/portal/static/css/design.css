@@ -710,3 +710,12 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 /* Coach settings save as you leave a field; the status line that appears then must not push
    the buttons below it down, or the click that left the field misses its button (#35). */
 .card[data-coach-kind] > [data-status] { min-block-size: 1lh; }
+
+/* What changed (#140): the card once after a release, above the page; the history under
+   Waiting for you → Notices. */
+.release-news { box-sizing: border-box; width: calc(100% - 32px); max-width: 1200px; margin: 20px auto 0; border-left: 4px solid var(--action); }
+.release-news-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.release-news h2 { margin: 0; }
+.release-news ul, .release-history ul { margin: var(--space-2) 0; padding-left: 20px; }
+.release-history { margin-top: var(--space-4); }
+.release-history h3 { margin: 0 0 var(--space-2); font-size: 15px; }

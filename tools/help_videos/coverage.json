@@ -7,6 +7,10 @@
   "login": [
     "login.js"
   ],
+  "versions": [
+    "release_news.js",
+    "about_version.js"
+  ],
   "today": [
     "pages/dashboard.js",
     "pages/day.js",

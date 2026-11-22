@@ -1,6 +1,6 @@
 name: Changelog
 
-# A pull request that changes the app says so in CHANGELOG.md (CONTRIBUTING.md#features-and-changelog).
+# A pull request that changes the app says so in CHANGELOG.md (CONTRIBUTING.md#versions-and-changelog).
 # Its own workflow, so adding the no-changelog label re-runs only this.
 on:
   pull_request:

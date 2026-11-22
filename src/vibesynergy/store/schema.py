@@ -1432,6 +1432,16 @@ auth_attempt = Table(
     Index("ix_auth_attempt_key_at", "key", "at"),
 )
 
+# The last version whose "What changed" an account saw (#140, vibesynergy.releases): the card
+# after a release shows once. account_id 0 on an install without a portal account.
+release_seen = Table(
+    "release_seen",
+    metadata,
+    Column("account_id", Integer, primary_key=True, autoincrement=False),
+    Column("version", String, nullable=False),
+    Column("seen_at", UTCDateTime, nullable=False),
+)
+
 # VibeSynergy's own training load per activity (query.own_load), computed once from the
 # heart-rate stream, power or pace. ``inputs`` fingerprints what it was computed from (the
 # stream, the thresholds); a different fingerprint means it is computed again.

@@ -85,19 +85,45 @@ video or be listed under `_not_shown` with the reason.
 Report them through the issue forms (bug report, feature request). What they need, and what
 happens next: [docs/REPORTING.md](docs/REPORTING.md).
 
-## Features and changelog
+## Versions and changelog
 
 [docs/FEATURES.md](docs/FEATURES.md) lists everything VibeSynergy does; [CHANGELOG.md](CHANGELOG.md)
-says what changed. Both are part of the change itself, in the same pull request:
+says what changed, per version. Both are part of the change itself, in the same pull request.
 
-- **Changelog**: anything a user or an AI app notices gets one line under `## Unreleased`, in
-  `Added`, `Changed`, `Fixed` or `Removed`, written for the user (what it does for them, not
-  which file changed), with the pull request number.
+**Versions** (#140, the model of RunSynergy): `0.1.0-beta.0.1`, `0.1.0-beta.0.2`, … Every
+deploy that brings merged pull requests is a release, and every release adds one to the last
+number. A next minor (`0.2.0-beta.0.1`) only when Robert says so; out of beta it becomes
+`1.0.0`. The numbers live in `src/vibesynergy/releases.py`; `pyproject.toml` keeps a PEP 440
+version for the line (`0.1.0b0`), because `0.1.0-beta.0.1` is not one. Never write a version
+number or a release by hand.
+
+In a pull request:
+
+- **Changelog**: anything you or an AI app notice gets one line at the end of the list under
+  `## Unreleased`, in plain language (what it does for you, not which file changed), with the
+  pull request or issue number.
+- **What changed** (only for a change that noticeably changes use): one or more `Item`s at the
+  end of `ITEMS` in `src/vibesynergy/releases.py`: an id (`"<number>-<word>"`), the audience
+  (`"you"`, the person using the portal, or `"ai"`, AI coaches and AI apps, for MCP and
+  harness changes) and a short English text by the communication rule, with its Dutch in
+  `portal/static/i18n/nl.json` (and the same key in `en.json`). Items for `you` show once in
+  the "What changed" card after the update and then under Waiting for you → Notices; items
+  for `ai` go into `vibesynergy_coach_handbook` (`what_changed`) and the MCP server
+  information. Small fixes get no items.
 - **Features**: a feature that is added, changed or removed is updated in FEATURES.md, in its
   area.
 - **Internal only** (refactor, tests, CI, docs for developers): add the label `no-changelog`.
-- **A release**: rename `Unreleased` to the version and date, bump `version` in
-  `pyproject.toml` (and `uv.lock`), tag `v<version>`; the container workflow publishes it.
+
+**A release** is made by `vibesynergy update` (and **Update now**) when it installs new
+commits: on a fresh clone of `main` it puts the next number with the day's date on top of
+`RELEASES` (with every item no release has yet), renames `## Unreleased` in CHANGELOG.md to
+`## <version> – <d-m-yyyy>` under a new empty `## Unreleased`, commits that as
+`Release <version>`, tags it `v<version>` (the container workflow publishes it) and pushes
+both, then installs that commit. It prints `0.1.0-beta.0.3 → 0.1.0-beta.0.4` and the items.
+Several pull requests deployed at once make one release. If `main` already carries a version
+tag (an update that failed after the release), it installs that version without a new number.
+It needs the right to push to the repository; an install without it updates as before. An open
+pull request may then get a conflict in CHANGELOG.md: keep your line under `## Unreleased`.
 
 CI fails a pull request that changes `src/`, `Dockerfile` or `deploy/` without touching
 CHANGELOG.md, unless it has the `no-changelog` label.

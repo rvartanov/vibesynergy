@@ -48,6 +48,57 @@ def login(r: Rec):
     )
 
 
+@scenario("versions", "Versie en wat er veranderd is", "Version and what changed")
+def versions(r: Rec):
+    # The demo account is new and gets no old news: make it older and forget what it saw, so
+    # the card shows (#140); marked seen again afterwards, so other videos don't show it.
+    _demo("demo_release.py", "seed")
+    try:
+        _versions(r)
+    finally:
+        _demo("demo_release.py", "clear")
+
+
+def _versions(r: Rec):
+    r.go("dashboard")
+    news = r.pg.locator("[data-release-news]")
+    news.wait_for(timeout=10_000)
+    r.check(news.count() == 1, "after a release the first page should show What changed once")
+    r.point(news)
+    r.say(
+        "Na een update toont de eerste pagina één keer wat er veranderd is in de nieuwe versie.",
+        "After an update the first page shows once what changed in the new version.",
+        3.2,
+    )
+    version = r.pg.locator("#foot a[data-version-link]")
+    version.scroll_into_view_if_needed()
+    r.point(version)
+    r.say(
+        "Het versienummer staat onderaan elke pagina. Elke update telt er één bij op.",
+        "The version number is at the bottom of every page. Every update adds one to it.",
+        3.0,
+    )
+    r.pg.reload()
+    r.pg.wait_for_load_state("networkidle")
+    r.wait(1.5)
+    r.check(r.pg.locator("[data-release-news]").count() == 0, "the card should show only once")
+    r.say(
+        "De kaart zie je maar één keer. Daarna lees je het terug bij Wacht op jou.",
+        "You see the card only once. After that you read it again under Waiting for you.",
+        2.8,
+    )
+    r.click(r.pg.locator("header a[href='#/inbox']"))
+    history = r.pg.locator("[data-release-history]")
+    history.wait_for(timeout=10_000)
+    history.scroll_into_view_if_needed()
+    r.point(history)
+    r.say(
+        "Onder de meldingen staat per versie wat er veranderd is, de nieuwste bovenaan.",
+        "Under the notices, every version lists what changed, the newest first.",
+        3.2,
+    )
+
+
 @scenario("today", "Je dag: advies, herstel en check-in", "Your day: advice, recovery and check-in")
 def today(r: Rec):
     # An AI coach's advice for today, so the card shows it (cleared again afterwards).

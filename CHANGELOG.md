@@ -1,14 +1,30 @@
 # Changelog
 
-What changed in VibeSynergy, newest first. Every change that a user or an AI app notices gets
-a line here in the pull request that makes it ([CONTRIBUTING.md](CONTRIBUTING.md#features-and-changelog));
-the complete list of what VibeSynergy does is [docs/FEATURES.md](docs/FEATURES.md).
+What changed in VibeSynergy for you and your AI apps, newest first, in plain language. Each
+version has its own section, `## <version> – <date>`. Every update adds one to the last
+number (`0.1.0-beta.0.1`, `0.1.0-beta.0.2`, …); `1.0.0` is the version out of beta.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
-[PEP 440](https://peps.python.org/pep-0440/) (`0.0.1a1` is 0.0.1 alpha 1). "Unreleased" is what
-`main` has beyond the last version; `vibesynergy update` and **Update now** install `main`.
+A pull request that changes something you or an AI app notice adds a line under
+`## Unreleased`; `vibesynergy update` (and **Update now**) turns those lines into the next
+version on the day it is installed ([CONTRIBUTING.md](CONTRIBUTING.md#versions-and-changelog)).
+The short "What changed" the portal shows after an update is in
+[`src/vibesynergy/releases.py`](src/vibesynergy/releases.py); everything VibeSynergy does is in
+[docs/FEATURES.md](docs/FEATURES.md).
 
 ## Unreleased
+
+## 0.1.0-beta.0.1 – 22-11-2026
+
+- **Version numbers and "What changed"** (#140): VibeSynergy now has a version number,
+  `0.1.0-beta.0.1`, at the bottom of every page, in `vibesynergy --version`, `/version` and
+  the MCP server information. Every update that brings new changes is a new version: the
+  last number goes up by one, with the date of the update. After an update, the first page
+  you open shows once a card "What changed in version …"; after that you find every
+  version's changes under Waiting for you → Notices (no push, no mail). AI coaches and AI
+  apps find what changed for them in `vibesynergy_coach_handbook` (`what_changed`) and in
+  the MCP server information. The package version in `pyproject.toml` is `0.1.0b0`.
+
+The first version with a number also brings everything since 0.0.1a1:
 
 ### Added
 - **Workout values from the method, not the code** (#142): every coaching value of the
@@ -656,7 +672,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   that is not in the plan is simply listed as not in the plan
   ([#31](https://github.com/rvartanov/vibesynergy/issues/31)).
 
-## 0.0.1a1 — 2026-11-11
+## 0.0.1a1 – 11-11-2026
 
 The first public alpha.
 

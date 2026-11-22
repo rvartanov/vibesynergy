@@ -159,11 +159,13 @@ How to use it well:
 
 
 def build_server(rt: Runtime) -> MCPServer:
+    from vibesynergy.query import release_news
+
     server = MCPServer(
         name="vibesynergy",
         title="VibeSynergy",
         description="Personal health and training data: sleep, recovery, body, activities.",
-        instructions=GUIDE,
+        instructions=f"{GUIDE}\n{release_news.for_ai_text()}\n",
         version=__version__,
     )
     engine, settings = rt.engine, rt.settings
