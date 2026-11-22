@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.5 – 22-11-2026
+
 - **Links open on your own domain** (#117): login and reset links, mails, notices, push and
   the links your AI apps get now always use VibeSynergy's own address (the first domain under
   Settings → System → Portal domains, or `canonical_url`), also when you asked for them on the
