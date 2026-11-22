@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.2 – 22-11-2026
+
 - **Races and events, added, changed and deleted by you and your AI apps** (#91): on
   Planning & progress a "Races and events" card lists your races and your other events (a
   group training, a training camp, a holiday, a time you are not available), with an "Add
