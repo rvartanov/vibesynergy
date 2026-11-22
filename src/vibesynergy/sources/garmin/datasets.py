@@ -249,7 +249,7 @@ DATASETS: list[GarminDataset] = [
             "activities",
             ENTITY,
             "Activities: summary, laps/splits, HR and power time in zone, weather, gear, "
-            "exercise sets",
+            "exercise sets, workout steps, rounds",
             initial_days=7,
             refetch_days=2,
         )
@@ -446,15 +446,16 @@ DATASETS: list[GarminDataset] = [
     _snapshot("workouts", "Workout library", lambda api: _pages(api.get_workouts)),
     _snapshot("training_plans", "Training plans", lambda api: api.get_training_plans()),
     _snapshot("activity_types", "Activity type catalogue", lambda api: api.get_activity_types()),
-    # garminconnect 0.3.16 has no method for these, so they are not collected: power-duration
-    # curve, acclimation, energy balance, custom foods, activity FIT messages, courses
-    # (details and GPX), Garmin Coach workouts, training-plan workouts, respiration trend,
-    # stats range, HRV trend, VO2max trend, training-load trend. The endpoints that do
-    # exist are the datasets above (`sleep_summary`, `hrv_range`, `max_metrics_range`,
-    # the weekly totals, `device_solar`) plus daily `rhr`. Running-tolerance's weekly
-    # aggregate is already `running_tolerance`. Activity FIT messages would repeat
-    # `activity_files`. Nutrition settings belong with the disabled nutrition datasets
-    # below and are left out.
+    # Not collected yet. garminconnect 0.3.20 has methods for courses, heat and altitude
+    # acclimation, running economy, cycling ability, stamina, power curve, naps, readiness
+    # range, health snapshots and more; they follow as datasets in the later phases of #125.
+    # Still without a method: energy balance, custom foods, activity FIT messages, Garmin
+    # Coach workouts, training-plan workouts, respiration trend, stats range, HRV trend,
+    # VO2max trend, training-load trend. The endpoints that do exist are the datasets above
+    # (`sleep_summary`, `hrv_range`, `max_metrics_range`, the weekly totals, `device_solar`)
+    # plus daily `rhr`. Running-tolerance's weekly aggregate is already `running_tolerance`.
+    # Activity FIT messages would repeat `activity_files`. Nutrition settings belong with the
+    # disabled nutrition datasets below and are left out.
     # Off by default: enable with extra_datasets = [...] under [sources.garmin].
     _daily(
         "nutrition_food_log",

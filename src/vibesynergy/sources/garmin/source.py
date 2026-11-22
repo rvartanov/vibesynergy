@@ -13,6 +13,7 @@ Connect Garmin in the portal under Settings → Sources; OAuth tokens are stored
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import replace
@@ -29,6 +30,14 @@ from vibesynergy.sources.garmin.datasets import BY_NAME, DATASETS, _is_fatal
 # Wellness FIT files for days this far back are complete and are not downloaded again.
 _WELLNESS_SETTLED_DAYS = 3
 _LOGIN_RETRY_SECONDS = 15 * 60
+# Sports whose activities can have rounds (HIIT, boxing and similar interval classes).
+_ROUNDS_SPORTS = ("hiit", "boxing", "martial", "cardio")
+# Summary fields that change when an activity is edited, cut or merged on Garmin Connect.
+_ACTIVITY_SHAPE = ("elapsedDuration", "distance", "lapCount", "workoutId", "startTimeGMT")
+# garminconnect's error for a final HTTP answer ("API Error 500 - …"; Garmin answers 500
+# for an activity without that part): asking again gives the same answer. Gateway errors
+# (502-504), timeouts and lost connections are asked again at the next sync.
+_API_ANSWER = re.compile(r"API Error (?:4\d\d|500)\b")
 
 
 class GarminSource(Source):
@@ -201,6 +210,18 @@ class GarminSource(Source):
             calls["exercise_sets"] = lambda: api.get_activity_exercise_sets(activity_id)
         details: dict[str, Any] = {}
         errors: dict[str, str] = {}
+        # Workout steps and rounds do not change once the activity is saved: they are asked
+        # once per new or changed activity and copied from the archived version otherwise.
+        once: dict[str, Callable[[], Any]] = {}
+        if summary.get("workoutId"):  # a structured workout; others answer HTTP 500
+            once["workout_steps"] = lambda: api.get_activity_step_details(activity_id)
+        if any(word in type_key for word in _ROUNDS_SPORTS):
+            once["rounds"] = lambda: api.get_activity_rounds(activity_id)
+        if once:
+            kept, kept_errors = self._archived_parts(activity_id, summary, once)
+            details.update(kept)
+            errors.update(kept_errors)
+            calls.update({k: v for k, v in once.items() if k not in kept and k not in kept_errors})
         for key, call in calls.items():
             try:
                 details[key] = call()
@@ -211,6 +232,35 @@ class GarminSource(Source):
         if errors:
             details["errors"] = errors  # e.g. no weather for indoor rides
         return details
+
+    def _archived_parts(
+        self, activity_id: str, summary: dict, parts: Mapping[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        """Parts of ``parts`` the archived version of this activity already has, with the
+        errors Garmin answered for them. Nothing when the activity is new or its summary
+        changed shape (length, distance, laps, workout). A failed request that never got
+        an answer (timeout, connection) is asked again."""
+        raw = self.ctx.raw
+        raw_id = raw.current_id(self.id, "activities", activity_id) if raw else None
+        if raw is None or raw_id is None:
+            return {}, {}
+        try:
+            stored = raw.load(raw_id).json()
+        except (ValueError, OSError):
+            return {}, {}
+        if not isinstance(stored, dict):
+            return {}, {}
+        before = stored.get("summary") or {}
+        if any(before.get(k) != summary.get(k) for k in _ACTIVITY_SHAPE):
+            return {}, {}
+        stored_errors = stored.get("errors") or {}
+        kept = {k: stored[k] for k in parts if k in stored}
+        answered = {
+            k: str(stored_errors[k])
+            for k in parts
+            if k not in kept and _API_ANSWER.search(str(stored_errors.get(k) or ""))
+        }
+        return kept, answered
 
     def _activity_files(self, window: Window) -> Iterator[FetchedItem]:
         from garminconnect import Garmin

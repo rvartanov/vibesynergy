@@ -593,7 +593,7 @@ RAW_DATASETS = (
     "device_solar",
 )
 
-# Present in garminconnect 0.3.16 and collected raw, with no mapper.
+# Present in the pinned garminconnect and collected raw, with no mapper.
 _PINNED_METHODS = {
     "rhr": "get_rhr_day",
     "sleep_summary": "get_sleep_daily",
@@ -605,7 +605,7 @@ _PINNED_METHODS = {
     "device_solar": "get_device_solar_data",
 }
 
-# Checked against garminconnect 0.3.16. Names that are not methods on that pin.
+# Checked against garminconnect 0.3.20. Names that are not methods on that pin.
 _ABSENT_IN_PINNED_CLIENT = (
     "get_power_duration_curve",
     "get_acclimation",
@@ -614,7 +614,6 @@ _ABSENT_IN_PINNED_CLIENT = (
     "get_custom_food",
     "get_activity_fit_messages",
     "get_activity_fit_data",
-    "get_courses",
     "get_course_details",
     "download_course_gpx",
     "get_garmin_coach_workouts",
@@ -789,3 +788,93 @@ def test_a_rate_limit_stops_the_whole_garmin_sync_for_an_hour(garmin) -> None:
     assert results[0].stop_source
     wait = results[0].retry_at - utc_now()
     assert timedelta(minutes=50) < wait <= timedelta(hours=1)
+
+
+def _structured_run(**changes) -> dict:
+    return {
+        **activity_summary(),
+        "activityType": {"typeKey": "running", "typeId": 1},
+        "workoutId": 4242,
+        **changes,
+    }
+
+
+def test_workout_steps_are_fetched_once_per_activity(garmin) -> None:
+    """Steps of a structured workout are asked once; later syncs copy them from the archive
+    until the activity itself changes (#125)."""
+    from vibesynergy.derive import unify
+    from vibesynergy.query import views
+
+    rt, fake = garmin
+    summary = _structured_run()
+    fake.get_activities_by_date = lambda *_args: [summary]
+    asked: list[str] = []
+
+    def steps(activity_id):
+        asked.append(activity_id)
+        return {"activityId": activity_id, "stepDTOs": [
+            {"stepIndex": 0, "intensityType": "WARMUP", "duration": 600.0},
+            {"stepIndex": 1, "intensityType": "INTERVAL", "duration": 240.0},
+        ]}  # fmt: skip
+
+    fake.get_activity_step_details = steps
+    first = rt.sync.sync("garmin", ["activities"], Window(DAY, DAY))[0]
+    assert first.error is None and asked == [str(ACTIVITY_ID)]
+    second = rt.sync.sync("garmin", ["activities"], Window(DAY, DAY))[0]
+    assert second.error is None and second.new_versions == 0 and len(asked) == 1
+    act = _rows(rt, activity)[0]
+    assert [s["intensityType"] for s in act["extra"]["workout_steps"]] == ["WARMUP", "INTERVAL"]
+    assert "rounds" not in act["extra"]  # a run has no rounds; they were not asked for
+
+    unify.rebuild(rt.engine)
+    detail = views.activity_detail(rt.engine, rt.parquet, f"garmin:{ACTIVITY_ID}")
+    assert [s["stepIndex"] for s in detail["workout_steps"]] == [0, 1]
+    assert detail["rounds"] == [] and detail["laps"]
+
+    summary["elapsedDuration"] = 3000.0  # cut on Garmin Connect: asked again
+    rt.sync.sync("garmin", ["activities"], Window(DAY, DAY))
+    assert len(asked) == 2
+
+
+def test_a_failing_step_call_stays_inside_the_activity(garmin) -> None:
+    """Garmin answers HTTP 500 for an activity without steps: recorded, not asked again.
+    A timeout is asked again at the next sync. Neither drops the activity."""
+    from garminconnect import GarminConnectConnectionError
+
+    rt, fake = garmin
+    summary = _structured_run(activityType={"typeKey": "hiit", "typeId": 9})
+    fake.get_activities_by_date = lambda *_args: [summary]
+    asked: list[str] = []
+
+    def no_steps(activity_id):
+        asked.append("steps")
+        raise GarminConnectConnectionError("API Error 500 - Internal Server Error")
+
+    def rounds_timeout(activity_id):
+        asked.append("rounds")
+        raise GarminConnectConnectionError("Connection error: timed out")
+
+    fake.get_activity_step_details = no_steps
+    fake.get_activity_rounds = rounds_timeout
+    for _ in range(2):
+        result = rt.sync.sync("garmin", ["activities"], Window(DAY, DAY))[0]
+        assert result.error is None and result.normalise_errors == 0
+    assert asked == ["steps", "rounds", "rounds"]
+    act = _rows(rt, activity)[0]
+    errors = act["extra"]["detail_errors"]
+    assert errors["workout_steps"].startswith("GarminConnectConnectionError: API Error 500")
+    assert "timed out" in errors["rounds"] and act["distance_m"] == 30000
+
+
+def test_a_rate_limit_on_steps_stops_the_dataset(garmin) -> None:
+    from garminconnect import GarminConnectTooManyRequestsError
+
+    rt, fake = garmin
+    fake.get_activities_by_date = lambda *_args: [_structured_run()]
+
+    def limited(_activity_id):
+        raise GarminConnectTooManyRequestsError("slow down")
+
+    fake.get_activity_step_details = limited
+    result = rt.sync.sync("garmin", ["activities"], Window(DAY, DAY))[0]
+    assert result.error and result.stop_source

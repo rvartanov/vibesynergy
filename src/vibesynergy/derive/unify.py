@@ -51,6 +51,15 @@ DEFAULT_BEST_SOURCE: dict[str, list[str]] = {
     "body.": ["withings", "garmin", "garmin_export"],
     "bp.": ["withings", "garmin", "garmin_export"],
     "sleep.": ["garmin", "garmin_export", "withings"],
+    # Garmin's own models: no other source computes these.
+    "training.": ["garmin"],
+    "recovery.readiness.": ["garmin"],
+    "recovery.recovery_time": ["garmin"],
+    "fitness.acclimation.": ["garmin"],
+    "fitness.endurance_score": ["garmin"],
+    "fitness.hill_score": ["garmin"],
+    "fitness.lactate_threshold.": ["garmin"],
+    "fitness.cycling_ftp": ["garmin"],
 }
 
 START_TOLERANCE = timedelta(minutes=2)

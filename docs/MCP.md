@@ -592,14 +592,20 @@ hr.*         resting, min, max, avg (intraday: hr.sample)
 hrv.*        night_avg, status, baseline_low|high, weekly_avg (intraday: hrv.reading)
 sleep.*      score, duration, deep, light, rem, awake, efficiency, onset, wake, latency,
              regularity, avg_hr, avg_hrv, avg_respiration, spo2_avg, restless_moments
-recovery.*   readiness, body_battery.max|min|charged|drained, stress.avg|rest|high_minutes
-resp.*       waking_avg, sleep_avg          spo2.* avg, min
+recovery.*   readiness, readiness.morning, readiness.sleep|sleep_history|recovery_time|hrv|
+             acute_load|stress_history (Garmin's readiness factors, %), recovery_time,
+             body_battery.max|min|charged|drained, stress.avg|rest|high_minutes
+resp.*       waking_avg, sleep_avg, min, max          spo2.* avg, min
 body.*       weight, fat_pct, fat_mass, muscle_mass, lean_mass, bone_mass, water_pct,
              visceral_fat, bmi, pwv, vascular_age, nerve_health
 bp.*         systolic, diastolic, pulse
-fitness.*    vo2max.run|ride, fitness_age, endurance_score, hill_score, lthr, lt_pace, ftp,
+fitness.*    vo2max.run|ride, fitness_age, endurance_score, hill_score, hill_score.endurance|
+             strength, lactate_threshold.hr|pace|power, cycling_ftp, acclimation.heat|altitude,
              race_pred.5k|10k|half|marathon
-load.*       ctl, atl, tsb, acwr, weekly_tss, training_status, load_balance.*
+training.*   Garmin's own load model: load.acute|chronic|ratio,
+             load_balance.aerobic_low|aerobic_high|anaerobic, running_tolerance,
+             running_impact_load (weekly, dated to the week's first day)
+load.*       ctl, atl, tsb, acwr, weekly_tss (VibeSynergy's own model)
 ```
 
 Unknown metric IDs return an error listing the closest matches.
@@ -834,7 +840,11 @@ One activity in depth.
   date); detected intervals; derived metrics (NP, IF, TSS, VI, EF, Pa:HR decoupling, TRIMP,
   aerobic/anaerobic effect, W′ balance minimum); weather; gear; sources and which one each
   value came from; `portal_url` to the map and charts. `map` returns an encoded polyline
-  (simplified) plus start/end place names, not raw coordinates.
+  (simplified) plus start/end place names, not raw coordinates. `workout_steps`: for a
+  Garmin structured workout, what was done per step (Garmin's step fields: intensity,
+  duration, distance, heart rate, power, speed; a nested list becomes `<name>_count`), and
+  each lap names its step in `extra.wktStepIndex`. `rounds`: the rounds of a HIIT, boxing or
+  cardio class. Both are `[]` when Garmin has none.
 
 #### `vibesynergy_activity_streams`
 Per-second data, sized for context.

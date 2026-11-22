@@ -85,6 +85,26 @@ ITEMS: tuple[Item, ...] = (
         "vibesynergy_races. Each write needs a reason. The athlete's own agent writes at "
         "once; an AI coach's own race change is a proposal unless it has his approval_id.",
     ),
+    Item(
+        "125-garmin-data",
+        "you",
+        "More Garmin data is now kept as measurements: morning readiness and what makes it up, "
+        "Garmin's acute and chronic load and load focus, heat and altitude acclimation, endurance "
+        "and hill score, running tolerance, lactate threshold and cycling FTP. New days fill in "
+        "with every sync.",
+    ),
+    Item(
+        "125-ai-garmin-data",
+        "ai",
+        "New Garmin metric ids in vibesynergy_catalog, vibesynergy_series and "
+        "vibesynergy_day: recovery.readiness.morning and its factors "
+        "(recovery.readiness.sleep, .hrv, .acute_load, …), recovery.recovery_time, "
+        "training.load.acute/chronic/ratio, training.load_balance.*, "
+        "training.running_tolerance, fitness.acclimation.*, fitness.endurance_score, "
+        "fitness.hill_score.*, fitness.lactate_threshold.* and fitness.cycling_ftp. "
+        "vibesynergy_activity has workout_steps and rounds for Garmin structured workouts "
+        "and HIIT; each lap names its step in extra.wktStepIndex.",
+    ),
 )
 
 VERSION = RELEASES[0].version
