@@ -24,16 +24,20 @@ CLOSER = "[ http://vibesynergy.nl/ */]"
 class FakeIcu:
     """intervals.icu: one activity found in the live list, GET and description PUT."""
 
-    def __init__(self, description=OWN_TEXT, *, listed=True, source="GARMIN_CONNECT"):
+    def __init__(self, description=OWN_TEXT, *, listed=True, source="GARMIN_CONNECT", strava=None):
+        """``strava``: the FakeStrava this activity is linked to. intervals.icu passes a
+        description change on to a linked Strava activity, as it did on 22 Nov (#160)."""
         self.record = {"id": "i9", "description": description, "source": source}
+        self.record["strava_id"] = "2" if strava is not None else None
+        self.strava = strava
         self.listed = listed
         self.writes: list[str] = []
 
     def activities(self, oldest, newest):
         if not self.listed:
             return []
-        return [{"id": "i9", "external_id": "1", "strava_id": "2", "source": self.record["source"],
-                 "start_date": START.isoformat()}]  # fmt: skip
+        return [{"id": "i9", "external_id": "1", "strava_id": self.record["strava_id"],
+                 "source": self.record["source"], "start_date": START.isoformat()}]  # fmt: skip
 
     def get_activity(self, activity_id):
         assert activity_id == "i9"
@@ -43,6 +47,8 @@ class FakeIcu:
         assert activity_id == "i9"
         self.writes.append(description)
         self.record["description"] = description
+        if self.strava is not None:
+            self.strava.text = description  # passed on to the linked Strava activity
         return dict(self.record)
 
 
@@ -270,3 +276,88 @@ def test_setting_is_saved(runtime):
         config_edit.apply_changes(
             runtime.settings.config_path, {"publication": {"icu_description_enabled": "yes"}}
         )
+
+
+# --- An intervals.icu activity linked to Strava passes its description on (#160) ----------------
+
+
+@pytest.fixture
+def linked(runtime, both, monkeypatch):
+    """Strava without text of its own yet; intervals.icu linked to it, with only the block
+    of the first publication later (it never sees the text typed on Strava afterwards)."""
+    strava, garmin = both
+    strava.text = ""
+    monkeypatch.setenv(API_KEY_ENV, "secret-key")
+    monkeypatch.setenv(ATHLETE_ID_ENV, "i000001")
+    fake = FakeIcu("", strava=strava)
+    monkeypatch.setattr(publication_icu, "_client", lambda client=None: client or fake)
+    return strava, garmin, fake
+
+
+@pytest.mark.parametrize("icu_on", [True, False])
+def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime, linked, icu_on):
+    """22 Nov: block published, the athlete typed his text on Strava, the insight update
+    went to Strava with the text and then to intervals.icu without it, which wrote that
+    copy back to Strava. The text must survive on Strava, intervals.icu and Garmin."""
+    strava, garmin, icu = linked
+    switch_on(runtime, language="nl", icu_description_enabled=icu_on)
+    assert publication_auto.run(runtime, now=NOW)["published"] == 1
+    first_block = strava.text
+    assert first_block.startswith(DEFAULT_OPENER)
+    mine = "Toch nog een beetje trail… \nPrachtig weer en lekker gelopen."
+    strava.text = f"{mine}\n\n{first_block}"  # typed on Strava, after the first publish
+    write(runtime, "a", activity_id="garmin:1", public_insight=PUBLIC)
+    summary = publication_auto.run(runtime, now=NOW + timedelta(minutes=15))
+    assert summary["insight_updated"] == 1 and summary["review"] == 0
+    assert strava.text.startswith(f"{mine}\n\n{DEFAULT_OPENER}")
+    assert PUBLIC in strava.text and strava.text.count(CLOSER) == 1
+    assert garmin.text == strava.text
+    if icu_on:
+        assert icu.record["description"] == strava.text
+        assert audits(runtime, "publication.icu")[-1]["detail"]["linked"] is True
+        assert mine not in str(audits(runtime, "publication.icu")[-1]["detail"])
+    else:
+        assert icu.writes == []
+    # Later runs change nothing anywhere.
+    writes = (len(strava.writes), len(garmin.writes), len(icu.writes))
+    publication_auto.run(runtime, now=NOW + timedelta(minutes=20))
+    assert (len(strava.writes), len(garmin.writes), len(icu.writes)) == writes
+
+
+def test_linked_intervals_icu_with_text_of_its_own_is_left_for_review(runtime, linked):
+    strava, _, icu = linked
+    strava.text = "Strava words"
+    icu.record["description"] = "Words typed in intervals.icu"
+    switch_on(runtime, language="nl")
+    summary = publication_auto.run(runtime, now=NOW)
+    assert summary["published"] == 1
+    assert icu.writes == [] and icu.record["description"] == "Words typed in intervals.icu"
+    assert strava.text.startswith("Strava words\n\n")  # never overwritten from intervals.icu
+    assert publication_auto.attempts(runtime)["icu:2"]["state"] == "needs_review"
+    assert any(a["outcome"] == "needs_review" for a in audits(runtime, "publication.icu"))
+
+
+def test_linked_intervals_icu_copy_of_the_strava_text_is_kept_in_step(runtime, linked):
+    strava, _, icu = linked
+    strava.text = "Strava words"
+    icu.record["description"] = "Strava words"  # intervals.icu took it from Strava
+    switch_on(runtime, language="nl")
+    publication_auto.run(runtime, now=NOW)
+    assert icu.writes == [strava.text] and strava.text.startswith("Strava words\n\n")
+    # The athlete changes the Strava text; the next block update carries the new text.
+    strava.text = strava.text.replace("Strava words", "Better words")
+    write(runtime, "a", activity_id="garmin:1", public_insight=PUBLIC)
+    assert publication_auto.run(runtime, now=NOW + timedelta(minutes=15))["insight_updated"] == 1
+    assert strava.text.startswith("Better words\n\n") and PUBLIC in strava.text
+    assert icu.record["description"] == strava.text
+
+
+def test_linked_intervals_icu_is_not_written_when_the_strava_block_changed(runtime, linked):
+    strava, _, icu = linked
+    switch_on(runtime, language="nl")
+    publication_auto.run(runtime, now=NOW)
+    writes = len(icu.writes)
+    strava.text = strava.text.replace("RPE", "rpe")  # edited inside the block by hand
+    with pytest.raises(publication_icu.Review):
+        publication_icu.sync(runtime, "garmin:1")
+    assert len(icu.writes) == writes

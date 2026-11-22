@@ -334,7 +334,7 @@ def test_legacy_block_on_strava_is_rewritten_on_mirror_sync(runtime, fakes):
     body = item["owned_block"].split("\n", 1)[1].rsplit("\n", 1)[0]
     legacy_owned = f"{LEGACY_OPENER}\n{body}\n{LEGACY_CLOSER}"
     strava.text = f"Strava words\n\n{legacy_owned}"
-    garmin.text = f"Garmin words\n\n{legacy_owned}"
+    garmin.text = f"Strava words\n\n{legacy_owned}"  # the earlier mirror copy
     with runtime.engine.begin() as conn:
         conn.execute(
             publication_ledger.update()
@@ -372,3 +372,45 @@ def test_republish_after_expiry_starts_a_new_seven_days(runtime, fakes):
     publication_mirror.start(runtime, "strava:2", "nl", now=later)
     assert row(runtime)["state"] == "active"
     assert row(runtime)["first_published_at"] == later
+
+
+def test_text_typed_on_garmin_after_the_mirror_is_never_overwritten(runtime, fakes):
+    """#160: only empty text, the Strava text or the mirror's own earlier copy is replaced."""
+    strava, garmin = fakes
+    item, _ = publish_strava(runtime)
+    owned = item["owned_block"]
+    assert garmin.text == f"Strava words\n\n{owned}"
+    garmin.text = f"Typed on Garmin\n\n{owned}"
+    strava.text = f"New Strava words\n\n{owned}"
+    summary = publication_mirror.run(runtime, now=datetime.now(UTC) + timedelta(minutes=30))
+    assert summary["conflict"] == 1
+    assert garmin.text == f"Typed on Garmin\n\n{owned}" and len(garmin.writes) == 1
+    assert row(runtime)["state"] == "conflict"
+
+
+def test_new_strava_text_replaces_the_mirrors_own_garmin_copy(runtime, fakes):
+    strava, garmin = fakes
+    item, _ = publish_strava(runtime)
+    owned = item["owned_block"]
+    strava.text = f"New Strava words\n\n{owned}"
+    summary = publication_mirror.run(runtime, now=datetime.now(UTC) + timedelta(minutes=30))
+    assert summary["checked"] == 1 and garmin.text == strava.text
+
+
+def test_publish_never_drops_text_outside_the_block(runtime, fakes, monkeypatch):
+    """A composed description that loses the athlete's text is refused before any write."""
+    strava, _ = fakes
+    item, _ = publish_strava(runtime)
+    strava.text = f"Mine\n\n{item['owned_block']}"
+    real = publication.preview
+
+    def losing(*args, **kwargs):
+        out = real(*args, **kwargs)
+        return {**out, "description": out["owned_block"] + "\n", "already_published": False}
+
+    monkeypatch.setattr(publication, "preview", losing)
+    preview = losing(runtime, "strava:2", "strava")
+    writes = len(strava.writes)
+    with pytest.raises(publication.Conflict, match="outside the VibeSynergy section"):
+        publication.publish(runtime, "strava:2", "strava", preview["preview_version"])
+    assert len(strava.writes) == writes and strava.text.startswith("Mine\n\n")

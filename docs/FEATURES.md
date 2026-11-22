@@ -303,7 +303,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   Garmin (Zwift's upload and the watch) takes its figures from one copy. A copy deleted on
   Garmin is marked removed (kept on the workout page, "Garmin-kopie verwijderd op Garmin") and
   the description goes to the copy that is left. When nothing can be published, the workout
-  page still shows your AI coach's insight and says why.
+  page still shows your AI coach's insight and says why. intervals.icu passes its description
+  on to the linked Strava activity, so it gets exactly the Strava text and block; text that
+  differs (yours there, or on Garmin after the first copy) is left for review.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 
