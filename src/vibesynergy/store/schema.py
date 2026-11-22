@@ -1299,7 +1299,9 @@ plan_link = Table(
 # races; ``links`` names their copies there ({"garmin": source_id, "intervals": event id}).
 # Migration 0053 moved the races those calendars held into this table, once. ``origin`` is
 # where a race came from (``vibesynergy``, ``migrated`` or ``import``). A deleted race keeps
-# its row (``deleted_at``), so a delete can be undone.
+# its row (``deleted_at``), so a delete can be undone. Since #91 (migration 0060) it also
+# holds the other events that matter to the plan: ``kind`` is ``race`` or the kind of event
+# (``race_events.EVENT_KINDS``), ``end_date`` the last day of one that lasts longer.
 race = Table(
     "race",
     metadata,
@@ -1307,6 +1309,8 @@ race = Table(
     Column("subject_id", Integer, nullable=False),
     Column("name", String, nullable=False),
     Column("date", Date, nullable=False, index=True),
+    Column("kind", String, nullable=False, server_default="race"),
+    Column("end_date", Date),
     Column("sport", String),
     Column("distance_m", Float),
     Column("priority", String),

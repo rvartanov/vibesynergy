@@ -46,6 +46,9 @@
     "race_phase.js",
     "pages/training.js"
   ],
+  "races": [
+    "race_events.js"
+  ],
   "plan-builder": [
     "plan_builder.js"
   ],

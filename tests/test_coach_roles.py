@@ -194,6 +194,8 @@ def test_every_write_tool_has_a_role_policy(runtime) -> None:
     writes = {name for name, scope in by_scope.items() if scope not in READ_SCOPES}
     assert writes == set(roles.WRITE_POLICY), writes ^ set(roles.WRITE_POLICY)
     plan_tools = {name for name in writes if name.startswith("vibesynergy_plan_")}
+    # Races and events are plan tools too (#91), without the plan_ prefix.
+    plan_tools |= set(plan_proposals.RACE_TOOLS)
     assert plan_tools == set(plan_proposals.PLAN_TOOLS)
 
 

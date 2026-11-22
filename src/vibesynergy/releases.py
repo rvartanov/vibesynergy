@@ -69,6 +69,21 @@ ITEMS: tuple[Item, ...] = (
         "update). What changed for AI apps is in the handbook (what_changed) and in the "
         "server information.",
     ),
+    Item(
+        "91-races",
+        "you",
+        "Add, change or delete your races and other events (a camp, a holiday, a time you "
+        "can't train) on Planning & progress. VibeSynergy keeps them and copies them to "
+        "intervals.icu.",
+    ),
+    Item(
+        "91-ai-races",
+        "ai",
+        "Races and events have their own tools: vibesynergy_race_add, vibesynergy_event_add, "
+        "vibesynergy_race_update, vibesynergy_race_delete, vibesynergy_race_revert and "
+        "vibesynergy_races. Each write needs a reason. The athlete's own agent writes at "
+        "once; an AI coach's own race change is a proposal unless it has his approval_id.",
+    ),
 )
 
 VERSION = RELEASES[0].version

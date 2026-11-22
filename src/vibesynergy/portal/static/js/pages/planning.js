@@ -4,15 +4,17 @@
 // with a link to Fitness → Form for the chart and the projection; the next nine
 // days, the remaining phases and the races with a countdown. The
 // "Training analysis" tab holds the former Training page (load model, volume, zones, power
-// curve). Read-only: the plan changes in intervals.icu or through the coach.
+// curve). The plan changes through the coach; races and events are added, changed and
+// deleted here (race_events.js, #91).
 import { get, url } from "../api.js";
 import { mount, series, token, tooltipBase } from "../charts.js";
 import { addDays, dayMonth, esc, hoursMinutes, isNum, km, longDate, number, shortDate, sportName } from "../format.js";
 import { N, language, t } from "../i18n.js";
 import { workoutHtml } from "../workout_text.js";
-import { formLinkHtml, zoneText } from "../form_block.js";
+import { formLinkHtml } from "../form_block.js";
 import { sportIcon, sportKey } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
+import { mountRaceEvents } from "../race_events.js";
 
 const TABS = [
   ["", N("Plan and progress")],
@@ -68,7 +70,8 @@ export async function render(view, ctx) {
         ${upcomingHtml(plan.upcoming)}
       </div>
       <div class="plan-side">
-        ${racesHtml(d.projection, plan.races || [])}
+        <section class="card plan-race-events" aria-labelledby="plan-races-title" data-race-events>
+          <h2 id="plan-races-title">${t("Races and events")}</h2><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></section>
         ${phasesHtml(plan.phases || [], weeks, d.today)}
       </div>
     </div>`;
@@ -80,6 +83,8 @@ export async function render(view, ctx) {
   view.querySelector("#plan-week-picker")?.addEventListener("change", (event) => go({ week: event.target.value }));
   const trendEl = view.querySelector(".planning-trend");
   if (trendEl) trendChart(trendEl, d.trend.weeks);
+  const raceCard = view.querySelector("[data-race-events]");
+  if (raceCard) await mountRaceEvents(raceCard, { projection: d.projection, stale, readOnly: Boolean(ctx.meta?.data?.share) });
 }
 
 // Build a plan: the settings a new plan is built from.
@@ -308,28 +313,6 @@ function trendChart(el, weeks) {
       },
     ],
   });
-}
-
-// Races with countdown and projected race-day form ----------------------------------------
-
-function racesHtml(projection, races) {
-  const projected = Object.fromEntries((projection?.races || []).map((r) => [`${r.date}|${r.title}`, r]));
-  const rows = races.map((race) => {
-    const days = Number(race.days_away);
-    const countdown = days === 0 ? t("Today") : days === 1 ? t("{n} day to go", { n: number(days) }) : t("{n} days to go", { n: number(days) });
-    const letter = race.priority ? `<span class="chip race plan-priority">${esc(t("{letter} race", { letter: race.priority }))}</span>` : "";
-    const p = projected[`${race.date}|${race.title}`];
-    const form = p && isNum(p.tsb)
-      ? `<div class="sub">${esc(t("Projected race-day form: {zone} (fitness {ctl}, form {tsb})", { zone: zoneText(p.form_zone), ctl: number(p.ctl), tsb: `${p.tsb > 0 ? "+" : ""}${number(p.tsb)}` }))}</div>`
-      : "";
-    return `<li><div class="race-days">${esc(countdown)}</div>
-      <div><b>${esc(race.title || t("Race"))}</b> ${letter}<div class="sub">${esc(longDate(race.date))}</div>${form}</div></li>`;
-  }).join("");
-  const note = rows && projection?.races?.some((r) => isNum(r.tsb))
-    ? `<p class="sub">${esc(t("Race-day form is a projection from the plan as it stands now."))}</p>`
-    : "";
-  return `<section class="card" aria-labelledby="plan-races-title"><h2 id="plan-races-title">${t("Races")}</h2>
-    ${rows ? `<ul class="plan-races">${rows}</ul>${note}` : `<p class="empty">${t("No upcoming races.")}</p>`}</section>`;
 }
 
 // Remaining phases ----------------------------------------------------------------------

@@ -358,7 +358,9 @@ def plan(
     # plan is VibeSynergy's, and what Garmin Coach or the athlete put on the Garmin
     # calendar is no part of it. Only VibeSynergy's own copies fold in (garmin_copies).
     items, _other_events = _fold_events(
-        items, [r for r in own_races if window.start <= r["date"] <= window.end]
+        items,
+        [r for r in own_races if window.start <= r["date"] <= window.end],
+        races.event_rows(engine, window.start, window.end),
     )
     items, _other_workouts = _merge_plan(items, layer, _model_item)
     # A training you give (coaching rules) is no hard session for you, whatever its title
@@ -672,16 +674,20 @@ def _merge_plan(
 NO_PLAN: dict[str, Any] = {"workouts": [], "notes": [], "targets": [], "plan_start": None}
 
 
-def _fold_events(items: list[dict], own_races: list[dict]) -> tuple[list[dict], list[dict]]:
-    """VibeSynergy's races join the calendar; Garmin events are copies at most.
+def _fold_events(
+    items: list[dict], own_races: list[dict], own_events: list[dict] | None = None
+) -> tuple[list[dict], list[dict]]:
+    """VibeSynergy's races and events join the calendar; Garmin events are copies at most.
 
-    A Garmin event linked to a race, or on the day of one, folds into that race as
-    ``extra.garmin``. Any other Garmin event is not in the plan and never read as a race.
-    Returns the calendar rows and those other events, which ``plan`` does not show (#153).
+    A Garmin event linked to a race or event (``links``, the dedupe of #91), or on the day
+    of a race, folds into it as ``extra.garmin``. Any other Garmin event is not in the plan
+    and never read as a race. Returns the calendar rows and those other events, which
+    ``plan`` does not show (#153).
     """
+    own_events = own_events or []
     by_link = {
         str((r["extra"].get("links") or {}).get("garmin")): r
-        for r in own_races
+        for r in [*own_races, *own_events]
         if (r["extra"].get("links") or {}).get("garmin")
     }
     by_day: dict[date, list[dict]] = defaultdict(list)
@@ -702,7 +708,7 @@ def _fold_events(items: list[dict], own_races: list[dict]) -> tuple[list[dict], 
         item["in_plan"] = False
         item["plan_source"] = item["source"]
         outside.append(item)
-    added = [{**r, "extra": dict(r["extra"])} for r in own_races]
+    added = [{**r, "extra": dict(r["extra"])} for r in [*own_races, *own_events]]
     return sorted(kept + added, key=lambda i: (_as_day(i["date"]), i["kind"])), outside
 
 

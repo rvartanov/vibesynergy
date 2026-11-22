@@ -403,6 +403,76 @@ def planning(r: Rec):
     r.wait(1.0)
 
 
+@scenario("races", "Wedstrijden en evenementen", "Races and events")
+def races(r: Rec):
+    # The race and camp added here are taken out again, so other videos don't show them.
+    _demo("demo_races.py", "clear")
+    try:
+        _races(r)
+    finally:
+        _demo("demo_races.py", "clear")
+
+
+def _races(r: Rec):
+    r.go("planning")
+    box = r.pg.locator("[data-race-events]")
+    r.point(box.get_by_role("heading", name="Wedstrijden en evenementen"))
+    r.say(
+        "Op Planning & voortgang staan je wedstrijden en andere evenementen.",
+        "Planning & progress lists your races and other events.",
+    )
+    r.click(box.get_by_role("button", name="Wedstrijd of evenement toevoegen"))
+    r.type(box.locator("#race-name"), "Zevenheuvelenloop")
+    box.locator("#race-date").fill("2027-11-21")
+    r.point(box.locator("#race-date"))
+    r.select(box.locator("#race-sport"), "Hardlopen")
+    r.type(box.locator("#race-distance_km"), "15")
+    r.select(box.locator("#race-priority"), "B")
+    r.say(
+        "Voeg een wedstrijd toe: naam, datum, sport, afstand en prioriteit.",
+        "Add a race: name, date, sport, distance and priority.",
+    )
+    r.click(box.get_by_role("button", name="Opslaan"))
+    r.check("Opgeslagen" in r.text("[data-race-status]"), "the race should be saved")
+    r.say(
+        "Opgeslagen. VibeSynergy zet hem ook in intervals.icu; twee keer dezelfde kan niet.",
+        "Saved. VibeSynergy copies it to intervals.icu; the same race twice is refused.",
+        2.8,
+    )
+    r.click(box.get_by_role("button", name="Zevenheuvelenloop bewerken"))
+    r.select(box.locator("#race-priority"), "A")
+    r.click(box.get_by_role("button", name="Opslaan"))
+    r.say(
+        "Met Bewerken pas je hem aan, bijvoorbeeld naar een A-wedstrijd.",
+        "Edit changes it, for example to an A race.",
+    )
+    r.click(box.get_by_role("button", name="Wedstrijd of evenement toevoegen"))
+    r.select(box.locator("#race-kind"), "Trainingskamp")
+    r.type(box.locator("#race-name"), "Trainingskamp Mallorca")
+    box.locator("#race-date").fill("2027-03-06")
+    box.locator("#race-end_date").fill("2027-03-13")
+    r.point(box.locator("#race-end_date"))
+    r.say(
+        "Ook een trainingskamp, vakantie of tijd dat je niet kunt trainen, over meer dagen.",
+        "Also a training camp, a holiday or a time you can't train, over several days.",
+    )
+    r.click(box.get_by_role("button", name="Opslaan"))
+    r.click(box.get_by_role("button", name="Trainingskamp Mallorca bewerken"))
+    r.click(box.get_by_role("button", name="Verwijderen"))
+    r.check("Verwijderd" in r.text("[data-race-status]"), "the camp should be deleted")
+    r.say(
+        "Verwijderd? Met Ongedaan maken staat hij er meteen weer.",
+        "Deleted? Undo brings it straight back.",
+    )
+    r.click(box.get_by_role("button", name="Ongedaan maken"))
+    r.check("is terug" in r.text("[data-race-status]"), "undo should bring the camp back")
+    r.say(
+        "Je AI-coach kan dit ook; een wijziging op eigen initiatief vraagt eerst jouw akkoord.",
+        "Your AI coach can do this too; a change on its own initiative asks you first.",
+        2.8,
+    )
+
+
 @scenario("plan-builder", "Een trainingsplan bouwen", "Building a training plan")
 def plan_builder(r: Rec):
     r.go("planning/builder")

@@ -179,6 +179,20 @@ Details: [SOURCES.md](SOURCES.md).
   `vibesynergy_race_set_priority`); the next A race is the primary race and sets the taper.
   Garmin and intervals.icu events are no races; the races they held moved into VibeSynergy
   once, and `vibesynergy plan import-races` copies new ones on request.
+- **Races and events, added, changed and deleted** (#91): Planning & progress → "Races and
+  events" lists your races (countdown, priority, projected race-day form) and your other
+  events (group training, training camp, holiday, not available, other, over one or more
+  days), with an "Add race or event" form and Edit and Delete per row; a delete can be undone
+  at once. AI apps use `vibesynergy_race_add`, `vibesynergy_event_add`,
+  `vibesynergy_race_update`, `vibesynergy_race_delete`, `vibesynergy_race_revert` and
+  `vibesynergy_races`, each write with a reason and undoable. One check for both (name, date,
+  sport, distance, priority, start time, place, link, goal time, notes), and no doubles: one
+  that is already there (same date, name and sport) is refused, and one that also comes from
+  Garmin or intervals.icu becomes its linked copy and shows once. VibeSynergy keeps them;
+  intervals.icu gets a copy (A/B/C race, or a note) that a change there never overwrites,
+  and Garmin is only read. Your own request through your agent is carried out at once; the
+  AI coach's own race change waits for your yes under Waiting for you. The events are on the
+  calendar and in the AI coach's state.
 - **Workout library from the method**: run, ride, swim and strength templates whose every
   coaching value (cadence band, cues, % FTP and zones, warm-up and cool-down minutes,
   distances, exercises, names) is the knowledge-base article `workout-method` (Coach →

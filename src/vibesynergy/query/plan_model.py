@@ -354,13 +354,11 @@ def summary(engine: Engine, plan_id: str | None = None) -> dict[str, Any] | None
         }
 
 
-def shadow_refresh(engine: Engine) -> dict[str, Any] | None:
+def shadow_refresh(engine: Engine, settings: Any = None) -> dict[str, Any] | None:
     """After a sync: copy the plan to intervals.icu again (it never reads the plan from
     there, #111). Never breaks the sync."""
     try:
-        if not current_plan_id(engine):
-            return None  # no plan yet: nothing to copy
-        return run_mirror(engine)
+        return run_mirror(engine, settings)
     except Exception:  # the mirror must not stop the sync
         log.warning("plan mirror after sync failed", exc_info=True)
         return None
@@ -369,16 +367,33 @@ def shadow_refresh(engine: Engine) -> dict[str, Any] | None:
 MIRROR_JOB = "plan_mirror"
 
 
-def run_mirror(engine: Engine) -> dict[str, Any] | None:
-    """Mirror the current plan to intervals.icu now, if VibeSynergy leads."""
-    plan_id = current_plan_id(engine)
-    if not plan_id or source(engine, plan_id) != "vibesynergy":
-        return None
+def run_mirror(engine: Engine, settings: Any = None) -> dict[str, Any] | None:
+    """Mirror the current plan, and the races and events (``race_mirror``, #91), to
+    intervals.icu now. Races are copied with or without a plan; nothing happens while
+    intervals.icu is not set up."""
+    from vibesynergy.sources.intervals_icu import credentials
     from vibesynergy.sources.intervals_icu.client import IntervalsIcuClient
 
-    out = mirror(engine, IntervalsIcuClient.from_env(), plan_id=plan_id)
-    if out["drift"]:
-        log.warning("plan: changed in intervals.icu, put back: %s", out["drift"])
+    plan_id = current_plan_id(engine)
+    out: dict[str, Any] | None = None
+    if plan_id and source(engine, plan_id) == "vibesynergy":
+        out = mirror(engine, IntervalsIcuClient.from_env(), plan_id=plan_id)
+        if out["drift"]:
+            log.warning("plan: changed in intervals.icu, put back: %s", out["drift"])
+    if credentials.load() is None:
+        return out
+    from vibesynergy import i18n
+    from vibesynergy.core.timeutil import today_in
+    from vibesynergy.query import race_mirror
+
+    tr = i18n.for_settings(settings) if settings is not None else i18n.ENGLISH
+    day = today_in(settings.timezone) if settings is not None else None
+    copied = race_mirror.mirror(engine, IntervalsIcuClient.from_env(), today=day, tr=tr)
+    if copied["errors"]:
+        log.warning("race mirror: %s", copied["errors"])
+    if out is None:
+        return {"races": copied, "drift": []}
+    out["races"] = copied
     return out
 
 

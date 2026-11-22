@@ -13,6 +13,19 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Races and events, added, changed and deleted by you and your AI apps** (#91): on
+  Planning & progress a "Races and events" card lists your races and your other events (a
+  group training, a training camp, a holiday, a time you are not available), with an "Add
+  race or event" form and Edit and Delete per row; a delete can be undone right away. AI
+  apps have `vibesynergy_race_add`, `vibesynergy_event_add`, `vibesynergy_race_update`,
+  `vibesynergy_race_delete`, `vibesynergy_race_revert` and `vibesynergy_races`, each with a
+  required reason. VibeSynergy keeps them and copies them to intervals.icu (a race as an
+  A, B or C race, the rest as a note); a change made in intervals.icu does not change them,
+  and Garmin is only read. A race that is already there (same date, name and sport) is not
+  added twice, and one that also comes from Garmin or intervals.icu shows once. Your own
+  request through your agent is carried out at once; an AI coach that changes a race on its
+  own initiative asks you first under Waiting for you.
+
 ## 0.1.0-beta.0.1 – 22-11-2026
 
 - **Version numbers and "What changed"** (#140): VibeSynergy now has a version number,

@@ -184,6 +184,8 @@ def origin(tmp_path) -> tuple[Path, Path]:
 
 def test_update_makes_one_release_of_several_pull_requests(origin) -> None:
     bare, work = origin
+    # Items this branch adds itself (not released yet) come first.
+    pending = releases.unreleased()
     _add_item(work, "141-plan", "Plan item.", "Plan line (#141).")
     _add_item(work, "142-sleep", "Sleep item.", "Sleep line (#142).")
     said: list[str] = []
@@ -193,7 +195,7 @@ def test_update_makes_one_release_of_several_pull_requests(origin) -> None:
         "to": releases.next_version(releases.VERSION),
         "version": releases.next_version(releases.VERSION),
         "new": True,
-        "items": ["Plan item.", "Sleep item."],
+        "items": [*(i.text for i in pending), "Plan item.", "Sleep item."],
     }
     new = made["to"]
     assert said == []
@@ -201,7 +203,8 @@ def test_update_makes_one_release_of_several_pull_requests(origin) -> None:
     assert _git(work, "log", "-1", "--format=%s").strip() == f"Release {new}"
     assert f"v{new}" in _git(work, "tag", "--points-at", "HEAD")
     module = cut_release.load(work / cut_release.RELEASES_PY)
-    assert new == module.VERSION and module.RELEASES[0].items == ("141-plan", "142-sleep")
+    assert new == module.VERSION
+    assert module.RELEASES[0].items == (*(i.id for i in pending), "141-plan", "142-sleep")
     assert module.RELEASES[0].day == date(2026, 11, 23) and not module.unreleased()
     log = (work / "CHANGELOG.md").read_text()
     head = f"## Unreleased\n\n## {new} – 23-11-2026\n\n- Sleep line (#142).\n- Plan line (#141).\n"

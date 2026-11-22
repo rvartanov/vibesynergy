@@ -75,7 +75,7 @@ class Runtime:
         journal.import_activity_notes(self.engine)
         from vibesynergy.query import plan_model
 
-        plan_model.shadow_refresh(self.engine)
+        plan_model.shadow_refresh(self.engine, self.settings)
         from vibesynergy.query import agent_events
 
         agent_events.after_derive(self)
@@ -107,7 +107,9 @@ class Runtime:
         handlers["dropfolder"] = lambda _job: dropfolder.scan(self)
         from vibesynergy.query import plan_model
 
-        handlers[plan_model.MIRROR_JOB] = lambda _job: plan_model.run_mirror(self.engine)
+        handlers[plan_model.MIRROR_JOB] = lambda _job: plan_model.run_mirror(
+            self.engine, self.settings
+        )
         handlers[coach_schedule.SCHEDULE_JOB] = lambda _job: coach_schedule.enqueue_due(self)
         from vibesynergy.coach_runner import contact as coach_contact
 

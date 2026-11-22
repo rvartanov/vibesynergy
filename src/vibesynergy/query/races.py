@@ -17,7 +17,7 @@ The rows have the shape of a ``planned_item`` event (``source`` ``vibesynergy``,
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import Engine, insert, select, update
@@ -27,6 +27,7 @@ from vibesynergy.store.schema import icu_event, planned_item, race, race_priorit
 
 SOURCE = "vibesynergy"
 SUBJECT = 1
+RACE = "race"  # ``race.kind`` of a race; the other kinds are events (``race_events``)
 PRIORITIES = frozenset({"A", "B", "C"})
 SPORTS = ("run", "ride", "swim", "triathlon", "duathlon", "trail", "other")
 ICU_PRIORITY = {"RACE_A": "A", "RACE_B": "B", "RACE_C": "C"}
@@ -132,7 +133,9 @@ def rows(
         found = [
             dict(r)
             for r in conn.execute(
-                select(race).where(race.c.deleted_at.is_(None)).order_by(race.c.date, race.c.id)
+                select(race)
+                .where(race.c.deleted_at.is_(None), race.c.kind == RACE)
+                .order_by(race.c.date, race.c.id)
             ).mappings()
         ]
     lead = primary_id(found, today)
@@ -143,10 +146,45 @@ def rows(
     ]
 
 
+def event_rows(
+    engine: Engine, since: date | None = None, until: date | None = None
+) -> list[dict[str, Any]]:
+    """VibeSynergy's other events (#91: a group training, a camp, a holiday, a time you are
+    not available) that touch ``since`` to ``until``, as calendar rows (``is_race`` false).
+    A multi-day event carries ``extra.end`` (the day after its last day) and ``all_day``."""
+    with engine.connect() as conn:
+        found = [
+            dict(r)
+            for r in conn.execute(
+                select(race)
+                .where(race.c.deleted_at.is_(None), race.c.kind != RACE)
+                .order_by(race.c.date, race.c.id)
+            ).mappings()
+        ]
+    out = []
+    for r in found:
+        last = r.get("end_date") or r["date"]
+        if (since is not None and last < since) or (until is not None and r["date"] > until):
+            continue
+        row = _row(r, None)
+        row["is_race"] = False
+        row["priority"] = None
+        row["event_kind"] = r["kind"]
+        row["extra"] = {
+            **row["extra"],
+            "ownership": "vibesynergy_plan",
+            "event_kind": r["kind"],
+            "all_day": True,
+            "end": (last + timedelta(days=1)).isoformat(),
+        }
+        out.append(row)
+    return out
+
+
 def resolve(engine: Engine, source: str, source_id: str) -> str | None:
     """The race id for a calendar row: a race's own id, or a Garmin or intervals.icu copy."""
     with engine.connect() as conn:
-        found = [dict(r) for r in conn.execute(select(race)).mappings()]
+        found = [dict(r) for r in conn.execute(select(race).where(race.c.kind == RACE)).mappings()]
     if source == SOURCE:
         return next((r["id"] for r in found if r["id"] == source_id), None)
     target = {"garmin": "garmin", "intervals_icu": "intervals", "intervals": "intervals"}.get(
@@ -166,7 +204,7 @@ def set_priority(engine: Engine, race_id: str, priority: str | None) -> dict[str
     with engine.begin() as conn:
         done = conn.execute(
             update(race)
-            .where(race.c.id == race_id, race.c.deleted_at.is_(None))
+            .where(race.c.id == race_id, race.c.deleted_at.is_(None), race.c.kind == RACE)
             .values(priority=priority, updated_at=utc_now())
         ).rowcount
     if not done:

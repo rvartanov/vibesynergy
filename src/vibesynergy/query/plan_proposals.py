@@ -14,7 +14,9 @@ A plan write is carried out at once only when it is approved:
   Waiting for you; approving carries it out, in the proposer's name.
 
 ``gate`` is called by every plan tool before it writes; ``require_approval`` by the
-intervals.icu write tools, which have no proposal form.
+intervals.icu write tools, which have no proposal form. Races and events (#91,
+``RACE_TOOLS``) are plan tools too: a request through the athlete's own agent is his own and
+writes at once; the AI coach's own race change waits for his yes.
 """
 
 from __future__ import annotations
@@ -137,6 +139,56 @@ def _day(text: Any) -> date:
         raise ValueError(f"dates look like 2026-09-24, got {text!r}") from exc
 
 
+# Races and events (#91): plan tools that need no plan. Tool -> (action, kind it expects).
+RACE_TOOLS: dict[str, tuple[str, str | None]] = {
+    "vibesynergy_race_add": ("add", "race"),
+    "vibesynergy_event_add": ("add", "event"),
+    # Change, delete and undo take the id of a race or an event alike.
+    "vibesynergy_race_update": ("update", None),
+    "vibesynergy_race_delete": ("delete", None),
+    "vibesynergy_race_revert": ("revert", None),
+}
+
+
+def _race_values(arguments: dict[str, Any]) -> dict[str, Any]:
+    from vibesynergy.query import race_events
+
+    return {k: v for k, v in arguments.items() if k in race_events.FIELDS or k == "distance_km"}
+
+
+def _execute_race(
+    engine: Engine, tool: str, arguments: dict[str, Any], *, author: str, reason: str
+) -> dict[str, Any]:
+    from vibesynergy.query import race_events
+
+    action, expect = RACE_TOOLS[tool]
+    a = arguments
+    if action == "add":
+        values = _race_values(a)
+        if expect == "race":
+            values["kind"] = "race"
+        elif (values.get("kind") or "race") == "race":
+            raise race_events.RaceError(
+                f"kind must be one of {', '.join(race_events.EVENT_KINDS)}; "
+                "a race is added with vibesynergy_race_add"
+            )
+        return race_events.add(engine, values, reason=reason, author=author, expect=expect)
+    if action == "update":
+        return race_events.change(
+            engine,
+            str(a.get("race_id") or ""),
+            _race_values(a),
+            reason=reason,
+            author=author,
+            expect=expect,
+        )
+    if action == "delete":
+        return race_events.delete(
+            engine, str(a.get("race_id") or ""), reason=reason, author=author, expect=expect
+        )
+    return race_events.revert(engine, int(a.get("audit_id") or 0), reason=reason, author=author)
+
+
 def execute(
     engine: Engine, tool: str, arguments: dict[str, Any], *, author: str, reason: str
 ) -> dict[str, Any]:
@@ -144,6 +196,8 @@ def execute(
     message for whoever asked."""
     from vibesynergy.query import plan_model
 
+    if tool in RACE_TOOLS:
+        return _execute_race(engine, tool, arguments, author=author, reason=reason)
     if plan_model.current_plan_id(engine) is None:
         raise ValueError("there is no plan yet: create one with `vibesynergy plan create`")
     a = arguments
@@ -217,8 +271,16 @@ def _session(engine: Engine, session_id: str) -> dict[str, Any]:
 def describe(engine: Engine, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """What a proposal would do, for the athlete: checked as far as it can be without
     writing, so a proposal that can never be carried out is refused when it is made."""
-    from vibesynergy.query import garmin_strength, plan_model, workout_model
+    from vibesynergy.query import garmin_strength, plan_model, race_events, workout_model
 
+    if tool in RACE_TOOLS:
+        action, expect = RACE_TOOLS[tool]
+        values = {**_race_values(arguments), "race_id": arguments.get("race_id")}
+        if action == "add" and expect == "race":
+            values["kind"] = "race"
+        if action == "revert":
+            values = {"audit_id": arguments.get("audit_id")}
+        return race_events.describe(engine, action, values)
     if plan_model.current_plan_id(engine) is None:
         raise ValueError("there is no plan yet: create one with `vibesynergy plan create`")
     a = arguments
