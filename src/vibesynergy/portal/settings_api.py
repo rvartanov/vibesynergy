@@ -30,8 +30,9 @@ from vibesynergy.derive.unify import DEFAULT_BEST_SOURCE
 from vibesynergy.portal import prefs, share
 from vibesynergy.portal.hosts import (
     LOCAL_HOSTS,
+    aliases,
+    canonical_url,
     normalize_hostname,
-    portal_address,
     validate_portal_address,
 )
 from vibesynergy.query import best_source as best_source_q
@@ -532,7 +533,11 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             },
             "read_only": {
                 "mcp_url": f"{on_disk.public_url}/vibesynergy/mcp" if on_disk.public_url else None,
-                "portal_url": portal_address(on_disk),
+                "portal_url": canonical_url(on_disk),
+                # #117: the app's own address sets every link; the others are aliases.
+                "canonical_url": canonical_url(on_disk),
+                "aliases": aliases(on_disk),
+                "redirect_aliases": on_disk.server.get("redirect_aliases") is True,
                 "data_dir": str(on_disk.data_dir),
                 "public_url": on_disk.public_url,
                 "local_url": f"http://127.0.0.1:{on_disk.portal.get('port', DEFAULT_PORTAL_PORT)}",

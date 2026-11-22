@@ -156,7 +156,7 @@ optional:
 port = 8447          # local port (must differ from the service port 8448)
 enabled = true
 hosts = []           # extra host names to accept besides localhost and the tailnet name;
-                     # the first one is also the address in mail links and on Settings
+                     # the first one is the own address (see "Own address and aliases")
 tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"   # map background (tile server)
 tile_cache = true    # serve map tiles from the server's own cache (see below)
 tile_max_age_days = 30
@@ -184,6 +184,40 @@ Other tools can use the cache: as an XYZ tile layer from any tailnet device
 (`https://server.your-tailnet.ts.net:8447/tiles/{z}/{x}/{y}.png`, e.g. QGIS → XYZ Tiles), or
 directly from the folder on the server (`file:///home/<you>/.local/share/vibesynergy/tiles/osm/{z}/{x}/{y}.png`).
 Show "© OpenStreetMap contributors" wherever the tiles are displayed.
+
+## Own address and aliases
+
+VibeSynergy has one own (canonical) address. Every link it shows or sends uses it: login and
+reset mails, alert mails, notices, push, the coach report links, Settings → System and the
+MCP `meta.portal_url`. Every other name the portal answers on is an alias: it keeps working,
+but links never use it. The address is, in this order:
+
+1. `[server] canonical_url`, when set;
+2. else the first domain in `[portal] hosts` (https, behind your reverse proxy);
+3. else the tailnet name on the portal port (`https://server.your-tailnet.ts.net:8447`).
+
+```toml
+[server]
+public_url = "https://server.your-tailnet.ts.net"   # the public gateway (Funnel), see below
+canonical_url = "https://app.example.org"            # optional; default: rule 2 or 3 above
+aliases = ["other.example.org"]                      # optional: more names to accept
+redirect_aliases = false                             # true: portal pages on an alias go on
+                                                     # to canonical_url (308)
+```
+
+The aliases are an explicit list: localhost, the tailnet name from `public_url`, every
+`[portal] hosts` name and `[server] aliases`. They are accepted as host and as origin for
+writes (CSRF) and as return address after a source login (OAuth). A request with any other
+Host is refused (421) before anything is built from it; links never read the request's Host
+or `X-Forwarded-Host`. Session cookies are per name: after a login link from an alias you are
+logged in on the own address.
+
+`public_url` stays the address that services on the internet call: coach apps (MCP and its
+OAuth), Strava and Withings logins and webhooks, and share links. Your own domain takes that
+over only when it is reachable from the internet with `/vibesynergy` sent to the service port
+(8448 by default); then set `public_url` to it, add the old name to `aliases`, and register the
+new callback addresses with Strava and Withings. The Google calendar login keeps using the
+tailnet name, because that address is registered at Google.
 
 ## Logging in
 

@@ -69,6 +69,20 @@ WITHINGS_APPLI = {
 }
 
 
+def mcp_allowed_hosts(settings) -> list[str]:
+    """Host headers the MCP endpoint accepts (DNS-rebinding protection): this computer, the
+    public address and ``[server] aliases`` (#117), an explicit list, e.g. the tailnet name
+    after public_url moved to your own domain. Never a name taken from the request."""
+    hosts = ["127.0.0.1:*", "localhost:*"]
+    if settings.public_url:
+        hosts.append(settings.public_url.removeprefix("https://").split("/")[0])
+    for name in settings.server.get("aliases") or []:
+        name = str(name).strip().lower().rstrip(".")
+        if name and name not in hosts:
+            hosts.append(name)
+    return hosts
+
+
 def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
     settings = rt.settings
     mcp_app = None
@@ -77,9 +91,7 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
         from vibesynergy.mcp.server import build_server
 
-        hosts = ["127.0.0.1:*", "localhost:*"]
-        if settings.public_url:
-            hosts.append(settings.public_url.removeprefix("https://").split("/")[0])
+        hosts = mcp_allowed_hosts(settings)
         mcp_app = build_server(rt).streamable_http_app(
             streamable_http_path="/mcp",
             transport_security=TransportSecuritySettings(

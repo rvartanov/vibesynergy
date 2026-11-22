@@ -200,11 +200,18 @@ def init(
 
 
 def _portal_base(rt) -> str:
-    """Where the portal is opened: the first portal host name, else this machine."""
+    """Where the portal is opened: the canonical address when one is set (``[server]
+    canonical_url`` or a ``[portal] hosts`` domain), else this machine. Not the tailnet
+    name: the command runs on the server, where this machine always works."""
     from vibesynergy.portal.app import portal_port
+    from vibesynergy.portal.hosts import LOCAL_HOSTS, canonical_url
 
-    hosts = [h for h in rt.settings.portal.get("hosts", []) if h not in ("localhost", "127.0.0.1")]
-    return f"https://{hosts[0]}" if hosts else f"http://127.0.0.1:{portal_port(rt.settings)}"
+    settings = rt.settings
+    own = settings.server.get("canonical_url") or any(
+        str(h).strip().lower() not in {*LOCAL_HOSTS, ""} for h in settings.portal.get("hosts", [])
+    )
+    base = canonical_url(settings) if own else None
+    return base or f"http://127.0.0.1:{portal_port(settings)}"
 
 
 def _first_link(rt, acc: dict, what: str) -> None:

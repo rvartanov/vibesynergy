@@ -162,6 +162,17 @@ def subscriptions(engine: Engine) -> list[dict[str, Any]]:
         return [dict(r) for r in conn.execute(select(push_subscription)).mappings()]
 
 
+def absolute_url(settings: Any, url: str) -> str:
+    """A push opens the portal on the canonical address (#117), not on the name the device
+    subscribed on. A path stays relative when the portal has no address."""
+    from vibesynergy.portal.hosts import canonical_url
+
+    if not url.startswith("/") or url.startswith("//"):
+        url = "/"  # only the portal's own pages
+    base = canonical_url(settings)
+    return f"{base}{url}" if base else url
+
+
 def send_all(
     rt: Any,
     title: str,
@@ -184,7 +195,7 @@ def send_all(
     message = {
         "title": title[:120],
         "body": text if len(text) <= MAX_BODY else text[: MAX_BODY - 1] + "…",
-        "url": url,
+        "url": absolute_url(rt.settings, url),
     }
     if tag:
         message.update(tag=tag, renotify=True)

@@ -276,6 +276,8 @@ def build_server(rt: Runtime) -> MCPServer:
     def window(period: str | None, start: str | None, end: str | None, default: str) -> Window:
         return periods.resolve(period, start, end, today=today(), default=default)
 
+    from vibesynergy.portal.hosts import canonical_url
+
     def envelope(
         data: Any,
         *,
@@ -289,6 +291,11 @@ def build_server(rt: Runtime) -> MCPServer:
             "timezone": settings.timezone,
             "freshness": views.freshness(engine),
         }
+        portal_url = canonical_url(settings)
+        if portal_url:
+            # The portal's canonical address (#117): a "link" such as "#/coach/report/7"
+            # opens at <portal_url>/#/coach/report/7.
+            meta["portal_url"] = portal_url
         if span:
             meta["period"] = {"start": str(span.start), "end": str(span.end)}
         if metrics:

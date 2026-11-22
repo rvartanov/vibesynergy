@@ -82,22 +82,30 @@ export function configurationHtml(s) {
   const ro = s.read_only;
   const here = location.hostname.toLowerCase();
   const hosts = s.portal_hosts || [];
+  const main = ro.canonical_url || ro.portal_url;
+  let mainHost = "";
+  try { mainHost = main ? new URL(main).hostname.toLowerCase() : ""; } catch { mainHost = ""; }
+  const aliases = ro.aliases || [];
+  const aliasList = aliases.length
+    ? `<ul class="alias-list">${aliases.map((url) => `<li><code>${esc(url)}</code></li>`).join("")}</ul>`
+    : `<span class="sub">${t("No other addresses.")}</span>`;
   const list = hosts.length
-    ? `<ul class="host-list">${hosts.map((host) => `<li><code>${esc(host)}</code>${host === here ? ` <span class="chip">${t("you are here")}</span>` : ""}
+    ? `<ul class="host-list">${hosts.map((host) => `<li><code>${esc(host)}</code>${host === mainHost ? ` <span class="chip">${t("main address")}</span>` : ""}${host === here ? ` <span class="chip">${t("you are here")}</span>` : ""}
         <button class="btn" type="button" data-remove-host="${esc(host)}" aria-label="${esc(t("Remove {host}", { host }))}">${t("Remove")}</button></li>`).join("")}</ul>`
     : `<p class="sub">${t("No extra domains.")}</p>`;
   return `<section class="card" data-configuration>
         <h2>${t("Configuration")}</h2>
         <dl class="settings-system">
-          <dt>${t("Public address")}</dt><dd>${ro.public_url ? `<code>${esc(ro.public_url)}/vibesynergy</code><br><span class="sub">${t("For coach apps, webhooks and share links.")}</span>` : esc(t("not set: [server] public_url is empty"))}</dd>
-          <dt>${t("MCP endpoint (public)")}</dt><dd><code>${esc(ro.mcp_url || t("not set: [server] public_url is empty"))}</code></dd>
-          <dt>${t("Portal (tailnet only)")}</dt><dd><code>${esc(ro.portal_url || t("port {n}", { n: s.portal.port }))}</code></dd>
+          <dt>${t("Address")}</dt><dd data-canonical>${main ? `<code>${esc(main)}</code><br><span class="sub">${t("Every link in mail, notices and push uses this address.")}</span>` : `<code>${esc(t("port {n}", { n: s.portal.port }))}</code>`}</dd>
+          <dt>${t("Also reachable at")}</dt><dd data-aliases>${aliasList}${ro.redirect_aliases && aliases.length ? `<br><span class="sub">${t("Pages opened there go on to the address above.")}</span>` : ""}</dd>
           <dt>${t("Portal on this server")}</dt><dd><code>${esc(ro.local_url)}</code></dd>
+          <dt>${t("Public address")}</dt><dd>${ro.public_url ? `<code>${esc(ro.public_url)}/vibesynergy</code><br><span class="sub">${t("For coach apps, webhooks and share links: services on the internet reach VibeSynergy here.")}</span>` : esc(t("not set: [server] public_url is empty"))}</dd>
+          <dt>${t("MCP endpoint (public)")}</dt><dd><code>${esc(ro.mcp_url || t("not set: [server] public_url is empty"))}</code></dd>
           <dt>${t("Config file")}</dt><dd><code>${esc(s.config_path)}</code></dd>
           <dt>${t("Data folder")}</dt><dd><code>${esc(ro.data_dir)}</code></dd>
         </dl>
         <h3 class="settings-subhead" id="portal-domains">${t("Portal domains")}</h3>
-        <p class="sub">${t("Extra names the portal answers on. DNS and the web server in front (Caddy) must also send the name to the portal; VibeSynergy only allows it. A change applies after a restart.")}</p>
+        <p class="sub">${t("Names the portal answers on. The first one is the main address, unless canonical_url is set under [server]. DNS and the web server in front (Caddy) must also send the name to the portal; VibeSynergy only allows it. A change applies after a restart.")}</p>
         ${list}
         <form class="host-add" data-add-host aria-labelledby="portal-domains">
           <label>${t("Add a domain")} <input class="btn" name="host" autocomplete="off" spellcheck="false" inputmode="url" placeholder="vibesynergy.example.org" required></label>

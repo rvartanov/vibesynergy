@@ -115,6 +115,19 @@ ITEMS: tuple[Item, ...] = (
         "a few times VibeSynergy stops putting it back until you confirm under Waiting for "
         "you → Notices.",
     ),
+    Item(
+        "117-own-domain",
+        "you",
+        "Links in mails, notices and push now always open VibeSynergy on its own domain, "
+        "also when you asked for them on another address. Settings → System shows that "
+        "address, with the other addresses it can also be reached at.",
+    ),
+    Item(
+        "117-ai-portal-url",
+        "ai",
+        "Every MCP result now carries meta.portal_url: the portal's own address. A link "
+        "such as #/coach/report/7 opens at that address followed by the link.",
+    ),
 )
 
 VERSION = RELEASES[0].version

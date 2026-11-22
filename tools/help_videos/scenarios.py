@@ -1267,3 +1267,18 @@ def customize(r: Rec):
         "Customize menu: hide pages you don't use or reorder them.",
         2.8,
     )
+    address = r.pg.locator("[data-canonical]").first
+    r.check(address.count() > 0, "Settings → System should show the own address")
+    r.point(address)
+    r.say(
+        "Adres: het eigen adres van VibeSynergy. Elke link in mail, meldingen en pushberichten "
+        "gebruikt dit adres.",
+        "Address: VibeSynergy's own address. Every link in mail, notices and push uses it.",
+        2.8,
+    )
+    r.point(r.pg.locator("[data-aliases]").first)
+    r.say(
+        "Ook bereikbaar op: andere adressen die blijven werken, zoals de tailnetnaam.",
+        "Also reachable at: other addresses that keep working, such as the tailnet name.",
+        2.6,
+    )
