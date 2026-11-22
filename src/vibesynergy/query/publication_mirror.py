@@ -306,7 +306,11 @@ def _sync(
         )
     if not publication_format.same_text(current, desired):
         row = watch(rt, group)
-        if row and row["garmin_original"] is None:
+        first = row is not None and row["garmin_original"] is None
+        if not first and not _garmin_text_ours(current, user_text, garmin_ledger):
+            # Text typed on Garmin after the first mirror: never overwrite it (#160).
+            raise Edited("The Garmin text changed by hand; review the description")
+        if first:
             _update(rt, group, garmin_original=current)
         item = {
             "destination": "garmin",
@@ -347,6 +351,18 @@ def _sync(
             raise publication.Conflict("Garmin did not return the mirrored title")
         result["title"] = "updated"
     return result
+
+
+def _garmin_text_ours(current: str, strava_text: str, garmin_ledger: dict | None) -> bool:
+    """Garmin's text outside the block is empty, the Strava text, or what the mirror wrote.
+
+    Only then may the mirror replace it. The first mirror write keeps Garmin's own text in
+    ``garmin_original`` instead.
+    """
+    own = publication.human_text(current)
+    if not own or own == publication.human_text(strava_text):
+        return True
+    return bool(garmin_ledger) and own == publication.human_text(garmin_ledger["description"])
 
 
 def after_publish(rt, activity_id: str, language: str, *, strava=None, garmin=None) -> dict:

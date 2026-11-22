@@ -195,13 +195,13 @@ def section_labels(publication: dict, language: str) -> dict[str, str]:
     return tr
 
 
-def _normalize_newlines(text: str) -> str:
+def normalize_newlines(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def same_text(left: str | None, right: str | None) -> bool:
     """True when two descriptions differ only by CR/LF spelling."""
-    return _normalize_newlines(left or "") == _normalize_newlines(right or "")
+    return normalize_newlines(left or "") == normalize_newlines(right or "")
 
 
 def _line_starts(text: str) -> list[tuple[int, int]]:
@@ -274,7 +274,7 @@ def find_blocks(text: str) -> list[tuple[int, int]]:
 
 def block_text(text: str, span: tuple[int, int]) -> str:
     """Owned block with newlines normalized, for comparison with the ledger."""
-    return _normalize_newlines(text[span[0] : span[1]]).rstrip("\n")
+    return normalize_newlines(text[span[0] : span[1]]).rstrip("\n")
 
 
 def orphan_markers(text: str) -> bool:

@@ -442,6 +442,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **Your own Strava text stays when the block is updated** (#160): an intervals.icu activity
+  linked to Strava passes a description change on to Strava. When the AI-coach insight was
+  added later, VibeSynergy wrote the block to Strava with your text and then to intervals.icu
+  without it (intervals.icu never had the text you typed on Strava after the first block),
+  and intervals.icu copied that back over your Strava text. A linked intervals.icu activity
+  now gets exactly the live Strava description; text of its own there that is not the Strava
+  text is left for review instead. A publication also refuses any write that would change
+  the text around the block, and the Garmin mirror no longer replaces text you typed on
+  Garmin after the first mirror (that check goes to review).
 - **The AI coach's insight reads your own words again** (#158): the activity it gets before
   the first turn was the raw provider data, cut at 4000 characters, and Garmin's own fields
   (account roles, profile pictures, split summaries) filled that alone. Your Strava

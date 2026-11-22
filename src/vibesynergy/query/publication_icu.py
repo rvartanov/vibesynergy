@@ -15,10 +15,19 @@ the only text written; never private notes or other coach text.
 The matching intervals.icu activity is found as ``activity_effort`` does (Garmin id, Strava
 id or start time), first in the archived intervals.icu activities and then in a live list
 of the surrounding days. Activities intervals.icu took from Strava are stubs it may not
-change (Strava's API terms), so they are skipped. Every write is checkpointed in
-``publication_ledger`` (source ``intervals_icu``), read back, and audit-logged
-(``publication.icu``, no text). More than one VibeSynergy block or a stray marker is left for
-review and not retried.
+change (Strava's API terms), so they are skipped.
+
+An intervals.icu activity linked to a Strava activity (``strava_id``) passes a description
+change on to that Strava activity. A write there that lacks the athlete's Strava text
+removes it on Strava (#160: the Strava text written after the first publication, which
+intervals.icu never had). So a linked activity gets exactly the live Strava description,
+read just before the write; when intervals.icu holds text of its own that is not the Strava
+text (nor the copy VibeSynergy put there before), it is left for review and nothing is
+written.
+
+Every write is checkpointed in ``publication_ledger`` (source ``intervals_icu``), read back,
+and audit-logged (``publication.icu``, no text). More than one VibeSynergy block or a stray
+marker is left for review and not retried.
 """
 
 from __future__ import annotations
@@ -170,13 +179,65 @@ def _audit(rt, outcome: str, target: str, detail: dict[str, Any]) -> None:
         )
 
 
-def sync(rt, activity_id: str, *, client=None) -> dict[str, Any]:
+def _human(text: str) -> str:
+    """The description outside the VibeSynergy block, for comparing texts."""
+    from vibesynergy.query import publication
+
+    return publication.human_text(text)
+
+
+def _linked_target(
+    rt, current: str, strava_ledger: dict[str, Any], icu_id: str, strava=None
+) -> str:
+    """For an activity intervals.icu passes on to Strava: the live Strava description.
+
+    intervals.icu's own text may be replaced only when it is empty, already the Strava text,
+    or the copy VibeSynergy wrote there before; anything else is the athlete's and waits
+    for review. The Strava description must still hold exactly the verified block.
+    """
+    from vibesynergy.query import publication
+
+    strava = strava or publication.provider(rt, "strava")
+    strava_id = strava_ledger["source_id"]
+    detail = strava.read(strava_id)
+    if str(detail.get("id")) != str(strava_id):
+        raise ValueError("Strava activity identity changed")
+    live = detail.get("description") or ""
+    if not isinstance(live, str):
+        raise ValueError("Strava description is unreadable")
+    blocks = publication_format.find_blocks(live)
+    if (
+        len(blocks) != 1
+        or publication_format.orphan_markers(live)
+        or publication_format.block_text(live, blocks[0]) != strava_ledger["owned_block"]
+    ):
+        raise Review("The Strava section changed; review before copying it to intervals.icu")
+    own = _human(current)
+    with rt.engine.connect() as conn:
+        written = conn.scalar(
+            select(publication_ledger.c.description).where(
+                publication_ledger.c.source == SOURCE,
+                publication_ledger.c.source_id == icu_id,
+            )
+        )
+    if own and own != _human(live) and not (written and own == _human(written)):
+        raise Review(
+            "The intervals.icu text differs from the Strava text and intervals.icu passes it on "
+            "to Strava; review the descriptions"
+        )
+    return live
+
+
+def sync(rt, activity_id: str, *, client=None, strava=None) -> dict[str, Any]:
     """Put Strava's verified VibeSynergy block into the intervals.icu description, once.
 
     Returns ``{"state": ...}``: ``updated``, ``unchanged``, ``waiting`` (no matching
     intervals.icu activity yet), ``not_available`` (a Strava stub) or ``no_block``.
-    Raises ``Review`` for a description with several blocks; other errors propagate.
+    Raises ``Review`` for a description with several blocks, or for intervals.icu text of
+    its own on an activity linked to Strava (#160); other errors propagate. ``strava`` is
+    the Strava provider read for a linked activity.
     """
+    strava_client = strava
     group = _group(rt, activity_id)
     strava = _strava_ledger(rt, group)
     if strava is None:
@@ -198,6 +259,9 @@ def sync(rt, activity_id: str, *, client=None) -> dict[str, Any]:
     if not isinstance(current, str):
         raise ValueError("intervals.icu description is unreadable")
     target = desired(current, owned)
+    linked = bool(remote.get("strava_id") or found.get("strava_id"))
+    if linked:
+        target = _linked_target(rt, current, strava, icu_id, strava=strava_client)
     values = {
         "source_id": icu_id,
         "assessment_id": strava["assessment_id"],
@@ -228,6 +292,7 @@ def sync(rt, activity_id: str, *, client=None) -> dict[str, Any]:
             "icu_activity_id": icu_id,
             "replaced_block": bool(publication_format.find_blocks(current)),
             "had_text": bool(current.strip()),
+            "linked": linked,
             "insight": _has_insight(owned),
         },
     )
@@ -242,13 +307,13 @@ def _has_insight(owned: str) -> bool:
     )
 
 
-def after_publish(rt, activity_id: str, *, client=None) -> dict[str, Any]:
+def after_publish(rt, activity_id: str, *, client=None, strava=None) -> dict[str, Any]:
     """Called after a verified Strava write; a failure here never undoes it (the next
     automatic run retries)."""
     if not enabled(rt):
         return {"state": "disabled"}
     try:
-        return sync(rt, activity_id, client=client)
+        return sync(rt, activity_id, client=client, strava=strava)
     except Review as exc:
         _audit(rt, "needs_review", activity_id, {"error": str(exc)})
         return {"state": "needs_review", "error": str(exc)}

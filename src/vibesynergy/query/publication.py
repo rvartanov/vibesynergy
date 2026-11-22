@@ -391,6 +391,14 @@ def _without_owned(current: str, owned: str | None = None) -> str:
     return current
 
 
+def human_text(text: str) -> str:
+    """The description outside the VibeSynergy block (newlines normalized, trimmed).
+
+    The athlete's own text: a publication may move or replace the block, never change this.
+    """
+    return publication_format.normalize_newlines(_without_owned(text or "")).strip()
+
+
 def _checkpoint(rt, item: dict, state: str) -> None:
     values = {
         "source": item["destination"],
@@ -446,7 +454,7 @@ def publish(
         # The same block in the intervals.icu description (publication_icu); never fails this.
         from vibesynergy.query import publication_icu
 
-        result["icu"] = publication_icu.after_publish(rt, activity_id)
+        result["icu"] = publication_icu.after_publish(rt, activity_id, strava=client)
     if destination == "strava" and mirror:
         from vibesynergy.query import publication_mirror
 
@@ -482,6 +490,12 @@ def _publish(
             if previous and previous["state"] == "pending":
                 _checkpoint(rt, item, "verified")
             return {"state": "verified", "destination": destination, "source_id": source_id}
+        if human_text(item["description"]) != human_text(item["current_description"]):
+            # Never drop or change the athlete's text around the block (#160).
+            raise Conflict(
+                "Publishing would change the text outside the VibeSynergy section; "
+                "review the provider description"
+            )
         _checkpoint(rt, item, "pending")
         client.write(source_id, item["description"])
         after = client.read(source_id)
