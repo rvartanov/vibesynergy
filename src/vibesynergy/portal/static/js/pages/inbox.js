@@ -1,10 +1,11 @@
 // Waiting for you: the proposals only you can take or leave, then notices about
-// what went wrong or needs attention. Each line links to the page where it is handled; once handled there it leaves
+// what went wrong or needs attention, and what changed per version (#140). Each line links to the page where it is handled; once handled there it leaves
 // this list by itself.
 import { get, post } from "../api.js";
 import { esc, longDate, number } from "../format.js";
 import { N, t } from "../i18n.js";
 import { linesHtml } from "../kb_diff.js";
+import { historyHtml } from "../release_news.js";
 import { fixKinds } from "../kb_lint.js";
 import { screenAlerts } from "../screen_alerts.js";
 import { sportLabel } from "../symbols.js";
@@ -118,7 +119,8 @@ export async function render(view, { stale }) {
     <section class="card" aria-labelledby="inbox-decisions"><h2 id="inbox-decisions">${esc(t("Your decision ({n})", { n: decisions.length }))}</h2>
       ${decisions.length ? `<ul class="inbox-list">${decisions.map(decisionHtml).join("")}</ul>` : `<p class="empty">${esc(t("Nothing waits for your decision."))}</p>`}</section>
     <section class="card" aria-labelledby="inbox-notices"><h2 id="inbox-notices">${esc(t("Notices ({n})", { n: notices.length }))}</h2>
-      ${notices.length ? `<ul class="inbox-list">${notices.map((n) => `<li${n.advice ? " data-advice-notice" : ""}><span class="chip ${n.advice ? "info" : "warning"}">${esc(n.advice ? t("Advice") : t("Notice"))}</span> <a href="${esc(n.link)}">${esc(noticeText(n))}</a></li>`).join("")}</ul>` : `<p class="empty">${esc(t("All quiet."))}</p>`}</section>`;
+      ${notices.length ? `<ul class="inbox-list">${notices.map((n) => `<li${n.advice ? " data-advice-notice" : ""}><span class="chip ${n.advice ? "info" : "warning"}">${esc(n.advice ? t("Advice") : t("Notice"))}</span> <a href="${esc(n.link)}">${esc(noticeText(n))}</a></li>`).join("")}</ul>` : `<p class="empty">${esc(t("All quiet."))}</p>`}
+      ${historyHtml(data.releases)}</section>`;
   // A plan proposal is decided here: approving carries it out (#118).
   const decide = (button, decision) => {
     button.addEventListener("click", async () => {

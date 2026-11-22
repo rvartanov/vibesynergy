@@ -90,9 +90,19 @@ def _fail(message: str) -> None:
     raise typer.Exit(1)
 
 
+def _print_version(value: bool) -> None:
+    if value:
+        console.print(__version__)
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Debug logging.")] = False,
+    show_version: Annotated[
+        bool,
+        typer.Option("--version", callback=_print_version, is_eager=True, help="Show the version."),
+    ] = False,
 ) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.WARNING,
@@ -118,7 +128,7 @@ def update(
     force: Annotated[bool, typer.Option(help="Update even while a job runs.")] = False,
     config: ConfigOpt = None,
 ) -> None:
-    """Update to the newest version on GitHub: backup, upgrade, migrations, restart."""
+    """Update to the newest version on GitHub: release, backup, upgrade, migrations, restart."""
     from vibesynergy import updater
 
     news = updater.check()
@@ -145,7 +155,10 @@ def update(
         raise typer.Exit(1)
     if not yes and not typer.confirm("Back up the database and update now?", default=True):
         raise typer.Exit(0)
-    record = updater.run(rt.settings, restart=restart, say=console.print)
+    from vibesynergy import cut_release
+
+    # The merged pull requests become one release: the next number with today's date (#140).
+    record = updater.run(rt.settings, restart=restart, say=console.print, cut=cut_release.cut)
     raise typer.Exit(0 if record["result"] == "ok" else 1)
 
 

@@ -289,6 +289,17 @@ def register(kit: PortalKit) -> None:
             return JSONResponse(status_code=400, content={"error": str(exc)})
         return envelope({"proposal": found, "inbox": inbox.inbox(rt, today())})
 
+    @router.get("/releases/news")
+    def release_news_route(request: Request) -> dict[str, Any]:
+        """The "What changed" card, once after a release (#140): the unseen releases with
+        items for you; from then on the current version counts as seen. Never behind a
+        share link."""
+        from vibesynergy.query import release_news
+
+        if request.scope.get("vibesynergy_share"):
+            return envelope({"version": __version__, "releases": []})
+        return envelope(release_news.news(engine))
+
     @router.get("/inbox/count")
     def inbox_count_route() -> dict[str, Any]:
         from vibesynergy.query import inbox

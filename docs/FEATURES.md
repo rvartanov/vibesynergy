@@ -2,10 +2,10 @@
 
 Every feature, by area. Kept current with each change: a pull request that adds, changes or
 removes a feature updates this list and [CHANGELOG.md](../CHANGELOG.md) (see
-[CONTRIBUTING.md](../CONTRIBUTING.md#features-and-changelog)). Details per area are in the
+[CONTRIBUTING.md](../CONTRIBUTING.md#versions-and-changelog)). Details per area are in the
 linked documents.
 
-Status: alpha (0.0.1). The portal is in Dutch and English.
+Status: beta (version 0.1.0-beta.0.N, see Versions below). The portal is in Dutch and English.
 
 ## Installing, updating and access
 
@@ -27,6 +27,16 @@ Status: alpha (0.0.1). The portal is in Dutch and English.
   bring (checked hourly, or at once with **Check for updates**) and has **Update now** (one click when you are logged in; without a portal login it asks the coach passphrase). On the command line
   `vibesynergy update` (`--check`). Each update backs up the database first and logs what it
   did. A container updates by pulling the new image.
+- **Versions and "What changed"** (#140): the version (`0.1.0-beta.0.1`, `0.1.0-beta.0.2`, …;
+  every update that brings new changes adds one to the last number) is at the bottom of every
+  page with the commit, in `vibesynergy --version` and `vibesynergy version`, `/version`, the
+  MCP server information and Settings → System → About this version. `vibesynergy update`
+  makes the release when it installs merged pull requests: the next number with the date,
+  the tag `v<version>`, and it prints "old → new" with what changed. After an update the
+  first page you open shows a card "What changed in version …" once (kept per account);
+  after that every version's changes are under Waiting for you → Notices. No push, no mail.
+  AI coaches and AI apps read what changed for them in `vibesynergy_coach_handbook`
+  (`what_changed`) and in the MCP server information.
 - **Demo data** to look around without accounts: `vibesynergy init --demo`, then
   `vibesynergy sync demo`: three months of synthetic runs and rides with streams and a route,
   sleep, HRV, resting heart rate, steps and weight.
@@ -116,7 +126,8 @@ Details: [SOURCES.md](SOURCES.md).
   base and gear.
 - **Waiting for you** (the bell): proposals only you decide on (**Your decision**), and **Notices** about what went wrong or needs attention,
   including the warnings that appeared at the top of the screen in the last day, also after
-  you closed them there.
+  you closed them there. Under the notices: **What changed in VibeSynergy**, per version
+  (#140).
 
 ## Training
 

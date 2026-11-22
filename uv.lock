@@ -1500,7 +1500,7 @@ wheels = [
 
 [[package]]
 name = "vibesynergy"
-version = "0.0.1a1"
+version = "0.1.0b0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

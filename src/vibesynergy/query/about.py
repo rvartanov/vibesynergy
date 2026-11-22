@@ -42,12 +42,14 @@ def _git(*args: str) -> str | None:
 
 @lru_cache(maxsize=1)
 def build() -> dict[str, Any]:
-    """Package version and the commit this process runs. Cached: it cannot change while
-    the process runs (a deploy restarts the service)."""
+    """The version (``vibesynergy.releases``) and the commit this process runs. Cached: it
+    cannot change while the process runs (a deploy restarts the service)."""
+    from vibesynergy import releases
+
     try:
-        version = metadata.version("vibesynergy")
+        package = metadata.version("vibesynergy")
     except metadata.PackageNotFoundError:
-        version = None
+        package = None
     commit = _git("rev-parse", "HEAD")
     if commit is None:
         from vibesynergy import updater
@@ -63,7 +65,8 @@ def build() -> dict[str, Any]:
             subject = f"{body.splitlines()[0]} ({number})" if number else body.splitlines()[0]
     dirty = _git("status", "--porcelain", "--untracked-files=no")
     return {
-        "version": version,
+        "version": releases.VERSION,  # the number people see (#140)
+        "package": package,  # the PEP 440 version of pyproject.toml
         "commit": commit,
         "commit_short": commit[:7] if commit else None,
         "commit_date": committed,

@@ -3287,5 +3287,13 @@
  "Garmin copy removed on Garmin": "Garmin copy removed on Garmin",
  "Copy removed at the source": "Copy removed at the source",
  "Edit": "Edit",
- "New note": "New note"
+ "New note": "New note",
+ "What changed in version {version}": "What changed in version {version}",
+ "You find this later under": "You find this later under",
+ "Waiting for you → Notices": "Waiting for you → Notices",
+ "What changed in VibeSynergy": "What changed in VibeSynergy",
+ "VibeSynergy now has a version number, at the bottom of every page. After an update you see once what changed; after that you find it under Waiting for you → Notices.": "VibeSynergy now has a version number, at the bottom of every page. After an update you see once what changed; after that you find it under Waiting for you → Notices.",
+ "VibeSynergy now has a version number (0.1.0-beta.0.1, then .2 and so on with every update). What changed for AI apps is in the handbook (what_changed) and in the server information.": "VibeSynergy now has a version number (0.1.0-beta.0.1, then .2 and so on with every update). What changed for AI apps is in the handbook (what_changed) and in the server information.",
+ "Version and what changed": "Version and what changed",
+ "See which version you have, read what changed after an update, and find it again later.": "See which version you have, read what changed after an update, and find it again later."
 }

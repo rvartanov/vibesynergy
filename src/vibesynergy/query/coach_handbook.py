@@ -256,7 +256,8 @@ def handbook(
     missing = [scope for scope in COACH_SCOPES_NEEDED if scope not in scopes]
     if missing:
         warnings.append("this connection lacks scopes the coach loop needs: " + ", ".join(missing))
-    from vibesynergy.query import knowledge
+    from vibesynergy import __version__
+    from vibesynergy.query import knowledge, release_news
 
     # An instruction or COACH rule that names a model (#96): said to every AI coach.
     warnings.extend(item["message"] for item in knowledge.lint(engine))
@@ -271,6 +272,8 @@ def handbook(
         "timezone": rt.settings.timezone if rt is not None else None,
         "contact_window": _contact(rt),
         "approval": approval_index(),
+        # What changed for AI apps in the newest versions (#140, vibesynergy.releases).
+        "what_changed": {"version": __version__, "releases": release_news.for_ai()},
         "access": {
             "scopes": sorted(scopes),
             "needed": list(COACH_SCOPES_NEEDED),

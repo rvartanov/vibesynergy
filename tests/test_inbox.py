@@ -50,5 +50,5 @@ def test_proposals_count_and_a_missed_run_is_a_notice(runtime) -> None:
 def test_portal_serves_the_inbox_and_the_count(runtime) -> None:
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     data = api.get("/api/inbox").json()["data"]
-    assert set(data) == {"decisions", "notices", "count"}
+    assert set(data) == {"decisions", "notices", "count", "releases"}
     assert api.get("/api/inbox/count").json()["data"] == {"count": 0}

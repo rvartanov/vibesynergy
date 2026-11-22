@@ -11,6 +11,7 @@ export const MANUALS = [
     ["login", N("Logging in and out"), N("Log in with your password, and where to log out.")],
     ["today", N("Your day: advice, recovery and check-in"), N("Read today's advice and recovery, and fill in the morning check-in.")],
     ["quicklog", N("Quick logging with +"), N("Log a check-in, a note or a discomfort from any page.")],
+    ["versions", N("Version and what changed"), N("See which version you have, read what changed after an update, and find it again later.")],
   ]],
   [N("Training"), [
     ["activities", N("Finding and reviewing activities"), N("Filter and search your workouts, open one and say how it felt.")],

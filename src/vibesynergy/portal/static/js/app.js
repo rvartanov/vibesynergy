@@ -4,6 +4,7 @@ import { calendarDay, shouldAutoRefresh } from "./refresh_policy.js";
 import { bindBugReport } from "./bugreport.js";
 import { ago, esc } from "./format.js";
 import { versionLinkHtml } from "./about_version.js";
+import { hideNews, showNews } from "./release_news.js";
 import { setLanguage, storedLanguage, t } from "./i18n.js";
 import { REDIRECTS, START_PAGES, bindNav, closeMenus, drawNav, limitTo, loadPrefs, markCurrent } from "./nav.js";
 import { applyPalette, applyTheme, persistPalette, storedPalette, storedTheme } from "./theme.js";
@@ -133,6 +134,7 @@ function route() {
 // Behind a share link: only the link's pages are in the menu, and a banner says whose view
 // this is. The server enforces the same limits; this only keeps the page honest.
 let sharedPages = null;
+let newsAsked = false; // the "What changed" card is asked for once per page load
 // The offline page: only in the owner's own portal at the root, never in a shared
 // view. A failed registration changes nothing about the page.
 let offlineRegistered = false;
@@ -289,6 +291,7 @@ async function render() {
   const again = view.dataset.page === name; // a reload of the same page: keep what's shown until the new one is ready
   view.dataset.page = name;
   if (!again) {
+    hideNews(); // the "What changed" card stays until you go to another page (#140)
     view.innerHTML = `<div class="loading">${esc(t("Loading…"))}</div>`;
     // Another page opens at its top, not where the last one was scrolled (#44). A page that
     // opens at a part of itself (#/help/<id>) scrolls there while it renders.
@@ -328,6 +331,11 @@ async function render() {
   if (id !== renderId) return;
   if (rendered) renderedAt = Date.now();
   if (!again) document.getElementById("route-status").textContent = view.querySelector("h1")?.textContent || document.title;
+  // After a release: "What changed in version …" once, above the first page (#140).
+  if (rendered && !newsAsked && !sharedPages) {
+    newsAsked = true;
+    showNews(view);
+  }
   footer();
   alertBanner();
 }

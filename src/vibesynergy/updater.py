@@ -226,9 +226,16 @@ def _service_active() -> bool:
     return bool(out and out.stdout.strip() in ("active", "activating", "reloading"))
 
 
-def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> dict[str, Any]:
-    """Update a tool install: backup, ``uv tool upgrade``, migrations, restart. Writes the
-    result to ``deploy.json`` and a log to ``reports/update-*.log``; returns the record."""
+def run(
+    settings: Any,
+    *,
+    restart: bool,
+    say: Callable[[str], None] = print,
+    cut: Callable[..., dict[str, Any] | None] | None = None,
+) -> dict[str, Any]:
+    """Update a tool install: the release (``cut``, #140), backup, ``uv tool upgrade``,
+    migrations, restart. Writes the result to ``deploy.json`` and a log to
+    ``reports/update-*.log``; returns the record."""
     info = installed()
     if info["kind"] != "tool":
         raise ValueError(how(info["kind"]) or "This install can't update itself.")
@@ -243,6 +250,14 @@ def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> 
 
     record: dict[str, Any] = {"at": utc_now().isoformat(), "result": "failed", "migrated": False}
     try:
+        release = None
+        if cut is not None:
+            # The merged pull requests become the next version before they are installed.
+            from vibesynergy.core.timeutil import today_in
+
+            release = cut(info["url"], today=today_in(settings.timezone), say=note)
+            if release is not None:
+                record["release"] = release
         backup = backup_database(settings.db_path, settings.data_dir / "backups")
         record["backup"] = str(backup)
         note(f"Database backed up to {backup}")
@@ -266,7 +281,11 @@ def run(settings: Any, *, restart: bool, say: Callable[[str], None] = print) -> 
         note("Database up to date")
         after = _run([str(command), "version"], timeout=60)
         record["commit"] = _new_commit()
-        if after is not None:
+        if release is not None:
+            note(f"{release['from']} → {release['to']}")
+            for item in release["items"]:
+                note(f"  - {item}")
+        elif after is not None:
             note(after.stdout.strip() or "new version installed")
         if restart and _service_active():
             note("Restarting the service")

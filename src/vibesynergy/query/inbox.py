@@ -5,7 +5,8 @@ Decisions are proposals only the athlete can take or leave: plan changes from an
 the coach (Coach → Change log) and new threshold values (Training → Zones & thresholds).
 Notices need no decision but are worth a look: a coach routine that did not run,
 a plan horizon that is not on Garmin as it should be, and the knowledge-base texts
-VibeSynergy fixed itself (#137). Each item links to the
+VibeSynergy fixed itself (#137). What changed per version (#140) is listed with the notices.
+Each item links to the
 page where it is handled, so a proposal handled there leaves this list by itself. The
 portal shows the decision count next to the bell in the header.
 """
@@ -197,7 +198,15 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
 
 def inbox(rt: Any, today: date) -> dict[str, Any]:
     decisions = _plan_proposals(rt.engine) + _kb(rt.engine) + _thresholds(rt.engine)
-    return {"decisions": decisions, "notices": _notices(rt, today), "count": len(decisions)}
+    from vibesynergy.query import release_news
+
+    return {
+        "decisions": decisions,
+        "notices": _notices(rt, today),
+        "count": len(decisions),
+        # What changed per version (#140): after the card, it stays readable here.
+        "releases": release_news.history(),
+    }
 
 
 def count(engine: Engine) -> int:

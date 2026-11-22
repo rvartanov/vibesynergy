@@ -3287,5 +3287,13 @@
  "Garmin copy removed on Garmin": "Garmin-kopie verwijderd op Garmin",
  "Copy removed at the source": "Kopie verwijderd bij de bron",
  "Edit": "Bewerken",
- "New note": "Nieuwe notitie"
+ "New note": "Nieuwe notitie",
+ "What changed in version {version}": "Wat is er veranderd in versie {version}",
+ "You find this later under": "Je vindt dit later terug onder",
+ "Waiting for you → Notices": "Wacht op jou → Meldingen",
+ "What changed in VibeSynergy": "Wat er veranderd is in VibeSynergy",
+ "VibeSynergy now has a version number, at the bottom of every page. After an update you see once what changed; after that you find it under Waiting for you → Notices.": "VibeSynergy heeft nu een versienummer, onderaan elke pagina. Na een update zie je één keer wat er veranderd is; daarna vind je het onder Wacht op jou → Meldingen.",
+ "VibeSynergy now has a version number (0.1.0-beta.0.1, then .2 and so on with every update). What changed for AI apps is in the handbook (what_changed) and in the server information.": "VibeSynergy heeft nu een versienummer (0.1.0-beta.0.1, en bij elke update .2 en zo verder). Wat er voor AI-apps veranderd is, staat in het handboek (what_changed) en in de serverinformatie.",
+ "Version and what changed": "Versie en wat er veranderd is",
+ "See which version you have, read what changed after an update, and find it again later.": "Zie welke versie je hebt, lees na een update wat er veranderd is en vind het later terug."
 }
