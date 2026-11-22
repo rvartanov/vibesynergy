@@ -68,9 +68,10 @@ ROLE_MAY: dict[str, str] = {
         "You give a second opinion: notes, assessments and proposals. Your morning and "
         "evening entries are shown as a second opinion beside the primary AI coach's "
         "advice, never as the daily advice. Your plan changes (vibesynergy_plan_session_set, "
-        "_move, _skip, vibesynergy_plan_week_set, vibesynergy_plan_target_set) are stored as "
-        "proposals the athlete approves. You cannot write to intervals.icu, publish, change "
-        "the knowledge base directly, or write the AI coach's memory."
+        "_move, _skip, vibesynergy_plan_week_set, vibesynergy_plan_target_set) and race or "
+        "event changes are stored as proposals the athlete approves. You cannot write to "
+        "intervals.icu, publish, change the knowledge base directly, or write the AI coach's "
+        "memory."
     ),
 }
 
@@ -108,6 +109,13 @@ WRITE_POLICY: dict[str, str] = {
     "vibesynergy_plan_session_skip": PLAN,
     "vibesynergy_plan_week_set": PLAN,
     "vibesynergy_plan_target_set": PLAN,
+    # Races and events (#91): the athlete's own agent writes at once; an AI coach's own
+    # race change is a proposal (or carries the athlete's approval_id).
+    "vibesynergy_race_add": PLAN,
+    "vibesynergy_event_add": PLAN,
+    "vibesynergy_race_update": PLAN,
+    "vibesynergy_race_delete": PLAN,
+    "vibesynergy_race_revert": PLAN,
     # Writes outside VibeSynergy's plan: intervals.icu itself.
     "vibesynergy_icu_create_event": APPROVAL,
     "vibesynergy_icu_update_event": APPROVAL,

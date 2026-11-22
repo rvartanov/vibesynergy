@@ -131,6 +131,30 @@ class ActivityPurposeRequest(BaseModel):
     reason: str | None = None
 
 
+class RaceForm(BaseModel):
+    """Add or change a race or event in the portal (#91). Checked by the same function as
+    the MCP (``race_events.validate``); an empty field clears it."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: str = Field(default="race", max_length=40)
+    name: str = Field(default="", max_length=400)
+    date: str = Field(default="", max_length=10)
+    end_date: str | None = Field(default=None, max_length=10)
+    sport: str | None = Field(default=None, max_length=40)
+    distance_km: str | float | None = None
+    priority: str | None = Field(default=None, max_length=1)
+    start_time: str | None = Field(default=None, max_length=10)
+    location: str | None = Field(default=None, max_length=400)
+    url: str | None = Field(default=None, max_length=1000)
+    goal_time: str | None = Field(default=None, max_length=12)
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class RaceRevert(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    audit_id: int
+
+
 class RacePriorityRequest(BaseModel):
     source: str
     source_id: str

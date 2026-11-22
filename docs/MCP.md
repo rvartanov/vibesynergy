@@ -282,6 +282,41 @@ provider or model, and the server enforces them for every write tool
   steps), `done` (the main sets from the laps), `check` (`match`, `differs`,
   `not_checked`, or null when there is nothing to compare) and `rpe`; `vibesynergy_today`
   and `vibesynergy_week` give `planned` and `done` as one line each per session.
+- Races and events (#91): VibeSynergy is the only source of races and of the other events
+  that matter to the plan (kind `group_training`, `camp`, `holiday`, `unavailable`, `other`).
+  - `vibesynergy_races(start?, end?, kind?)` (`read`): every race and event from today on (or
+    the window) with all fields, its `id`, the Garmin and intervals.icu `copies` it is
+    linked to, and `changes`: the latest writes with their `audit_id`.
+  - `vibesynergy_race_add(reason, name, date, sport, distance_m?, priority?, start_time?,
+    location?, url?, goal_time?, notes?, end_date?)` adds a race; `vibesynergy_event_add(reason,
+    kind, name, date, end_date?, sport?, start_time?, location?, url?, notes?)` adds an
+    event. One tool with a `kind` for every non-race event, so a new kind is no new tool.
+  - `vibesynergy_race_update(reason, race_id, …)` changes a race or an event: only the fields
+    passed change, `""` clears a text field or the priority. `vibesynergy_race_delete(reason,
+    race_id)` deletes one (the row stays). `vibesynergy_race_revert(reason, audit_id)` undoes
+    one write: an add is deleted, a delete comes back, a change gets its earlier values; it is
+    refused when the race changed after it.
+  - All five writes are `plan.write` plan tools (`plan.propose` makes a proposal): the
+    athlete's own agent writes at once (his request is approved); the primary AI coach needs
+    `approval_id`, else its change is stored as a proposal (`summary.action` `race_add`,
+    `race_change`, `race_delete`, `event_add`, …) that the athlete approves under Waiting
+    for you; an advisory AI coach always proposes. A reason is required on every write.
+  - One validation for the MCP and the portal (`query/race_events.validate`): dates as
+    `2027-04-11`, `start_time` `09:30`, `goal_time` `H:MM:SS` (races only), `url` `https://`,
+    `distance_m` more than 0, `priority` A/B/C (races only), a sport for every race.
+  - Dedupe: a race or event already in VibeSynergy with the same date, name and sport is
+    refused (`already in VibeSynergy (id …)`); a Garmin event or intervals.icu `RACE_A/B/C`
+    or `NOTE` event with the same date, name and sport becomes its linked copy (`copies`),
+    never a second race. The calendar folds a linked Garmin event into the race.
+  - Copy to intervals.icu (`query/race_mirror`, with the plan mirror, soon after every write
+    and after each sync): a race as `RACE_A/B/C` (no priority: `NOTE`), an event as a
+    `NOTE` over its days, external id `vs-race:<id>`, only while it is not over. The mirror
+    only changes or removes its own copies: a race linked to an intervals.icu event it did
+    not make gets no second copy, and that event is left alone. A change made in
+    intervals.icu to a copy is put back and never read. Garmin is never written.
+  - Every write stores a before and after snapshot on `audit_log` (`actor` `race`) and a
+    "Plan change" on the coach feed with its reason. `vibesynergy_coach_state` has `races`
+    and `events`.
 - Race priority: `vibesynergy_race_set_priority` (`plan.propose`) stores A, B or C on one of
   VibeSynergy's races (#111). Null clears it. `vibesynergy_coach_state` races include
   `source` (`vibesynergy`), `source_id` (the race id) and `priority` (A, B, C, or null). A

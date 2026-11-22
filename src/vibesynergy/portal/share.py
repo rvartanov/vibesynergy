@@ -47,10 +47,11 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
             "/plan/export.xlsx",
             "/plan/export.pdf",
             "/plan/booklet",
+            "/races",
         )
     },
-    "training": {"read": ("/planning", "/training", "/power_curve", "/pace_curve")},
-    "plan": {"read": ("/planning", "/training-plan")},
+    "training": {"read": ("/planning", "/training", "/power_curve", "/pace_curve", "/races")},
+    "plan": {"read": ("/planning", "/training-plan", "/races")},
     "sleep": {"read": ("/sleep",)},
     "recovery": {"read": ("/recovery",)},
     "injuries": {"read": ("/injuries",), "write": ("/diary/injury",)},

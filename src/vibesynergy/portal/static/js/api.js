@@ -3,9 +3,10 @@
 import { language } from "./i18n.js";
 
 export class ApiError extends Error {
-  constructor(message, code) {
+  constructor(message, code, values) {
     super(message);
     this.code = code; // a stable error code, where the server sends one
+    this.values = values; // what the message is about, for a translated text (#91)
   }
 }
 
@@ -56,7 +57,7 @@ async function parse(response) {
     // not JSON: fall through to the status message
   }
   if (!response.ok) {
-    throw new ApiError(body?.error || `${response.status} ${response.statusText}`, body?.code);
+    throw new ApiError(body?.error || `${response.status} ${response.statusText}`, body?.code, body?.values);
   }
   return body;
 }

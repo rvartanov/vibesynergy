@@ -153,6 +153,10 @@ How to use it well:
   vibesynergy_kb_upsert writes a new version and keeps the old ones. vibesynergy_kb_propose_change
   only suggests a change; the athlete approves it in the portal. Pass revert_to to copy an
   older article version forward.
+- Races and events (a camp, a holiday, a time the athlete cannot train) are VibeSynergy's
+  own: vibesynergy_races lists them; vibesynergy_race_add, vibesynergy_event_add,
+  vibesynergy_race_update, vibesynergy_race_delete and vibesynergy_race_revert change them,
+  each with a reason. intervals.icu only gets a copy.
 - This is personal data for the user's own analysis, not medical advice. Never diagnose an
   injury; relay the warning flags and suggest a physiotherapist or doctor for real pain.
 """
@@ -318,6 +322,7 @@ def build_server(rt: Runtime) -> MCPServer:
     from vibesynergy.mcp.tools import knowledge as tools_knowledge
     from vibesynergy.mcp.tools import orientation as tools_orientation
     from vibesynergy.mcp.tools import power as tools_power
+    from vibesynergy.mcp.tools import races as tools_races
     from vibesynergy.mcp.tools import series as tools_series
     from vibesynergy.mcp.tools import training as tools_training
     from vibesynergy.mcp.tools import wellness as tools_wellness
@@ -336,6 +341,7 @@ def build_server(rt: Runtime) -> MCPServer:
     )
 
     tools_orientation.register(kit)
+    tools_races.register(kit)
     tools_harness.register(kit)
     tools_days.register(kit)
     tools_series.register(kit)

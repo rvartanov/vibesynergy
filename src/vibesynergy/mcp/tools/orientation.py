@@ -27,6 +27,7 @@ from vibesynergy.query import (
     icu_plan,
     model_run,
     predictions,
+    race_events,
     sql,
     thresholds,
     views,
@@ -52,11 +53,13 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_coach_state() -> dict[str, Any]:
         """The athlete's coaching preferences: advice language, detail and tone, notes for
         the AI coach, and things to remember (availability, fixed moments, equipment). Plus
-        VibeSynergy's races with their priority (the primary race is the next A race), and
-        contact_window: when an AI coach may reach the athlete (start, end, time zone,
-        open_now, opens_at) and the one urgent safety exception; outside it write entries as
-        usual but send him nothing. The training plan is VibeSynergy's own
-        (vibesynergy_plan_model); its rules are in the knowledge base.
+        VibeSynergy's races with their priority (the primary race is the next A race), the
+        other events that matter to the plan (events: group training, camp, holiday,
+        unavailable; add or change them with vibesynergy_event_add and
+        vibesynergy_race_update), and contact_window: when an AI coach may reach the athlete
+        (start, end, time zone, open_now, opens_at) and the one urgent safety exception;
+        outside it write entries as usual but send him nothing. The training plan is
+        VibeSynergy's own (vibesynergy_plan_model); its rules are in the knowledge base.
         """
         from vibesynergy.coach_runner import contact
 
@@ -66,6 +69,8 @@ def register(kit: ToolKit) -> None:
                 **snap,
                 "active_profile": coach.profile_binding(snap),
                 "races": plan_q.calendar_races(engine, today()),
+                # Other events that matter to the plan (#91): camps, holidays, unavailable.
+                "events": race_events.upcoming_events(engine, today()),
                 # When an AI coach may reach the athlete (#119): keep to it.
                 "contact_window": contact.state(rt),
                 "note": coach.COACH_STATE_NOTE,
@@ -118,7 +123,8 @@ def register(kit: ToolKit) -> None:
         source vibesynergy and source_id the race id, as vibesynergy_coach_state and
         vibesynergy_plan list them; a Garmin or intervals.icu id of the race's copy also
         works. The next A race is the primary race. A change in Garmin or intervals.icu
-        never changes it."""
+        never changes it. Add, change or delete races with vibesynergy_race_add, _update and
+        _delete."""
         from vibesynergy.query.race_priority import set_priority
 
         try:

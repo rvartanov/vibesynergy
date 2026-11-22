@@ -23,7 +23,9 @@ from vibesynergy.portal.api import (
     RESYNC_PRIORITY,
     TRAINING_SPORTS,
     PortalKit,
+    RaceForm,
     RacePriorityRequest,
+    RaceRevert,
     ResyncRequest,
     SqlRequest,
     UploadStart,
@@ -318,6 +320,82 @@ def register(kit: PortalKit) -> None:
             return JSONResponse(status_code=404, content={"error": "race_not_found"})
         except ValueError as exc:
             return JSONResponse(status_code=400, content={"error": str(exc)})
+
+    # Races and events (#91): the same checks and dedupe as the MCP (race_events), written
+    # at once (your own change), copied to intervals.icu soon after. Garmin is never written.
+
+    def _race_write(call) -> Any:
+        from vibesynergy.query import plan_model, race_events
+
+        try:
+            out = call()
+        except race_events.RaceError as exc:
+            return JSONResponse(
+                status_code=400,
+                content={"error": str(exc), "code": exc.code, "values": exc.values},
+            )
+        plan_model.mirror_soon(rt.jobs)
+        return envelope(out)
+
+    @router.get("/races")
+    def races_list(past: bool = False) -> dict[str, Any]:
+        """Your races and events from today on (past=true: all)."""
+        from vibesynergy.query import race_events
+
+        return envelope(
+            {
+                "items": race_events.listing(engine, since=None if past else today()),
+                "kinds": list(race_events.KINDS),
+                "sports": list(race_events.SPORTS),
+                "today": today().isoformat(),
+            }
+        )
+
+    @router.post("/races")
+    def races_add(request: RaceForm) -> Any:
+        """Add a race or event."""
+        from vibesynergy.query import race_events
+
+        return _race_write(
+            lambda: race_events.add(
+                engine, request.model_dump(), reason="added in the portal", author="portal"
+            )
+        )
+
+    @router.post("/races/revert")
+    def races_revert(request: RaceRevert) -> Any:
+        """Undo one race or event change (its audit id)."""
+        from vibesynergy.query import race_events
+
+        return _race_write(
+            lambda: race_events.revert(
+                engine, request.audit_id, reason="undone in the portal", author="portal"
+            )
+        )
+
+    @router.post("/races/{race_id}")
+    def races_change(race_id: str, request: RaceForm) -> Any:
+        """Change a race or event: every field as the form sends it."""
+        from vibesynergy.query import race_events
+
+        values = request.model_dump()
+        values = {k: ("" if v is None else v) for k, v in values.items()}
+        return _race_write(
+            lambda: race_events.change(
+                engine, race_id, values, reason="changed in the portal", author="portal"
+            )
+        )
+
+    @router.post("/races/{race_id}/delete")
+    def races_delete(race_id: str) -> Any:
+        """Delete a race or event; the answer's audit_id undoes it."""
+        from vibesynergy.query import race_events
+
+        return _race_write(
+            lambda: race_events.delete(
+                engine, race_id, reason="deleted in the portal", author="portal"
+            )
+        )
 
     @router.get("/pace_curve")
     def pace_curve_page(

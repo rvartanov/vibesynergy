@@ -34,6 +34,22 @@ export function planChangeText(change) {
       return t("New note for plan week {week}.", { week: c.week });
     case "target":
       return t("New weekly target for plan week {week}{sport}.", { week: c.week, sport: sport(c) });
+    // Races and events (#91).
+    case "race_add":
+      return t("Add the race {name} on {day}.", { name: c.name || "", day });
+    case "race_change":
+      return t("Change the race {name} on {day}.", { name: c.name || "", day });
+    case "race_delete":
+      return t("Delete the race {name} on {day}.", { name: c.name || "", day });
+    case "event_add":
+      return t("Add {name} to your events on {day}.", { name: c.name || "", day });
+    case "event_change":
+      return t("Change the event {name} on {day}.", { name: c.name || "", day });
+    case "event_delete":
+      return t("Delete the event {name} on {day}.", { name: c.name || "", day });
+    case "race_revert":
+    case "event_revert":
+      return t("Undo the last change to {name}.", { name: c.name || "" });
     default:
       return t("A change to your plan.");
   }

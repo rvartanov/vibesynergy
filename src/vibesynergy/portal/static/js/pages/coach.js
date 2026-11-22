@@ -401,6 +401,13 @@ function planChangeLine(plan) {
   if (plan.action === "session_change") return t("Session changed: {name}, {date}", { name, date });
   if (plan.action === "session_skip") return t("Session taken out of the plan: {name}, {date}", { name, date });
   if (plan.action === "week_note") return t("Week {week}: note changed", { week: plan.week });
+  // Races and events (#91).
+  if (plan.action === "race_add") return t("Race added: {name}, {date}", { name, date });
+  if (plan.action === "race_change") return t("Race changed: {name}, {date}", { name, date });
+  if (plan.action === "race_delete") return t("Race deleted: {name}, {date}", { name, date });
+  if (plan.action === "event_add") return t("Event added: {name}, {date}", { name, date });
+  if (plan.action === "event_change") return t("Event changed: {name}, {date}", { name, date });
+  if (plan.action === "event_delete") return t("Event deleted: {name}, {date}", { name, date });
   if (plan.action === "week_target") {
     return plan.removed
       ? t("Week {week}: {sport} target removed", { week: plan.week, sport })
