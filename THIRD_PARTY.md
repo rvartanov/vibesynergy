@@ -26,7 +26,7 @@ adds a dependency or vendors/adapts outside code must update this file.**
 | fastapi | 0.141.1 | MIT | https://github.com/fastapi/fastapi |
 | fitdecode | 0.11.0 | MIT | https://github.com/polyvertex/fitdecode |
 | mcp | 2.2.0 | MIT | https://github.com/modelcontextprotocol/python-sdk |
-| garminconnect | 0.3.16 | MIT | https://github.com/cyberjunky/python-garminconnect |
+| garminconnect | 0.3.20 | MIT | https://github.com/cyberjunky/python-garminconnect |
 | pyarrow | 25.0.1 | Apache-2.0 | https://arrow.apache.org |
 | requests | 2.34.2 | Apache-2.0 | https://requests.readthedocs.io |
 | python-ulid | 4.0.1 | MIT | https://github.com/mdomke/python-ulid |
@@ -55,6 +55,11 @@ Notes:
   through the fitdecode package and does not bundle the SDK itself.
 - Garmin Connect is accessed through an unofficial API; that is a terms-of-use matter for
   the account owner, not a code license, and is recorded in the design
+
+- Garmin endpoint knowledge for #125 (which activity sub-resources exist and that Garmin
+  answers HTTP 500 for an activity without workout steps or rounds) comes from
+  [slurp-garmin-mcp](https://github.com/rvartanov/slurp-garmin-mcp) (MIT), reference commit
+  `94979eb`. No code is copied; the calls go through `garminconnect`.
 
 Development-only: pytest (MIT), ruff (MIT).
 

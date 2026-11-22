@@ -137,6 +137,14 @@ def build(timezone: str) -> dict[str, Mapper]:
         "heart_rate": map_heart_rate,
         "stress": map_stress,
         "training_readiness": map_training_readiness,
+        "morning_training_readiness": map_morning_training_readiness,
+        "training_status": map_training_status,
+        "respiration": map_respiration,
+        "endurance_score": map_endurance_score,
+        "hill_score": map_hill_score,
+        "running_tolerance": map_running_tolerance,
+        "lactate_threshold": map_lactate_threshold,
+        "cycling_ftp": map_cycling_ftp,
         "max_metrics": map_max_metrics,
         "fitness_age": map_fitness_age,
         "hydration": map_hydration,
@@ -276,6 +284,195 @@ def map_training_readiness(raw: RawRecord) -> Iterable[Record]:
     if scored:  # several readings a day; the latest counts
         latest = max(scored, key=lambda e: str(e.get("timestamp") or ""))
         yield DailyMetric(_day(raw), "recovery.readiness", num(latest["score"]), "score")
+
+
+# The factors of the morning readiness score, each as Garmin's 0-100 percentage.
+MORNING_READINESS = [
+    ("score", "recovery.readiness.morning", "score", 1),
+    ("sleepScoreFactorPercent", "recovery.readiness.sleep", "pct", 1),
+    ("sleepHistoryFactorPercent", "recovery.readiness.sleep_history", "pct", 1),
+    ("recoveryTimeFactorPercent", "recovery.readiness.recovery_time", "pct", 1),
+    ("hrvFactorPercent", "recovery.readiness.hrv", "pct", 1),
+    ("acwrFactorPercent", "recovery.readiness.acute_load", "pct", 1),
+    ("stressHistoryFactorPercent", "recovery.readiness.stress_history", "pct", 1),
+    ("recoveryTime", "recovery.recovery_time", "min", 1),
+]
+
+ACUTE_LOAD = [
+    ("dailyTrainingLoadAcute", "training.load.acute", "load", 1),
+    ("dailyTrainingLoadChronic", "training.load.chronic", "load", 1),
+    ("dailyAcuteChronicWorkloadRatio", "training.load.ratio", "raw", 1),
+]
+
+LOAD_BALANCE = [
+    ("monthlyLoadAerobicLow", "training.load_balance.aerobic_low", "load", 1),
+    ("monthlyLoadAerobicHigh", "training.load_balance.aerobic_high", "load", 1),
+    ("monthlyLoadAnaerobic", "training.load_balance.anaerobic", "load", 1),
+]
+
+ACCLIMATION = [
+    ("heatAcclimationPercentage", "fitness.acclimation.heat", "pct", 1),
+    ("altitudeAcclimation", "fitness.acclimation.altitude", "m", 1),
+]
+
+HILL_SCORE = [
+    ("overallScore", "fitness.hill_score", "score", 1),
+    ("enduranceScore", "fitness.hill_score.endurance", "score", 1),
+    ("strengthScore", "fitness.hill_score.strength", "score", 1),
+]
+
+RUNNING_TOLERANCE = [
+    ("tolerance", "training.running_tolerance", "load", 1),
+    ("totalImpactLoad", "training.running_impact_load", "load", 1),
+]
+
+
+def map_morning_training_readiness(raw: RawRecord) -> Iterable[Record]:
+    """The morning readiness score and its factors: the reading the day starts with, so it
+    does not move with later readings (``recovery.readiness`` is the day's latest)."""
+    scored = [e for e in _as_list(raw.json()) if num(e.get("score")) is not None]
+    if scored:
+        first = min(scored, key=lambda e: str(e.get("timestamp") or ""))
+        yield from metrics_from(first, _day(raw), MORNING_READINESS)
+
+
+def _device_entry(by_device: Any) -> dict:
+    """One entry of a ``{deviceId: {...}}`` map: the primary training device's, else the
+    first. Garmin keys these per device when more than one watch records training."""
+    entries = (
+        [v for v in by_device.values() if isinstance(v, dict)]
+        if isinstance(by_device, dict)
+        else []
+    )
+    return next(
+        (e for e in entries if e.get("primaryTrainingDevice")), entries[0] if entries else {}
+    )
+
+
+def _dated(entry: dict, day: date) -> bool:
+    """An entry about ``day`` itself. Garmin repeats the last known value on days the watch
+    did not sync; that copy belongs to its own date, not to this one."""
+    return str(entry.get("calendarDate") or "")[:10] == day.isoformat()
+
+
+def map_training_status(raw: RawRecord) -> Iterable[Record]:
+    """Acute and chronic load, their ratio, the four-week load balance and heat and altitude
+    acclimation, as Garmin computed them that day."""
+    data = raw.json()
+    if not isinstance(data, dict):
+        return
+    day = _day(raw)
+    status = _device_entry(
+        (data.get("mostRecentTrainingStatus") or {}).get("latestTrainingStatusData")
+    )
+    if _dated(status, day):
+        yield from metrics_from(status.get("acuteTrainingLoadDTO") or {}, day, ACUTE_LOAD)
+    balance = _device_entry(
+        (data.get("mostRecentTrainingLoadBalance") or {}).get("metricsTrainingLoadBalanceDTOMap")
+    )
+    if _dated(balance, day):
+        yield from metrics_from(balance, day, LOAD_BALANCE)
+    acclimation = (data.get("mostRecentVO2Max") or {}).get("heatAltitudeAcclimation") or {}
+    if isinstance(acclimation, dict) and _dated(acclimation, day):
+        yield from metrics_from(acclimation, day, ACCLIMATION)
+
+
+def map_respiration(raw: RawRecord) -> Iterable[Record]:
+    """The day's lowest and highest breathing rate (the averages come from the summary and
+    the sleep record)."""
+    data = raw.json()
+    if isinstance(data, dict):
+        yield from metrics_from(
+            data,
+            _day(raw),
+            [
+                ("lowestRespirationValue", "resp.min", "brpm", 1),
+                ("highestRespirationValue", "resp.max", "brpm", 1),
+            ],
+        )
+
+
+def _month_of(raw: RawRecord) -> str | None:
+    """``YYYY-MM`` of a monthly range item: entries outside it belong to another item."""
+    return raw.item_key if _MONTH_KEY.fullmatch(raw.item_key) else None
+
+
+def _in_month(text: Any, month: str | None) -> date | None:
+    """The date in ``text`` when it lies in ``month`` (any month when None)."""
+    day_text = str(text or "")[:10]
+    try:
+        day = date.fromisoformat(day_text)
+    except ValueError:
+        return None
+    return day if month is None or day_text.startswith(month) else None
+
+
+def map_endurance_score(raw: RawRecord) -> Iterable[Record]:
+    """The endurance score on the last day of the month item that has one. Garmin's range
+    reply carries one daily score (the latest) and weekly averages."""
+    data = raw.json()
+    dto = (data.get("enduranceScoreDTO") or {}) if isinstance(data, dict) else {}
+    day = _in_month(dto.get("calendarDate"), _month_of(raw))
+    if day is not None and (score := num(dto.get("overallScore"))) is not None:
+        yield DailyMetric(day, "fitness.endurance_score", score, "score")
+
+
+def map_hill_score(raw: RawRecord) -> Iterable[Record]:
+    """The daily hill score with its endurance and strength parts."""
+    data = raw.json()
+    entries = _as_list(data.get("hillScoreDTOList")) if isinstance(data, dict) else []
+    month = _month_of(raw)
+    by_day: dict[date, dict] = {}
+    for entry in entries:  # the primary device's entry wins a day with two
+        day = _in_month(entry.get("calendarDate"), month)
+        if day is not None and (day not in by_day or entry.get("primaryTrainingDevice")):
+            by_day[day] = entry
+    for day, entry in sorted(by_day.items()):
+        yield from metrics_from(entry, day, HILL_SCORE)
+
+
+def map_running_tolerance(raw: RawRecord) -> Iterable[Record]:
+    """Weekly running tolerance and impact load, dated to the first day of the week."""
+    month = _month_of(raw)
+    for entry in _as_list(raw.json()):
+        day = _in_month(entry.get("startOfWeek"), month)
+        if day is not None:
+            yield from metrics_from(entry, day, RUNNING_TOLERANCE)
+
+
+def map_lactate_threshold(raw: RawRecord) -> Iterable[Record]:
+    """Garmin's running lactate threshold per day it was valid: heart rate, pace and power.
+
+    The speed is in Garmin's threshold unit (seconds per metre, like the profile's
+    ``lactateThresholdSpeed``) and is stored as s/km."""
+    data = raw.json()
+    if not isinstance(data, dict):
+        return
+    month = _month_of(raw)
+    for key, metric, unit in (
+        ("heart_rate", "fitness.lactate_threshold.hr", "bpm"),
+        ("speed", "fitness.lactate_threshold.pace", "s/km"),
+        ("power", "fitness.lactate_threshold.power", "W"),
+    ):
+        for entry in _as_list(data.get(key)):
+            if str(entry.get("series") or "running") != "running":
+                continue
+            day = _in_month(entry.get("from"), month)
+            value = num(entry.get("value"))
+            if day is None or not value:
+                continue
+            yield DailyMetric(
+                day, metric, round(value * 1000, 1) if key == "speed" else value, unit
+            )
+
+
+def map_cycling_ftp(raw: RawRecord) -> Iterable[Record]:
+    """Cycling FTP on the day Garmin set it (a history dataset: every version stays)."""
+    for entry in _as_list(raw.json()):
+        day = _in_month(entry.get("calendarDate"), None)
+        ftp = num(entry.get("functionalThresholdPower"))
+        if day is not None and ftp:
+            yield DailyMetric(day, "fitness.cycling_ftp", ftp, "W")
 
 
 def map_max_metrics(raw: RawRecord) -> Iterable[Record]:
@@ -641,6 +838,12 @@ def map_activity(raw: RawRecord) -> Iterable[Record]:
     gear_ids = sorted({str(g["uuid"]) for g in _as_list(data.get("gear")) if g.get("uuid")})
     if gear_ids:
         extra["gear_ids"] = gear_ids
+    # Structured-workout steps and rounds (HIIT, boxing), when Garmin has them: per step
+    # what was done, so planned vs done can follow the watch's steps (#116).
+    for key in ("workout_steps", "rounds"):
+        rows = detail_rows(data.get(key))
+        if rows:
+            extra[key] = rows
     if data.get("errors"):
         extra["detail_errors"] = data["errors"]
     yield Activity(
@@ -726,6 +929,44 @@ def map_activity(raw: RawRecord) -> Iterable[Record]:
 
 
 # Helpers ----------------------------------------------------------------------------------
+
+
+_DETAIL_SKIP = re.compile(r"(?i)latitude|longitude|polyline|image|url")
+
+
+def detail_rows(reply: Any) -> list[dict]:
+    """The rows of an activity sub-resource reply (workout steps, rounds), compact.
+
+    Garmin wraps the list in an object (``{"activityId": …, "<name>DTOs": [...]}``) or
+    returns it bare. Each row keeps its plain values; a nested list (a round's exercise
+    sets, a step's laps) becomes its length. Positions and links are left in the raw item."""
+    rows: Any = reply
+    if isinstance(reply, dict):
+        rows = next(
+            (
+                v
+                for v in reply.values()
+                if isinstance(v, list) and any(isinstance(i, dict) for i in v)
+            ),
+            [],
+        )
+    out: list[dict] = []
+    for row in rows if isinstance(rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        item: dict[str, Any] = {}
+        for k, v in row.items():
+            if v is None or _DETAIL_SKIP.search(k):
+                continue
+            if isinstance(v, str | int | float | bool):
+                item[k] = v
+            elif isinstance(v, list):
+                item[f"{k}_count"] = len(v)
+            elif isinstance(v, dict) and isinstance(v.get("typeKey") or v.get("key"), str):
+                item[k] = v.get("typeKey") or v.get("key")  # e.g. {"typeKey": "interval"}
+        if item:
+            out.append(item)
+    return out
 
 
 def _day(raw: RawRecord) -> date:

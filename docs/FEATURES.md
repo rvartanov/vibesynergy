@@ -50,10 +50,13 @@ Status: beta (version 0.1.0-beta.0.N, see Versions below). The portal is in Dutc
 
 Details: [SOURCES.md](SOURCES.md).
 
-- **Garmin Connect**: activities with streams and laps, daily health (sleep, HRV, resting
-  heart rate, stress, Body Battery, readiness, steps, intraday heart rate), zones and
-  thresholds, the training calendar, gear. History from the API or from a Garmin account
-  export.
+- **Garmin Connect**: activities with streams and laps, the steps of a structured workout
+  and the rounds of a HIIT class, daily health (sleep, HRV, resting heart rate, stress, Body
+  Battery, readiness with its morning factors, steps, intraday heart rate), Garmin's own
+  training model (acute and chronic load, load focus, running tolerance, endurance and hill
+  score, heat and altitude acclimation, lactate threshold and cycling FTP history), zones
+  and thresholds, the training calendar, gear. History from the API or from a Garmin
+  account export.
 - **Withings**: weight and body composition, blood pressure.
 - **Strava**: activities, gear with mileage; history from the account archive.
 - **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach

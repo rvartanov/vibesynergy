@@ -631,6 +631,18 @@ def activity_detail(engine: Engine, parquet: ParquetStore, activity_id: str) -> 
         "streams": streams,
         "notes": journal.notes_for_activity(engine, group),
     }
+    # Garmin's workout steps (what was done per step of a structured workout) and rounds
+    # (HIIT, boxing), from the first copy that has them. Laps carry their step in
+    # extra.wktStepIndex.
+    for part in ("workout_steps", "rounds"):
+        result[part] = next(
+            (
+                m["extra"][part]
+                for m in members
+                if isinstance(m.get("extra"), dict) and m["extra"].get(part)
+            ),
+            [],
+        )
     result["evidence"] = evidence.activity_version(result, parquet)
     return result
 

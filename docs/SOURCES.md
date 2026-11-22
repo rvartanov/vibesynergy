@@ -58,7 +58,7 @@ Garmin's login.
 
 | Kind | Datasets | Raw item key |
 |---|---|---|
-| entity | `activities` (summary + splits, typed splits, HR/power time in zone, weather, gear, exercise sets), `activity_files` (original download zip, fetched once) | activityId |
+| entity | `activities` (summary + splits, typed splits, HR/power time in zone, weather, gear, exercise sets; workout steps for a structured workout and rounds for HIIT, boxing and cardio classes, asked once per new or changed activity), `activity_files` (original download zip, fetched once) | activityId |
 | daily | `wellness_files` (monitoring FIT zip; days ≥ 3 days old are fetched once; today skipped), `user_summary`, `heart_rate`, `rhr`, `sleep`, `hrv`, `stress`, `body_battery_events`, `respiration`, `spo2`, `steps`, `floors`, `intensity_minutes`, `all_day_events`, `lifestyle_logging`, `hydration`, `training_readiness`, `morning_training_readiness`, `training_status`, `max_metrics`, `fitness_age`; off by default: `nutrition_food_log`, `nutrition_meals`, `menstrual` | date |
 | range (per month) | `body_composition`, `weigh_ins`, `blood_pressure`, `body_battery`, `endurance_score`, `hill_score`, `race_predictions`, `running_tolerance`, `lactate_threshold`, `scheduled_workouts`, `sleep_summary`, `hrv_range`, `max_metrics_range`, `weekly_steps`, `weekly_stress`, `weekly_intensity_minutes`, `device_solar` | `YYYY-MM` |
 | snapshot | `profile`, `heart_rate_zones`\*, `power_zones`\*, `cycling_ftp`\*, `critical_swim_speed`\*, `lactate_threshold_latest`\*, `devices`, `gear`, `personal_records`, `badges`, `challenges` (including available and non-completed badge challenges), `goals`, `workouts`, `training_plans`, `activity_types`; off by default: `pregnancy` | `current` |
@@ -82,6 +82,18 @@ In a detail bundle, one failing call (for example, no weather for an indoor ride
 under `errors` in the payload and the activity is still stored. Authentication and
 rate-limit errors stop the dataset.
 
+Workout steps (`stepdetails`) are asked only for an activity with a `workoutId`, rounds only
+for HIIT, boxing, martial arts and cardio. Both never change once the activity is saved, so
+a later sync copies them from the archived version instead of asking again, until the
+activity's length, distance, lap count, start or workout changes. Garmin answers HTTP 500
+for an activity without them; that answer is kept under `errors` and not asked again. A
+timeout, a lost connection or a gateway error (502-504) is asked again at the next sync.
+Laps keep coming from `splits` (`lapDTOs`, with `wktStepIndex` and `intensityType` per
+lap); the separate `laps` endpoint returns the same list and is not called.
+
+The library is `garminconnect` 0.3.20, pinned exactly; `tests/test_garmin_contract.py`
+checks that every method VibeSynergy calls exists on that version.
+
 ### Mapped so far
 
 | Dataset | Canonical data |
@@ -90,6 +102,14 @@ rate-limit errors stop the dataset.
 | `sleep` | `sleep_session`, `sleep_stage`; `sleep.score/duration/deep/light/rem/awake/spo2_avg/avg_respiration/avg_stress/avg_hr/avg_hrv/restless_moments/resting_hr/skin_temp_deviation/body_battery_change` |
 | `hrv` | `hrv.night_avg/weekly_avg/night_5min_high/baseline_low/baseline_high` |
 | `training_readiness` | `recovery.readiness` (latest reading of the day) |
+| `morning_training_readiness` | `recovery.readiness.morning` (first reading of the day) and its factors `recovery.readiness.sleep/sleep_history/recovery_time/hrv/acute_load/stress_history` (Garmin's %), `recovery.recovery_time` (min) |
+| `training_status` | `training.load.acute/chronic/ratio`, `training.load_balance.aerobic_low/aerobic_high/anaerobic`, `fitness.acclimation.heat` (%) and `.altitude` (m); the primary training device's entry, only when it is dated that day (Garmin repeats the last value on days without a watch sync) |
+| `respiration` | `resp.min`, `resp.max` |
+| `endurance_score` | `fitness.endurance_score` on the day of the month's latest score |
+| `hill_score` | `fitness.hill_score`, `fitness.hill_score.endurance/strength` per day |
+| `running_tolerance` | `training.running_tolerance`, `training.running_impact_load` per week, dated to its first day |
+| `lactate_threshold` | `fitness.lactate_threshold.hr` (bpm), `.pace` (s/km, from Garmin's threshold speed like the profile's) and `.power` (W) per day, running series |
+| `cycling_ftp` | `fitness.cycling_ftp` (W) on the day Garmin set it (history dataset) |
 | `max_metrics`, `fitness_age` | `fitness.vo2max.run/ride`, `fitness.fitness_age` |
 | `hydration` | `nutrition.hydration` |
 | `body_composition` | `body_measurement` per weigh-in (time from `timestampGMT`); last of the day as `body.weight/bmi/fat_pct/water_pct/bone_mass/muscle_mass/visceral_fat` |
@@ -103,12 +123,13 @@ rate-limit errors stop the dataset.
 | `heart_rate` | wellness Parquet `hr.sample` (every 2 min, from the API; complements the FIT files, which arrive days later) |
 | `stress` | wellness Parquet `stress.sample` (every 3 min; "not measured" values dropped) and `bodybattery.sample` |
 
-Archived but not mapped yet: training status and load,
-respiration and SpO2 intraday, endurance/hill score, running tolerance, lactate threshold,
-weigh-in sources, devices, gear, badges. These will be mapped when phases 3 to 5 need
-them, and their history is already in the archive. Also raw only: `rhr`, `sleep_summary`,
-`hrv_range`, `max_metrics_range`, `weekly_steps`, `weekly_stress`,
-`weekly_intensity_minutes` and `device_solar`. A plain sync leaves those range datasets
+Archived but not mapped: SpO2 and respiration intraday, weigh-in sources, devices, gear,
+badges, personal records, goals and `device_solar` (no daily measurement), and datasets
+whose values already come from a mapped one: `rhr` and `body_battery` (the daily summary),
+`sleep_summary` (sleep), `hrv_range` (hrv), `max_metrics_range` (max_metrics), `weigh_ins`
+(body composition), `steps`, `floors` and `intensity_minutes` (the wellness FIT files and
+the summary), `weekly_steps`, `weekly_stress` and `weekly_intensity_minutes` (sums of
+days). Their history stays in the archive for a later mapper. A plain sync leaves those range datasets
 for an hour. `challenges` also stores available and non-completed badge challenges.
 Solar and challenges use the same `errors` field as an activity detail bundle.
 
@@ -319,7 +340,10 @@ every sync, fetch or import that changed data (or on demand with `vibesynergy de
   otherwise from Strava.
 - **`daily_unified`**: one value per day and metric, taken from the best source that has it.
   Defaults: `body.*` and `bp.*` Withings, then Garmin; `sleep.*` Garmin, then Withings;
-  everything else Garmin, then Withings, Strava, files. Settings → System → Best source per
+  Garmin's own models (`training.*`, `recovery.readiness.*`, `recovery.recovery_time`,
+  `fitness.acclimation.*`, `fitness.endurance_score`, `fitness.hill_score*`,
+  `fitness.lactate_threshold.*`, `fitness.cycling_ftp`) Garmin only; everything else Garmin,
+  then Withings, Strava, files. Settings → System → Best source per
   measurement shows, per metric, the sources that deliver it, the order in use and the source
   the value comes from now, and saves an order for one metric at once (`best-source.json` in
   the data folder, applied at the next derive). That beats the older per-prefix rules in

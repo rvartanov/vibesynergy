@@ -13,6 +13,16 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **More Garmin data as measurements** (#125): your morning training readiness and what
+  makes it up (sleep, sleep history, recovery time, HRV, acute load, stress history),
+  Garmin's acute and chronic load with their ratio and the four-week load focus, heat and
+  altitude acclimation, endurance and hill score, weekly running tolerance, lactate
+  threshold (heart rate, pace, power) and cycling FTP. They are in the metric lists and
+  for your AI apps in `vibesynergy_catalog`, `vibesynergy_series` and `vibesynergy_day`;
+  new days fill in with every sync. For a structured workout VibeSynergy also keeps what you
+  did per workout step, and for a HIIT class its rounds; `vibesynergy_activity` shows them
+  as `workout_steps` and `rounds`. VibeSynergy now uses `garminconnect` 0.3.20.
+
 ## 0.1.0-beta.0.2 – 22-11-2026
 
 - **Races and events, added, changed and deleted by you and your AI apps** (#91): on

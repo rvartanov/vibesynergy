@@ -63,9 +63,11 @@ def register(kit: ToolKit) -> None:
     @tool(READ, "read")
     def vibesynergy_activity(id: str) -> dict[str, Any]:
         """One activity in depth: merged summary, the copies from each source (with their
-        titles, devices, descriptions), laps, time in HR/power zones, which stream
-        channels exist, and effort: RPE 1-10 and Feel 1-5 (1 = Strong, 5 = Weak, the
-        intervals.icu scale) with their source (garmin, intervals_icu or vibesynergy).
+        titles, devices, descriptions), laps, Garmin's workout_steps (per step of a
+        structured workout; laps name their step in extra.wktStepIndex) and rounds (HIIT),
+        time in HR/power zones, which stream channels exist, and effort: RPE 1-10 and Feel
+        1-5 (1 = Strong, 5 = Weak, the intervals.icu scale) with their source (garmin,
+        intervals_icu or vibesynergy).
         id: e.g. 'garmin:123' or 'strava:456'."""
         from vibesynergy.query import activity_effort
 
