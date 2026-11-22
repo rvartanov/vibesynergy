@@ -34,6 +34,9 @@ class Block:
     budget: int  # characters of JSON
     build: Callable[[Any, date, dict[str, Any]], Any]
     version: int = 1
+    # False: the block fits itself to its budget and is never cut afterwards, because a cut
+    # could drop what must stay (the athlete's own words in ``activity``, #158).
+    cut: bool = True
 
 
 DESCRIPTION_CHARS = 700  # a session's step text in a block; the tools have the rest
@@ -453,12 +456,166 @@ def _races(rt, day, cache):
     return plan.calendar_races(rt.engine, day)
 
 
-def _activity(rt, day, cache):
+ACTIVITY_BUDGET = 8000  # characters for the whole block: a brick of up to five activities
+MAX_ACTIVITIES = 5  # a brick: the holder and its parts
+
+# The summary numbers of the merged activity, as stored (seconds, metres, bpm, watts).
+_SUMMARY = (
+    "sport",
+    "local_date",
+    "start_utc",
+    "elapsed_s",
+    "moving_s",
+    "distance_m",
+    "ascent_m",
+    "avg_hr",
+    "max_hr",
+    "avg_power",
+    "norm_power",
+    "training_load",
+    "purpose",
+)
+
+
+def own_text(description: Any) -> str | None:
+    """What the athlete wrote in a provider description: every VibeSynergy block
+    (``[/*]`` … ``*/]``, found as publication finds it) taken out, and the generated parts
+    and app texts the diary import leaves out (``journal.personal_text``) too."""
+    from vibesynergy.query import journal, publication_format
+
+    if not isinstance(description, str) or not description.strip():
+        return None
+    text = description
+    for start, end in reversed(publication_format.find_blocks(text)):
+        text = text[:start] + "\n" + text[end:]
+    return journal.personal_text(text)
+
+
+def _number(value: Any, digits: int = 0) -> Any:
+    if isinstance(value, float):
+        return round(value, digits) if digits else round(value)
+    return value
+
+
+def _own_words(detail: dict[str, Any]) -> dict[str, Any]:
+    """The athlete's own words for one activity: per source the title and the description
+    without VibeSynergy's block, and the linked notes (text only). A text that is already
+    there (the Strava description the diary imported as a note) is given once."""
+    seen: set[str] = set()
+    sources = []
+    for member in detail.get("sources") or []:
+        if member.get("removed_at"):
+            continue
+        extra = member.get("extra") if isinstance(member.get("extra"), dict) else {}
+        text = own_text(extra.get("description"))
+        row: dict[str, Any] = {"source": str(member.get("id") or "").split(":", 1)[0]}
+        if member.get("name"):
+            row["title"] = member["name"]
+        if text and text not in seen:
+            row["description"] = text
+            seen.add(text)
+        sources.append(row)
+    notes = []
+    for found in detail.get("notes") or []:
+        text = str(found.get("text") or "").strip()
+        if text and text not in seen:
+            notes.append(text)
+            seen.add(text)
+    return {"sources": sources, "notes": notes}
+
+
+def _effort(rt, group: str) -> dict[str, Any] | None:
+    from vibesynergy.query import activity_effort
+
+    try:
+        found = activity_effort.for_activity(rt.engine, rt.raw, group)
+    except Exception as exc:  # the block goes on without it
+        log.warning("effort for the activity block failed: %s", exc)
+        return None
+    out = {
+        field: {k: found[field].get(k) for k in ("value", "label", "source")}
+        for field in activity_effort.FIELDS
+        if (found.get(field) or {}).get("value") is not None
+    }
+    return out or None
+
+
+def _lap(lap: dict[str, Any]) -> dict[str, Any]:
+    units = lap.get("sport_units") or {}
+    extra = lap.get("extra") if isinstance(lap.get("extra"), dict) else {}
+    row = {
+        "i": lap.get("lap_index"),
+        "duration": units.get("duration"),
+        "distance": units.get("distance"),
+        "avg_hr": _number(lap.get("avg_hr")),
+        "avg_power": _number(lap.get("avg_power")),
+        "pace_or_speed": units.get("pace_or_speed"),
+        "intensity": extra.get("intensityType"),
+    }
+    return {k: v for k, v in row.items() if v is not None}
+
+
+def _zones(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {}
+    for z in rows:
+        out.setdefault(str(z.get("kind")), []).append(
+            {"zone": z.get("zone"), "s": _number(z.get("seconds")), "from": _number(z.get("low"))}
+        )
+    return out
+
+
+def activity_view(rt, activity_id: str) -> dict[str, Any]:
+    """One activity for the AI coach, compact and purpose-built (#158): the athlete's own
+    words first, then the summary numbers, effort, laps and time in zones. No provider
+    ``extra``, no account, profile or owner fields."""
     from vibesynergy.query import views
 
+    detail = views.activity_detail(rt.engine, rt.parquet, activity_id)
+    unified = detail.get("activity") or {}
+    group = str(unified.get("group_id") or activity_id)
+    summary = {k: _number(unified.get(k)) for k in _SUMMARY if unified.get(k) is not None}
+    units = {k: v for k, v in (unified.get("sport_units") or {}).items() if k != "family"}
+    laps = [_lap(lap) for lap in detail.get("laps") or []]
+    out: dict[str, Any] = {
+        "id": group,
+        "own_words": _own_words(detail),
+        "summary": summary | units,
+        "effort": _effort(rt, group),
+        "laps": laps,
+        "zones": _zones(detail.get("zones") or []),
+    }
+    return {k: v for k, v in out.items() if v not in (None, [], {})}
+
+
+def _size(data: Any) -> int:
+    return len(json.dumps(data, ensure_ascii=False, default=str))
+
+
+def fit_activities(found: list[dict[str, Any]], budget: int) -> list[dict[str, Any]]:
+    """The views within ``budget`` characters of JSON. What gives way, in order: the laps
+    (from the end, a count stays), then the zones, the effort and last the summary. The
+    athlete's own words are never cut."""
+    out = [dict(v) for v in found]
+    totals = {i: len(v.get("laps") or []) for i, v in enumerate(out)}
+    keep = max(totals.values(), default=0)
+    while _size(out) > budget and keep > 0:
+        keep = keep // 2 if keep > 4 else keep - 1
+        for i, view in enumerate(out):
+            if totals[i] > keep:
+                view["laps"] = (found[i].get("laps") or [])[:keep]
+                view["laps_total"] = totals[i]
+    for key in ("zones", "effort", "summary"):
+        if _size(out) <= budget:
+            break
+        for view in out:
+            view.pop(key, None)
+    return out
+
+
+def _activity(rt, day, cache):
     ids = cache.get("activity_ids") or []
-    # A brick: the holder and its parts, so up to five.
-    return [views.activity_detail(rt.engine, rt.parquet, str(i)) for i in ids[:5]] or None
+    found = [activity_view(rt, str(i)) for i in ids[:MAX_ACTIVITIES]]
+    return fit_activities(found, ACTIVITY_BUDGET) or None
 
 
 def _plan_match(rt, day, cache):
@@ -528,7 +685,17 @@ BLOCKS: dict[str, Block] = {
             _coach_team,
         ),
         Block("fitness", "Fitheid", 2500, _fitness),
-        Block("activity", "Activiteit", 4000, _activity),
+        # Version 2 (#158): a compact view, the athlete's own words first; no raw provider
+        # data, so the Strava description and the notes are never cut off.
+        Block(
+            "activity",
+            "Activiteit: eerst de eigen titel, beschrijving en notities van de atleet, "
+            "dan de cijfers",
+            ACTIVITY_BUDGET,
+            _activity,
+            version=2,
+            cut=False,
+        ),
         Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),
         Block("month", "Vorige maand", 4000, _month),
         # Version 2 (#111): VibeSynergy's own races; the primary race is the next A race.
@@ -542,7 +709,7 @@ BLOCKS: dict[str, Block] = {
 
 def _render(block: Block, data: Any) -> str:
     text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False, default=str)
-    if len(text) > block.budget:
+    if block.cut and len(text) > block.budget:
         text = text[: block.budget] + " …(ingekort; haal de rest op met de tools)"
     return text
 

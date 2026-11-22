@@ -78,7 +78,10 @@ with every model.
 There is one place in the code that calls a model: `runner._loop` (`model.create`). Nothing
 else imports a model client. `runner.run` is reached from the scheduler (`schedule.handle`),
 from events (`schedule.on_agent_event`), and from Test now / Make again in the portal and
-`vibesynergy_harness_run` over MCP, which all queue the same `coach_run` job.
+`vibesynergy_harness_run` over MCP, which all queue the same `coach_run` job. A redo of one
+activity's insight (`vibesynergy coach redo insight <activity_id>`, or
+`vibesynergy_harness_run(task="insight", activity_id=...)`, #158) queues it too, with run key
+`redo-<activity>-<time>` and entry key `insight-<activity>-<run key>`.
 
 | Call | Registry | Versioned prompt + rules | Fixed context chain | Contract, fail closed |
 | --- | --- | --- | --- | --- |
@@ -201,6 +204,20 @@ The base block `safety` (version 3) is in every task's context and carries:
 Each part is built on its own: an empty injury log does not hide a floor that fired, and a
 part that fails says so and leaves the rest. The insight task writes a public line, so its
 safety block is the injury log only, as before.
+
+### The activity in the context (#158)
+
+The `activity` block (version 2; the `insight` and `test` tasks) is a compact view per
+activity, a brick's holder and parts up to five (`context.activity_view`): first
+`own_words`, per source the title and the description without VibeSynergy's own block
+(`publication_format.find_blocks`, then `journal.personal_text`) and the linked notes (text
+only, a note that repeats a description is given once); then `summary` (sport, date,
+duration, distance, pace or speed, heart rate, power, ascent, load), `effort` (RPE and Feel
+with their labels), compact `laps` (index, duration, distance, heart rate, power, pace or
+speed, intensity) and `zones` (seconds per HR and power zone). No provider `extra`, no
+account, profile or owner fields. The block fits itself to its 8000 characters
+(`fit_activities`) and is never cut afterwards: the laps give way first (a `laps_total`
+stays), then the zones, the effort and the summary; the athlete's own words never.
 
 ### The plan in the context: VibeSynergy only (#111)
 

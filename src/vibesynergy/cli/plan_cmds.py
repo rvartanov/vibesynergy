@@ -11,7 +11,9 @@ from rich.table import Table
 
 from vibesynergy.cli.main import (
     ConfigOpt,
+    _fail,
     _runtime,
+    coach_redo_app,
     coaching_app,
     console,
     jobs_app,
@@ -35,6 +37,28 @@ def coaching_backfill(
     console.print(
         f"Scanned {result['scanned']}; changed {result['changed']}; coaching {result['coaching']}"
         + (" (dry run)" if dry_run else "")
+    )
+
+
+@coach_redo_app.command("insight")
+def coach_redo_insight(
+    activity_id: Annotated[str, typer.Argument(help="e.g. garmin:123 or strava:456")],
+    config: ConfigOpt = None,
+) -> None:
+    """Write one activity's public insight again. A new entry with its own idempotency key
+    (the newest wins; the earlier one stays in the coach log); automatic publication then
+    updates the block. Runs in the service's job queue and costs like any run."""
+    from vibesynergy.query import coach_runner
+
+    try:
+        found = coach_runner.redo_insight(_runtime(config), activity_id)
+    except coach_runner.TestRunError as exc:
+        _fail(str(exc))
+        return
+    replaces = f", replaces entry {found['replaces']}" if found["replaces"] else ""
+    console.print(
+        f"Queued insight redo for {found['activity_id']} (job {found['job_id']}, "
+        f"key {found['idempotency_key']}{replaces})"
     )
 
 

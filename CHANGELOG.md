@@ -442,6 +442,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
   server ([#6](https://github.com/rvartanov/vibesynergy/pull/6)).
 
 ### Fixed
+- **The AI coach's insight reads your own words again** (#158): the activity it gets before
+  the first turn was the raw provider data, cut at 4000 characters, and Garmin's own fields
+  (account roles, profile pictures, split summaries) filled that alone. Your Strava
+  description, the notes, the laps and the zones never reached the AI coach, and it took
+  the planned session's name as fact. The block is now a compact view: first per source
+  your title and description (without VibeSynergy's own block) and the linked notes, then
+  the summary numbers, RPE and Feel with their labels, the laps and the time in zones. No
+  provider fields, no account or profile fields; with a brick of up to five activities the
+  laps give way first, your own words never. The insight instruction (seed) says not to
+  claim anything that only follows from the planned session's name or description
+  (company, place, route).
+- **Write one activity's insight again**: `vibesynergy coach redo insight <activity_id>`, or
+  `vibesynergy_harness_run(task="insight", activity_id=...)` over MCP. The run tells the AI
+  coach that the activity already has an insight and that it writes a replacement, with its
+  own idempotency key; the newest insight wins and the earlier entry stays in the coach log.
+  Automatic publication then updates the block on Strava, Garmin and intervals.icu, for
+  activities of the last two days.
 - **A Garmin copy you deleted on Garmin is no longer written to** (#151): when a ride has two
   Garmin copies (Zwift's upload and the watch) and one of them is deleted on Garmin, by you
   or by Garmin itself, VibeSynergy kept writing the description to the deleted copy and kept

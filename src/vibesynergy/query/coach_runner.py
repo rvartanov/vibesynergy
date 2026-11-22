@@ -92,6 +92,12 @@ def test_run(rt, job: str) -> dict[str, Any]:
     return overview(rt)
 
 
+def redo_insight(rt, activity_id: str) -> dict[str, Any]:
+    """Write the public insight for one activity again (#158): a new entry with its own
+    idempotency key; the newest wins and the earlier one stays in the coach log."""
+    return runner_schedule.enqueue_insight_redo(rt, activity_id)
+
+
 def resend(rt, job: str) -> dict[str, Any]:
     """Mail the newest report of ``job`` again (Coach → Settings → Last runs). Free."""
     from vibesynergy.coach_runner import report

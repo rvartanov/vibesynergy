@@ -726,6 +726,73 @@ def test_insight_run_on_activity_published(rt, mail, monkeypatch):
         )
 
 
+def test_insight_redo_writes_a_new_entry_and_keeps_the_old(rt, mail, monkeypatch):
+    """#158: a redo for one activity gets its own run key and idempotency key; the newest
+    entry wins and the earlier one stays in the log untouched."""
+    from vibesynergy.query import publication_insight
+
+    enable(rt)
+    publish(rt)
+    day = START.date().isoformat()
+    first = {
+        "entry_type": "activity_assessment",
+        "summary": "Duurloop met de groep.",
+        "idempotency_key": "insight-garmin:1",
+        "for_date": day,
+        "activity_id": "garmin:1",
+        "public_insight": "Duurloop met de groep, netjes in Z2.",
+    }
+    fake = FakeModel(tool_use("vibesynergy_coach_write", first, n=1), done())
+    monkeypatch.setattr(runner, "AnthropicClient", lambda key: fake)
+    assert rt.worker(lane="coach").run_once() is True
+    assert 'idempotency_key "insight-garmin:1"' in fake.requests[0]["messages"][0]["content"]
+    old = publication_insight.for_activity(rt.engine, "garmin:1")
+    with rt.engine.connect() as conn:
+        old_row = dict(
+            conn.execute(
+                select(coach_decision_log).where(coach_decision_log.c.id == old["entry_id"])
+            )
+            .mappings()
+            .one()
+        )
+
+    queued = schedule.enqueue_insight_redo(rt, "strava:2", now=T0 + timedelta(hours=2))
+    assert queued["activity_id"] == "garmin:1" and queued["replaces"] == old["entry_id"]
+    key = queued["idempotency_key"]
+    assert key.startswith("insight-garmin:1-redo-") and key != "insight-garmin:1"
+    again = {**first, "summary": "Rustige trail.", "public_insight": "Rustige trail, in Z2."}
+    fake = FakeModel(
+        tool_use("vibesynergy_coach_write", again, n=1),  # the old key: refused
+        tool_use("vibesynergy_coach_write", {**again, "idempotency_key": key}, n=2),
+        done(),
+    )
+    monkeypatch.setattr(runner, "AnthropicClient", lambda key: fake)
+    assert rt.worker(lane="coach").run_once() is True
+    start = fake.requests[0]["messages"][0]["content"]
+    assert "Dit is een redo" in start and f"entry #{old['entry_id']}" in start
+    assert f'idempotency_key "{key}"' in start
+    refused = fake.requests[1]["messages"][-1]["content"][0]
+    assert refused["is_error"] and key in refused["content"]
+    row = runner.get_run(rt, "insight", queued["run_key"])
+    assert row["status"] == "done" and row["trigger"] == "redo"
+    new = publication_insight.for_activity(rt.engine, "garmin:1")
+    assert new["entry_id"] != old["entry_id"] and new["text"] == "Rustige trail, in Z2."
+    with rt.engine.connect() as conn:
+        rows = (
+            conn.execute(
+                select(coach_decision_log)
+                .where(coach_decision_log.c.entry_type == "activity_assessment")
+                .order_by(coach_decision_log.c.id)
+            )
+            .mappings()
+            .all()
+        )
+    assert [r["idempotency_key"] for r in rows] == ["insight-garmin:1", key]
+    assert dict(rows[0]) == old_row  # the earlier entry is untouched
+    with pytest.raises(schedule.TestRunError, match="Unknown activity"):
+        schedule.enqueue_insight_redo(rt, "garmin:404")
+
+
 def test_internal_subscriber_failure_never_blocks_the_event(rt, monkeypatch):
     def broken(*_):
         raise RuntimeError("boom")
@@ -1257,6 +1324,10 @@ def test_the_harness_over_mcp(rt, mail):
     assert call("vibesynergy_harness_run", task="morning")["data"] == {"queued": "morning"}
     with pytest.raises(ValueError, match="Unknown report"):
         call("vibesynergy_harness_run", task="insight")
+    with pytest.raises(ValueError, match="task insight only"):
+        call("vibesynergy_harness_run", task="morning", activity_id="garmin:1")
+    with pytest.raises(ValueError, match="Unknown activity"):
+        call("vibesynergy_harness_run", task="insight", activity_id="garmin:404")
     model = FakeModel(tool_use("vibesynergy_coach_write", morning_write(), n=1), done())
     runner.run(rt, "morning", DAY.isoformat(), DAY, client=model)
     (run,) = call("vibesynergy_harness_runs", task="morning")["data"]["runs"]

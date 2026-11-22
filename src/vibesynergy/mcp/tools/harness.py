@@ -32,10 +32,17 @@ def register(kit: ToolKit) -> None:
         return envelope({"runs": coach_runner.harness_runs(rt, task, limit)})
 
     @tool(WRITE, "coach.write")
-    def vibesynergy_harness_run(task: str) -> dict[str, Any]:
+    def vibesynergy_harness_run(task: str, activity_id: str | None = None) -> dict[str, Any]:
         """Start one run of a report task now, like Test now in Coach → Settings. It costs
-        like any run and mails the report. The AI coach must be switched on (Coach via API)."""
+        like any run and mails the report. The AI coach must be switched on (Coach via API).
+        task="insight" with activity_id (e.g. 'garmin:123') writes that activity's public
+        insight again: a new entry with its own idempotency key, the newest wins, the
+        earlier one stays in the coach log, and automatic publication updates the block."""
         try:
+            if activity_id is not None:
+                if task != "insight":
+                    raise coach_runner.TestRunError("activity_id goes with task insight only.")
+                return envelope({"queued": task, **coach_runner.redo_insight(rt, activity_id)})
             coach_runner.test_run(rt, task)
         except coach_runner.TestRunError as exc:
             raise ToolError(str(exc)) from exc
