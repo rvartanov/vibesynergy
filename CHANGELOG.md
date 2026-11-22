@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.3 – 22-11-2026
+
 - **More Garmin data as measurements** (#125): your morning training readiness and what
   makes it up (sleep, sleep history, recovery time, HRV, acute load, stress history),
   Garmin's acute and chronic load with their ratio and the four-week load focus, heat and

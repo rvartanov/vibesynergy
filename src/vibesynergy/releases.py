@@ -50,6 +50,7 @@ class Release:
 # Newest first. Written by `vibesynergy update`, not by hand.
 RELEASES: tuple[Release, ...] = (
     # The next release goes below this line.
+    Release("0.1.0-beta.0.3", date(2026, 11, 22), ("125-garmin-data", "125-ai-garmin-data")),
     Release("0.1.0-beta.0.2", date(2026, 11, 22), ("91-races", "91-ai-races")),
     Release("0.1.0-beta.0.1", date(2026, 11, 22), ("140-version", "140-ai-version")),
 )
