@@ -288,7 +288,8 @@ def status(rt, activity_id: str, now: datetime | None = None) -> dict[str, Any]:
     ``state``: ``writing`` (a first insight is on its way), ``rewriting`` (queued or running),
     ``waiting`` (the texts changed; it starts at ``starts_at``), ``limit`` (today's rewrites are
     used up; it follows tomorrow), ``off`` (the texts changed, but the AI coach is not on) or
-    None (also when the rewrites are switched off with ``per_day`` 0). ``fields`` are the texts that changed after the insight."""
+    None (also when the rewrites are switched off with ``per_day`` 0). ``fields`` are the
+    texts that changed after the insight."""
     from vibesynergy.coach_runner import schedule
     from vibesynergy.query import publication_insight, views
 
