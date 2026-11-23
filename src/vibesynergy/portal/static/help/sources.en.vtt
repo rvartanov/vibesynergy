@@ -1,34 +1,34 @@
 WEBVTT
 
-00:00:04.681 --> 00:00:08.427
+00:00:04.101 --> 00:00:07.840
 Settings → Sources: connect Garmin, Strava, Withings, intervals.icu or a calendar.
 
-00:00:08.477 --> 00:00:11.582
+00:00:07.890 --> 00:00:11.007
 Garmin: sign in with your Garmin account and choose 'Connect Garmin'.
 
-00:00:11.632 --> 00:00:14.737
+00:00:11.057 --> 00:00:14.141
 'Update now' fetches the latest data right away.
 
-00:00:14.787 --> 00:00:19.451
+00:00:14.191 --> 00:00:18.809
 The mark in front of the name shows on your watch which workouts come from VibeSynergy.
 
-00:00:19.501 --> 00:00:23.189
+00:00:18.859 --> 00:00:22.543
 Or choose a mark per workout type; the defaults are filled in.
 
-00:00:23.239 --> 00:00:30.539
+00:00:22.593 --> 00:00:29.839
 Multisport gets the marks of its sports, or one mark of its own.
 
-00:00:30.589 --> 00:00:35.809
+00:00:29.889 --> 00:00:35.105
 intervals.icu gets a copy of your plan. Here you see the last copy and what was copied; your messages only list real plan changes.
 
-00:00:35.859 --> 00:00:40.315
+00:00:35.155 --> 00:00:39.598
 Older data? Import the export zip from Garmin or Strava.
 
-00:00:40.365 --> 00:00:44.058
+00:00:39.648 --> 00:00:43.336
 Sync: what VibeSynergy writes back, such as a summary in Strava.
 
-00:00:44.108 --> 00:00:47.989
+00:00:43.386 --> 00:00:47.271
 New workouts: public (published by themselves) or only me (you tick Publish yourself).
 
-00:00:48.039 --> 00:00:54.722
-Keep names and texts the same: a published workout has the same name and public text everywhere. Off by default.
+00:00:47.321 --> 00:00:54.064
+Keep name, texts and gear the same: a published workout has the same name, public text and gear everywhere. Off by default.

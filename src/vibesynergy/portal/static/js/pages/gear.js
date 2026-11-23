@@ -1,6 +1,9 @@
 // Gear: shoes, bikes and other equipment in one overview, with how far each has gone
 // against its lifetime, when it was last used, and your own settings per item (status,
 // lifetime limit, note). Totals are the source's (Strava); edits save directly.
+//
+// In your own portal (never behind a share link) also: gear of your own (swim gear, a
+// wetsuit) and the one-time mapping of your gear to Garmin's (#114), with suggested matches.
 import { get, post } from "../api.js";
 import { esc, isNum, longDate, number, sportName } from "../format.js";
 import { N, t } from "../i18n.js";
@@ -9,8 +12,11 @@ import { bindAutosave } from "../settings_autosave.js";
 const KINDS = [
   ["shoes", N("Running shoes")],
   ["bike", N("Bikes")],
+  ["swim", N("Swim gear")],
   ["other", N("Other gear")],
 ];
+// Gear of your own, by the group it is listed in.
+const OWN_KINDS = ["swim", "other", "bike", "shoes"].map((kind) => KINDS.find(([k]) => k === kind));
 const STATUSES = [
   ["active", N("In use")],
   ["spare", N("Spare")],
@@ -102,7 +108,11 @@ function groupHtml(kind, label, items) {
 export async function render(view, ctx) {
   const { stale } = ctx;
   document.title = `${t("Gear")} · VibeSynergy`;
-  const { data } = await get("gear");
+  const owner = !ctx.meta?.data?.share;
+  const [{ data }, mapping] = await Promise.all([
+    get("gear"),
+    owner ? get("gear-map").then((r) => r.data, () => null) : Promise.resolve(null),
+  ]);
   if (stale()) return;
   const gear = data.gear || [];
   const inUse = gear.filter((g) => g.status !== "retired");
@@ -112,8 +122,12 @@ export async function render(view, ctx) {
       <p class="sub">${esc(t("Your shoes and bikes: how far they have gone and when it's time for new ones. Totals come from Strava."))}</p></div></div>
     ${gear.length ? groups : `<p class="empty">${esc(t("No gear yet. Connect Strava to see your shoes and bikes."))}</p>`}
     ${retired.length ? `<details class="collapsible card"><summary>${esc(t("Retired ({n})", { n: retired.length }))}</summary><ul class="plain gear-list">${retired.map(itemHtml).join("")}</ul></details>` : ""}
-    ${defaultsHtml(data, inUse)}`;
+    ${defaultsHtml(data, inUse)}
+    ${owner ? ownHtml() : ""}
+    ${mapping ? `<section class="card gear-map" aria-labelledby="gear-map-title" data-gear-map>${mapHtml(mapping)}</section>` : ""}`;
   bindDefaults(view);
+  if (owner) bindOwn(view, ctx);
+  if (mapping) bindMap(view.querySelector("[data-gear-map]"));
   for (const card of view.querySelectorAll(".gear-item")) {
     bindItem(card);
     bindServices(card, view, ctx);
@@ -191,4 +205,106 @@ function bindItem(card) {
       });
     },
   });
+}
+
+// Gear of your own: swim gear (pull buoy, paddles, fins), a wetsuit, a trainer (#114).
+function ownHtml() {
+  return `<details class="collapsible card gear-own"><summary>${esc(t("Add gear of your own"))}</summary>
+    <p class="sub" id="gear-own-help">${esc(t("Swim gear such as a pull buoy, paddles or fins, a wetsuit or a trainer. Link it to a workout on its page; it has no km total."))}</p>
+    <div class="gear-form">
+      <label for="gear-own-name">${esc(t("Name"))}</label><input id="gear-own-name" name="own_name" maxlength="80" aria-describedby="gear-own-help">
+      <label for="gear-own-kind">${esc(t("Kind"))}</label>
+      <select class="btn" id="gear-own-kind" name="own_kind">${OWN_KINDS.map(([value, label]) => `<option value="${value}">${esc(t(label))}</option>`).join("")}</select>
+      <div><button class="btn" type="button" data-gear-own-add>${esc(t("Add"))}</button></div>
+      <p class="sub" role="status" data-gear-own-status></p>
+    </div></details>`;
+}
+
+function bindOwn(view, ctx) {
+  const button = view.querySelector("[data-gear-own-add]");
+  if (!button) return;
+  const status = view.querySelector("[data-gear-own-status]");
+  button.addEventListener("click", async () => {
+    const name = view.querySelector("[name=own_name]").value.trim();
+    status.classList.remove("error-text");
+    if (!name) {
+      status.textContent = t("Give the gear a name first.");
+      view.querySelector("[name=own_name]").focus();
+      return;
+    }
+    try {
+      await post("gear-own", { name, kind: view.querySelector("[name=own_kind]").value });
+      await render(view, ctx);
+      const fresh = view.querySelector("[data-gear-own-status]");
+      if (fresh) {
+        fresh.closest("details").open = true;
+        fresh.textContent = t("Added: {name}.", { name });
+        view.querySelector("[name=own_name]")?.focus();
+      }
+    } catch (error) {
+      status.classList.add("error-text");
+      status.textContent = t("Not saved: {error}", { error: error.message });
+    }
+  });
+}
+
+// The one-time mapping to Garmin's gear list (#114). Strava's items are their own Strava
+// slot; a suggestion is only used once you save it.
+function mapHtml(m) {
+  const head = `<h2 id="gear-map-title">${esc(t("Gear on Strava and Garmin"))}</h2>
+    <p class="sub">${esc(t("Match each item once with its Garmin item, so the gear you link on a workout can go to Garmin too. A Strava bike or pair of shoes is its own Strava item. Gear without a match stays in VibeSynergy."))}</p>`;
+  if (!m.items.length) return `${head}<p class="sub">${esc(t("No gear to match yet."))}</p>`;
+  if (!m.garmin_collected) return `${head}<p class="sub">${esc(t("There is no Garmin gear list yet. It comes in with the next Garmin sync."))}</p>`;
+  const accept = m.suggested
+    ? `<div class="ql-actions"><button class="btn primary" type="button" data-gear-map-accept>${esc(t("Use the suggested matches ({n})", { n: m.suggested }))}</button></div>`
+    : "";
+  const rows = m.items.map((item, index) => {
+    const id = `gear-map-${index}`;
+    const suggested = m.garmin.find((g) => g.uuid === item.suggestion);
+    const choice = item.saved ? (item.garmin || "none") : "";
+    const option = (value, label) => `<option value="${esc(value)}"${value === choice ? " selected" : ""}>${esc(label)}</option>`;
+    const where = item.strava ? t("On Strava") : t("Only in VibeSynergy");
+    const hint = suggested && !item.saved
+      ? `<p class="sub" id="${id}-hint">${esc(t("Suggested: {name}", { name: suggested.name }))}</p>`
+      : "";
+    return `<li><label for="${id}">${esc(item.name)} <span class="sub">(${esc(where)})</span></label>
+      <select class="btn" id="${id}" data-gear-map-ref="${esc(item.ref)}"${hint ? ` aria-describedby="${id}-hint"` : ""}>
+        ${item.saved ? "" : option("", t("Not matched yet"))}
+        ${option("none", t("Not on Garmin"))}
+        ${m.garmin.map((g) => option(g.uuid, g.name)).join("")}
+      </select>${hint}</li>`;
+  }).join("");
+  return `${head}${accept}<ul class="plain gear-map-list">${rows}</ul><p class="sub" role="status" data-gear-map-status></p>`;
+}
+
+function bindMap(box) {
+  const redraw = (data, message, focus) => {
+    box.innerHTML = mapHtml(data);
+    bindMap(box);
+    const status = box.querySelector("[data-gear-map-status]");
+    if (status && message) status.textContent = message;
+    if (focus) box.querySelector(focus)?.focus();
+  };
+  const fail = (error) => {
+    const status = box.querySelector("[data-gear-map-status]");
+    if (!status) return;
+    status.classList.add("error-text");
+    status.textContent = t("Not saved: {error}", { error: error.message });
+  };
+  box.querySelector("[data-gear-map-accept]")?.addEventListener("click", async () => {
+    try {
+      const reply = await post("gear-map", { accept_suggestions: true });
+      redraw(reply.data, t("Saved."), "[data-gear-map-ref]");
+    } catch (error) { fail(error); }
+  });
+  for (const select of box.querySelectorAll("[data-gear-map-ref]")) {
+    select.addEventListener("change", async () => {
+      if (!select.value) return;
+      const ref = select.dataset.gearMapRef;
+      try {
+        const reply = await post("gear-map", { choices: { [ref]: select.value === "none" ? null : select.value } });
+        redraw(reply.data, t("Saved."), `[data-gear-map-ref="${CSS.escape(ref)}"]`);
+      } catch (error) { fail(error); }
+    });
+  }
 }

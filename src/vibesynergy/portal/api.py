@@ -86,6 +86,34 @@ class ActivityGearRequest(BaseModel):
     ref: str | None = Field(default=None, max_length=100)  # None: the source's; "none": none
 
 
+class WorkoutGearRequest(BaseModel):
+    """The gear card on the workout page (#114): ``main`` a gear ref, "none" (no main item)
+    or null (Strava's or the sport's default); ``extras`` gear of your own."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=3, max_length=200)
+    main: str | None = Field(default=None, max_length=100)
+    extras: list[str] = Field(default_factory=list, max_length=12)
+
+
+class GearMapRequest(BaseModel):
+    """The one-time gear mapping (#114): per gear ref a Garmin gear uuid, or null for "not
+    on Garmin". ``accept_suggestions`` saves every suggested match instead."""
+
+    model_config = ConfigDict(extra="forbid")
+    choices: dict[str, str | None] = Field(default_factory=dict)
+    accept_suggestions: bool = False
+
+
+class GearOwnRequest(BaseModel):
+    """Gear of your own (a pull buoy, a wetsuit): ``ref`` set renames it."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)
+    kind: Literal["swim", "bike", "shoes", "other"] = "swim"
+    ref: str | None = Field(default=None, max_length=100)
+
+
 class GearDefaultRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sport: str = Field(min_length=1, max_length=60)

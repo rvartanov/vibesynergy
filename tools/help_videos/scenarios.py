@@ -342,7 +342,7 @@ def activities(r: Rec):
         "Een activiteit: kaart, grafieken, ronden en zones.",
         "An activity: map, charts, laps and zones.",
     )
-    feel = r.pg.locator("main select").nth(0)
+    feel = r.pg.locator("[data-effort-host] select").nth(0)
     r.select(feel, feel.locator("option").nth(4).inner_text())
     r.say(
         "Geef aan hoe zwaar het voelde: dat telt mee in het advies.",
@@ -440,6 +440,113 @@ def workout_texts(r: Rec):
         "In Settings you choose whether new workouts start ticked.",
         3.4,
     )
+
+
+@scenario(
+    "workout-gear",
+    "Materiaal bij een training",
+    "Gear on a workout",
+)
+def workout_gear(r: Rec):
+    # A Garmin gear list to match with; the gear the video adds is taken out afterwards.
+    _demo("demo_gear.py", "seed")
+    try:
+        _workout_gear(r)
+    finally:
+        _demo("demo_gear.py", "clear")
+
+
+def _workout_gear(r: Rec):
+    r.go("gear")
+    own = r.pg.locator(".gear-own")
+    r.click(own.locator("summary"))
+    r.say(
+        "Op de pagina Materiaal voeg je eigen materiaal toe: een fiets, of zwemmateriaal zoals "
+        "een pullbuoy.",
+        "On the Gear page you add gear of your own: a bike, or swim gear such as a pull buoy.",
+        2.8,
+    )
+    r.type(own.locator("#gear-own-name"), "Racefiets")
+    r.select(own.locator("#gear-own-kind"), "Fietsen")
+    r.click(own.locator("[data-gear-own-add]"))
+    status = r.pg.locator("[data-gear-own-status]")
+    r.check("Racefiets" in status.inner_text(), "adding gear should say Toegevoegd: Racefiets.")
+    match = r.pg.locator("[data-gear-map]")
+    r.point(match.locator("#gear-map-title"))
+    r.say(
+        "Koppel je materiaal één keer aan dat van Garmin. VibeSynergy stelt de koppeling voor "
+        "op type en naam.",
+        "Match your gear with Garmin's once. VibeSynergy suggests the match by type and name.",
+        2.8,
+    )
+    accept = match.locator("[data-gear-map-accept]")
+    r.check(accept.count() > 0, "the mapping should offer the suggested matches")
+    r.click(accept)
+    r.check(
+        r.pg.locator("[data-gear-map-status]").inner_text() == "Opgeslagen.",
+        "using the suggestions should say Opgeslagen.",
+    )
+    r.go("activities")
+    sport = r.pg.locator("main select").nth(1)
+    ride = next(
+        (o for o in sport.locator("option").all_inner_texts() if o.startswith("Fietsen")), None
+    )
+    r.check(ride is not None, "the activities filter should offer Fietsen")
+    if ride:
+        r.select(sport, ride)
+    links = r.pg.locator("main a[href^='#/activity/']")
+    r.check(links.count() > 1, "the demo should have two rides")
+    r.click(links.nth(1))
+    r.pg.wait_for_load_state("networkidle")
+    gear = r.pg.locator("[data-workout-gear]")
+    gear.locator("#wg-title").wait_for()
+    r.point(gear.locator("#wg-title"))
+    r.say(
+        "Bij elke training staat het materiaal. Kies het hier zelf…",
+        "Every workout has its gear. Choose it here yourself…",
+    )
+    r.click(gear.locator("[data-wg-picker] summary"))
+    r.select(gear.locator("#wg-main"), "Racefiets")
+    r.click(gear.locator("[data-wg-save]"))
+    r.check(
+        gear.locator("[data-wg-status]").inner_text() == "Opgeslagen.",
+        "saving the gear should say Opgeslagen.",
+    )
+    r.pg.go_back()
+    r.pg.wait_for_load_state("networkidle")
+    r.wait(1.0)
+    r.click(r.pg.locator("main a[href^='#/activity/']").first)
+    r.pg.wait_for_load_state("networkidle")
+    gear = r.pg.locator("[data-workout-gear]")
+    link = gear.locator("[data-wg-link]")
+    link.wait_for()
+    r.point(gear.locator("#wg-reason"))
+    r.say(
+        "…of neem met één tik het voorstel over. VibeSynergy zegt waarom: het materiaal van je "
+        "vorige rit.",
+        "…or take the suggestion with one tap. VibeSynergy says why: the gear of your last ride.",
+        3.0,
+    )
+    r.click(link)
+    r.check(
+        "Racefiets" in gear.locator("[data-wg-linked]").inner_text(),
+        "one tap should link Racefiets",
+    )
+    r.point(gear.locator("#wg-where"))
+    r.say(
+        "Houd je in Instellingen naam en teksten gelijk met Strava en Garmin, dan gaat het "
+        "materiaal mee. Zwemmateriaal blijft in VibeSynergy.",
+        "Keep the name and texts the same on Strava and Garmin in Settings, and the gear goes "
+        "along. Swim gear stays in VibeSynergy.",
+        3.4,
+    )
+    history = gear.locator(".wt-history summary")
+    if history.count():
+        r.click(history)
+        r.say(
+            "Elke wijziging blijft in de geschiedenis, met waar hij vandaan kwam.",
+            "Every change stays in the history, with where it came from.",
+        )
 
 
 @scenario("calendar", "Kalender: terugkijken en vooruitkijken", "Calendar: looking back and ahead")
@@ -1227,15 +1334,15 @@ def _sources(r: Rec):
         "New workouts: public (published by themselves) or only me (you tick Publish yourself).",
         3.0,
     )
-    texts = r.pg.locator("label", has_text="Namen en teksten gelijk houden").first
-    r.check(texts.count() > 0, "Sync should offer to keep names and texts the same")
+    texts = r.pg.locator("label", has_text="Naam, teksten en materiaal gelijk houden").first
+    r.check(texts.count() > 0, "Sync should offer to keep name, texts and gear the same")
     r.point(texts)
     r.say(
-        "Namen en teksten gelijk houden: een gepubliceerde training heeft overal dezelfde "
-        "naam en openbare tekst. Staat standaard uit.",
-        "Keep names and texts the same: a published workout has the same name and public "
-        "text everywhere. Off by default.",
-        3.2,
+        "Naam, teksten en materiaal gelijk houden: een gepubliceerde training heeft overal "
+        "dezelfde naam, openbare tekst en hetzelfde materiaal. Staat standaard uit.",
+        "Keep name, texts and gear the same: a published workout has the same name, public "
+        "text and gear everywhere. Off by default.",
+        3.4,
     )
 
 

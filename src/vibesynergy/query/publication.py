@@ -76,13 +76,25 @@ class StravaProvider:
         except oauth.AuthError as exc:
             raise Conflict(str(exc)) from exc
 
+    def read_gear(self, source_id: str) -> str:
+        """The one gear item of the activity on Strava (#114): its id, or "none"."""
+        return str(self.read(source_id).get("gear_id") or "none")
+
+    def write_gear(self, source_id: str, gear_id: str) -> None:
+        """Set the activity's gear on Strava: one bike or pair of shoes, "none" clears it."""
+        try:
+            self.client.update_activity(source_id, {"gear_id": gear_id})
+        except oauth.AuthError as exc:
+            raise Conflict(str(exc)) from exc
+
 
 class GarminProvider:
     def __init__(self, rt):
         self.rt = rt
         self.store = SecretStore(rt.settings.secrets_dir, "garmin")
 
-    def _call(self, method: str, *args):
+    def _call(self, method: str, *args, activity_id: str | None = None):
+        """``activity_id``: the activity a 404 is about, when it is not the first argument."""
         from garminconnect import GarminConnectNotFoundError
 
         from vibesynergy.sources.garmin.client import GarminAuthError, connect, save_tokens
@@ -94,13 +106,14 @@ class GarminProvider:
                     result = getattr(client, method)(*args)
                 except GarminConnectNotFoundError:
                     # 404 for an activity: ask once more before calling it removed (#151).
+                    target = activity_id or args[0]
                     try:
-                        client.get_activity(args[0])
+                        client.get_activity(target)
                     except GarminConnectNotFoundError:
                         save_tokens(self.store, client)
                         reason = "read" if method == "get_activity" else "write"
-                        self._removed(str(args[0]), reason)
-                        raise Gone("garmin", str(args[0]), reason) from None
+                        self._removed(str(target), reason)
+                        raise Gone("garmin", str(target), reason) from None
                     raise  # it is there: an odd 404 of this call, retried later
                 save_tokens(self.store, client)
                 return result, getattr(client, "profile_id", None)
@@ -130,6 +143,19 @@ class GarminProvider:
 
     def write_title(self, source_id: str, title: str) -> None:
         self._call("set_activity_name", source_id, title)
+
+    def read_gear(self, source_id: str) -> list[str]:
+        """The gear on the Garmin activity (#114), by uuid; the owner is checked first."""
+        self.read(source_id)
+        found, _ = self._call("get_activity_gear", source_id)
+        items = found if isinstance(found, list) else []
+        return sorted({str(g["uuid"]) for g in items if isinstance(g, dict) and g.get("uuid")})
+
+    def add_gear(self, source_id: str, uuid: str) -> None:
+        self._call("add_gear_to_activity", uuid, source_id, activity_id=source_id)
+
+    def remove_gear(self, source_id: str, uuid: str) -> None:
+        self._call("remove_gear_from_activity", uuid, source_id, activity_id=source_id)
 
 
 def provider(rt, destination: str) -> Provider:
@@ -453,7 +479,7 @@ def publish(
     (publication_mirror); these run after the Strava lock is released. Nothing is written
     to intervals.icu (#114, #160): it passes a description on to the linked Strava activity,
     and reads the activities from its own import. With the text sync on, the name and the
-    public text are then synced (``text_sync.after_publish``).
+    public text are then synced (``text_sync.after_publish``), and the gear with them.
     """
     result = _publish(
         rt, activity_id, destination, expected_version, language=language, client=client

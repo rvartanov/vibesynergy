@@ -212,7 +212,17 @@ Details: [SOURCES.md](SOURCES.md).
   (`vibesynergy_workout_rerender`, `vibesynergy plan rerender`), done sessions never change.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
-  status, limits and service reminders; default gear per sport.
+  status, limits and service reminders; default gear per sport. Gear of your own (#114):
+  swim gear such as a pull buoy, paddles or fins, a wetsuit or a trainer, added on the Gear
+  page. A one-time **mapping to Garmin's gear list** on the Gear page, with suggested
+  matches by type and name (*Use the suggested matches*), each editable; a Strava bike or
+  pair of shoes is its own Strava item.
+- **Gear on the workout page** (#114): one tap links the gear VibeSynergy suggests, with the
+  reason in words (the gear of your last workout of the same sport, else your default for
+  the sport, else the bike or shoes you used last; retired gear never). A small picker
+  takes other gear, no gear, or several extra items such as swim gear. Every change is kept
+  in the workout's gear history (VibeSynergy, Strava or Garmin). The main item counts in the
+  km totals at once.
 
 ## Health
 
@@ -367,8 +377,8 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   workout per day (default 3; 0 switches them off). The page shows when the insight is being
   written and the earlier insights; a new insight reaches every published Strava section
   (and its Garmin copy) by itself.
-- **Names and texts the same everywhere** (#114, Settings → Sync between sources → *Sync
-  names and texts with Strava and Garmin*, off by default): a published workout's name and
+- **Names and texts the same everywhere** (#114, Settings → Sync between sources → *Keep
+  name, texts and gear the same on Strava and Garmin*, off by default): a published workout's name and
   public text are kept the same in VibeSynergy, on Strava and on Garmin; the description is
   your public text, then VibeSynergy's block. A change in VibeSynergy, on Strava or on Garmin
   is taken in (with its source and time in the history) and passed on within a few minutes;
@@ -379,6 +389,16 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   private text. Strava visibility is not changed: Strava's API can only make an activity more
   private, so the workout page says when only you can see it on Strava. A multisport is
   synced with its Garmin multisport activity only; its legs sync as workouts of their own.
+- **Gear the same everywhere** (#114, on the same switch and the same check as the name and
+  texts, so no extra setting and no extra Strava reads): a published workout's gear is kept the same in
+  VibeSynergy, on Strava (its one gear slot: the bike or the shoes) and on Garmin (the
+  items you matched; a Garmin item you did not match is never touched). A change on Strava
+  or Garmin is taken in with its source in the history and passed to the other; when two
+  places changed, the latest wins and the other stays in the history as "overwritten". Swim
+  gear and other gear without a slot there stays in VibeSynergy and is not put in the public
+  text. VibeSynergy never writes over a gear change it has not read; gear Strava refuses
+  (for example a bike on a run) is not pushed again until you pick other gear; the workout
+  page says so, and the texts keep syncing.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 

@@ -20,6 +20,7 @@ from vibesynergy.store.raw import RawStore
 from vibesynergy.store.schema import (
     activity,
     activity_gear,
+    activity_gear_extra,
     activity_unified,
     gear_default,
     gear_service,
@@ -350,6 +351,7 @@ def gear(engine: Engine, raw: RawStore, today: date) -> dict[str, Any]:
             )
             entry["warning_level"] = "past" if km >= SHOE_REPLACE_KM[1] else "near"
         out.append(entry)
+    out.extend(_own_gear(engine, settings, adjust, today))
     out.sort(key=lambda e: (e["retired"], e["kind"], -(e["total_km"] or 0)))
     garmin = _source_freshness(engine, raw, "garmin", GARMIN_GEAR_DATASET)
     references = [item for item in (reference, garmin["reference"]) if item]
@@ -371,6 +373,71 @@ def gear(engine: Engine, raw: RawStore, today: date) -> dict[str, Any]:
 
 
 GEAR_STATUSES = ("active", "spare", "retired")
+
+
+def _own_gear(
+    engine: Engine, settings: dict[str, dict[str, Any]], adjust: dict[str, dict[str, Any]], today
+) -> list[dict[str, Any]]:
+    """Gear of your own (#114): a pull buoy, a wetsuit. No km total of its own; how often
+    you linked it and when last."""
+    from vibesynergy.query import gear_map
+
+    used: dict[str, dict[str, Any]] = {}
+    days = {r["group_id"]: r["date"] for r in _group_gear(engine)}
+    for group, refs in group_extras(engine).items():
+        for ref in refs:
+            entry = used.setdefault(ref, {"count": 0, "last": None})
+            entry["count"] += 1
+            entry["last"] = max(filter(None, (entry["last"], days.get(group))), default=None)
+    out = []
+    for item in gear_map.own_items(engine):
+        ref = item["ref"]
+        main = adjust.get(ref) or {"count": 0, "m": 0.0, "last": None}
+        extra = used.get(ref) or {"count": 0, "last": None}
+        last = max(filter(None, (main["last"], extra["last"])), default=None)
+        own = settings.get(ref, {})
+        status = own.get("status") or "active"
+        out.append(
+            {
+                "id": ref.split(":", 1)[1],
+                "ref": ref,
+                "source": "vs",
+                "name": item["name"],
+                "brand": None,
+                "model": None,
+                "kind": item["kind"],
+                "total_km": round(main["m"] / 1000, 1) if main["m"] else None,
+                "retired": status == "retired",
+                "primary": False,
+                "activities_seen": main["count"] + extra["count"],
+                "km_seen": round(main["m"] / 1000, 1),
+                "last_used": last,
+                "used_last_30_days": bool(last and last >= str(today - timedelta(days=30))),
+                "status": status,
+                "life_km": own.get("life_km"),
+                "note": own.get("note"),
+                "services": [],
+            }
+        )
+    return out
+
+
+def group_extras(engine: Engine) -> dict[str, list[str]]:
+    """Per activity group the extra gear linked to it (swim gear and the like, #114)."""
+    with engine.connect() as conn:
+        rows = conn.execute(select(activity_gear_extra.c.source_ref, activity_gear_extra.c.ref))
+        extras: dict[str, set[str]] = {}
+        for source_ref, ref in rows:
+            extras.setdefault(source_ref, set()).add(ref)
+        if not extras:
+            return {}
+        groups = conn.execute(select(activity_unified.c.group_id, activity_unified.c.sources))
+        out: dict[str, list[str]] = {}
+        for group_id, sources in groups:
+            found = set().union(*(extras.get(s, set()) for s in sources or []))
+            if found:
+                out[group_id] = sorted(found)
+    return out
 
 
 def _group_gear(engine: Engine) -> list[dict[str, Any]]:

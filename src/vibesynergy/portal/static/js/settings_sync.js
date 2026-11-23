@@ -42,7 +42,7 @@ export function publicationStatus(s) {
   const auto = s.publication?.auto || {};
   if (auto.enabled) lines.push(statusLine("good", esc(t("New activities are published by themselves."))));
   const texts = s.publication?.text_sync || {};
-  if (texts.enabled) lines.push(statusLine("good", esc(t("Names and public texts are kept the same on Strava and Garmin."))));
+  if (texts.enabled) lines.push(statusLine("good", esc(t("Names, public texts and gear are kept the same on Strava and Garmin."))));
   if (texts.needs_review) {
     lines.push(statusLine("warning", `${esc(t("{n} workouts are no longer synced because their description needs a look. Publish them again from their page.", { n: number(texts.needs_review) }))}${texts.problem ? ` <details><summary>${t("Details")}</summary><span class="sub">${esc(texts.problem)}</span></details>` : ""}`));
   }
@@ -72,8 +72,8 @@ export function publicationOptions(s) {
     <div class="settings-grid"><label>${t("Language of the text")} <select class="btn" name="publication_language">${[["nl", "Nederlands"], ["en", "English"]].map(([v, label]) => `<option value="${v}"${v === lang ? " selected" : ""}>${label}</option>`).join("")}</select></label></div>
     <label class="check"><input type="checkbox" name="garmin_mirror_enabled" aria-describedby="sync-mirror-help"${pub.garmin_mirror_enabled !== false ? " checked" : ""}> ${t("Copy the Strava text to Garmin too")}</label>
     <p class="sub" id="sync-mirror-help">${t("Garmin gets the same text and title as Strava, and follows your edits on Strava for 7 days. When off, publishing stays on Strava.")}</p>
-    <label class="check"><input type="checkbox" name="text_sync_enabled" aria-describedby="sync-texts-help"${pub.text_sync_enabled ? " checked" : ""}> ${t("Sync names and texts with Strava and Garmin")}</label>
-    <p class="sub" id="sync-texts-help">${t("A published workout gets the same name and public text in VibeSynergy, on Strava and on Garmin. Change it in one place and the others follow within a few minutes; every version stays in the workout's history. Your private text is never sent. Who can see the activity on Strava stays set on Strava.")}</p>
+    <label class="check"><input type="checkbox" name="text_sync_enabled" aria-describedby="sync-texts-help"${pub.text_sync_enabled ? " checked" : ""}> ${t("Keep name, texts and gear the same on Strava and Garmin")}</label>
+    <p class="sub" id="sync-texts-help">${t("A published workout gets the same name, public text and gear in VibeSynergy, on Strava and on Garmin. Change it in one place and the others follow within a few minutes; every version stays in the workout's history. Strava takes one bike or pair of shoes, Garmin the gear you matched on the Gear page; swim gear such as a pull buoy stays in VibeSynergy. Your private text is never sent. Who can see the activity on Strava stays set on Strava.")} <a href="#/gear">${t("Match your gear")}</a></p>
     <details><summary>${t("What goes in the text")}</summary>
       <label class="check"><input type="checkbox" name="quote_enabled"${pub.quote_enabled ? " checked" : ""}> ${t("Add a sourced quote")}</label>
       <label class="check"><input type="checkbox" name="weather_enabled"${pub.weather_enabled ? " checked" : ""}> ${t("Add the weather during the activity")}</label>

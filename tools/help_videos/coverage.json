@@ -1,7 +1,6 @@
 {
   "_comment": "Which portal files each help video shows (paths under src/vibesynergy/portal/static/js, globs allowed). A pull request that changes one of these files re-records that video, or has the label no-help-video. tools/check_help_videos.py reads this.",
   "_not_shown": {
-    "pages/gear.js": "Gear needs Strava, which the demo data has not got",
     "pages/help.js": "the Help page itself"
   },
   "login": [
@@ -35,6 +34,10 @@
   ],
   "workout-texts": [
     "workout_page.js"
+  ],
+  "workout-gear": [
+    "workout_gear.js",
+    "pages/gear.js"
   ],
   "calendar": [
     "pages/schedule.js",
