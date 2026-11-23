@@ -443,18 +443,14 @@ def publish(
 ) -> dict:
     """User-triggered only. A retry verifies an interrupted write before writing again.
 
-    A verified Strava publication also goes to the intervals.icu description
-    (publication_icu), mirrors to Garmin and starts the 7-day watch (publication_mirror);
-    these run after the Strava lock is released.
+    A verified Strava publication mirrors to Garmin and starts the 7-day watch
+    (publication_mirror); these run after the Strava lock is released. Nothing is written
+    to intervals.icu (#114, #160): it passes a description on to the linked Strava activity,
+    and reads the activities from its own import.
     """
     result = _publish(
         rt, activity_id, destination, expected_version, language=language, client=client
     )
-    if destination == "strava":
-        # The same block in the intervals.icu description (publication_icu); never fails this.
-        from vibesynergy.query import publication_icu
-
-        result["icu"] = publication_icu.after_publish(rt, activity_id, strava=client)
     if destination == "strava" and mirror:
         from vibesynergy.query import publication_mirror
 
@@ -563,17 +559,7 @@ def unpublish(
             result["mirror"] = publication_mirror.after_unpublish(rt, activity_id, language)
         except Exception as exc:  # the Strava removal itself is verified and stays
             result["mirror"] = {"state": "removed", "garmin": "failed", "error": str(exc)[:300]}
-        result["icu"] = _remove_icu(rt, activity_id)
     return result
-
-
-def _remove_icu(rt, activity_id: str) -> dict:
-    from vibesynergy.query import publication_icu
-
-    try:
-        return publication_icu.remove(rt, activity_id)
-    except Exception as exc:  # the Strava removal itself is verified and stays
-        return {"state": "failed", "error": f"{type(exc).__name__}: {exc}"[:300]}
 
 
 def _unpublish(

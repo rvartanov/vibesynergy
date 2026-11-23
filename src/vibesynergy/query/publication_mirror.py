@@ -155,7 +155,6 @@ def _remove_after_manual_strava_edit(
     _update(rt, group, state="removed")
     publication._delete_checkpoint(rt, "strava", strava_id)
     mirror = after_unpublish(rt, activity_id, language, garmin=garmin)
-    publication._remove_icu(rt, activity_id)
     return {
         "strava": "removed",
         "garmin": mirror.get("garmin", "not_watched"),

@@ -332,15 +332,20 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 ## Publishing
 
-- **Activity descriptions** on Strava, Garmin and intervals.icu: a block with statistics (in
+- **Activity descriptions** on Strava and Garmin: a block with statistics (in
   your temperature unit), the weather and an optional quote, added beside your own text and
   never replacing it. Automatic after an activity, or per activity. A ride recorded twice on
   Garmin (Zwift's upload and the watch) takes its figures from one copy. A copy deleted on
   Garmin is marked removed (kept on the workout page, "Garmin-kopie verwijderd op Garmin") and
   the description goes to the copy that is left. When nothing can be published, the workout
-  page still shows your AI coach's insight and says why. intervals.icu passes its description
-  on to the linked Strava activity, so it gets exactly the Strava text and block; text that
-  differs (yours there, or on Garmin after the first copy) is left for review.
+  page still shows your AI coach's insight and says why. Nothing is written to intervals.icu
+  any more: it passed the text on to Strava and lost yours there (#160); intervals.icu reads
+  your activities itself.
+- **Workout texts** (#114): every workout has its own name, public text and private text in
+  VibeSynergy, with every change kept (when, from VibeSynergy, Strava, Garmin or the AI
+  coach) and older versions restorable. They start from your notes and your own Strava and
+  Garmin text, without VibeSynergy's block and without doubles. The private text is never
+  published or shared. For now through AI apps (MCP); your AI coach reads them.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 

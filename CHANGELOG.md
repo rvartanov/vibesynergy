@@ -13,6 +13,15 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Your workout texts in VibeSynergy** (#114): every workout now has its own name, public
+  text and private text in VibeSynergy, with every change kept and older versions
+  restorable. They start from your notes and your own Strava and Garmin text, without doubles.
+  Your AI apps can read and change them, and your AI coach reads them; the private text is
+  never published. Editing on the workout page follows.
+- **Nothing written to intervals.icu any more** (#114, #160): VibeSynergy no longer puts its
+  block in the intervals.icu description, because intervals.icu passed it on to Strava and
+  your own text there got lost. The "Also in intervals.icu" switch is gone.
+
 ## 0.1.0-beta.0.5 – 22-11-2026
 
 - **Links open on your own domain** (#117): login and reset links, mails, notices, push and

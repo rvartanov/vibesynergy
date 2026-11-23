@@ -1,11 +1,11 @@
-"""Strava-only publication and the same block in intervals.icu (1 Nov 2026); all synthetic."""
+"""Strava-only publication (1 Nov 2026), and nothing written to intervals.icu (#114, #160);
+all synthetic."""
 
 from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
-from test_activity_effort import ActivityApi
 from test_evidence import START, put
 from test_publication import DEFAULT_OPENER, garmin_activity
 from test_publication_auto import NOW, switch_on
@@ -13,58 +13,18 @@ from test_publication_insight import PRIVATE, PUBLIC, write
 from test_publication_mirror import FakeGarmin, FakeStrava
 
 from vibesynergy.core import config_edit
-from vibesynergy.query import publication, publication_auto, publication_icu, publication_plugins
-from vibesynergy.sources.intervals_icu.client import API_KEY_ENV, ATHLETE_ID_ENV, IntervalsIcuError
+from vibesynergy.query import publication, publication_auto, publication_plugins
+from vibesynergy.sources.intervals_icu.client import API_KEY_ENV, ATHLETE_ID_ENV
 from vibesynergy.store.schema import audit_log, publication_ledger
 
 OWN_TEXT = "Mijn eigen notitie in intervals.icu"
 CLOSER = "[ http://vibesynergy.nl/ */]"
 
 
-class FakeIcu:
-    """intervals.icu: one activity found in the live list, GET and description PUT."""
-
-    def __init__(self, description=OWN_TEXT, *, listed=True, source="GARMIN_CONNECT", strava=None):
-        """``strava``: the FakeStrava this activity is linked to. intervals.icu passes a
-        description change on to a linked Strava activity, as it did on 22 Nov (#160)."""
-        self.record = {"id": "i9", "description": description, "source": source}
-        self.record["strava_id"] = "2" if strava is not None else None
-        self.strava = strava
-        self.listed = listed
-        self.writes: list[str] = []
-
-    def activities(self, oldest, newest):
-        if not self.listed:
-            return []
-        return [{"id": "i9", "external_id": "1", "strava_id": self.record["strava_id"],
-                 "source": self.record["source"], "start_date": START.isoformat()}]  # fmt: skip
-
-    def get_activity(self, activity_id):
-        assert activity_id == "i9"
-        return dict(self.record)
-
-    def update_activity_description(self, activity_id, description):
-        assert activity_id == "i9"
-        self.writes.append(description)
-        self.record["description"] = description
-        if self.strava is not None:
-            self.strava.text = description  # passed on to the linked Strava activity
-        return dict(self.record)
-
-
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     monkeypatch.setattr(publication_plugins, "_weather", lambda *_: None)
     monkeypatch.setattr(publication_plugins, "_quote", lambda *_: None)
-
-
-@pytest.fixture
-def icu(monkeypatch):
-    monkeypatch.setenv(API_KEY_ENV, "secret-key")
-    monkeypatch.setenv(ATHLETE_ID_ENV, "i000001")
-    fake = FakeIcu()
-    monkeypatch.setattr(publication_icu, "_client", lambda client=None: client or fake)
-    return fake
 
 
 def providers(monkeypatch, strava, garmin=None):
@@ -164,143 +124,83 @@ def test_strava_only_with_rpe_from_intervals_icu(runtime, monkeypatch):
     ]
 
 
-# --- intervals.icu description ----------------------------------------------------------------
+# --- intervals.icu is out of the text sync (#114, #160) ------------------------------------------
 
 
-def test_published_block_lands_in_intervals_icu_below_the_athletes_text(runtime, both, icu):
-    strava, _ = both
+class Recorder:
+    """Every intervals.icu request VibeSynergy would send, instead of the network."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, str, bool]] = []
+
+    def __call__(self, client, method, path, body, params=None, write=False):
+        self.calls.append((method, path, write))
+        if method == "GET" and "/activities" in path:
+            return []
+        if method == "GET":
+            return {"id": "i9", "description": OWN_TEXT, "source": "GARMIN_CONNECT"}
+        raise AssertionError(f"intervals.icu write: {method} {path}")
+
+
+@pytest.fixture
+def icu(monkeypatch):
+    from vibesynergy.sources.intervals_icu.client import IntervalsIcuClient
+
+    monkeypatch.setenv(API_KEY_ENV, "secret-key")
+    monkeypatch.setenv(ATHLETE_ID_ENV, "i000001")
+    recorder = Recorder()
+    monkeypatch.setattr(IntervalsIcuClient, "_send", recorder)
+    return recorder
+
+
+def icu_writes(recorder):
+    return [c for c in recorder.calls if c[2] or c[0] != "GET"]
+
+
+def test_publish_insight_and_unpublish_write_nothing_to_intervals_icu(runtime, both, icu):
     switch_on(runtime, language="nl")
-    summary = publication_auto.run(runtime, now=NOW)
-    assert summary["published"] == 1
-    owned = strava.text.split("\n\n", 1)[1]
-    assert icu.writes == [f"{OWN_TEXT}\n\n{owned}"]
-    (row,) = icu_ledger(runtime)
-    assert row["source_id"] == "i9" and row["state"] == "verified" and row["owned_block"] == owned
-    (audit,) = audits(runtime, "publication.icu")
-    assert audit["outcome"] == "ok" and audit["target"] == "i9"
-    assert audit["detail"]["had_text"] is True and audit["detail"]["replaced_block"] is False
-    assert OWN_TEXT not in str(audit["detail"])  # no text in the audit log
-    # Idempotent: more runs write nothing.
-    for minutes in (5, 10):
-        publication_auto.run(runtime, now=NOW + timedelta(minutes=minutes))
-    assert len(icu.writes) == 1
-    # The insight replaces only VibeSynergy's block there too; the athlete's text stays.
+    path = runtime.settings.config_path  # the retired switch, still on in an old config
+    path.write_text(
+        path.read_text().replace(
+            "[publication]\n", "[publication]\nicu_description_enabled = true\n", 1
+        )
+    )
+    assert publication_auto.run(runtime, now=NOW)["published"] == 1
     write(runtime, "a", activity_id="garmin:1", public_insight=PUBLIC)
     assert publication_auto.run(runtime, now=NOW + timedelta(minutes=15))["insight_updated"] == 1
-    assert len(icu.writes) == 2
-    final = icu.record["description"]
-    assert final.startswith(f"{OWN_TEXT}\n\n{DEFAULT_OPENER}") and final.count(CLOSER) == 1
-    assert PUBLIC in final and PRIVATE not in final
-    assert final == f"{OWN_TEXT}\n\n{strava.text.split(chr(10) * 2, 1)[1]}"
-    publication_auto.run(runtime, now=NOW + timedelta(minutes=20))
-    assert len(icu.writes) == 2
-
-
-def test_switch_off_leaves_intervals_icu_alone(runtime, both, icu):
-    switch_on(runtime, icu_description_enabled=False)
-    assert publication_auto.run(runtime, now=NOW)["published"] == 1
-    assert icu.writes == [] and icu_ledger(runtime) == []
-
-
-def test_strava_stub_and_review_are_not_written(runtime, both, icu):
-    icu.record["source"] = "STRAVA"
-    switch_on(runtime)
-    publication_auto.run(runtime, now=NOW)
-    assert icu.writes == []
-    assert publication_auto.attempts(runtime)["icu:2"]["state"] == "not_available"
-    assert (
-        publication_icu.candidates(runtime, now=NOW, attempts=publication_auto.attempts(runtime))
-        == []
-    )
-    # Two VibeSynergy blocks there: left for review, never retried.
-    icu.record.update(
-        source="GARMIN_CONNECT",
-        description=f"{DEFAULT_OPENER}\na\n{CLOSER}\n\n{DEFAULT_OPENER}\nb\n{CLOSER}",
-    )
-    with pytest.raises(publication_icu.Review):
-        publication_icu.sync(runtime, "garmin:1")
-    assert icu.writes == []
-
-
-def test_catches_up_when_intervals_icu_gets_the_activity_later(runtime, both, icu):
-    icu.listed = False
-    switch_on(runtime)
-    publication_auto.run(runtime, now=NOW)
-    assert icu.writes == [] and publication_auto.attempts(runtime)["icu:2"]["state"] == "waiting"
-    assert not publication_auto.due(runtime, now=NOW + timedelta(minutes=5))  # waits to retry
-    icu.listed = True
-    later = NOW + timedelta(minutes=31)
-    assert publication_auto.due(runtime, now=later)
-    assert publication_auto.run(runtime, now=later)["icu_updated"] == 1
-    assert len(icu.writes) == 1 and not publication_auto.due(runtime, now=later)
-
-
-def test_removing_the_strava_block_removes_it_from_intervals_icu(runtime, both, icu):
-    switch_on(runtime)
-    publication_auto.run(runtime, now=NOW)
+    assert not publication_auto.due(runtime, now=NOW + timedelta(minutes=40))
     item = publication.preview(runtime, "garmin:1", "strava", language="nl")
     result = publication.unpublish(
         runtime, "garmin:1", "strava", item["preview_version"], language="nl"
     )
-    assert result["icu"] == {"state": "removed"}
-    assert icu.record["description"] == OWN_TEXT and icu_ledger(runtime) == []
+    assert "icu" not in result
+    assert icu_writes(icu) == []
+    assert icu_ledger(runtime) == [] and audits(runtime, "publication.icu") == []
 
 
-def test_empty_intervals_description_gets_only_the_block(runtime, both, icu):
-    icu.record["description"] = None
-    switch_on(runtime)
-    publication_auto.run(runtime, now=NOW)
-    assert icu.writes[0].startswith(DEFAULT_OPENER)
+def test_the_client_has_no_description_write():
+    from vibesynergy.sources.intervals_icu.client import IntervalsIcuClient
+
+    assert not hasattr(IntervalsIcuClient, "update_activity_description")
 
 
-def test_client_sends_only_the_description():
-    api = ActivityApi({"id": "i9", "description": "x", "name": "keep"})
-    client = api.client()
-    client.update_activity_description("i9", "new text")
-    ((method, url, body),) = api.calls
-    assert method == "PUT" and url.endswith("/activity/i9") and body == {"description": "new text"}
-    with pytest.raises(IntervalsIcuError):
-        client.update_activity_description("i9", "x" * 20001)
+def test_the_retired_switch_is_not_saved_any_more(runtime):
+    from vibesynergy.core.config import ConfigError
 
-
-def test_setting_is_saved(runtime):
-    config_edit.apply_changes(
-        runtime.settings.config_path, {"publication": {"icu_description_enabled": False}}
-    )
-    from vibesynergy.core.config import ConfigError, load_settings
-
-    assert (
-        load_settings(runtime.settings.config_path).publication["icu_description_enabled"] is False
-    )
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigError, match="icu_description_enabled"):
         config_edit.apply_changes(
-            runtime.settings.config_path, {"publication": {"icu_description_enabled": "yes"}}
+            runtime.settings.config_path, {"publication": {"icu_description_enabled": False}}
         )
 
 
-# --- An intervals.icu activity linked to Strava passes its description on (#160) ----------------
-
-
-@pytest.fixture
-def linked(runtime, both, monkeypatch):
-    """Strava without text of its own yet; intervals.icu linked to it, with only the block
-    of the first publication later (it never sees the text typed on Strava afterwards)."""
-    strava, garmin = both
-    strava.text = ""
-    monkeypatch.setenv(API_KEY_ENV, "secret-key")
-    monkeypatch.setenv(ATHLETE_ID_ENV, "i000001")
-    fake = FakeIcu("", strava=strava)
-    monkeypatch.setattr(publication_icu, "_client", lambda client=None: client or fake)
-    return strava, garmin, fake
-
-
-@pytest.mark.parametrize("icu_on", [True, False])
-def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime, linked, icu_on):
+def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime, both, icu):
     """22 Nov: block published, the athlete typed his text on Strava, the insight update
     went to Strava with the text and then to intervals.icu without it, which wrote that
-    copy back to Strava. The text must survive on Strava, intervals.icu and Garmin."""
-    strava, garmin, icu = linked
-    switch_on(runtime, language="nl", icu_description_enabled=icu_on)
+    copy back to Strava. intervals.icu is no longer written, so the text stays on Strava
+    and Garmin."""
+    strava, garmin = both
+    strava.text = ""
+    switch_on(runtime, language="nl")
     assert publication_auto.run(runtime, now=NOW)["published"] == 1
     first_block = strava.text
     assert first_block.startswith(DEFAULT_OPENER)
@@ -312,52 +212,7 @@ def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime
     assert strava.text.startswith(f"{mine}\n\n{DEFAULT_OPENER}")
     assert PUBLIC in strava.text and strava.text.count(CLOSER) == 1
     assert garmin.text == strava.text
-    if icu_on:
-        assert icu.record["description"] == strava.text
-        assert audits(runtime, "publication.icu")[-1]["detail"]["linked"] is True
-        assert mine not in str(audits(runtime, "publication.icu")[-1]["detail"])
-    else:
-        assert icu.writes == []
-    # Later runs change nothing anywhere.
-    writes = (len(strava.writes), len(garmin.writes), len(icu.writes))
+    assert icu_writes(icu) == []
+    writes = (len(strava.writes), len(garmin.writes))
     publication_auto.run(runtime, now=NOW + timedelta(minutes=20))
-    assert (len(strava.writes), len(garmin.writes), len(icu.writes)) == writes
-
-
-def test_linked_intervals_icu_with_text_of_its_own_is_left_for_review(runtime, linked):
-    strava, _, icu = linked
-    strava.text = "Strava words"
-    icu.record["description"] = "Words typed in intervals.icu"
-    switch_on(runtime, language="nl")
-    summary = publication_auto.run(runtime, now=NOW)
-    assert summary["published"] == 1
-    assert icu.writes == [] and icu.record["description"] == "Words typed in intervals.icu"
-    assert strava.text.startswith("Strava words\n\n")  # never overwritten from intervals.icu
-    assert publication_auto.attempts(runtime)["icu:2"]["state"] == "needs_review"
-    assert any(a["outcome"] == "needs_review" for a in audits(runtime, "publication.icu"))
-
-
-def test_linked_intervals_icu_copy_of_the_strava_text_is_kept_in_step(runtime, linked):
-    strava, _, icu = linked
-    strava.text = "Strava words"
-    icu.record["description"] = "Strava words"  # intervals.icu took it from Strava
-    switch_on(runtime, language="nl")
-    publication_auto.run(runtime, now=NOW)
-    assert icu.writes == [strava.text] and strava.text.startswith("Strava words\n\n")
-    # The athlete changes the Strava text; the next block update carries the new text.
-    strava.text = strava.text.replace("Strava words", "Better words")
-    write(runtime, "a", activity_id="garmin:1", public_insight=PUBLIC)
-    assert publication_auto.run(runtime, now=NOW + timedelta(minutes=15))["insight_updated"] == 1
-    assert strava.text.startswith("Better words\n\n") and PUBLIC in strava.text
-    assert icu.record["description"] == strava.text
-
-
-def test_linked_intervals_icu_is_not_written_when_the_strava_block_changed(runtime, linked):
-    strava, _, icu = linked
-    switch_on(runtime, language="nl")
-    publication_auto.run(runtime, now=NOW)
-    writes = len(icu.writes)
-    strava.text = strava.text.replace("RPE", "rpe")  # edited inside the block by hand
-    with pytest.raises(publication_icu.Review):
-        publication_icu.sync(runtime, "garmin:1")
-    assert len(icu.writes) == writes
+    assert (len(strava.writes), len(garmin.writes)) == writes
