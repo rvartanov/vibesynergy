@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.9 – 23-11-2026
+
 - **Your AI coach's insight follows your texts** (#114): publishing a workout in VibeSynergy
   has the insight written when there is none yet. When you change the name or a text after
   the insight (on the workout page, or on Strava or Garmin with the text sync on), your AI
