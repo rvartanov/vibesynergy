@@ -357,6 +357,18 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   sources → **New workouts**: *public* (published by themselves, the tick starts on) or *only
   me* (the default: nothing goes out until you tick it). Unticking a workout that would be
   published by itself keeps it to you.
+- **Names and texts the same everywhere** (#114, Settings → Sync between sources → *Sync
+  names and texts with Strava and Garmin*, off by default): a published workout's name and
+  public text are kept the same in VibeSynergy, on Strava and on Garmin; the description is
+  your public text, then VibeSynergy's block. A change in VibeSynergy, on Strava or on Garmin
+  is taken in (with its source and time in the history) and passed on within a few minutes;
+  when two places changed, the latest change wins and the other version stays in the history
+  as "overwritten, from …". The first sync adds the paragraphs one platform has to the
+  text, so nothing is lost or doubled. VibeSynergy never writes over a change it has not
+  read, never touches a hand-edited block (that workout waits for review) and never sends the
+  private text. Strava visibility is not changed: Strava's API can only make an activity more
+  private, so the workout page says when only you can see it on Strava. A multisport is
+  synced with its Garmin multisport activity only; its legs sync as workouts of their own.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 

@@ -1217,6 +1217,16 @@ def _sources(r: Rec):
         "New workouts: public (published by themselves) or only me (you tick Publish yourself).",
         3.0,
     )
+    texts = r.pg.locator("label", has_text="Namen en teksten gelijk houden").first
+    r.check(texts.count() > 0, "Sync should offer to keep names and texts the same")
+    r.point(texts)
+    r.say(
+        "Namen en teksten gelijk houden: een gepubliceerde training heeft overal dezelfde "
+        "naam en openbare tekst. Staat standaard uit.",
+        "Keep names and texts the same: a published workout has the same name and public "
+        "text everywhere. Off by default.",
+        3.2,
+    )
 
 
 @scenario("sharing", "Delen met je coach of een app", "Sharing with your coach or an app")

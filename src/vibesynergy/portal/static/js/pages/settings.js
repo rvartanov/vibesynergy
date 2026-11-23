@@ -508,6 +508,7 @@ function publicationChanges(publication) {
   if (has("quote_enabled")) pub.quote_enabled = has("quote_enabled").checked;
   if (has("weather_enabled")) pub.weather_enabled = has("weather_enabled").checked;
   if (has("garmin_mirror_enabled")) pub.garmin_mirror_enabled = has("garmin_mirror_enabled").checked;
+  if (has("text_sync_enabled")) pub.text_sync_enabled = has("text_sync_enabled").checked;
   if (has("icu_description_enabled")) pub.icu_description_enabled = has("icu_description_enabled").checked;
   // New workouts public = published by themselves; only me = you tick Publish (#114).
   if (has("new_workouts")) pub.auto_publish = publication.querySelector("[name=new_workouts]:checked")?.value === "public";

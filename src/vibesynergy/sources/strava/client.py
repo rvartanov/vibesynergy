@@ -244,10 +244,22 @@ class StravaClient:
 
     def update_description(self, activity_id: str, description: str) -> Any:
         """One guarded provider call; the publisher owns checkpoints and read-back."""
-        with self._call_lock:
-            return self._update_description(activity_id, description)
+        return self.update_activity(activity_id, {"description": description})
 
-    def _update_description(self, activity_id: str, description: str) -> Any:
+    # What VibeSynergy ever sends to an activity: its name and description (#114). Strava's
+    # update also takes a ``visibility``, but only to make it more restrictive, so VibeSynergy
+    # never sends one (it could not make an activity public again).
+    UPDATABLE = ("name", "description")
+
+    def update_activity(self, activity_id: str, fields: dict[str, str]) -> Any:
+        """One guarded update of the name and/or description; same budget as every call."""
+        unknown = set(fields) - set(self.UPDATABLE)
+        if unknown or not fields:
+            raise ValueError(f"only {', '.join(self.UPDATABLE)} can be updated")
+        with self._call_lock:
+            return self._update(activity_id, dict(fields))
+
+    def _update(self, activity_id: str, fields: dict[str, str]) -> Any:
         if blocked := self._blocked():
             raise StravaRateLimited(429, blocked[1], blocked[0])
         for attempt in (1, 2):
@@ -255,7 +267,7 @@ class StravaClient:
             reply = self._http(
                 "PUT",
                 f"{API}/activities/{activity_id}",
-                {"description": description},
+                fields,
                 {"Authorization": f"Bearer {access}"},
             )
             if reply.status == 401 and attempt == 1:

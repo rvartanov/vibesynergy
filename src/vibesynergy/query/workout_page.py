@@ -18,8 +18,10 @@ page may read, and these are not among them).
 What the tick does now: publishing writes VibeSynergy's section (the insight, the statistics
 and the optional weather and quote) into the Strava description, below the text that is
 already there, and copies that description to Garmin when the Garmin copy is on. Without a
-Strava copy it writes the section into the Garmin description. The name and the texts on
-this page are not sent anywhere by it.
+Strava copy it writes the section into the Garmin description. With "Sync names and texts
+with Strava and Garmin" on (``text_sync``), the name and the public text of a published
+workout are kept the same on Strava and Garmin as well; without it they are not sent. The
+private part is never sent.
 """
 
 from __future__ import annotations
@@ -88,10 +90,15 @@ def publish_state(rt, activity_id: str, *, now: datetime | None = None) -> dict[
     group = views.resolve_activity(rt.engine, activity_id)
     destination, source_id = _destination(rt, group)
     default = "public" if publication_auto.enabled(rt) else "only_me"
+    from vibesynergy.query import text_sync
+
     out: dict[str, Any] = {
         "destination": destination,
         "default": default,
         "mirror": destination == "strava" and _mirror_on(rt),
+        # The name and public text go to Strava and Garmin only with this sync on (phase 3).
+        "texts_synced": text_sync.enabled(rt),
+        "strava_private": _strava_private(rt, source_id) if destination == "strava" else False,
     }
     if destination is None or source_id is None:
         return {**out, "state": "unavailable", "checked": False}
@@ -108,6 +115,23 @@ def publish_state(rt, activity_id: str, *, now: datetime | None = None) -> dict[
     ):
         return {**out, "state": "automatic", "checked": True}
     return {**out, "state": "off", "checked": False}
+
+
+def _strava_private(rt, source_id: str | None) -> bool:
+    """Only you can see the Strava activity (as the last sync read it). VibeSynergy cannot
+    change that: Strava's API only makes an activity more private, never public."""
+    from vibesynergy.store.schema import activity
+
+    if not source_id:
+        return False
+    with rt.engine.connect() as conn:
+        extra = conn.scalar(
+            select(activity.c.extra).where(
+                activity.c.source == "strava", activity.c.source_id == source_id
+            )
+        )
+    extra = extra if isinstance(extra, dict) else {}
+    return extra.get("private") is True or extra.get("visibility") == "only_me"
 
 
 def _mirror_on(rt) -> bool:

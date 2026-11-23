@@ -40,6 +40,7 @@ from vibesynergy.query import (
     coach,
     cross_sync,
     publication_auto,
+    text_sync,
     thresholds,
     views,
 )
@@ -494,6 +495,8 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "garmin_mirror_enabled": bool(
                     on_disk.publication.get("garmin_mirror_enabled", True)
                 ),
+                "text_sync_enabled": on_disk.publication.get("text_sync_enabled") is True,
+                "text_sync": text_sync.status(rt),
                 "quote_themes": on_disk.publication.get("quote_themes", list(THEMES)),
                 "quote_sources": on_disk.publication.get("quote_sources", list(COLLECTIONS)),
                 "sources": list(COLLECTIONS),
@@ -680,6 +683,12 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                     publication_change["auto_publish_since"] = utc_now().isoformat()
             else:
                 publication_change["auto_publish"] = None  # off is the default
+        if (
+            isinstance(publication_change, dict)
+            and "text_sync_enabled" in publication_change
+            and publication_change["text_sync_enabled"] is not True
+        ):
+            publication_change["text_sync_enabled"] = None  # off is the default (#114)
         try:
             saved = config_edit.apply_changes(settings.config_path, changes)
         except ConfigError as exc:

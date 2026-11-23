@@ -367,9 +367,13 @@ provider or model, and the server enforces them for every write tool
   `vibesynergy_activity_set_texts` (`diary.write`) writes name, public and/or private
   (source `vs`); `vibesynergy_activity_restore_text` (`diary.write`) makes an old version
   current again as a new version. The private text is context only: it is never published,
-  never in a share link and never in `vibesynergy_activity`. Nothing is sent to Strava,
-  Garmin or intervals.icu yet. The AI coach's activity context reads these texts when the
-  workout has them.
+  never in a share link and never in `vibesynergy_activity`. With Settings → Sync between
+  sources → *Sync names and texts with Strava and Garmin* on, a published workout's name and
+  public text are kept the same on Strava and Garmin (two-way): edits made there come in as
+  versions with source `strava` or `garmin` (author `sync`), and a version that lost to a
+  later change is kept with kind `overwritten` (never the current text). Without it nothing
+  is sent; nothing is ever sent to intervals.icu. The AI coach's activity context reads these
+  texts when the workout has them.
 - Training: `vibesynergy_training_load`, `vibesynergy_volume`, `vibesynergy_fitness`,
   `vibesynergy_intensity_distribution`
 - Personal model runs: `vibesynergy_model_run_write` (`coach.write`) stores parameters

@@ -153,6 +153,22 @@ ITEMS: tuple[Item, ...] = (
         "coach's insight and the figures on Strava; in Settings you choose whether new "
         "workouts start public or only for you.",
     ),
+    Item(
+        "114-text-sync",
+        "you",
+        "You can now keep a published workout's name and public text the same in "
+        "VibeSynergy, on Strava and on Garmin: switch it on in Settings → Sync between "
+        "sources. A change in one place reaches the others within minutes, and the "
+        "workout's history shows what came from where.",
+    ),
+    Item(
+        "114-ai-text-sync",
+        "ai",
+        "With the text sync on, a published workout's name and public text follow edits "
+        "made on Strava and Garmin: texts can change with source strava or garmin, and a "
+        "version that lost to a later change has kind overwritten. The private text never "
+        "leaves VibeSynergy.",
+    ),
 )
 
 VERSION = RELEASES[0].version

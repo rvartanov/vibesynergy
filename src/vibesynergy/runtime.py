@@ -96,6 +96,9 @@ class Runtime:
         handlers["alerts"] = lambda _job: alerts.check(self)
         handlers[publication_mirror.JOB] = lambda _job: publication_mirror.run(self)
         handlers[publication_auto.JOB] = lambda _job: publication_auto.run(self)
+        from vibesynergy.query import text_sync
+
+        handlers[text_sync.JOB] = lambda _job: text_sync.run(self)
         handlers[calendar_mirror.JOB] = lambda _job: calendar_mirror.run(self)
         handlers[garmin_strength.JOB] = lambda _job: garmin_strength.run(self)
         from vibesynergy.query import quote_sources

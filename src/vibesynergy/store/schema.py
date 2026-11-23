@@ -840,6 +840,30 @@ publication_mirror = Table(
     Column("garmin_original_title", Text),  # and its title before the first title write
     Column("updated_at", UTCDateTime, nullable=False),
 )
+# Two-way sync of a published workout's name and public text with Strava and Garmin (#114).
+# ``synced``: per platform the last name and public text VibeSynergy wrote there or agreed
+# with ({"strava": {"name": ..., "public": ..., "at": ...}, "garmin": {...}}), the third side
+# of the three-way compare. ``noticed``: when an outside change was first seen in a synced
+# copy ({"strava": {"name": {"hash": ..., "at": ...}}}).
+text_sync = Table(
+    "text_sync",
+    metadata,
+    Column("group_id", String, primary_key=True),
+    Column("state", String, nullable=False),  # active | stopped | conflict
+    Column("strava_id", String),
+    Column("garmin_id", String),
+    Column("synced", JSON, nullable=False),
+    Column("noticed", JSON, nullable=False),
+    Column("watch_until", UTCDateTime, nullable=False),
+    Column("next_check_at", UTCDateTime),
+    Column("seen_at", UTCDateTime, nullable=False),
+    Column("last_checked_at", UTCDateTime),
+    Column("last_result", JSON),
+    Column("last_error", Text),
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+    Index("ix_text_sync_state_next_check_at", "state", "next_check_at"),
+)
 publication_enrichment = Table(
     "publication_enrichment",
     metadata,

@@ -13,6 +13,15 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Keep names and texts the same on Strava and Garmin** (#114): switch on *Sync names and
+  texts with Strava and Garmin* in Settings → Sync between sources (off by default). A
+  published workout then gets the same name and public text in VibeSynergy, on Strava and on
+  Garmin, with your AI coach's insight and the figures below it. Change it in VibeSynergy, on
+  Strava or on Garmin and the others follow within a few minutes; when two places changed,
+  the latest change wins and the other stays in the workout's history, marked "overwritten".
+  Your private text is never sent. VibeSynergy cannot make a Strava activity public (Strava
+  does not allow it), so the workout page says when only you can see it on Strava.
+
 ## 0.1.0-beta.0.7 – 23-11-2026
 
 - **Edit your workout texts on the workout page** (#114): change the name, your public text
