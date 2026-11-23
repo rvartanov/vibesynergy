@@ -20,6 +20,7 @@ import {
 } from "../format.js";
 import { N, t } from "../i18n.js";
 import { bindNoteForm, noteFormHtml } from "../quicklog.js";
+import { workoutTexts } from "../workout_page.js";
 import { averageSpeed, distanceText, sportFamily, speedChannel, speedLabel, speedText } from "../sport_units.js";
 import { withSportIcon, tagChip } from "../symbols.js";
 import {
@@ -97,6 +98,7 @@ export async function render(view, { args, meta, stale }) {
     </div>
     <section class="card facts-card">${factsHtml(a)}</section>
     ${multisportHtml(reply.data.multisport)}
+    ${meta.data.share ? "" : `<section class="card workout-texts" aria-labelledby="wt-title" data-workout-texts hidden></section>`}
     ${effortCardHtml(effort, !!meta.data.share)}
     <section class="card activity-notes" data-activity-notes${notes.length ? "" : " hidden"}>${notesHtml(notes)}</section>
     ${hasRoute ? `<section class="card map-card"><div class="map" role="region" aria-label="${esc(t("Route map"))}"></div></section>` : ""}
@@ -126,6 +128,19 @@ export async function render(view, { args, meta, stale }) {
   const effortHost = view.querySelector("[data-effort-host]");
   if (effortHost && !meta.data.share) bindEffort(effortHost, id);
   if (!meta.data.share) bindActivityNote(view, id, notes, stale);
+  // Your name and texts, with their history and the Publish tick (#114). The heading
+  // follows the name you gave it here.
+  if (!meta.data.share) {
+    workoutTexts(view.querySelector("[data-workout-texts]"), id, {
+      stale,
+      tz,
+      onName: (name) => {
+        const heading = view.querySelector(".page-head h1");
+        if (heading) heading.textContent = name;
+        document.title = `${name} · VibeSynergy`;
+      },
+    });
+  }
   const purpose = view.querySelector("[data-purpose-choice]");
   if (purpose) {
     purpose.value = a.purpose || "auto";

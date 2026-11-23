@@ -59,8 +59,11 @@ export function publicationOptions(s) {
   const pubLabelDefaults = pub.defaults.labels[language()] || pub.defaults.labels.en;
   const lang = pub.language || pub.auto?.language || language();
   return `<div data-publication>
-    <label class="check"><input type="checkbox" name="auto_publish" aria-describedby="sync-auto-help"${pub.auto_publish ? " checked" : ""}> ${t("Publish new activities by themselves")}</label>
-    <p class="sub" id="sync-auto-help">${t("A new Garmin activity gets its figures on Strava within about 15 minutes. Activities from before you switch this on stay as they are.")}</p>
+    <fieldset class="settings-field" aria-describedby="sync-auto-help"><legend>${t("New workouts")}</legend>
+      <label class="check"><input type="radio" name="new_workouts" value="public"${pub.auto_publish ? " checked" : ""}> ${t("Public: published by themselves")}</label>
+      <label class="check"><input type="radio" name="new_workouts" value="only_me"${pub.auto_publish ? "" : " checked"}> ${t("Only me: you publish them yourself")}</label>
+      <p class="sub" id="sync-auto-help">${t("Public: a new Garmin activity gets its figures on Strava within about 15 minutes, and the Publish tick on the workout starts on. Only me: nothing is published until you tick Publish on the workout. Who can see the activity on Strava itself is still set on Strava. Activities from before you choose Public stay as they are.")}</p>
+    </fieldset>
     <div class="settings-grid"><label>${t("Language of the text")} <select class="btn" name="publication_language">${[["nl", "Nederlands"], ["en", "English"]].map(([v, label]) => `<option value="${v}"${v === lang ? " selected" : ""}>${label}</option>`).join("")}</select></label></div>
     <label class="check"><input type="checkbox" name="garmin_mirror_enabled" aria-describedby="sync-mirror-help"${pub.garmin_mirror_enabled !== false ? " checked" : ""}> ${t("Copy the Strava text to Garmin too")}</label>
     <p class="sub" id="sync-mirror-help">${t("Garmin gets the same text and title as Strava, and follows your edits on Strava for 7 days. When off, publishing stays on Strava.")}</p>

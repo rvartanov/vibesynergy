@@ -20,7 +20,10 @@ from vibesynergy.portal.api import (
     TREND_DAYS,
     ActivityEffortRequest,
     ActivityGearRequest,
+    ActivityPublishTick,
     ActivityPurposeRequest,
+    ActivityTextRestore,
+    ActivityTextsRequest,
     GearDefaultRequest,
     GearEdit,
     GearServiceAdd,
@@ -250,6 +253,51 @@ def register(kit: PortalKit) -> None:
                 fields=set(request.fields) if request.fields is not None else None,
             )
         )
+
+    @router.get("/activity-texts")
+    def activity_texts_route(id: str, lang: str = "en") -> dict[str, Any]:
+        """The workout page's texts (#114): name, public and private part, their history and
+        the Publish tick. Never behind a share link (not in share.PAGES)."""
+        from vibesynergy.query import workout_page
+
+        return envelope(workout_page.page(rt, id, language=_lang(lang)))
+
+    @router.post("/activity-texts")
+    def activity_texts_save(request: ActivityTextsRequest, lang: str = "en") -> dict[str, Any]:
+        from vibesynergy.query import workout_page
+
+        return envelope(
+            workout_page.save_texts(
+                rt,
+                request.id,
+                name=request.name,
+                public=request.public,
+                private=request.private,
+                language=_lang(lang),
+            )
+        )
+
+    @router.post("/activity-texts/restore")
+    def activity_texts_restore(request: ActivityTextRestore, lang: str = "en") -> dict[str, Any]:
+        from vibesynergy.query import workout_page
+
+        return envelope(
+            workout_page.restore_text(rt, request.id, request.version, language=_lang(lang))
+        )
+
+    @router.post("/activity-publish")
+    def activity_publish_tick(request: ActivityPublishTick):
+        """The Publish tick: the guarded publish or unpublish of the VibeSynergy section."""
+        from vibesynergy.query import workout_page
+
+        try:
+            done = workout_page.set_published(rt, request.id, request.publish)
+        except workout_page.NotPublishable as exc:
+            return JSONResponse(status_code=409, content={"error": str(exc), "code": exc.code})
+        return envelope(done)
+
+    def _lang(value: str) -> str:
+        return value if value in ("en", "nl") else "en"
 
     @router.post("/activity-purpose")
     def activity_purpose(request: ActivityPurposeRequest) -> dict[str, Any]:

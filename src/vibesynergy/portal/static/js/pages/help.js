@@ -15,6 +15,7 @@ export const MANUALS = [
   ]],
   [N("Training"), [
     ["activities", N("Finding and reviewing activities"), N("Filter and search your workouts, open one and say how it felt.")],
+    ["workout-texts", N("Your texts on a workout"), N("Change a workout's name and texts, go back to an earlier version, and publish it.")],
     ["calendar", N("Calendar: looking back and ahead"), N("See per month or week what you did and what is planned.")],
     ["planning", N("Planning & progress"), N("Compare the plan with what you did, and see your training analysis.")],
     ["races", N("Races and events"), N("Add, change or delete a race or another event, such as a training camp or a holiday.")],

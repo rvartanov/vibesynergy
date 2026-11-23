@@ -729,3 +729,17 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .release-news ul, .release-history ul { margin: var(--space-2) 0; padding-left: 20px; }
 .release-history { margin-top: var(--space-4); }
 .release-history h3 { margin: 0 0 var(--space-2); font-size: 15px; }
+
+/* The workout's own texts (#114): a public and a private part, each set off by its edge
+   and named by a chip with a word, never by colour alone. */
+.workout-texts .wt-part { margin-top: var(--space-4); padding: var(--space-3) 0 0 var(--space-4); border-left: 4px solid var(--line); }
+.workout-texts .wt-public { border-left-color: var(--msg-info-border); }
+.workout-texts h3 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.workout-texts h4 { margin: var(--space-3) 0 var(--space-1); font-size: 14px; }
+.workout-texts .wt-field { margin-top: var(--space-3); }
+.workout-texts .wt-field label { display: block; font-weight: 600; }
+.workout-texts .wt-field input[type="text"], .workout-texts .wt-field textarea { width: 100%; max-width: var(--measure, 75ch); text-align: left; }
+.workout-texts .wt-versions, .workout-texts .wt-coach { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.workout-texts .wt-versions li, .workout-texts .wt-coach li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
+.workout-texts .wt-version-text { white-space: pre-line; overflow-wrap: anywhere; margin: var(--space-1) 0; }
+.workout-texts .wt-publish { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--grid); }

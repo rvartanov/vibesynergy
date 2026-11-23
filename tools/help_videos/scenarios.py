@@ -357,6 +357,81 @@ def activities(r: Rec):
     r.wait(1.0)
 
 
+@scenario(
+    "workout-texts",
+    "Je teksten bij een training",
+    "Your texts on a workout",
+)
+def workout_texts(r: Rec):
+    r.go("activities")
+    first = r.pg.locator("main a[href^='#/activity/']").first
+    r.check(first.count() > 0, "the activities list should have a workout")
+    r.click(first)
+    r.pg.wait_for_load_state("networkidle")
+    texts = r.pg.locator("[data-workout-texts]")
+    texts.locator("#wt-name").wait_for()
+    r.point(texts.locator("#wt-title"))
+    r.say(
+        "Bij elke training: de naam, een openbaar deel en een privédeel.",
+        "On every workout: the name, a public part and a private part.",
+    )
+    name = texts.locator("#wt-name")
+    old = name.input_value()
+    name.fill("")
+    r.type(name, "Tempoloop langs de rivier")
+    r.click(texts.locator("[data-wt-field=name] [data-wt-save]"))
+    status = texts.locator("[data-wt-field=name] [data-wt-status]")
+    r.check(status.inner_text() == "Opgeslagen.", "saving the name should say Opgeslagen.")
+    r.say(
+        "Pas de naam aan en sla op. De kop van de pagina volgt.",
+        "Change the name and save. The page heading follows.",
+    )
+    public = texts.locator("#wt-public")
+    r.point(texts.locator("#wt-public-title"))
+    r.say(
+        "Openbaar: het inzicht van je AI-coach en de cijfers, en daaronder je eigen tekst.",
+        "Public: your AI coach's insight and the figures, and below them your own text.",
+        2.8,
+    )
+    public.fill("")
+    r.type(public, "Lekker gelopen, de laatste kilometer het snelst.")
+    r.click(texts.locator("[data-wt-field=public] [data-wt-save]"))
+    private = texts.locator("#wt-private")
+    r.point(texts.locator("#wt-private-title"))
+    r.say(
+        "Privé: wat je AI-coach alleen tegen jou zegt, en je eigen notities. "
+        "Dit gaat nooit naar buiten.",
+        "Private: what your AI coach tells only you, and your own notes. This never goes out.",
+        3.0,
+    )
+    private.fill("")
+    r.type(private, "Rechterkuit iets stijf na afloop.")
+    r.click(texts.locator("[data-wt-field=private] [data-wt-save]"))
+    r.click(texts.locator("[data-wt-field=name] summary"))
+    r.say(
+        "Geschiedenis: elke versie, met waar hij vandaan kwam en wanneer.",
+        "History: every version, with where it came from and when.",
+        2.6,
+    )
+    restore = texts.locator("[data-wt-field=name] [data-wt-restore]").last
+    r.check(restore.count() > 0, "the name history should offer Restore")
+    r.click(restore)
+    r.check(name.input_value() == old, "Terugzetten should bring the old name back")
+    r.say(
+        "Terugzetten maakt een oude versie weer de huidige. De andere versies blijven.",
+        "Restore makes an old version the current one again. The other versions stay.",
+        2.6,
+    )
+    r.point(texts.locator(".wt-publish"))
+    r.say(
+        "Publiceren zet het inzicht en de cijfers in de beschrijving op Strava. "
+        "Bij Instellingen kies je of nieuwe trainingen al aangevinkt beginnen.",
+        "Publish puts the insight and the figures in the Strava description. "
+        "In Settings you choose whether new workouts start ticked.",
+        3.4,
+    )
+
+
 @scenario("calendar", "Kalender: terugkijken en vooruitkijken", "Calendar: looking back and ahead")
 def calendar(r: Rec):
     r.go("schedule")
@@ -1132,6 +1207,15 @@ def _sources(r: Rec):
         "Synchronisatie: wat VibeSynergy terugschrijft, zoals een samenvatting in Strava.",
         "Sync: what VibeSynergy writes back, such as a summary in Strava.",
         2.8,
+    )
+    fresh = r.pg.locator("fieldset", has_text="Nieuwe trainingen").first
+    r.check(fresh.count() > 0, "Sync should ask how new workouts start")
+    r.point(fresh)
+    r.say(
+        "Nieuwe trainingen: openbaar (vanzelf gepubliceerd) of alleen ik "
+        "(je vinkt Publiceren zelf aan).",
+        "New workouts: public (published by themselves) or only me (you tick Publish yourself).",
+        3.0,
     )
 
 

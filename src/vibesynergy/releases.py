@@ -144,6 +144,14 @@ ITEMS: tuple[Item, ...] = (
         "vibesynergy_activity_set_texts writes them and vibesynergy_activity_restore_text "
         "restores an old version. The private text is context only, never for a public text.",
     ),
+    Item(
+        "114-workout-page",
+        "you",
+        "On the workout page you now edit the name, your public text and your private "
+        "text, see every earlier version and put one back. The Publish tick puts your AI "
+        "coach's insight and the figures on Strava; in Settings you choose whether new "
+        "workouts start public or only for you.",
+    ),
 )
 
 VERSION = RELEASES[0].version

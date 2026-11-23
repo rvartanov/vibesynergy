@@ -22,6 +22,10 @@ write is a conflict: that activity is left for review and never retried. Other f
 retried with growing gaps, at most ``MAX_TRIES`` times. Strava's rate limit ends the run.
 Attempts are kept in the ``publication`` secret store (no description text).
 
+On the workout page (#114) this switch is "new workouts: public" (on) or "only me" (off,
+the default). Unticking Publish on a workout records it as ``only_me``: the run leaves it
+alone from then on (``keep_private``); ``will_publish`` tells the page the tick is on.
+
 The coach's public insight (``publication_insight``) usually arrives later, with the
 evening routine. Each run therefore also looks at activities in the same window that are
 verified on Strava but whose block lacks the coach's current insight (or still shows a
@@ -52,7 +56,9 @@ RETRY = timedelta(minutes=30)
 MAX_TRIES = 5
 KEEP = timedelta(days=14)
 STATE = "auto"
-DONE = ("published", "needs_review", "gave_up")
+# Unticked on the workout page (#114): the automatic run leaves this activity alone.
+KEPT = "only_me"
+DONE = ("published", "needs_review", "gave_up", KEPT)
 
 
 def _settings(rt) -> dict[str, Any]:
@@ -448,6 +454,26 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
         _record(rt, key, now, state="published", tries=tries, mirror=mirror, error=None)
         _audit(rt, "ok", candidate, {"language": lang, "mirror": mirror})
         summary["published"] += 1
+
+
+def will_publish(rt, strava_id: str, start_utc: datetime, *, now: datetime | None = None) -> bool:
+    """Whether the automatic run is still going to publish this Strava copy: switched on
+    (new workouts public), started in its window and not done, left for review or unticked.
+    """
+    if not enabled(rt):
+        return False
+    start = since(rt)
+    if start is None:
+        return False
+    now = now or datetime.now(UTC)
+    if _aware(start_utc) < max(start, now - LOOKBACK):
+        return False
+    return (attempts(rt).get(str(strava_id)) or {}).get("state") not in DONE
+
+
+def keep_private(rt, strava_id: str, *, now: datetime | None = None) -> None:
+    """The athlete unticked Publish (#114): the automatic run never publishes it again."""
+    _record(rt, str(strava_id), now or datetime.now(UTC), state=KEPT)
 
 
 def status(rt) -> dict[str, Any]:
