@@ -14,6 +14,10 @@ well inside Strava's read budget (shared with the normal sync). Strava's rate li
 run and the watch is retried on the next one. A watch stops at ``watch_until`` (expired),
 when the Strava block is removed (removed) or when a section needs review (conflict).
 Activities without a Strava link are never watched: Garmin publishing stays Garmin-only.
+
+With the two-way text sync on (``text_sync``, #114) the name and the athlete's text are that
+sync's: the mirror then only puts VibeSynergy's block on Garmin (below Garmin's own text) and
+keeps it in step, and leaves the title alone.
 """
 
 from __future__ import annotations
@@ -281,6 +285,17 @@ def _sync(
     current = current_detail.get("description") or ""
     if not isinstance(current, str):
         raise publication.Conflict("Garmin description is unreadable")
+    from vibesynergy.query import text_sync
+
+    texts_synced = text_sync.enabled(rt)
+    if texts_synced:
+        # The two-way text sync owns the name and the text (#114): the mirror only keeps
+        # VibeSynergy's block on Garmin in step and leaves Garmin's own text where it is.
+        if len(publication_format.find_blocks(current)) > 1 or publication_format.orphan_markers(
+            current
+        ):
+            raise Edited("The Garmin section changed by hand; review the description")
+        user_text = publication.human_text(current)
     desired = f"{user_text}\n\n{owned}" if user_text else owned
     garmin_ledger = publication._ledger(rt, "garmin", garmin_id)
     if (
@@ -306,7 +321,11 @@ def _sync(
     if not publication_format.same_text(current, desired):
         row = watch(rt, group)
         first = row is not None and row["garmin_original"] is None
-        if not first and not _garmin_text_ours(current, user_text, garmin_ledger):
+        if (
+            not texts_synced
+            and not first
+            and not _garmin_text_ours(current, user_text, garmin_ledger)
+        ):
             # Text typed on Garmin after the first mirror: never overwrite it (#160).
             raise Edited("The Garmin text changed by hand; review the description")
         if first:
@@ -340,6 +359,8 @@ def _sync(
         current_detail = after
         result["garmin"] = "updated"
     title = detail.get("name")
+    if texts_synced:
+        return result  # the name is the text sync's
     if isinstance(title, str) and title.strip() and current_detail.get("activityName") != title:
         row = watch(rt, group)
         if row and row["garmin_original_title"] is None:

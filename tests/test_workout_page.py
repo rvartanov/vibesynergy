@@ -84,6 +84,8 @@ def test_the_page_reads_texts_parts_history_and_the_tick(runtime):
         "mirror": True,
         "state": "off",
         "checked": False,
+        "texts_synced": False,  # names and texts go out only with the text sync on
+        "strava_private": False,
     }
 
 

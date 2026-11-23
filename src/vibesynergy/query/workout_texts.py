@@ -15,8 +15,9 @@ Until a workout has a version of its own, its texts are derived from what is alr
   public text (the Strava description the diary imported as a note is given once).
 
 The first write to a workout stores these derived texts as ``seed`` versions, so the history
-starts with what was there. A later Strava or Garmin text does not change a stored text yet:
-taking outside changes in is the sync of phase 3.
+starts with what was there. A later Strava or Garmin text changes a stored text only through
+the two-way sync of a published workout (``text_sync``, phase 3), which stores it as a version
+with its platform as the source.
 
 The private text is the athlete's alone. It is never part of ``public_texts``, of anything
 published to Strava or Garmin, or of an activity view a share link shows.
@@ -35,7 +36,10 @@ from vibesynergy.store.schema import activity, activity_link, activity_unified, 
 FIELDS: tuple[str, ...] = ("name", "public", "private")
 # Where a version came from. A seed carries the platform its text was taken from.
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin", "ai")
-KINDS: tuple[str, ...] = ("seed", "edit", "restore")
+# ``overwritten``: a version that lost to a later change in the two-way sync (phase 3): kept
+# in the history, never the current text.
+KINDS: tuple[str, ...] = ("seed", "edit", "restore", "overwritten")
+OVERWRITTEN = "overwritten"
 # Technical limits, the size a description field takes on the platforms.
 MAX_NAME = 255
 MAX_TEXT = 20000
@@ -196,7 +200,8 @@ def _latest(conn, keys: list[str]) -> dict[str, Any]:
     ).all()
     latest: dict[str, Any] = {}
     for row in rows:
-        latest[row.field] = row
+        if row.kind != OVERWRITTEN:
+            latest[row.field] = row
     return latest
 
 
@@ -289,6 +294,7 @@ def _write(
     kind: str,
     author: str | None,
     restored_from: int | None = None,
+    overwritten: list[tuple[str, str, str]] | None = None,
 ) -> dict[str, Any]:
     if source not in SOURCES:
         raise ValueError(f"source must be one of {', '.join(SOURCES)}")
@@ -316,6 +322,20 @@ def _write(
                     )
                 )
             latest = _latest(conn, keys)
+        for field, text, lost_source in overwritten or ():
+            # Lost to a later change (two-way sync): stored first, so it is never current.
+            conn.execute(
+                workout_text.insert().values(
+                    group_id=group,
+                    field=field,
+                    text=text,
+                    old_text=latest[field].text if field in latest else None,
+                    source=lost_source,
+                    kind=OVERWRITTEN,
+                    author=author,
+                    at=now,
+                )
+            )
         for field, text in changes.items():
             current = latest[field].text if field in latest else ""
             if text == current:
@@ -334,6 +354,12 @@ def _write(
                 )
             )
             changed.append(field)
+    if changed and source in ("vs", "ai"):
+        # A published workout's name or public text changed in VibeSynergy: the two-way
+        # sync passes it on after its short wait (a no-op while the sync is off).
+        from vibesynergy.query import text_sync
+
+        text_sync.touch(engine, group, [f for f in changed if f in text_sync.FIELDS], now)
     return {"activity_id": group, "changed": changed, "texts": texts(engine, group)}
 
 
@@ -355,6 +381,27 @@ def set_texts(
     if not changes:
         raise ValueError("give a name, a public text or a private text")
     return _write(engine, activity_id, changes, source=source, kind="edit", author=author)
+
+
+def take_over(
+    engine: Engine,
+    activity_id: str,
+    field: str,
+    text: str | None,
+    *,
+    source: str,
+    overwritten: list[tuple[str, str]] | None = None,
+) -> dict[str, Any]:
+    """The two-way sync's write (``text_sync``): ``text`` (None: leave the current text) from
+    ``source`` becomes the current version, and each ``(text, source)`` in ``overwritten``
+    is kept in the history as a version that lost to it ("overwritten, from <source>")."""
+    if field not in ("name", "public"):
+        raise ValueError("only the name and the public text are synced")
+    changes = {field: _clean(field, text)} if text is not None else {}
+    lost = [(field, _clean(field, t), s) for t, s in overwritten or () if s in SOURCES]
+    return _write(
+        engine, activity_id, changes, source=source, kind="edit", author="sync", overwritten=lost
+    )
 
 
 def restore(

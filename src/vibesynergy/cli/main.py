@@ -737,6 +737,7 @@ def serve(
             publication_auto,
             publication_mirror,
             quote_sources,
+            text_sync,
         )
 
         scheduler = Scheduler(
@@ -748,6 +749,8 @@ def serve(
                 publication_mirror.JOB: lambda: publication_mirror.due(rt),
                 # Garmin → Strava: new activities, when Settings → Sync switched it on.
                 publication_auto.JOB: lambda: publication_auto.due(rt),
+                # Names and public texts VS <-> Strava <-> Garmin; off until switched on.
+                text_sync.JOB: lambda: text_sync.due(rt),
                 # Garmin → CalDAV mirror. Off until Settings → Sync between sources turns it on.
                 calendar_mirror.JOB: lambda: calendar_mirror.due(rt),
                 # Strength and pilates with exercise steps to Garmin.

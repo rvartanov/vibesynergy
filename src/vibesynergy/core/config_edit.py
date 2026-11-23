@@ -52,6 +52,7 @@ PUBLICATION_KEYS = (
     "quote_enabled",
     "weather_enabled",
     "garmin_mirror_enabled",
+    "text_sync_enabled",
     "quote_themes",
     "quote_sources",
     "quote_providers",

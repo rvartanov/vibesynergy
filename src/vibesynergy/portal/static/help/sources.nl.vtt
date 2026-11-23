@@ -1,31 +1,34 @@
 WEBVTT
 
-00:00:04.509 --> 00:00:08.249
+00:00:04.681 --> 00:00:08.427
 Instellingen → Bronnen: koppel Garmin, Strava, Withings, intervals.icu of een agenda.
 
-00:00:08.299 --> 00:00:11.398
+00:00:08.477 --> 00:00:11.582
 Garmin: log in met je Garmin-account en kies 'Garmin verbinden'.
 
-00:00:11.448 --> 00:00:14.529
+00:00:11.632 --> 00:00:14.737
 'Nu bijwerken' haalt meteen de nieuwste gegevens op.
 
-00:00:14.579 --> 00:00:19.202
+00:00:14.787 --> 00:00:19.451
 Het teken voor de naam laat op je horloge zien welke workouts van VibeSynergy komen.
 
-00:00:19.252 --> 00:00:22.929
+00:00:19.501 --> 00:00:23.189
 Of kies een teken per soort workout; de standaard staat al ingevuld.
 
-00:00:22.979 --> 00:00:30.199
+00:00:23.239 --> 00:00:30.539
 Multisport krijgt de tekens van zijn sporten, of één eigen teken.
 
-00:00:30.249 --> 00:00:35.467
+00:00:30.589 --> 00:00:35.809
 intervals.icu krijgt een kopie van je plan. Hier zie je de laatste kopie en wat er gekopieerd is; in je berichten staan alleen echte planaanpassingen.
 
-00:00:35.517 --> 00:00:39.949
+00:00:35.859 --> 00:00:40.315
 Oude gegevens? Importeer de export-zip van Garmin of Strava.
 
-00:00:39.999 --> 00:00:43.677
+00:00:40.365 --> 00:00:44.058
 Synchronisatie: wat VibeSynergy terugschrijft, zoals een samenvatting in Strava.
 
-00:00:43.727 --> 00:00:50.450
+00:00:44.108 --> 00:00:47.989
 Nieuwe trainingen: openbaar (vanzelf gepubliceerd) of alleen ik (je vinkt Publiceren zelf aan).
+
+00:00:48.039 --> 00:00:54.722
+Namen en teksten gelijk houden: een gepubliceerde training heeft overal dezelfde naam en openbare tekst. Staat standaard uit.

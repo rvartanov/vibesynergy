@@ -11,7 +11,7 @@ import { esc, userDateTime } from "./format.js";
 import { N, t } from "./i18n.js";
 
 const SOURCE = { vs: "VibeSynergy", strava: "Strava", garmin: "Garmin", ai: N("AI coach") };
-const KIND = { seed: N("Taken over"), edit: N("Edited"), restore: N("Restored") };
+const KIND = { seed: N("Taken over"), edit: N("Edited"), restore: N("Restored"), overwritten: N("Overwritten") };
 const FIELD_LABEL = { name: N("Name"), public: N("Your public text"), private: N("Your private text") };
 
 function sourceLabel(source) {
@@ -26,7 +26,13 @@ function publishHelp(p) {
     : p.mirror
       ? t("Publishing adds the AI-coach insight and the statistics to the description on Strava, below the text that is already there, and copies that description to Garmin.")
       : t("Publishing adds the AI-coach insight and the statistics to the description on Strava, below the text that is already there.");
-  return `${what} ${t("The name and the texts you write here are not sent.")}`;
+  const texts = p.texts_synced
+    ? t("Once published, the name and your public text are kept the same on Strava and Garmin. Your private part is never sent.")
+    : t("The name and the texts you write here are not sent.");
+  const hidden = p.strava_private
+    ? ` ${t("On Strava only you can see this activity. VibeSynergy cannot make it public; change that on Strava.")}`
+    : "";
+  return `${what} ${texts}${hidden}`;
 }
 
 const STATE_TEXT = {
@@ -55,15 +61,20 @@ function historyHtml(field, versions, tz) {
   if (!mine.length) {
     return `<details class="wt-history"><summary>${t("History")}</summary><p class="sub">${t("No earlier versions yet. Your first change keeps what was there.")}</p></details>`;
   }
-  const current = mine[0].version;
+  // A version that lost to a later change (the sync) is never the current one.
+  const latest = mine.find((v) => v.kind !== "overwritten") || mine[0];
+  const current = latest.version;
   const rows = mine.map((v) => {
     const when = userDateTime(v.at, tz);
     const text = v.text ? esc(v.text) : `<span class="muted">${esc(t("(empty)"))}</span>`;
     // A version with the current text needs no Restore: it would change nothing.
     const action = v.version === current
       ? `<span class="chip good">${t("Current")}</span>`
-      : v.text === mine[0].text ? "" : `<button class="btn" type="button" data-wt-restore="${esc(v.version)}" aria-label="${esc(t("Restore the version of {when}", { when }))}">${t("Restore")}</button>`;
-    return `<li><div class="sub">${esc(sourceLabel(v.source))} · ${esc(t(KIND[v.kind] || v.kind))} · <time datetime="${esc(v.at)}">${esc(when)}</time></div>
+      : v.text === latest.text ? "" : `<button class="btn" type="button" data-wt-restore="${esc(v.version)}" aria-label="${esc(t("Restore the version of {when}", { when }))}">${t("Restore")}</button>`;
+    const label = v.kind === "overwritten"
+      ? t("Overwritten, from {source}", { source: sourceLabel(v.source) })
+      : `${sourceLabel(v.source)} · ${t(KIND[v.kind] || v.kind)}`;
+    return `<li><div class="sub">${esc(label)} · <time datetime="${esc(v.at)}">${esc(when)}</time></div>
       <div class="wt-version-text">${text}</div>${action}</li>`;
   }).join("");
   return `<details class="wt-history"><summary>${esc(t("History ({n})", { n: mine.length }))}</summary><ol class="wt-versions">${rows}</ol></details>`;

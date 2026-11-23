@@ -70,6 +70,12 @@ class StravaProvider:
         except oauth.AuthError as exc:
             raise Conflict(str(exc)) from exc
 
+    def write_title(self, source_id: str, title: str) -> None:
+        try:
+            self.client.update_activity(source_id, {"name": title})
+        except oauth.AuthError as exc:
+            raise Conflict(str(exc)) from exc
+
 
 class GarminProvider:
     def __init__(self, rt):
@@ -446,7 +452,8 @@ def publish(
     A verified Strava publication mirrors to Garmin and starts the 7-day watch
     (publication_mirror); these run after the Strava lock is released. Nothing is written
     to intervals.icu (#114, #160): it passes a description on to the linked Strava activity,
-    and reads the activities from its own import.
+    and reads the activities from its own import. With the text sync on, the name and the
+    public text are then synced (``text_sync.after_publish``).
     """
     result = _publish(
         rt, activity_id, destination, expected_version, language=language, client=client
@@ -460,6 +467,14 @@ def publish(
             )
         else:
             result["mirror"] = {"state": "disabled"}
+    if mirror:
+        # The name and public text follow on Strava and Garmin when that sync is on (#114).
+        from vibesynergy.query import text_sync
+
+        if text_sync.enabled(rt):
+            result["texts"] = text_sync.after_publish(
+                rt, activity_id, clients={destination: client} if client else None
+            )
     return result
 
 

@@ -215,6 +215,7 @@ def _validate(settings: Settings) -> None:
         "quote_enabled",
         "weather_enabled",
         "garmin_mirror_enabled",
+        "text_sync_enabled",
         "icu_description_enabled",  # retired (#114): VibeSynergy no longer writes there
     ):
         if not isinstance(settings.publication.get(key, True), bool):
