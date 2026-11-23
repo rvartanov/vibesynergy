@@ -140,22 +140,52 @@ def _mirror_on(rt) -> bool:
     return publication_mirror.enabled(rt)
 
 
+def _insight_versions(rt, group: str) -> list[dict[str, Any]]:
+    from vibesynergy.query import publication_insight
+
+    try:
+        return publication_insight.versions(rt.engine, group)
+    except (LookupError, ValueError):
+        return []
+
+
+def _rewrite(rt, group: str) -> dict[str, Any]:
+    from vibesynergy.coach_runner import insight_rewrite
+
+    try:
+        return insight_rewrite.status(rt, group)
+    except Exception:  # the page still shows the texts
+        return {"state": None}
+
+
 def page(rt, activity_id: str, *, language: str = "en") -> dict[str, Any]:
     """Everything the workout page shows of the texts: current texts, history, the public
     and private parts and the Publish tick."""
     group = views.resolve_activity(rt.engine, activity_id)
     found = workout_texts.texts(rt.engine, group)
+    history = workout_texts.history(rt.engine, group)
     return {
         "activity_id": group,
         "texts": {field: found[field] for field in workout_texts.FIELDS},
-        "history": workout_texts.history(rt.engine, group),
+        "history": [v for v in history if v["field"] in workout_texts.FIELDS],
         "public": {
             "insight": annotations.insight(rt, group),
+            # Every insight the AI coach wrote, newest first (the first is the current one).
+            "insight_versions": _insight_versions(rt, group),
+            "rewrite": _rewrite(rt, group),
             "stats": _stats(rt, group, language),
         },
-        "private": {"coach": _coach_comments(rt, group)},
+        "private": {
+            "coach": _coach_comments(rt, group),
+            # Your corrections of the insight: only you see them.
+            "corrections": [v for v in history if v["field"] == workout_texts.CORRECTION],
+        },
         "publish": publish_state(rt, group),
-        "limits": {"name": workout_texts.MAX_NAME, "text": workout_texts.MAX_TEXT},
+        "limits": {
+            "name": workout_texts.MAX_NAME,
+            "text": workout_texts.MAX_TEXT,
+            "correction": workout_texts.MAX_CORRECTION,
+        },
     }
 
 
@@ -179,6 +209,27 @@ def restore_text(rt, activity_id: str, version: int, *, language: str = "en") ->
     """Make an old version current again: a new version that copies it."""
     done = workout_texts.restore(rt.engine, version, activity_id=activity_id, author="portal")
     return {"changed": done["changed"], **page(rt, activity_id, language=language)}
+
+
+class NoInsight(ValueError):
+    """There is no insight to correct yet."""
+
+
+def correct_insight(rt, activity_id: str, text: str, *, language: str = "en") -> dict[str, Any]:
+    """Store the athlete's comment on the AI-coach insight (private) and have the AI coach
+    rewrite the insight with it in mind, at once when the runner is on (``queued``)."""
+    from vibesynergy.coach_runner import insight_rewrite
+
+    group = views.resolve_activity(rt.engine, activity_id)
+    if annotations.insight(rt, group).get("state") != "present":
+        raise NoInsight("There is no insight from your AI coach to correct yet")
+    done = workout_texts.set_correction(rt.engine, group, text, author="portal")
+    queued = insight_rewrite.queue_now(rt, group) if done["changed"] else None
+    return {
+        "changed": done["changed"],
+        "queued": queued is not None,
+        **page(rt, group, language=language),
+    }
 
 
 class NotPublishable(publication.Conflict):
@@ -222,6 +273,11 @@ def set_published(
             )
         elif item["state"] == "ready":
             result = {"state": "verified", "destination": destination}
+        if publish_state(rt, group)["state"] == "published":
+            # Published from VibeSynergy: the first insight follows when there is none (#114).
+            from vibesynergy.coach_runner import insight_rewrite
+
+            insight_rewrite.after_publish(rt, group)
     else:
         if destination == "strava":
             publication_auto.keep_private(rt, source_id, now=datetime.now(UTC))

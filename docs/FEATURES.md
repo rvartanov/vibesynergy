@@ -357,6 +357,16 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   sources → **New workouts**: *public* (published by themselves, the tick starts on) or *only
   me* (the default: nothing goes out until you tick it). Unticking a workout that would be
   published by itself keeps it to you.
+- **The insight follows your texts** (#114): the AI coach's insight reads the workout's name,
+  public text and private text in VibeSynergy (the private text as context only). Publishing
+  from VibeSynergy (the tick, or *new workouts: public*) has the first insight written when
+  there is none. A change of the name or a text after the insight (in VibeSynergy, or taken
+  in from Strava or Garmin) has it rewritten a few minutes after the last edit; **Correct
+  the insight** on the workout page stores your comment privately and has it rewritten at
+  once with it in mind. At most `[coach_runner] insight_rewrites_per_day` rewrites per
+  workout per day (default 3; 0 switches them off). The page shows when the insight is being
+  written and the earlier insights; a new insight reaches every published Strava section
+  (and its Garmin copy) by itself.
 - **Names and texts the same everywhere** (#114, Settings → Sync between sources → *Sync
   names and texts with Strava and Garmin*, off by default): a published workout's name and
   public text are kept the same in VibeSynergy, on Strava and on Garmin; the description is

@@ -52,6 +52,7 @@ OWNER_ONLY = {
     ("POST", "/activity-publication"),
     ("POST", "/activity-publication/remove"),
     ("POST", "/activity-purpose"),
+    ("POST", "/activity-insight-correction"),  # the insight correction is private (#114)
     # The workout's own texts and the Publish tick (#114): the private text never leaves
     # the owner's portal.
     ("GET", "/activity-texts"),

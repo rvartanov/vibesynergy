@@ -216,7 +216,8 @@ provider or model, and the server enforces them for every write tool
   what was preloaded and the output-contract result; `vibesynergy_harness_run(task, activity_id?)`
   (`coach.write`) starts one run of a report task now, like Test now (it costs like any run);
   `task="insight"` with `activity_id` writes that activity's public insight again (#158), with
-  its own idempotency key: the newest wins, the earlier entry stays in the coach log.
+  its own idempotency key: the newest wins, the earlier entry stays in the coach log. The
+  same redo runs by itself when the workout's texts change after its insight (#114).
 - Task instructions: `vibesynergy_coach_prompt(job, include_context?, date?, activity_ids?)`
   (`read`; `job` is one of the harness's model tasks, e.g. `morning`, `evening`, `weekly` or
   `insight`) returns what the coach inside VibeSynergy gets for that task, from the same
@@ -374,6 +375,18 @@ provider or model, and the server enforces them for every write tool
   later change is kept with kind `overwritten` (never the current text). Without it nothing
   is sent; nothing is ever sent to intervals.icu. The AI coach's activity context reads these
   texts when the workout has them.
+- Insight and texts (#114, phase 4): the athlete's correction of the AI-coach insight (the
+  workout page) is a version with field `correction` in the same history
+  (`vibesynergy_activity_texts(field="correction")`); private like the private text. The
+  insight run starts from VibeSynergy's texts too: after the Publish tick when the workout
+  has no insight (run key `publish-<group>`), and as a rewrite of that one insight after its
+  name, public or private text changed (five quiet minutes after the last edit) or after a
+  correction (at once), run key `text-<group>-<version>`, at most
+  `[coach_runner] insight_rewrites_per_day` (default 3, 0 = off) per workout per day. The
+  run's context block `insight_rewrite` holds the current insight, the texts changed after
+  it and the corrections; a `public_insight` that quotes the private text or a correction is
+  refused. The new line reaches every published Strava section (and its Garmin copy) within
+  about five minutes, whether or not new workouts are public.
 - Training: `vibesynergy_training_load`, `vibesynergy_volume`, `vibesynergy_fitness`,
   `vibesynergy_intensity_distribution`
 - Personal model runs: `vibesynergy_model_run_write` (`coach.write`) stores parameters

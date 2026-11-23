@@ -234,10 +234,17 @@ TASKS: tuple[Task, ...] = (
     Task(
         id="insight",
         title="Line under a public activity",
-        triggers=(Trigger("event", "activity.published"),),
+        # The Publish tick, a text changed after the insight and the athlete's correction
+        # start it too (#114, coach_runner.insight_rewrite).
+        triggers=(
+            Trigger("event", "activity.published"),
+            Trigger("event", "workout.published"),
+            Trigger("event", "workout.texts_changed"),
+            Trigger("event", "insight.correction"),
+        ),
         contract=Contract("activity_assessment", ("summary",)),
         prompt="insight",
-        chain=("activity", "plan_match"),
+        chain=("activity", "plan_match", "insight_rewrite"),
         writes=("insight",),
         approval=(),
     ),

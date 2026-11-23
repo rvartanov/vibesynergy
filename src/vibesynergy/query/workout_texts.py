@@ -21,6 +21,12 @@ with its platform as the source.
 
 The private text is the athlete's alone. It is never part of ``public_texts``, of anything
 published to Strava or Garmin, or of an activity view a share link shows.
+
+**Correction of the AI-coach insight** (#114, phase 4). The athlete's comment on the
+insight ("wasn't with the group") is kept in the same history as a fourth field,
+``correction``: private like the private text, never synced or published. It is not one of
+the workout's texts (``FIELDS``); the AI coach reads it when it rewrites the insight
+(``coach_runner.insight_rewrite``).
 """
 
 from __future__ import annotations
@@ -34,6 +40,9 @@ from vibesynergy.core.timeutil import utc_now
 from vibesynergy.store.schema import activity, activity_link, activity_unified, note, workout_text
 
 FIELDS: tuple[str, ...] = ("name", "public", "private")
+# The athlete's correction of the AI-coach insight (#114, phase 4): private, never synced.
+CORRECTION = "correction"
+ALL_FIELDS: tuple[str, ...] = (*FIELDS, CORRECTION)
 # Where a version came from. A seed carries the platform its text was taken from.
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin", "ai")
 # ``overwritten``: a version that lost to a later change in the two-way sync (phase 3): kept
@@ -43,6 +52,7 @@ OVERWRITTEN = "overwritten"
 # Technical limits, the size a description field takes on the platforms.
 MAX_NAME = 255
 MAX_TEXT = 20000
+MAX_CORRECTION = 2000
 # The platforms whose description is the athlete's public text, in order of preference.
 _PUBLIC_FROM: tuple[str, ...] = ("strava", "garmin")
 _PARAGRAPH = re.compile(r"\n\s*\n")
@@ -194,9 +204,11 @@ def _version(row: Any) -> dict[str, Any]:
     }
 
 
-def _latest(conn, keys: list[str]) -> dict[str, Any]:
+def _latest(conn, keys: list[str], fields: tuple[str, ...] = FIELDS) -> dict[str, Any]:
     rows = conn.execute(
-        select(workout_text).where(workout_text.c.group_id.in_(keys)).order_by(workout_text.c.id)
+        select(workout_text)
+        .where(workout_text.c.group_id.in_(keys), workout_text.c.field.in_(fields))
+        .order_by(workout_text.c.id)
     ).all()
     latest: dict[str, Any] = {}
     for row in rows:
@@ -253,9 +265,10 @@ def public_texts(engine: Engine, activity_id: str) -> dict[str, Any]:
 
 
 def history(engine: Engine, activity_id: str, field: str | None = None) -> list[dict[str, Any]]:
-    """Every stored version of the workout's texts, newest first (one field with ``field``)."""
-    if field is not None and field not in FIELDS:
-        raise ValueError(f"field must be one of {', '.join(FIELDS)}")
+    """Every stored version of the workout's texts, newest first (one field with ``field``).
+    The insight corrections (``correction``) are in it too: this is the owner's history."""
+    if field is not None and field not in ALL_FIELDS:
+        raise ValueError(f"field must be one of {', '.join(ALL_FIELDS)}")
     _group_id, keys = _group(engine, activity_id)
     query = select(workout_text).where(workout_text.c.group_id.in_(keys))
     if field is not None:
@@ -276,6 +289,8 @@ def _clean(field: str, text: Any) -> str:
             raise ValueError(f"the name is longer than {MAX_NAME} characters")
         return clean
     clean = publication_format.normalize_newlines(text).strip()
+    if field == CORRECTION and len(clean) > MAX_CORRECTION:
+        raise ValueError(f"the correction is longer than {MAX_CORRECTION} characters")
     if len(clean) > MAX_TEXT:
         raise ValueError(f"the {field} text is longer than {MAX_TEXT} characters")
     if publication_format.find_blocks(clean) or publication_format.orphan_markers(clean):
@@ -336,6 +351,8 @@ def _write(
                     at=now,
                 )
             )
+        if CORRECTION in changes:
+            latest = {**latest, **_latest(conn, keys, (CORRECTION,))}
         for field, text in changes.items():
             current = latest[field].text if field in latest else ""
             if text == current:
@@ -381,6 +398,30 @@ def set_texts(
     if not changes:
         raise ValueError("give a name, a public text or a private text")
     return _write(engine, activity_id, changes, source=source, kind="edit", author=author)
+
+
+def corrections(engine: Engine, activity_id: str) -> list[dict[str, Any]]:
+    """The athlete's corrections of the AI-coach insight, newest first (private)."""
+    return [v for v in history(engine, activity_id, CORRECTION) if v["text"]]
+
+
+def set_correction(
+    engine: Engine, activity_id: str, text: str, *, author: str | None = None
+) -> dict[str, Any]:
+    """Store the athlete's comment on the AI-coach insight as a new version (source ``vs``).
+    It is private: never synced, published or shown on a shared page. Returns
+    ``{activity_id, changed, version}``; ``changed`` is empty when it is the same text as the
+    last correction."""
+    clean = _clean(CORRECTION, text)
+    if not clean:
+        raise ValueError("write what is not right in the insight")
+    done = _write(engine, activity_id, {CORRECTION: clean}, source="vs", kind="edit", author=author)
+    found = corrections(engine, done["activity_id"])
+    return {
+        "activity_id": done["activity_id"],
+        "changed": done["changed"],
+        "version": found[0]["version"] if found else None,
+    }
 
 
 def take_over(

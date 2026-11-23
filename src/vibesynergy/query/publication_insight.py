@@ -116,12 +116,11 @@ def _group_day(engine, group: str) -> date | None:
         )
 
 
-def for_activity(engine, activity_id: str, *, subject_id: int = 1) -> dict[str, Any] | None:
-    """The current public insight: ``{"text", "entry_id", "at"}`` or None."""
-    group = views.resolve_activity(engine, activity_id)
+def _entries(engine, group: str, subject_id: int):
+    """The coach entries that may be about ``group``, newest first."""
     day = _group_day(engine, group)
     if day is None:
-        return None
+        return []
     with engine.connect() as conn:
         rows = (
             conn.execute(
@@ -141,18 +140,67 @@ def for_activity(engine, activity_id: str, *, subject_id: int = 1) -> dict[str, 
             .mappings()
             .all()
         )
-    for row in rows:
+    return rows
+
+
+def _version(row, text: str | None) -> dict[str, Any]:
+    at = row["at"]
+    return {
+        "text": text,
+        "entry_id": row["id"],
+        "at": at.isoformat() if isinstance(at, datetime) else at,
+    }
+
+
+def for_activity(engine, activity_id: str, *, subject_id: int = 1) -> dict[str, Any] | None:
+    """The current public insight: ``{"text", "entry_id", "at"}`` or None."""
+    group = views.resolve_activity(engine, activity_id)
+    for row in _entries(engine, group, subject_id):
         about, text = _from_entry(engine, row, group)
         if about:
-            if text is None:
-                return None
-            at = row["at"]
-            return {
-                "text": text,
-                "entry_id": row["id"],
-                "at": at.isoformat() if isinstance(at, datetime) else at,
-            }
+            return None if text is None else _version(row, text)
     return None
+
+
+def versions(
+    engine, activity_id: str, *, subject_id: int = 1, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Every public insight the AI coach wrote for the activity, newest first (#114): its
+    history. Each entry in the coach log is one version (source: the AI coach); a withdrawn
+    or unpublishable line has ``text`` None. The first is the current one."""
+    group = views.resolve_activity(engine, activity_id)
+    out = []
+    for row in _entries(engine, group, subject_id):
+        about, text = _from_entry(engine, row, group)
+        if about:
+            out.append(_version(row, text))
+            if len(out) >= limit:
+                break
+    return out
+
+
+def written_since(engine, since: datetime, *, subject_id: int = 1) -> set[str]:
+    """The activities (group ids now) with a public insight entry written since ``since``."""
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(coach_decision_log.c.meta).where(
+                coach_decision_log.c.subject_id == subject_id,
+                coach_decision_log.c.entry_type == ENTRY_TYPE,
+                coach_decision_log.c.at >= since,
+            )
+        ).scalars()
+        ids = {
+            str(meta["activity_id"])
+            for meta in rows
+            if isinstance(meta, dict) and "public_insight" in meta and meta.get("activity_id")
+        }
+    out = set()
+    for activity_id in ids:
+        try:
+            out.add(views.resolve_activity(engine, activity_id))
+        except (LookupError, ValueError):
+            continue
+    return out
 
 
 def recent(rt, *, days: int = 2, today: date | None = None) -> dict[str, Any]:
