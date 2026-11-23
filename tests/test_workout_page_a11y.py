@@ -1,6 +1,6 @@
 """The workout page's texts (#114): keyboard only, axe clean, NL and EN, light and dark,
-desktop and phone width. Edit the public text, look at its history, restore a version and
-tick Publish, all without a mouse.
+desktop and phone width. Correct the AI-coach insight, edit the public text, look at its
+history, restore a version and tick Publish, all without a mouse.
 
 A throwaway portal on synthetic data; the Strava provider is a fake, so nothing leaves the
 test.
@@ -21,7 +21,7 @@ from test_publication_mirror import FakeStrava
 
 from vibesynergy.core import config_edit
 from vibesynergy.portal.app import create_portal_app
-from vibesynergy.query import publication, publication_plugins, workout_texts
+from vibesynergy.query import coach_workouts, publication, publication_plugins, workout_texts
 
 pytestmark = pytest.mark.integration
 
@@ -48,6 +48,14 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
     put(runtime, "strava", replace(a, source_id="2", name="Strava title", fit_id=None))
     group = "garmin:1"
     workout_texts.set_texts(runtime.engine, group, public="Eerste versie", private=SECRET)
+    coach_workouts.coach_write(
+        runtime.engine,
+        summary="Prive.",
+        entry_type="activity_assessment",
+        for_date=a.start_utc.date(),
+        activity_id=group,
+        public_insight="Duurloop met de groep, netjes in Z2.",
+    )
 
     app = create_portal_app(runtime)
     port = _port()
@@ -82,6 +90,21 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                 assert page.locator("#wt-public-title").count() == 1
                 assert page.locator("#wt-private-title").count() == 1
                 assert SECRET in page.locator("#wt-private").input_value()
+                # Correct the insight (#114): the label, the help and the status, by keyboard.
+                fix = f"Ik liep alleen ({language}, {theme})"
+                assert _tab_until(
+                    page, "() => document.activeElement?.id === 'wt-correction'", steps=200
+                )
+                page.keyboard.type(fix)
+                page.keyboard.press("Tab")
+                assert page.evaluate("document.activeElement?.hasAttribute('data-wt-correct')")
+                page.keyboard.press("Enter")
+                page.locator("[data-wt-correct-status]").get_by_text(
+                    copy["saved"], exact=True
+                ).wait_for()
+                assert page.evaluate("document.activeElement?.hasAttribute('data-wt-correct')")
+                assert workout_texts.corrections(runtime.engine, group)[0]["text"] == fix
+                assert page.locator("[data-wt-rewrite]").inner_text().strip()
                 text = f"Mooie ronde ({language}, {theme})"
                 assert _tab_until(
                     page, "() => document.activeElement?.id === 'wt-public'", steps=200

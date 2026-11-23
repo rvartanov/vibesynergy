@@ -13,6 +13,15 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Your AI coach's insight follows your texts** (#114): publishing a workout in VibeSynergy
+  has the insight written when there is none yet. When you change the name or a text after
+  the insight (on the workout page, or on Strava or Garmin with the text sync on), your AI
+  coach writes the insight again a few minutes later, at most a few times a day per workout.
+  Not right? **Correct the insight** on the workout page ("I wasn't with the group"): only you
+  see your correction, and the insight is rewritten with it in mind. The page says when the
+  insight is being written and keeps the earlier ones. The new insight reaches Strava and
+  Garmin by itself once the workout is published.
+
 ## 0.1.0-beta.0.8 – 23-11-2026
 
 - **Keep names and texts the same on Strava and Garmin** (#114): switch on *Sync names and

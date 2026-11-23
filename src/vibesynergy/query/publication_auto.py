@@ -27,10 +27,12 @@ the default). Unticking Publish on a workout records it as ``only_me``: the run 
 alone from then on (``keep_private``); ``will_publish`` tells the page the tick is on.
 
 The coach's public insight (``publication_insight``) usually arrives later, with the
-evening routine. Each run therefore also looks at activities in the same window that are
-verified on Strava but whose block lacks the coach's current insight (or still shows a
-withdrawn one), and publishes them again through that same path: only the VibeSynergy block is
-replaced, the Garmin mirror follows, and each update gets a ``publication.insight`` audit row.
+evening routine or the run publishing starts (#114). Each run therefore also looks at
+activities verified on Strava (by this run, the Publish tick or a publish tool) whose block
+lacks the coach's current insight (or still shows a withdrawn one), in the same window or
+rewritten by the AI coach within it, and publishes them again through that same path: only
+the VibeSynergy block is replaced, the Garmin mirror follows, and each update gets a
+``publication.insight`` audit row. This runs whether or not new workouts are public.
 """
 
 from __future__ import annotations
@@ -183,25 +185,28 @@ def _has_insight_line(owned: str) -> bool:
 
 
 def refresh_candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
-    """Automatically published activities whose block lacks the coach's current insight.
+    """Published activities whose block lacks the coach's current insight.
 
-    Same window as new publications. The insight usually arrives with the evening routine,
-    after the activity was published; a withdrawn insight removes the line again.
+    Every activity with a verified VibeSynergy section on Strava, however it was published
+    (the automatic run, the Publish tick, a publish tool), that started within ``LOOKBACK``
+    or whose insight the AI coach wrote within ``LOOKBACK`` (a rewrite after a text change
+    or a correction, #114). The insight usually arrives with the evening routine or a run the
+    Publish tick started, after the activity was published; a withdrawn insight removes the
+    line again.
     """
     from vibesynergy.query import publication_insight
 
-    if not enabled(rt):
-        return []
     now = now or datetime.now(UTC)
-    start = since(rt)
-    if start is None:
-        return []
-    floor = max(start, now - LOOKBACK)
+    floor = now - LOOKBACK
+    rewritten = publication_insight.written_since(rt.engine, floor)
     with rt.engine.connect() as conn:
         rows = (
             conn.execute(
                 select(activity_unified.c.group_id, activity_unified.c.sources)
-                .where(activity_unified.c.start_utc >= floor)
+                .where(
+                    (activity_unified.c.start_utc >= floor)
+                    | activity_unified.c.group_id.in_(sorted(rewritten))
+                )
                 .order_by(activity_unified.c.start_utc)
             )
             .mappings()
@@ -454,6 +459,10 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
         _record(rt, key, now, state="published", tries=tries, mirror=mirror, error=None)
         _audit(rt, "ok", candidate, {"language": lang, "mirror": mirror})
         summary["published"] += 1
+        # "New workouts: public" is the tick on by itself: the first insight follows (#114).
+        from vibesynergy.coach_runner import insight_rewrite
+
+        insight_rewrite.after_publish(rt, candidate["group_id"])
 
 
 def will_publish(rt, strava_id: str, start_utc: datetime, *, now: datetime | None = None) -> bool:

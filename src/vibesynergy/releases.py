@@ -170,6 +170,28 @@ ITEMS: tuple[Item, ...] = (
         "version that lost to a later change has kind overwritten. The private text never "
         "leaves VibeSynergy.",
     ),
+    Item(
+        "114-insight-texts",
+        "you",
+        "Your AI coach's insight now follows your workout texts. Publishing a workout "
+        "in VibeSynergy has the insight written when there is none yet. Change the name "
+        "or a text afterwards (here, or on Strava or Garmin) and your AI coach writes "
+        "the insight again a few minutes later. Not right? Correct it on the workout "
+        "page: only you see your correction, and the insight is rewritten with it in "
+        "mind. Earlier insights stay in the history.",
+    ),
+    Item(
+        "114-ai-insight-texts",
+        "ai",
+        "The insight run now also starts from VibeSynergy's own texts: after the "
+        "Publish tick (the first insight), after a change of the name or a text (a "
+        "rewrite of that one insight, a few minutes after the last edit, at most a few "
+        "per workout per day) and after the athlete's correction of the insight. Its "
+        "context has a new insight_rewrite block: the current insight, the texts "
+        "changed after it and the athlete's corrections, which are private. A "
+        "public_insight that quotes the private text or a correction is refused. "
+        "vibesynergy_activity_texts lists the corrections with field correction.",
+    ),
 )
 
 VERSION = RELEASES[0].version

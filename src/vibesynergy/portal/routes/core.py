@@ -20,6 +20,7 @@ from vibesynergy.portal.api import (
     TREND_DAYS,
     ActivityEffortRequest,
     ActivityGearRequest,
+    ActivityInsightCorrection,
     ActivityPublishTick,
     ActivityPurposeRequest,
     ActivityTextRestore,
@@ -284,6 +285,20 @@ def register(kit: PortalKit) -> None:
         return envelope(
             workout_page.restore_text(rt, request.id, request.version, language=_lang(lang))
         )
+
+    @router.post("/activity-insight-correction")
+    def activity_insight_correction(
+        request: ActivityInsightCorrection, lang: str = "en"
+    ) -> dict[str, Any]:
+        """Your comment on the AI-coach insight (#114): stored privately, and the insight is
+        written again with it in mind. Never behind a share link."""
+        from vibesynergy.query import workout_page
+
+        try:
+            done = workout_page.correct_insight(rt, request.id, request.text, language=_lang(lang))
+        except workout_page.NoInsight as exc:
+            return JSONResponse(status_code=409, content={"error": str(exc), "code": "no_insight"})
+        return envelope(done)
 
     @router.post("/activity-publish")
     def activity_publish_tick(request: ActivityPublishTick):

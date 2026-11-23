@@ -396,6 +396,16 @@ def workout_texts(r: Rec):
     public.fill("")
     r.type(public, "Lekker gelopen, de laatste kilometer het snelst.")
     r.click(texts.locator("[data-wt-field=public] [data-wt-save]"))
+    correction = texts.locator("#wt-correction")
+    if correction.count():  # only with an insight from the AI coach (#114)
+        r.point(correction)
+        r.say(
+            "Klopt het inzicht niet? Zeg hier wat er niet klopt. Alleen jij ziet het; "
+            "je AI-coach schrijft het inzicht opnieuw. Verander je je tekst, dan ook.",
+            "Is the insight not right? Say what is wrong here. Only you see it; your AI "
+            "coach writes the insight again. It does when you change your text, too.",
+            3.6,
+        )
     private = texts.locator("#wt-private")
     r.point(texts.locator("#wt-private-title"))
     r.say(

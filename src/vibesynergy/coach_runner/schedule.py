@@ -21,6 +21,10 @@ the injury check and the check-in reaction start.
 The insight run is not scheduled: ``on_agent_event`` is an internal subscriber of the agent
 events (``query/agent_events.py``) and queues a ``coach_run`` for every ``activity.published``
 event with an activity still missing its public insight, in the same transaction as the event.
+VibeSynergy's own texts start it too (#114, phase 4, ``insight_rewrite``): the Publish tick
+queues the first insight, and a text changed after the insight (or the athlete's correction)
+queues a rewrite of that one insight from ``due_runs``. An activity with an insight run
+already queued or running gets no second one (``insight_busy``).
 """
 
 from __future__ import annotations
@@ -32,7 +36,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from vibesynergy.coach_runner import runner, triggers
+from vibesynergy.coach_runner import insight_rewrite, runner, triggers
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import multisport
@@ -90,6 +94,9 @@ def due_runs(rt, now: datetime | None = None) -> list[dict[str, Any]]:
     # injury, a workout, the plan, a reply. The injury and check-in tasks run from here.
     if (update := triggers.due(rt, cfg, now)) is not None:
         out.append(update)
+    # The insight follows VibeSynergy's texts (#114): a text changed after it, or the
+    # athlete's correction, rewrites that one insight.
+    out.extend(insight_rewrite.due(rt, cfg, now))
     for session_id, ids in tests_done(rt, cfg, day):
         out.append(
             {
@@ -195,11 +202,73 @@ def enqueue_test(rt, job: str, now: datetime | None = None) -> int:
 REDO_EVENT = "insight.redo"
 
 
+def insight_busy(conn, groups: list[str]) -> bool:
+    """True when an insight run for one of ``groups`` is queued or running (any trigger)."""
+    wanted = set(groups)
+    rows = conn.execute(
+        select(job_table.c.payload).where(
+            job_table.c.kind == JOB, job_table.c.status.in_(("queued", "running"))
+        )
+    ).scalars()
+    for payload in rows:
+        if not isinstance(payload, dict) or payload.get("job") != "insight":
+            continue
+        ids = (payload.get("payload") or {}).get("activity_ids") or []
+        if wanted & {str(i) for i in ids}:
+            return True
+    return False
+
+
+def insight_item(
+    rt,
+    group: str,
+    run_key: str,
+    *,
+    trigger: str,
+    event_type: str,
+    redo: bool,
+    replaces: int | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """The queue item of an insight run for one workout; None for an unknown workout."""
+    with rt.engine.connect() as conn:
+        day = conn.scalar(
+            select(activity_unified.c.local_date).where(activity_unified.c.group_id == group)
+        )
+    if day is None:
+        return None
+    inner: dict[str, Any] = {
+        "event_type": event_type,
+        "event_id": run_key,
+        "activity_ids": [group] if redo else multisport.relatives(rt.engine, [group]),
+    }
+    if redo:
+        inner |= {"redo": True, "replaces": replaces}
+    return {
+        "job": "insight",
+        "run_key": run_key,
+        "for_date": day.isoformat() if isinstance(day, date) else str(day),
+        "trigger": trigger,
+        "payload": inner | (extra or {}),
+    }
+
+
+def enqueue_item(rt, item: dict[str, Any]) -> int | None:
+    """Queue one run item now; None when that run is queued already."""
+    return rt.jobs.enqueue(
+        JOB,
+        item,
+        dedupe_key=dedupe_key(item["job"], item["run_key"]),
+        max_attempts=MAX_ATTEMPTS,
+        priority=5,
+    )
+
+
 def enqueue_insight_redo(rt, activity_id: str, now: datetime | None = None) -> dict[str, Any]:
     """Queue a new insight for one activity that already has one (#158). The run gets its
     own run key, so the entry gets its own idempotency key: the newest entry for the
     activity wins, and the earlier one stays in the coach log as it was. Automatic
-    publication then puts the new line in the block on Strava, Garmin and intervals.icu.
+    publication then puts the new line in the block on Strava and Garmin.
     It costs like any run."""
     from vibesynergy.query import publication_insight, views
 
@@ -212,38 +281,24 @@ def enqueue_insight_redo(rt, activity_id: str, now: datetime | None = None) -> d
         group = views.resolve_activity(rt.engine, str(activity_id))
     except (LookupError, ValueError, IndexError) as exc:
         raise TestRunError("Unknown activity.") from exc
-    with rt.engine.connect() as conn:
-        day = conn.scalar(
-            select(activity_unified.c.local_date).where(activity_unified.c.group_id == group)
-        )
-    if day is None:
-        raise TestRunError("Unknown activity.")
     try:
         current = publication_insight.for_activity(rt.engine, group)
     except (LookupError, ValueError):
         current = None
     now = now or utc_now()
     run_key = f"redo-{group}-{now.strftime('%Y%m%dT%H%M%S')}"
-    payload = {
-        "job": "insight",
-        "run_key": run_key,
-        "for_date": day.isoformat() if isinstance(day, date) else str(day),
-        "trigger": "redo",
-        "payload": {
-            "event_type": REDO_EVENT,
-            "event_id": run_key,
-            "activity_ids": [group],
-            "redo": True,
-            "replaces": current["entry_id"] if current else None,
-        },
-    }
-    job_id = rt.jobs.enqueue(
-        JOB,
-        payload,
-        dedupe_key=dedupe_key("insight", run_key),
-        max_attempts=MAX_ATTEMPTS,
-        priority=5,
+    payload = insight_item(
+        rt,
+        group,
+        run_key,
+        trigger="redo",
+        event_type=REDO_EVENT,
+        redo=True,
+        replaces=current["entry_id"] if current else None,
     )
+    if payload is None:
+        raise TestRunError("Unknown activity.")
+    job_id = enqueue_item(rt, payload)
     if not job_id:
         raise TestRunError("A redo of this insight is already queued.")
     return {
@@ -350,6 +405,9 @@ def on_agent_event(rt, conn, event: dict[str, Any]) -> int | None:
         if a.get("public_insight_missing", True)
     ]
     if not activities:
+        return None
+    # The Publish tick or a rewrite may have queued the insight already (#114).
+    if insight_busy(conn, [str(a["id"]) for a in activities]):
         return None
     key = dedupe_key("insight", event["id"])
     if conn.scalar(

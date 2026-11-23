@@ -344,5 +344,8 @@ def test_items_for_ai_apps_in_the_handbook_and_the_mcp_information(runtime, fake
 
 
 def test_the_real_ai_item_reaches_ai_apps() -> None:
+    # The newest release with items for AI apps (the first one, "version number", has
+    # dropped out of the last AI_RELEASES since 0.1.0-beta.0.8).
     texts = [i["text"] for r in release_news.for_ai() for i in r["items"]]
-    assert any("version number" in text for text in texts)
+    _release, newest = releases.history("ai")[0]
+    assert texts and all(item.text in texts for item in newest)

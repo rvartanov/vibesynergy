@@ -1,22 +1,25 @@
 WEBVTT
 
-00:00:05.364 --> 00:00:12.142
+00:00:07.010 --> 00:00:13.790
 On every workout: the name, a public part and a private part.
 
-00:00:12.192 --> 00:00:15.274
+00:00:13.840 --> 00:00:16.931
 Change the name and save. The page heading follows.
 
-00:00:15.324 --> 00:00:24.679
+00:00:16.981 --> 00:00:26.627
 Public: your AI coach's insight and the figures, and below them your own text.
 
-00:00:24.729 --> 00:00:34.508
+00:00:26.677 --> 00:00:31.181
+Is the insight not right? Say what is wrong here. Only you see it; your AI coach writes the insight again. It does when you change your text, too.
+
+00:00:31.231 --> 00:00:41.566
 Private: what your AI coach tells only you, and your own notes. This never goes out.
 
-00:00:34.558 --> 00:00:39.006
+00:00:41.616 --> 00:00:46.215
 History: every version, with where it came from and when.
 
-00:00:39.056 --> 00:00:42.544
+00:00:46.265 --> 00:00:49.783
 Restore makes an old version the current one again. The other versions stay.
 
-00:00:42.594 --> 00:00:47.448
+00:00:49.833 --> 00:00:54.686
 Publish puts the insight and the figures in the Strava description. In Settings you choose whether new workouts start ticked.

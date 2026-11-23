@@ -60,6 +60,33 @@ def _group(engine, activity_id: str) -> str:
         return activity_id
 
 
+QUOTE_CHARS = 24  # a private sentence this long found in a public line is a quote
+
+
+def _private_sentences(engine, groups: Iterable[str]) -> list[str]:
+    """The athlete's private text and insight corrections, as normalized sentences of at
+    least ``QUOTE_CHARS`` characters that are not in the public text too (#114)."""
+    import re
+
+    from vibesynergy.query import workout_texts
+
+    out: list[str] = []
+    for group in groups:
+        try:
+            current = workout_texts.texts(engine, group)
+            private = [current["private"]["text"] or ""]
+            private += [v["text"] for v in workout_texts.corrections(engine, group)]
+            public = " ".join((current["public"]["text"] or "").split()).casefold()
+        except (LookupError, ValueError):
+            continue
+        for text in private:
+            for sentence in re.split(r"(?<=[.!?])\s+|\n+", text or ""):
+                key = " ".join(sentence.split()).casefold().strip(" .!?")
+                if len(key) >= QUOTE_CHARS and key not in public:
+                    out.append(key)
+    return out
+
+
 def insight_guard(
     engine, activity_ids: Iterable[str] | None = None, *, keys: Iterable[str] | None = None
 ) -> Guard:
@@ -86,6 +113,12 @@ def insight_guard(
             return (
                 "public_insight mentions private health, diary or injury details (INS-2). "
                 "Rewrite it about the session only, or leave the insight out."
+            )
+        flat = " ".join(line.split()).casefold()
+        if flat and any(q in flat for q in _private_sentences(engine, allowed)):
+            return (
+                "public_insight quotes the athlete's private text or correction. Those are "
+                "context only: write the public line in your own words about the session."
             )
         return None
 

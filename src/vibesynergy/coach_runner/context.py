@@ -23,8 +23,9 @@ log = logging.getLogger(__name__)
 # Bump when the chain format or a base block changes shape (2: the safety block, #88;
 # 3: replies carry their id and the daily advice gets ``coach_team``, #118; 4: the daily
 # advice gets ``day_thread``, #115; 5: the safety block's ``sleep_check`` is the night's
-# sleep check, #100).
-VERSION = 5
+# sleep check, #100; 6: the insight gets ``insight_rewrite`` and the activity's notes are
+# marked context only, #114).
+VERSION = 6
 
 
 @dataclass(frozen=True)
@@ -491,6 +492,9 @@ def _number(value: Any, digits: int = 0) -> Any:
     return value
 
 
+PRIVATE_IS = "context only: never quote it in a public text"
+
+
 def _own_words(detail: dict[str, Any], stored: dict[str, str] | None = None) -> dict[str, Any]:
     """The athlete's own words for one activity.
 
@@ -516,7 +520,7 @@ def _own_words(detail: dict[str, Any], stored: dict[str, str] | None = None) -> 
             if new:
                 out[field] = new
         if "private" in out:
-            out["private_is"] = "context only: never quote it in a public text"
+            out["private_is"] = PRIVATE_IS
         notes = []
         for found in detail.get("notes") or []:
             new = workout_texts.unseen(str(found.get("text") or ""), seen)
@@ -524,6 +528,7 @@ def _own_words(detail: dict[str, Any], stored: dict[str, str] | None = None) -> 
                 notes.append(new)
         if notes:
             out["notes"] = notes
+            out["notes_are"] = PRIVATE_IS
         return out
     sources = []
     for member in detail.get("sources") or []:
@@ -544,7 +549,10 @@ def _own_words(detail: dict[str, Any], stored: dict[str, str] | None = None) -> 
         if text and text not in seen:
             notes.append(text)
             seen.add(text)
-    return {"sources": sources, "notes": notes}
+    out = {"sources": sources, "notes": notes}
+    if notes:
+        out["notes_are"] = PRIVATE_IS
+    return out
 
 
 def _stored_texts(rt, group: str) -> dict[str, str]:
@@ -686,6 +694,52 @@ def _plan_match(rt, day, cache):
     return out
 
 
+REWRITE_CORRECTIONS = 3  # the newest corrections the rewrite gets
+
+
+def _insight_rewrite(rt, day, cache):
+    """Per activity of the run that already has a public insight (#114, phase 4): that
+    insight, which of the athlete's texts changed after it was written, and the athlete's
+    corrections of it (private, newest first). None for a first insight."""
+    from vibesynergy.coach_runner import insight_rewrite
+    from vibesynergy.query import publication_insight, workout_texts
+
+    out = []
+    for activity_id in (cache.get("activity_ids") or [])[:MAX_ACTIVITIES]:
+        current = publication_insight.for_activity(rt.engine, str(activity_id))
+        if current is None:
+            continue
+        written = insight_rewrite._when(current["at"])
+        versions = workout_texts.history(rt.engine, str(activity_id))
+        later = [
+            v
+            for v in versions
+            if v["kind"] in ("edit", "restore")
+            and v["source"] != "ai"
+            and (written is None or (insight_rewrite._when(v["at"]) or written) > written)
+        ]
+        row: dict[str, Any] = {
+            "id": str(activity_id),
+            "current_insight": current["text"],
+            "written_at": current["at"],
+        }
+        changed = sorted({v["field"] for v in later if v["field"] in workout_texts.FIELDS})
+        if changed:
+            row["texts_changed_after_it"] = changed
+        fixes = [
+            {"at": v["at"], "text": v["text"], "new": v in later}
+            for v in workout_texts.corrections(rt.engine, str(activity_id))
+        ][:REWRITE_CORRECTIONS]
+        if fixes:
+            row["athlete_corrections"] = fixes
+            row["corrections_are"] = (
+                "private: what the athlete says is not right in the insight; take it into "
+                "account in the new insight, never quote it"
+            )
+        out.append(row)
+    return out or None
+
+
 BLOCKS: dict[str, Block] = {
     b.name: b
     for b in (
@@ -734,6 +788,16 @@ BLOCKS: dict[str, Block] = {
             cut=False,
         ),
         Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),
+        # #114, phase 4: an insight written again after the texts changed or the athlete
+        # corrected it. Self-describing, so the insight prompt needs no change.
+        Block(
+            "insight_rewrite",
+            "Opnieuw schrijven: het huidige publieke inzicht, welke eigen teksten de atleet "
+            "daarna veranderde, en zijn correcties op het inzicht (privé: verwerk wat hij "
+            "rechtzet in het nieuwe inzicht, citeer het niet)",
+            2500,
+            _insight_rewrite,
+        ),
         Block("month", "Vorige maand", 4000, _month),
         # Version 2 (#111): VibeSynergy's own races; the primary race is the next A race.
         Block("races", "Wedstrijden", 1500, _races, version=2),

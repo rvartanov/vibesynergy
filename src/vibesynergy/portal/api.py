@@ -141,6 +141,12 @@ class ActivityTextRestore(BaseModel):
     version: int = Field(ge=1)
 
 
+class ActivityInsightCorrection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=3, max_length=200)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class ActivityPublishTick(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str = Field(min_length=3, max_length=200)

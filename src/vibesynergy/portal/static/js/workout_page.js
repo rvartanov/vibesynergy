@@ -6,6 +6,10 @@
 // the description, read-only), then your own public text. Private part: the AI coach's
 // comments (read-only), then your own private text. Each text saves when you leave the
 // field or press Save; every change is a version you can go back to.
+//
+// The insight follows your texts (#114): when a text changes after it, your AI coach writes
+// it again; you can also correct it here (private). The page says when it is being written
+// and keeps every earlier insight.
 import { get, post } from "./api.js";
 import { esc, userDateTime } from "./format.js";
 import { N, t } from "./i18n.js";
@@ -101,11 +105,65 @@ function coachCommentsHtml(comments, tz) {
   return `<ul class="wt-coach">${comments.map((c) => `<li><div class="sub"><time datetime="${esc(c.at)}">${esc(userDateTime(c.at, tz))}</time></div><div class="wt-version-text">${esc(c.text)}</div></li>`).join("")}</ul>`;
 }
 
-export function workoutHtml(data, tz) {
-  const { texts, history, limits } = data;
-  const insight = data.public.insight?.state === "present" && data.public.insight.text
+// Whether the insight is being written (again), in words.
+function rewriteText(r) {
+  switch (r?.state) {
+    case "writing": return t("Your AI coach is writing the insight.");
+    case "rewriting": return t("Your AI coach is rewriting the insight.");
+    case "waiting": return t("Your text changed after this insight. Your AI coach rewrites it in a few minutes.");
+    case "limit": return t("Your text changed after this insight. Your AI coach rewrites it tomorrow: today's rewrites are used up.");
+    case "off": return t("Your text changed after this insight. Switch on your AI coach to have it rewritten.");
+    default: return "";
+  }
+}
+
+// Still on its way: the page looks again in a while.
+export function rewritePending(r) {
+  return ["writing", "rewriting", "waiting"].includes(r?.state);
+}
+
+function insightVersionsHtml(versions, tz) {
+  const earlier = (versions || []).slice(1);
+  if (!earlier.length) return "";
+  const rows = earlier.map((v) => {
+    const text = v.text ? esc(v.text) : `<span class="muted">${esc(t("(withdrawn)"))}</span>`;
+    return `<li><div class="sub">${esc(t(SOURCE.ai))} · <time datetime="${esc(v.at)}">${esc(userDateTime(v.at, tz))}</time></div><div class="wt-version-text">${text}</div></li>`;
+  }).join("");
+  return `<details class="wt-history"><summary>${esc(t("Earlier insights ({n})", { n: earlier.length }))}</summary><ol class="wt-versions">${rows}</ol></details>`;
+}
+
+function correctionsHtml(corrections, tz) {
+  if (!corrections?.length) return "";
+  const rows = corrections.map((v) => `<li><div class="sub"><time datetime="${esc(v.at)}">${esc(userDateTime(v.at, tz))}</time></div><div class="wt-version-text">${esc(v.text)}</div></li>`).join("");
+  return `<details class="wt-history"><summary>${esc(t("Your corrections ({n})", { n: corrections.length }))}</summary><ol class="wt-versions">${rows}</ol></details>`;
+}
+
+export function insightHtml(data, tz) {
+  const present = data.public.insight?.state === "present" && data.public.insight.text;
+  const line = present
     ? `<p class="assessment-summary">${esc(data.public.insight.text)}</p>`
     : `<p class="sub">${t("No public insight from your AI coach yet.")}</p>`;
+  const busy = rewritePending(data.public.rewrite);
+  const correction = present
+    ? `<div class="wt-field wt-correction">
+      <label for="wt-correction">${t("Correct the insight")} <span class="chip">${t("Only you")}</span></label>
+      <p class="sub" id="wt-correction-help">${t("Say what is not right, for example “I wasn’t with the group”. Only you see this; your AI coach writes the insight again with it in mind.")}</p>
+      <textarea class="btn" id="wt-correction" name="correction" rows="2" maxlength="${esc(data.limits.correction || 2000)}" aria-describedby="wt-correction-help"></textarea>
+      <div class="ql-actions"><button class="btn" type="button" data-wt-correct>${t("Rewrite the insight")}</button></div>
+      <p class="sub" role="status" data-wt-correct-status></p>
+      ${correctionsHtml(data.private.corrections, tz)}
+    </div>`
+    : "";
+  return `<div data-wt-insight aria-busy="${busy ? "true" : "false"}">
+    <h4>${t("Insight from your AI coach")}</h4>${line}
+    <p class="sub" role="status" data-wt-rewrite>${esc(rewriteText(data.public.rewrite))}</p>
+    ${insightVersionsHtml(data.public.insight_versions, tz)}
+    ${correction}
+  </div>`;
+}
+
+export function workoutHtml(data, tz) {
+  const { texts, history, limits } = data;
   const stats = data.public.stats.length
     ? `<pre class="publication-description" tabindex="0" aria-label="${esc(t("Statistics"))}">${esc(data.public.stats.join("\n"))}</pre>`
     : `<p class="sub">${t("No figures to publish yet.")}</p>`;
@@ -114,7 +172,7 @@ export function workoutHtml(data, tz) {
     <section class="wt-part wt-public" aria-labelledby="wt-public-title">
       <h3 id="wt-public-title"><span class="chip info">${t("Public")}</span> ${t("Public part")}</h3>
       <p class="sub">${t("Meant for others. Publishing puts the AI-coach insight and the statistics in the description.")}</p>
-      <h4>${t("Insight from your AI coach")}</h4>${insight}
+      ${insightHtml(data, tz)}
       <h4>${t("Statistics")}</h4>${stats}
       ${textField("public", texts.public, limits.text, history, tz)}
     </section>
@@ -177,7 +235,8 @@ export async function workoutTexts(el, id, { stale, tz, onName }) {
           const reply = await post("activity-texts", { id, [field]: value });
           saved = value;
           if (stale() || !el.isConnected) return;
-          data = { ...data, texts: reply.data.texts, history: reply.data.history };
+          data = { ...data, texts: reply.data.texts, history: reply.data.history, public: reply.data.public };
+          redrawInsight(); // the insight may now be written again
           // Only redraw when nothing new was typed while saving.
           if (input.value === value) redraw(field, t("Saved."));
           else status.textContent = t("Saved.");
@@ -208,7 +267,8 @@ export async function workoutTexts(el, id, { stale, tz, onName }) {
       try {
         const reply = await post("activity-texts/restore", { id, version: Number(button.dataset.wtRestore) });
         if (stale() || !el.isConnected) return;
-        data = { ...data, texts: reply.data.texts, history: reply.data.history };
+        data = { ...data, texts: reply.data.texts, history: reply.data.history, public: reply.data.public };
+        redrawInsight();
         redraw(field, t("Restored."), `[name=${field}]`);
       } catch (error) {
         button.removeAttribute("aria-disabled");
@@ -245,6 +305,14 @@ export async function workoutTexts(el, id, { stale, tz, onName }) {
             ? t("Kept to yourself: it is not published by itself.")
             : t("No longer published: the VibeSynergy section was removed.");
         el.querySelector("[data-wt-publish-status]").textContent = message;
+        if (on) {
+          // Publishing may start the first insight: show that it is being written.
+          get("activity-texts", { id }).then((fresh) => {
+            if (stale() || !el.isConnected) return;
+            data = { ...data, public: fresh.data.public };
+            redrawInsight();
+          }).catch(() => {});
+        }
       } catch (error) {
         box.checked = !on;
         status.classList.add("error-text");
@@ -260,9 +328,82 @@ export async function workoutTexts(el, id, { stale, tz, onName }) {
     });
   };
 
+  // The insight part: redrawn on its own, so the texts keep what you are typing.
+  let timer = null;
+  const POLL_MS = 20000;
+  const redrawInsight = (message, focus) => {
+    const box = el.querySelector("[data-wt-insight]");
+    if (!box) return;
+    const typed = box.querySelector("[name=correction]")?.value || "";
+    box.outerHTML = insightHtml(data, tz);
+    const fresh = el.querySelector("[data-wt-insight]");
+    const input = fresh.querySelector("[name=correction]");
+    if (input && typed && !message) input.value = typed;
+    bindInsight(fresh);
+    if (message) fresh.querySelector("[data-wt-correct-status]").textContent = message;
+    if (focus) fresh.querySelector(focus)?.focus();
+    poll();
+  };
+  const poll = () => {
+    clearTimeout(timer);
+    if (!rewritePending(data.public.rewrite)) return;
+    timer = setTimeout(async () => {
+      if (stale() || !el.isConnected) return;
+      const box = el.querySelector("[data-wt-insight]");
+      if (box?.contains(document.activeElement) && box.querySelector("[name=correction]")?.value) {
+        poll(); // you are typing a correction: look again later
+        return;
+      }
+      try {
+        const fresh = (await get("activity-texts", { id })).data;
+        if (stale() || !el.isConnected) return;
+        data = { ...data, public: fresh.public, private: { ...data.private, corrections: fresh.private.corrections } };
+        redrawInsight();
+      } catch {
+        poll();
+      }
+    }, POLL_MS);
+  };
+  const bindInsight = (box) => {
+    const button = box.querySelector("[data-wt-correct]");
+    if (!button) return;
+    const input = box.querySelector("[name=correction]");
+    const status = box.querySelector("[data-wt-correct-status]");
+    button.addEventListener("click", async () => {
+      if (button.getAttribute("aria-disabled") === "true") return;
+      const text = input.value.trim();
+      status.classList.remove("error-text");
+      if (!text) {
+        status.textContent = t("Write what is not right first.");
+        input.focus();
+        return;
+      }
+      button.setAttribute("aria-disabled", "true");
+      status.textContent = t("Saving…");
+      try {
+        const reply = await post("activity-insight-correction", { id, text });
+        if (stale() || !el.isConnected) return;
+        data = { ...data, public: reply.data.public, private: { ...data.private, corrections: reply.data.private.corrections } };
+        const message = !reply.data.changed.length
+          ? t("Nothing changed.")
+          : reply.data.queued || rewritePending(reply.data.public.rewrite)
+            ? t("Saved. Your AI coach is rewriting the insight.")
+            : t("Saved.");
+        redrawInsight(message, "[data-wt-correct]");
+      } catch (error) {
+        button.removeAttribute("aria-disabled");
+        status.classList.add("error-text");
+        const reason = error.code === "no_insight" ? t("There is no insight from your AI coach to correct yet.") : error.message;
+        status.textContent = t("Not saved: {error}", { error: reason });
+      }
+    });
+  };
+
   el.innerHTML = workoutHtml(data, tz);
   el.hidden = false;
   if (data.texts.name.stored && data.texts.name.text) onName?.(data.texts.name.text);
   el.querySelectorAll("[data-wt-field]").forEach(bindField);
+  bindInsight(el.querySelector("[data-wt-insight]"));
   bindPublish();
+  poll();
 }
