@@ -13,6 +13,17 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Gear with one tap** (#114): the workout page suggests the gear you most likely used (the
+  gear of your last workout of that sport, else your default) and says why; one tap links
+  it, and a small picker takes other gear, no gear or several swim items. Add swim gear of
+  your own, such as a pull buoy, paddles or fins, on the Gear page, and match your gear with
+  Garmin's once there (VibeSynergy suggests the matches). The setting that keeps names and
+  texts the same is now **Keep name, texts and gear the same on Strava and Garmin** (still
+  off by default): a published workout's gear is kept the same on Strava (one bike or pair
+  of shoes) and Garmin too; a change made there comes into
+  VibeSynergy, and every change stays in the workout's history. Swim gear stays in
+  VibeSynergy.
+
 ## 0.1.0-beta.0.9 – 23-11-2026
 
 - **Your AI coach's insight follows your texts** (#114): publishing a workout in VibeSynergy

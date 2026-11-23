@@ -1,5 +1,8 @@
 """Two-way sync of a published workout's name and public text: VS ↔ Strava ↔ Garmin (#114).
 
+The same check also keeps the workout's gear in step (``gear_sync``, phase 5): one switch,
+one watch, one Strava read per check.
+
 Phase 3 of #114. Off until Settings → Sync between sources switches it on
 (``[publication] text_sync_enabled = true``); while off nothing here reads or writes a
 platform, and publication works exactly as before.
@@ -105,7 +108,8 @@ class Review(Exception):
 
 
 def enabled(rt) -> bool:
-    """Settings → Sync between sources → "Sync names and texts with Strava and Garmin"."""
+    """Settings → Sync between sources → "Keep name, texts and gear the same on Strava and
+    Garmin" (the gear follows the same switch, ``gear_sync``)."""
     from vibesynergy.core.config import load_settings
 
     return load_settings(rt.settings.config_path).publication.get("text_sync_enabled") is True
@@ -312,9 +316,10 @@ def touch(engine: Engine, group: str, fields: list[str], now: datetime | None = 
         log.exception("could not schedule the text sync of %s", group)
 
 
-def _unfollowed(conn, now: datetime) -> set[str]:
+def _unfollowed(conn, now: datetime, table=text_sync) -> set[str]:
     """Workouts published in the last ``WATCH`` that are not followed yet (the sync was just
-    switched on, or the automatic run published them)."""
+    switched on, or the automatic run published them). ``table``: whose followers (the gear
+    sync uses the same rule)."""
     ledgers = set(
         conn.execute(
             select(publication_ledger.c.source, publication_ledger.c.source_id).where(
@@ -335,9 +340,8 @@ def _unfollowed(conn, now: datetime) -> set[str]:
         )
         if (s, i) in ledgers
     }
-    known = set(
-        conn.execute(select(text_sync.c.group_id).where(text_sync.c.group_id.in_(groups))).scalars()
-    )
+    found = conn.execute(select(table.c.group_id).where(table.c.group_id.in_(groups)))
+    known = set(found.scalars())
     return groups - known
 
 
@@ -674,7 +678,8 @@ def _sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> d
         _update(rt.engine, group, state="stopped", next_check_at=None)
         return {"state": "stopped"}
     live = _clients(rt, found, clients)
-    remote = {p: _remote(p, live[p].read(found[p])) for p in found}
+    details = {p: live[p].read(found[p]) for p in found}
+    remote = {p: _remote(p, details[p]) for p in found}
     for platform, copy in remote.items():
         _check_block(rt, platform, found[platform], copy["description"])
     synced = {k: dict(v) for k, v in (row["synced"] or {}).items()}
@@ -709,6 +714,18 @@ def _sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> d
         written[platform] = sorted(fields)
     if written:
         result["written"] = written
+    # The gear, on the same check (#114, phase 5): Strava's gear id is in the read above.
+    from vibesynergy.query import gear_sync
+
+    try:
+        gear = gear_sync.sync(rt, group, found, live, details, synced, now)
+    except (Changed, RateLimited):
+        raise  # checked again as a whole, or after the wait
+    except Exception as exc:  # the texts are synced; the gear is tried on the next check
+        log.warning("gear sync of %s failed: %s", group, exc)
+        gear = {"error": str(exc)[:300]}
+    if gear:
+        result["gear"] = gear
     # Changes taken in are handled: forget when they were first seen.
     _update(rt.engine, group, noticed={}, last_error=None, last_checked_at=now)
     return result

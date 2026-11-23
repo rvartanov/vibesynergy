@@ -1431,6 +1431,56 @@ gear_default = Table(
     Column("updated_at", UTCDateTime, nullable=False),
 )
 
+# Gear of your own in VibeSynergy (#114, phase 5), next to the bikes and shoes from Strava:
+# swim gear (pull buoy, paddles, fins), a wetsuit, a trainer. ref "vs:<id>"; kind swim,
+# bike, shoes or other.
+gear_item = Table(
+    "gear_item",
+    metadata,
+    Column("ref", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("created_at", UTCDateTime, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+)
+
+# The one-time mapping of a VibeSynergy gear item to Garmin's gear (#114): a Strava item is
+# its own Strava slot. garmin_uuid NULL: you said it is not on Garmin.
+gear_map = Table(
+    "gear_map",
+    metadata,
+    Column("ref", String, primary_key=True),
+    Column("garmin_uuid", String),
+    Column("updated_at", UTCDateTime, nullable=False),
+)
+
+# The extra items of a workout (swim gear and other gear without a km total), per source
+# copy like ``activity_gear`` so they survive regrouping.
+activity_gear_extra = Table(
+    "activity_gear_extra",
+    metadata,
+    Column("source_ref", String, nullable=False),
+    Column("ref", String, nullable=False),
+    Column("updated_at", UTCDateTime, nullable=False),
+    PrimaryKeyConstraint("source_ref", "ref"),
+)
+
+# Every change of a workout's gear (#114): refs before and after, where it came from (vs,
+# strava, garmin) and kind (edit, taken = an outside change taken in, overwritten = lost to
+# a later change). Only ever added; found by any member key, like ``workout_text``.
+gear_change = Table(
+    "gear_change",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("group_id", String, nullable=False, index=True),
+    Column("refs", JSON, nullable=False),
+    Column("old_refs", JSON),
+    Column("source", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("author", String),
+    Column("at", UTCDateTime, nullable=False),
+)
+
 # Portal login (query/auth.py): one account per installation. Secrets never in plain text:
 # the password as an scrypt hash, tokens and session ids as SHA-256 hashes, the TOTP secret
 # in the encrypted secret store.

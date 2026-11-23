@@ -193,6 +193,23 @@ ITEMS: tuple[Item, ...] = (
         "public_insight that quotes the private text or a correction is refused. "
         "vibesynergy_activity_texts lists the corrections with field correction.",
     ),
+    Item(
+        "114-gear",
+        "you",
+        "Link gear to a workout with one tap: its page suggests the gear you most "
+        "likely used and says why. Add swim gear of your own, such as a pull buoy, on "
+        "the Gear page, and match your gear with Garmin's once. The switch that keeps "
+        "a published workout's name and texts the same on Strava and Garmin now keeps "
+        "its gear the same too.",
+    ),
+    Item(
+        "114-ai-gear",
+        "ai",
+        "vibesynergy_gear now also lists gear the athlete added in VibeSynergy (source "
+        "vs, for example kind swim) without a km total. A workout can have one main "
+        "item (bike or shoes) plus extra items; with the text sync on, Strava gets the "
+        "main item and Garmin the items matched to its gear.",
+    ),
 )
 
 VERSION = RELEASES[0].version

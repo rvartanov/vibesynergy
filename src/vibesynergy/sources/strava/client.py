@@ -246,13 +246,15 @@ class StravaClient:
         """One guarded provider call; the publisher owns checkpoints and read-back."""
         return self.update_activity(activity_id, {"description": description})
 
-    # What VibeSynergy ever sends to an activity: its name and description (#114). Strava's
-    # update also takes a ``visibility``, but only to make it more restrictive, so VibeSynergy
-    # never sends one (it could not make an activity public again).
-    UPDATABLE = ("name", "description")
+    # What VibeSynergy ever sends to an activity: its name, description and gear (#114).
+    # ``gear_id`` is one bike or pair of shoes ("none" clears it): Strava has one gear slot
+    # per activity. Strava's update also takes a ``visibility``, but only to make it more
+    # restrictive, so VibeSynergy never sends one (it could not make an activity public again).
+    UPDATABLE = ("name", "description", "gear_id")
 
     def update_activity(self, activity_id: str, fields: dict[str, str]) -> Any:
-        """One guarded update of the name and/or description; same budget as every call."""
+        """One guarded update of the name, description and/or gear; same budget as every
+        call."""
         unknown = set(fields) - set(self.UPDATABLE)
         if unknown or not fields:
             raise ValueError(f"only {', '.join(self.UPDATABLE)} can be updated")

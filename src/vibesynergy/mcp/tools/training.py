@@ -185,7 +185,9 @@ def register(kit: ToolKit) -> None:
         them used and when last, and a warning for running shoes past 600 km (usual
         replacement range 600-800 km). 'other_sources' reports Garmin's own gear collection
         (not yet merged in; see 'note'). 'references' cites the raw gear snapshots.
-        'activity_gear' lists Garmin gear ids used on activities, without distance or model."""
+        'activity_gear' lists Garmin gear ids used on activities, without distance or model.
+        Gear the athlete added in VibeSynergy (swim gear, a wetsuit) has source 'vs' and no
+        km total; 'activities_seen' counts the workouts it was linked to."""
         return envelope(workouts.gear(engine, rt.raw, today()))
 
     @tool(READ, "read")

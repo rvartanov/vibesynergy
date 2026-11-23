@@ -27,9 +27,12 @@ from vibesynergy.portal.api import (
     ActivityTextsRequest,
     GearDefaultRequest,
     GearEdit,
+    GearMapRequest,
+    GearOwnRequest,
     GearServiceAdd,
     GearServiceDone,
     PortalKit,
+    WorkoutGearRequest,
     _date,
     tile_url,
 )
@@ -398,6 +401,62 @@ def register(kit: PortalKit) -> None:
     def activity_gear_route(request: ActivityGearRequest) -> dict[str, Any]:
         """Change the gear of one activity; it counts in the totals at once."""
         return envelope(workouts.set_activity_gear(engine, request.id, request.ref))
+
+    @router.get("/workout-gear")
+    def workout_gear_route(id: str) -> dict[str, Any]:
+        """The gear card on the workout page (#114): what is linked, the suggestion and why,
+        what you can pick and the history. Never behind a share link."""
+        from vibesynergy.query import workout_gear
+
+        return envelope(workout_gear.page(rt, id, today()))
+
+    @router.post("/workout-gear")
+    def workout_gear_save(request: WorkoutGearRequest):
+        """Link gear to the workout: one tap on the suggestion, or your own pick."""
+        from vibesynergy.query import workout_gear
+
+        try:
+            workout_gear.set_gear(
+                engine, rt.raw, request.id, main=request.main, extras=request.extras, today=today()
+            )
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        return envelope(workout_gear.page(rt, request.id, today()))
+
+    @router.get("/gear-map")
+    def gear_map_route() -> dict[str, Any]:
+        """The one-time mapping of your gear to Strava and Garmin, with suggested matches."""
+        from vibesynergy.query import gear_map
+
+        return envelope(gear_map.mapping(engine, rt.raw, today()))
+
+    @router.post("/gear-map")
+    def gear_map_save(request: GearMapRequest):
+        from vibesynergy.query import gear_map
+
+        try:
+            if request.accept_suggestions:
+                gear_map.accept_suggestions(engine, rt.raw, today())
+            if request.choices:
+                gear_map.save(engine, request.choices)
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        return envelope(gear_map.mapping(engine, rt.raw, today()))
+
+    @router.post("/gear-own")
+    def gear_own_save(request: GearOwnRequest):
+        """Add gear of your own (or rename it): swim gear, a wetsuit, a trainer."""
+        from vibesynergy.query import gear_map
+
+        try:
+            if request.ref:
+                gear_map.rename_own(engine, request.ref, request.name)
+                item = {"ref": request.ref, "name": request.name, "kind": request.kind}
+            else:
+                item = gear_map.add_own(engine, request.name, request.kind)
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        return envelope(item)
 
     @router.post("/gear/service/{service_id}/done")
     def gear_service_done(service_id: str, request: GearServiceDone) -> dict[str, Any]:

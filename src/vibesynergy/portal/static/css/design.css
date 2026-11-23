@@ -743,3 +743,15 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .workout-texts .wt-versions li, .workout-texts .wt-coach li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
 .workout-texts .wt-version-text { white-space: pre-line; overflow-wrap: anywhere; margin: var(--space-1) 0; }
 .workout-texts .wt-publish { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--grid); }
+
+/* The workout's gear (#114): one tap on the suggestion, a small picker for the rest. */
+.workout-gear .wg-picker { margin-top: var(--space-3); }
+.workout-gear .wg-picker label[for] { display: block; font-weight: 600; margin-top: var(--space-2); }
+.workout-gear .wg-picker select { max-width: 100%; }
+.workout-gear .wg-extras { margin-top: var(--space-2); border: 1px solid var(--line); border-radius: 8px; padding: var(--space-2); }
+.workout-gear [data-wg-linked] { font-weight: 600; }
+.workout-gear .wt-versions { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.workout-gear .wt-versions li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
+.gear-map-list { list-style: none; padding: 0; margin: var(--space-2) 0; display: grid; gap: var(--space-3); }
+.gear-map-list label { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.gear-map-list select { max-width: 100%; }

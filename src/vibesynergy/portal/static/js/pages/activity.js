@@ -20,6 +20,7 @@ import {
 } from "../format.js";
 import { N, t } from "../i18n.js";
 import { bindNoteForm, noteFormHtml } from "../quicklog.js";
+import { workoutGear } from "../workout_gear.js";
 import { workoutTexts } from "../workout_page.js";
 import { averageSpeed, distanceText, sportFamily, speedChannel, speedLabel, speedText } from "../sport_units.js";
 import { withSportIcon, tagChip } from "../symbols.js";
@@ -99,6 +100,7 @@ export async function render(view, { args, meta, stale }) {
     <section class="card facts-card">${factsHtml(a)}</section>
     ${multisportHtml(reply.data.multisport)}
     ${meta.data.share ? "" : `<section class="card workout-texts" aria-labelledby="wt-title" data-workout-texts hidden></section>`}
+    ${meta.data.share ? "" : `<section class="card workout-gear" aria-labelledby="wg-title" data-workout-gear hidden></section>`}
     ${effortCardHtml(effort, !!meta.data.share)}
     <section class="card activity-notes" data-activity-notes${notes.length ? "" : " hidden"}>${notesHtml(notes)}</section>
     ${hasRoute ? `<section class="card map-card"><div class="map" role="region" aria-label="${esc(t("Route map"))}"></div></section>` : ""}
@@ -112,7 +114,6 @@ export async function render(view, { args, meta, stale }) {
     ${ownLoadHtml(reply.data.own_load)}
     ${meta.data.share ? "" : `<details class="card collapsible activity-settings" data-activity-settings>
       <summary>${t("Settings for this activity")}</summary>
-      ${gearPickerHtml(reply.data.gear)}
       <section aria-labelledby="activity-purpose-title"><h3 id="activity-purpose-title">${t("Session purpose")}</h3><label>${t("Purpose")}
       <select class="btn" data-purpose-choice>
         <option value="auto">${t("Use automatic rules")}</option>
@@ -130,6 +131,8 @@ export async function render(view, { args, meta, stale }) {
   if (!meta.data.share) bindActivityNote(view, id, notes, stale);
   // Your name and texts, with their history and the Publish tick (#114). The heading
   // follows the name you gave it here.
+  // The gear: one tap links the likely gear, with the reason (#114).
+  if (!meta.data.share) workoutGear(view.querySelector("[data-workout-gear]"), id, { stale, tz });
   if (!meta.data.share) {
     workoutTexts(view.querySelector("[data-workout-texts]"), id, {
       stale,
@@ -158,7 +161,6 @@ export async function render(view, { args, meta, stale }) {
       } catch (error) { purposeStatus.textContent = t("Not saved: {error}", { error: error.message }); }
     });
   }
-  bindGearPicker(view, id);
   // The weather of an outdoor session: Garmin's, else Open-Meteo at its start and
   // hour. Fetched after the page shows, so a slow weather service never holds it up.
   get("activity-weather", { id }).then((r) => {
@@ -171,34 +173,6 @@ export async function render(view, { args, meta, stale }) {
   let marker = null;
   if (hasRoute) marker = routeMap(view.querySelector(".map"), cols, meta.data.tiles);
   if (panels.length) streamCharts(view.querySelector(".streams"), cols, panels, marker, zones);
-}
-
-// Gear: yours wins over the source's; it counts in the gear totals at once.
-const GEAR_HOW = { own: N("Set by you."), source: N("From Strava."), default: N("The default for this sport.") };
-
-function gearPickerHtml(gear) {
-  if (!gear || !gear.options?.length) return "";
-  const option = (value, label) => `<option value="${esc(value)}"${value === (gear.how === "own" ? gear.ref || "none" : "auto") ? " selected" : ""}>${esc(label)}</option>`;
-  const current = gear.options.find((g) => g.ref === gear.ref);
-  const auto = gear.how && gear.how !== "own" && current ? t("Automatic: {name}", { name: current.name }) : t("Automatic");
-  return `<section aria-labelledby="activity-gear-title"><h3 id="activity-gear-title">${t("Gear")}</h3><label>${t("Gear used")}
-    <select class="btn" data-gear-choice>
-      ${option("auto", auto)}
-      ${gear.options.map((g) => option(g.ref, g.name || g.ref)).join("")}
-      ${option("none", t("No gear"))}
-    </select></label><p class="sub" data-gear-status>${gear.how ? esc(t(GEAR_HOW[gear.how])) : ""}</p></section>`;
-}
-
-function bindGearPicker(view, id) {
-  const select = view.querySelector("[data-gear-choice]");
-  if (!select) return;
-  const status = view.querySelector("[data-gear-status]");
-  select.addEventListener("change", async () => {
-    try {
-      await post("activity-gear", { id, ref: select.value === "auto" ? null : select.value });
-      status.textContent = select.value === "auto" ? t("Back to automatic.") : t("Saved. It counts in the gear totals.");
-    } catch (error) { status.textContent = t("Not saved: {error}", { error: error.message }); }
-  });
 }
 
 // RPE and Feel: shown with their source; filled in here when no platform has them.
