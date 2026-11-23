@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.6 – 23-11-2026
+
 - **Your workout texts in VibeSynergy** (#114): every workout now has its own name, public
   text and private text in VibeSynergy, with every change kept and older versions
   restorable. They start from your notes and your own Strava and Garmin text, without doubles.
