@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.10 – 23-11-2026
+
 - **Gear with one tap** (#114): the workout page suggests the gear you most likely used (the
   gear of your last workout of that sport, else your default) and says why; one tap links
   it, and a small picker takes other gear, no gear or several swim items. Add swim gear of

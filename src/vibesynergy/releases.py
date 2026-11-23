@@ -50,6 +50,7 @@ class Release:
 # Newest first. Written by `vibesynergy update`, not by hand.
 RELEASES: tuple[Release, ...] = (
     # The next release goes below this line.
+    Release("0.1.0-beta.0.10", date(2026, 11, 23), ("114-gear", "114-ai-gear")),
     Release("0.1.0-beta.0.9", date(2026, 11, 23), ("114-insight-texts", "114-ai-insight-texts")),
     Release("0.1.0-beta.0.8", date(2026, 11, 23), ("114-text-sync", "114-ai-text-sync")),
     Release("0.1.0-beta.0.7", date(2026, 11, 23), ("114-workout-page",)),
