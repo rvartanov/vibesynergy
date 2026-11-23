@@ -81,7 +81,7 @@ def test_tools_listed_with_annotations(rt) -> None:
             return (await client.list_tools()).tools
 
     tools = {t.name: t for t in anyio.run(go)}
-    assert len(tools) == 109
+    assert len(tools) == 112
     assert not {
         "vibesynergy_coach_propose",
         "vibesynergy_plan_status",

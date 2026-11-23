@@ -358,6 +358,18 @@ provider or model, and the server enforces them for every write tool
   (`diary.write`) saves what the athlete said; it wins over Garmin's value. Garmin's 10-100
   effort and 0-100 feel are converted to these scales. Nothing is written to intervals.icu or
   Garmin.
+- Workout texts (#114): every workout has its own name, public text and private text in
+  VibeSynergy, each change stored as a version (when, source `vs`, `strava`, `garmin` or
+  `ai`, old and new text; never overwritten). `vibesynergy_activity_texts` (`read`) gives the
+  current texts and the history; until the first change they follow from the notes and the
+  Strava/Garmin descriptions without VibeSynergy's block (a note that repeats the
+  description is given once), and the first change stores those as `seed` versions.
+  `vibesynergy_activity_set_texts` (`diary.write`) writes name, public and/or private
+  (source `vs`); `vibesynergy_activity_restore_text` (`diary.write`) makes an old version
+  current again as a new version. The private text is context only: it is never published,
+  never in a share link and never in `vibesynergy_activity`. Nothing is sent to Strava,
+  Garmin or intervals.icu yet. The AI coach's activity context reads these texts when the
+  workout has them.
 - Training: `vibesynergy_training_load`, `vibesynergy_volume`, `vibesynergy_fitness`,
   `vibesynergy_intensity_distribution`
 - Personal model runs: `vibesynergy_model_run_write` (`coach.write`) stores parameters
@@ -1477,14 +1489,11 @@ publication.
 `vibesynergy_activity_unpublish(id, destination, preview_version, language="en")` removes
 only the checked VibeSynergy section after an explicit call and verifies provider read-back.
 
-Since 1 Nov 2026 a verified Strava block also goes to the matching intervals.icu activity's
-description (`query/publication_icu.py`; Settings → Sync between sources → "Also in
-intervals.icu", `[publication] icu_description_enabled`, on by default). Same owned-block
-markers: the athlete's own text there stays, a later publication replaces only VibeSynergy's
-block, a removal on Strava removes it there too. Each write is read back, kept in
-`publication_ledger` (source `intervals_icu`) and audit-logged (`publication.icu`, no text);
-intervals.icu activities taken from Strava are skipped (it may not change them). The
-publish/unpublish results carry `icu`. An activity with only a Strava copy is
+VibeSynergy does not write activity descriptions to intervals.icu (#114, since the 22 Nov
+2026 incident #160: intervals.icu passed the block on to the linked Strava activity and the
+athlete's own Strava text was lost). intervals.icu reads activities from its own import; the
+former "Also in intervals.icu" switch (`[publication] icu_description_enabled`) is ignored.
+Blocks written there before stay as they are. An activity with only a Strava copy is
 published automatically 30 minutes after it ended when no Garmin copy came; the same block
 (same label) then carries what Strava has (Relative Effort, work in kJ, temperature, and
 RPE/feel from VibeSynergy or Garmin when there are any).

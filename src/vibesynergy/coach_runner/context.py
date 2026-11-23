@@ -478,17 +478,11 @@ _SUMMARY = (
 
 
 def own_text(description: Any) -> str | None:
-    """What the athlete wrote in a provider description: every VibeSynergy block
-    (``[/*]`` … ``*/]``, found as publication finds it) taken out, and the generated parts
-    and app texts the diary import leaves out (``journal.personal_text``) too."""
-    from vibesynergy.query import journal, publication_format
+    """What the athlete wrote in a provider description, without VibeSynergy's block
+    (``workout_texts.own_text``)."""
+    from vibesynergy.query import workout_texts
 
-    if not isinstance(description, str) or not description.strip():
-        return None
-    text = description
-    for start, end in reversed(publication_format.find_blocks(text)):
-        text = text[:start] + "\n" + text[end:]
-    return journal.personal_text(text)
+    return workout_texts.own_text(description)
 
 
 def _number(value: Any, digits: int = 0) -> Any:
@@ -497,11 +491,40 @@ def _number(value: Any, digits: int = 0) -> Any:
     return value
 
 
-def _own_words(detail: dict[str, Any]) -> dict[str, Any]:
-    """The athlete's own words for one activity: per source the title and the description
-    without VibeSynergy's block, and the linked notes (text only). A text that is already
-    there (the Strava description the diary imported as a note) is given once."""
+def _own_words(detail: dict[str, Any], stored: dict[str, str] | None = None) -> dict[str, Any]:
+    """The athlete's own words for one activity.
+
+    When VibeSynergy holds texts of its own for the workout (``stored``, #114): its name,
+    public text and private text, plus the linked notes that are not already in them. The
+    private text is context only and never goes into a public text.
+
+    Otherwise: per source the title and the description without VibeSynergy's block, and the
+    linked notes (text only). A text that is already there (the Strava description the
+    diary imported as a note) is given once."""
+    from vibesynergy.query import workout_texts
+
     seen: set[str] = set()
+    if stored:
+        out: dict[str, Any] = {}
+        for field in workout_texts.FIELDS:
+            text = (stored.get(field) or "").strip()
+            if field == "name":
+                if text:
+                    out["name"] = text
+                continue
+            new = workout_texts.unseen(text, seen)
+            if new:
+                out[field] = new
+        if "private" in out:
+            out["private_is"] = "context only: never quote it in a public text"
+        notes = []
+        for found in detail.get("notes") or []:
+            new = workout_texts.unseen(str(found.get("text") or ""), seen)
+            if new:
+                notes.append(new)
+        if notes:
+            out["notes"] = notes
+        return out
     sources = []
     for member in detail.get("sources") or []:
         if member.get("removed_at"):
@@ -522,6 +545,20 @@ def _own_words(detail: dict[str, Any]) -> dict[str, Any]:
             notes.append(text)
             seen.add(text)
     return {"sources": sources, "notes": notes}
+
+
+def _stored_texts(rt, group: str) -> dict[str, str]:
+    from vibesynergy.query import workout_texts
+
+    try:
+        if not workout_texts.stored(rt.engine, group):
+            return {}
+        # A field VibeSynergy holds no version of yet still follows from the sources.
+        found = workout_texts.texts(rt.engine, group)
+        return {f: found[f]["text"] for f in workout_texts.FIELDS if found[f]["text"]}
+    except Exception as exc:  # the block goes on with the descriptions and notes
+        log.warning("workout texts for the activity block failed: %s", exc)
+        return {}
 
 
 def _effort(rt, group: str) -> dict[str, Any] | None:
@@ -578,7 +615,7 @@ def activity_view(rt, activity_id: str) -> dict[str, Any]:
     laps = [_lap(lap) for lap in detail.get("laps") or []]
     out: dict[str, Any] = {
         "id": group,
-        "own_words": _own_words(detail),
+        "own_words": _own_words(detail, _stored_texts(rt, group)),
         "summary": summary | units,
         "effort": _effort(rt, group),
         "laps": laps,

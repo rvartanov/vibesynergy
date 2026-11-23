@@ -129,6 +129,20 @@ ITEMS: tuple[Item, ...] = (
         "Every MCP result now carries meta.portal_url: the portal's own address. A link "
         "such as #/coach/report/7 opens at that address followed by the link.",
     ),
+    Item(
+        "114-icu-off",
+        "you",
+        "VibeSynergy no longer puts its block in intervals.icu: intervals.icu passed it on to "
+        "Strava, and your own text there got lost. Strava and Garmin work as before.",
+    ),
+    Item(
+        "114-ai-texts",
+        "ai",
+        "Every workout now has its own name, public text and private text in VibeSynergy, with "
+        "a history of versions: vibesynergy_activity_texts reads them, "
+        "vibesynergy_activity_set_texts writes them and vibesynergy_activity_restore_text "
+        "restores an old version. The private text is context only, never for a public text.",
+    ),
 )
 
 VERSION = RELEASES[0].version

@@ -656,6 +656,26 @@ note = Table(
     Index("ix_note_source_source_ref", "source", "source_ref", unique=True),
 )
 
+# A workout's own texts (#114): one row per version of its name, public text or private text.
+# Rows are only added, never changed; a restore is a new row (``restored_from``). ``kind``:
+# seed (taken over from the notes and descriptions already there), edit or restore.
+# ``source``: vs, strava, garmin or ai (a seed carries where its text came from).
+workout_text = Table(
+    "workout_text",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("group_id", String, nullable=False),
+    Column("field", String, nullable=False),  # name | public | private
+    Column("text", Text, nullable=False),
+    Column("old_text", Text),
+    Column("source", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("author", String),  # the MCP connection (client:<id>) or the portal
+    Column("restored_from", Integer),
+    Column("at", UTCDateTime, nullable=False),
+    Index("ix_workout_text_group_id_field", "group_id", "field"),
+)
+
 # Morning check-in, 1 (bad) to 5 (good) except soreness and stress, where 1 is none/low.
 checkin = Table(
     "checkin",

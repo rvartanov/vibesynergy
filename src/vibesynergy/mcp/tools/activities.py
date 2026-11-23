@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from vibesynergy.mcp.identity import note_source
 from vibesynergy.mcp.server import (
     READ,
     WRITE,
@@ -95,6 +96,54 @@ def register(kit: ToolKit) -> None:
         from vibesynergy.query import coaching
 
         return envelope(coaching.set_override(engine, id, is_coaching))
+
+    @tool(READ, "read")
+    def vibesynergy_activity_texts(
+        id: str, history: bool = True, field: str | None = None
+    ) -> dict[str, Any]:
+        """The workout's own texts in VibeSynergy: name, public (what may go out to Strava
+        and Garmin) and private (the athlete's alone: use it as context, never quote it in
+        anything public). Per field the text, its source (vs, strava, garmin, ai) and
+        stored (false while it still follows from the descriptions and notes). history
+        lists every stored version, newest first (field: name, public or private for one);
+        a version number works in vibesynergy_activity_restore_text."""
+        from vibesynergy.query import workout_texts
+
+        data = workout_texts.texts(engine, id)
+        if history:
+            data["history"] = workout_texts.history(engine, id, field)
+        return envelope(data)
+
+    @tool(WRITE, "diary.write")
+    def vibesynergy_activity_set_texts(
+        id: str,
+        name: str | None = None,
+        public: str | None = None,
+        private: str | None = None,
+    ) -> dict[str, Any]:
+        """Change the workout's name, public text and/or private text in VibeSynergy, as the
+        user said it; a field left out stays, an empty string clears it. Every change is a
+        new version (source vs); the old ones stay and can be restored. Write only the
+        athlete's own words, without VibeSynergy's block. Nothing is sent to Strava, Garmin
+        or intervals.icu."""
+        from vibesynergy.query import workout_texts
+
+        return diary_changed(
+            workout_texts.set_texts(
+                engine, id, name=name, public=public, private=private, author=note_source()
+            )
+        )
+
+    @tool(WRITE, "diary.write")
+    def vibesynergy_activity_restore_text(id: str, version: int) -> dict[str, Any]:
+        """Make an older version of one of the workout's texts current again, by its version
+        number from vibesynergy_activity_texts. This adds a new version that copies it; no
+        version is removed. Only when the user asks for it."""
+        from vibesynergy.query import workout_texts
+
+        return diary_changed(
+            workout_texts.restore(engine, version, activity_id=id, author=note_source())
+        )
 
     @tool(READ, "read")
     def vibesynergy_activity_assessment(id: str) -> dict[str, Any]:

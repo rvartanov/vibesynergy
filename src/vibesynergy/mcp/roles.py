@@ -93,6 +93,8 @@ WRITE_POLICY: dict[str, str] = {
     "vibesynergy_activity_set_effort": OPEN,
     "vibesynergy_activity_set_coaching": OPEN,
     "vibesynergy_activity_set_purpose": OPEN,
+    "vibesynergy_activity_set_texts": OPEN,
+    "vibesynergy_activity_restore_text": OPEN,
     # Notes and proposals: every AI coach.
     "vibesynergy_coach_write": ENTRY,
     "vibesynergy_coach_log": OPEN,

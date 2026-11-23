@@ -494,10 +494,6 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "garmin_mirror_enabled": bool(
                     on_disk.publication.get("garmin_mirror_enabled", True)
                 ),
-                # On by default: the same block in intervals.icu.
-                "icu_description_enabled": bool(
-                    on_disk.publication.get("icu_description_enabled", True)
-                ),
                 "quote_themes": on_disk.publication.get("quote_themes", list(THEMES)),
                 "quote_sources": on_disk.publication.get("quote_sources", list(COLLECTIONS)),
                 "sources": list(COLLECTIONS),

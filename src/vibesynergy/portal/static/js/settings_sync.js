@@ -64,8 +64,6 @@ export function publicationOptions(s) {
     <div class="settings-grid"><label>${t("Language of the text")} <select class="btn" name="publication_language">${[["nl", "Nederlands"], ["en", "English"]].map(([v, label]) => `<option value="${v}"${v === lang ? " selected" : ""}>${label}</option>`).join("")}</select></label></div>
     <label class="check"><input type="checkbox" name="garmin_mirror_enabled" aria-describedby="sync-mirror-help"${pub.garmin_mirror_enabled !== false ? " checked" : ""}> ${t("Copy the Strava text to Garmin too")}</label>
     <p class="sub" id="sync-mirror-help">${t("Garmin gets the same text and title as Strava, and follows your edits on Strava for 7 days. When off, publishing stays on Strava.")}</p>
-    <label class="check"><input type="checkbox" name="icu_description_enabled" aria-describedby="sync-icu-help"${pub.icu_description_enabled !== false ? " checked" : ""}> ${t("Also in intervals.icu")}</label>
-    <p class="sub" id="sync-icu-help">${t("intervals.icu gets the same block below its own description. Your text there stays as it is.")}</p>
     <details><summary>${t("What goes in the text")}</summary>
       <label class="check"><input type="checkbox" name="quote_enabled"${pub.quote_enabled ? " checked" : ""}> ${t("Add a sourced quote")}</label>
       <label class="check"><input type="checkbox" name="weather_enabled"${pub.weather_enabled ? " checked" : ""}> ${t("Add the weather during the activity")}</label>

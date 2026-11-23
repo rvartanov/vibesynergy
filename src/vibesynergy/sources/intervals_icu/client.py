@@ -40,7 +40,6 @@ _ATHLETE = re.compile(r"[A-Za-z0-9_-]+")
 # The only activity fields VibeSynergy writes: RPE and Feel (see query/activity_effort.py).
 # The only sport-settings fields VibeSynergy writes (Training → Zones & thresholds).
 SPORT_SETTINGS_WRITE_FIELDS = frozenset({"ftp", "lthr", "max_hr", "hr_zones", "threshold_pace"})
-DESCRIPTION_MAX = 20000
 # url, query, headers -> status, response headers, body
 Get = Callable[[str, Mapping[str, str], Mapping[str, str]], tuple[int, Mapping[str, str], bytes]]
 # method, url, query, headers, body -> status, response headers, body
@@ -299,19 +298,6 @@ class IntervalsIcuClient:
         if not isinstance(payload, dict):
             raise IntervalsIcuError("intervals.icu activity was not an object")
         return payload
-
-    def update_activity_description(self, activity_id: str, description: str) -> dict[str, Any]:
-        """Set only the activity's description (the athlete's text plus VibeSynergy's published
-        block, see ``query/publication_icu``); no other field is sent."""
-        if not isinstance(description, str) or len(description) > DESCRIPTION_MAX:
-            raise IntervalsIcuError("the activity description is text of at most 20000 characters")
-        payload = self._send(
-            "PUT",
-            f"/activity/{_event_path_id(activity_id)}",
-            {"description": description},
-            write=True,
-        )
-        return payload if isinstance(payload, dict) else {"description": description}
 
     def _get_list(self, resource: str, params: Mapping[str, str]) -> list[dict[str, Any]]:
         payload = self._request(f"/athlete/{self._athlete_id}/{resource}", params)

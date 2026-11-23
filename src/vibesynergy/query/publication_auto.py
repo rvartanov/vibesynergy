@@ -236,14 +236,8 @@ def refresh_candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any
 
 def due(rt, *, now: datetime | None = None) -> bool:
     """Asked on every scheduler tick: a failure here must not stop the other syncs."""
-    from vibesynergy.query import publication_icu
-
     try:
-        return (
-            bool(candidates(rt, now=now))
-            or bool(refresh_candidates(rt, now=now))
-            or bool(publication_icu.candidates(rt, now=now, attempts=attempts(rt)))
-        )
+        return bool(candidates(rt, now=now)) or bool(refresh_candidates(rt, now=now))
     except Exception:
         log.exception("checking for activities to publish failed")
         return False
@@ -291,51 +285,7 @@ def run(rt, *, now: datetime | None = None, client=None) -> dict[str, Any]:
         _publish_new(rt, found, summary, lang, now, client)
     if not summary["rate_limited"]:
         _refresh_insights(rt, summary, lang, now, client)
-    _copy_to_icu(rt, summary, now)
     return summary
-
-
-def _copy_to_icu(rt, summary: dict, now: datetime, icu=None) -> None:
-    """Strava blocks that intervals.icu does not hold yet: the activity reached
-    intervals.icu later, or an earlier copy failed (publication_icu)."""
-    from vibesynergy.query import publication_icu
-
-    summary["icu_updated"] = 0
-    for candidate in publication_icu.candidates(rt, now=now, attempts=attempts(rt)):
-        key = f"icu:{candidate['strava_id']}"
-        seen = attempts(rt).get(key) or {}
-        same = seen.get("block") == candidate["block"]
-        tries = (int(seen.get("tries", 0)) if same else 0) + 1
-        try:
-            result = publication_icu.sync(rt, candidate["group_id"], client=icu)
-        except RateLimited as exc:
-            retry = getattr(exc, "retry_at", None)
-            later = retry if isinstance(retry, datetime) and retry > now else now + RETRY
-            _record(rt, key, now, block=candidate["block"], state="waiting",
-                    tries=tries - 1, retry_at=later.isoformat())  # fmt: skip
-            return
-        except publication_icu.Review as exc:
-            _record(rt, key, now, block=candidate["block"], state="needs_review",
-                    tries=tries, error=str(exc)[:300])  # fmt: skip
-            continue
-        except Exception as exc:  # network or provider trouble: try again later
-            state = "gave_up" if tries >= MAX_TRIES else "failed"
-            _record(rt, key, now, block=candidate["block"], state=state, tries=tries,
-                    error=f"{type(exc).__name__}: {exc}"[:300],
-                    retry_at=(now + RETRY * tries).isoformat())  # fmt: skip
-            log.warning("intervals.icu copy of %s failed: %s", candidate["group_id"], exc)
-            continue
-        state = result["state"]
-        if state in ("updated", "unchanged"):
-            _record(rt, key, now, block=candidate["block"], state="published", tries=tries,
-                    error=None)  # fmt: skip
-            summary["icu_updated"] += state == "updated"
-        elif state == "not_available":
-            _record(rt, key, now, block=candidate["block"], state="not_available", tries=tries)
-        else:  # waiting for intervals.icu to have the activity
-            final = "gave_up" if tries >= MAX_TRIES else "waiting"
-            _record(rt, key, now, block=candidate["block"], state=final, tries=tries,
-                    retry_at=(now + RETRY * tries).isoformat())  # fmt: skip
 
 
 def _refresh_insights(rt, summary: dict, lang: str, now: datetime, client) -> None:
