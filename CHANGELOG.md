@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.7 – 23-11-2026
+
 - **Edit your workout texts on the workout page** (#114): change the name, your public text
   and your private text right on the workout, see where each version came from (VibeSynergy,
   Strava, Garmin or your AI coach) and when, and put an older one back. The public part also
