@@ -33,6 +33,9 @@
     "effort.js",
     "annotation_preview.js"
   ],
+  "workout-texts": [
+    "workout_page.js"
+  ],
   "calendar": [
     "pages/schedule.js",
     "pages/calendar.js"

@@ -52,6 +52,12 @@ OWNER_ONLY = {
     ("POST", "/activity-publication"),
     ("POST", "/activity-publication/remove"),
     ("POST", "/activity-purpose"),
+    # The workout's own texts and the Publish tick (#114): the private text never leaves
+    # the owner's portal.
+    ("GET", "/activity-texts"),
+    ("POST", "/activity-texts"),
+    ("POST", "/activity-texts/restore"),
+    ("POST", "/activity-publish"),
     ("POST", "/activity-gear"),  # gear choices are the owner's
     ("POST", "/gear-default"),
     ("GET", "/settings"),  # configuration

@@ -145,7 +145,8 @@ Details: [SOURCES.md](SOURCES.md).
   filters in the address, totals for the selection.
 - **Activity page**: summary, route map, aligned stream charts (a marker follows the route),
   laps, time in zones, the copy from each source, the training load and how it was counted,
-  RPE and Feel, gear, purpose, notes, the published description.
+  RPE and Feel, gear, purpose, notes, your name and texts with their history, the Publish
+  tick, the published description.
 - **RPE and Feel**: from Garmin, or your own entry, which is always possible and wins.
 - **Training load per session** (VibeSynergy's own): power (TSS) on the bike, pace against CSS
   in the water, otherwise the heart-rate stream (an hour at threshold is 100), with the
@@ -334,7 +335,7 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
 
 - **Activity descriptions** on Strava and Garmin: a block with statistics (in
   your temperature unit), the weather and an optional quote, added beside your own text and
-  never replacing it. Automatic after an activity, or per activity. A ride recorded twice on
+  never replacing it. Automatic after an activity (new workouts *public*), or per activity. A ride recorded twice on
   Garmin (Zwift's upload and the watch) takes its figures from one copy. A copy deleted on
   Garmin is marked removed (kept on the workout page, "Garmin-kopie verwijderd op Garmin") and
   the description goes to the copy that is left. When nothing can be published, the workout
@@ -345,7 +346,17 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   VibeSynergy, with every change kept (when, from VibeSynergy, Strava, Garmin or the AI
   coach) and older versions restorable. They start from your notes and your own Strava and
   Garmin text, without VibeSynergy's block and without doubles. The private text is never
-  published or shared. For now through AI apps (MCP); your AI coach reads them.
+  published or shared. Edited on the workout page (#114): the name, a **public part** (your
+  AI coach's insight and the figures, read-only, then your own public text) and a **private
+  part** (your AI coach's comments, read-only, then your own private text), each with its
+  history and **Restore**; also through AI apps (MCP), and your AI coach reads them.
+- **Publish tick** on the workout page (#114): ticking it publishes VibeSynergy's block (the
+  AI coach's insight, the figures, the optional weather and quote) in the Strava description,
+  copied to Garmin when that is on (Garmin's own description without a Strava copy); unticking
+  removes the block again. The name and your texts are not sent by it. Settings → Sync between
+  sources → **New workouts**: *public* (published by themselves, the tick starts on) or *only
+  me* (the default: nothing goes out until you tick it). Unticking a workout that would be
+  published by itself keeps it to you.
 - **Share links** (Settings → Sharing): read-only views of chosen pages, optionally with diary
   writing.
 

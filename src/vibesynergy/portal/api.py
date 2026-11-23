@@ -125,6 +125,28 @@ class ActivityEffortRequest(BaseModel):
     fields: list[Literal["rpe", "feel"]] | None = None
 
 
+class ActivityTextsRequest(BaseModel):
+    """The workout page (#114): a field left out stays as it is; "" clears it."""
+
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=3, max_length=200)
+    name: str | None = Field(default=None, max_length=1000)
+    public: str | None = Field(default=None, max_length=40000)
+    private: str | None = Field(default=None, max_length=40000)
+
+
+class ActivityTextRestore(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=3, max_length=200)
+    version: int = Field(ge=1)
+
+
+class ActivityPublishTick(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=3, max_length=200)
+    publish: bool
+
+
 class ActivityPurposeRequest(BaseModel):
     id: str
     purpose: Literal["training", "recovery", "leisure", "coached_by_me", "race"] | None = None
