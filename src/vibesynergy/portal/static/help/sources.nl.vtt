@@ -1,34 +1,40 @@
 WEBVTT
 
-00:00:04.101 --> 00:00:07.840
+00:00:06.179 --> 00:00:09.998
 Instellingen → Bronnen: koppel Garmin, Strava, Withings, intervals.icu of een agenda.
 
-00:00:07.890 --> 00:00:11.007
+00:00:10.048 --> 00:00:13.197
 Garmin: log in met je Garmin-account en kies 'Garmin verbinden'.
 
-00:00:11.057 --> 00:00:14.141
+00:00:13.247 --> 00:00:16.365
 'Nu bijwerken' haalt meteen de nieuwste gegevens op.
 
-00:00:14.191 --> 00:00:18.809
+00:00:16.415 --> 00:00:21.182
 Het teken voor de naam laat op je horloge zien welke workouts van VibeSynergy komen.
 
-00:00:18.859 --> 00:00:22.543
+00:00:21.232 --> 00:00:24.949
 Of kies een teken per soort workout; de standaard staat al ingevuld.
 
-00:00:22.593 --> 00:00:29.839
+00:00:24.999 --> 00:00:32.659
 Multisport krijgt de tekens van zijn sporten, of één eigen teken.
 
-00:00:29.889 --> 00:00:35.105
+00:00:32.709 --> 00:00:37.958
 intervals.icu krijgt een kopie van je plan. Hier zie je de laatste kopie en wat er gekopieerd is; in je berichten staan alleen echte planaanpassingen.
 
-00:00:35.155 --> 00:00:39.598
+00:00:38.008 --> 00:00:42.667
 Oude gegevens? Importeer de export-zip van Garmin of Strava.
 
-00:00:39.648 --> 00:00:43.336
-Synchronisatie: wat VibeSynergy terugschrijft, zoals een samenvatting in Strava.
+00:00:42.717 --> 00:00:46.860
+Publiceren en sync: wat VibeSynergy naar buiten schrijft. Je trainingen zijn van VibeSynergy; publiceer je er een, dan blijft die overal gelijk.
 
-00:00:43.386 --> 00:00:47.271
+00:00:46.910 --> 00:00:50.840
 Nieuwe trainingen: openbaar (vanzelf gepubliceerd) of alleen ik (je vinkt Publiceren zelf aan).
 
-00:00:47.321 --> 00:00:54.064
-Naam, teksten en materiaal gelijk houden: een gepubliceerde training heeft overal dezelfde naam, openbare tekst en hetzelfde materiaal. Staat standaard uit.
+00:00:50.890 --> 00:00:55.053
+Publiceer naar: Strava, Garmin of allebei. Elke plek houdt zijn eigen tekst, met het blok van VibeSynergy eronder.
+
+00:00:55.103 --> 00:01:00.510
+Naam, teksten en materiaal overal gelijk houden: een gepubliceerde training heeft overal dezelfde naam, openbare tekst en hetzelfde materiaal. Staat standaard uit.
+
+00:01:00.560 --> 00:01:08.380
+Wat er in de tekst komt: taal, citaat, weer en de markeringen van het blok.

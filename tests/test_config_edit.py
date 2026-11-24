@@ -94,3 +94,63 @@ def test_systemd_unit(tmp_path) -> None:
     cgroup.write_text("0::/user.slice/user@1000.service/app.slice/x;rm -rf.service\n")
     assert systemd_unit(cgroup) is None
     assert systemd_unit(tmp_path / "missing") is None
+
+
+# --- publication settings from before #175 ---------------------------------------------------
+
+OLD_PUBLICATION = """
+[publication]
+garmin_mirror_enabled = false  # the old "Copy the Strava text to Garmin too"
+text_sync_enabled = true
+icu_description_enabled = true
+quote_enabled = true
+"""
+
+
+@pytest.mark.parametrize(
+    ("mirror", "targets"), [("true", ["strava", "garmin"]), ("false", ["strava"])]
+)
+def test_the_old_garmin_copy_switch_loads_as_the_garmin_target(tmp_path, mirror, targets):
+    from vibesynergy.core.config import load_settings, publication_targets
+
+    path = tmp_path / "config.toml"
+    path.write_text(f"[publication]\ngarmin_mirror_enabled = {mirror}\n")
+    pub = load_settings(path).publication
+    assert pub == {"targets": targets} and publication_targets(pub) == targets
+
+
+def test_without_any_setting_both_places_are_targets(config):
+    from vibesynergy.core.config import load_settings, publication_targets
+
+    assert publication_targets(load_settings(config).publication) == ["strava", "garmin"]
+
+
+def test_saving_writes_an_old_publication_section_the_new_way(config):
+    config.write_text(CONFIG + OLD_PUBLICATION)
+    saved = config_edit.apply_changes(config, {"publication": {"quote_enabled": False}})
+    text = config.read_text()
+    assert "garmin_mirror_enabled" not in text and "icu_description_enabled" not in text
+    assert 'targets = ["strava"]' in text
+    assert saved.publication["targets"] == ["strava"]
+    assert saved.publication["text_sync_enabled"] is True  # keeps its value
+    assert saved.publication["quote_enabled"] is False
+    assert "# VibeSynergy configuration." in text  # the rest of the file stays
+
+
+def test_a_chosen_target_wins_over_the_old_switch(config):
+    config.write_text(CONFIG + OLD_PUBLICATION)
+    saved = config_edit.apply_changes(config, {"publication": {"targets": ["garmin"]}})
+    assert saved.publication["targets"] == ["garmin"]
+    assert "garmin_mirror_enabled" not in config.read_text()
+
+
+@pytest.mark.parametrize("bad", [[], ["intervals_icu"], ["strava", "strava"], "strava"])
+def test_targets_name_strava_and_or_garmin(config, bad):
+    with pytest.raises(ConfigError, match="targets"):
+        config_edit.apply_changes(config, {"publication": {"targets": bad}})
+
+
+def test_the_old_switches_can_no_longer_be_saved(config):
+    for key in ("garmin_mirror_enabled", "icu_description_enabled"):
+        with pytest.raises(ConfigError, match=key):
+            config_edit.apply_changes(config, {"publication": {key: False}})

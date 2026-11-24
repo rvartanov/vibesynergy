@@ -1,22 +1,22 @@
-"""Settings → Sync between sources: status read from local ledgers only."""
+"""Settings → Publishing and sync: status read from local ledgers only (#175: per place)."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from vibesynergy.query import cross_sync
-from vibesynergy.store.schema import calendar_mirror, job, publication_ledger, publication_mirror
+from vibesynergy.store.schema import calendar_mirror, job, publication_ledger, text_sync
 
 
 def test_overview_is_empty_without_history(runtime) -> None:
     data = cross_sync.overview(runtime.engine)
-    assert data["publication"]["strava"] == {"count": 0, "last_at": None}
-    assert data["publication"]["watching"] == 0
-    assert data["publication"]["problem"] is None
+    empty = {"count": 0, "last_at": None, "needs_review": 0, "review_activity": None}
+    assert data["publication"]["strava"] == empty
+    assert data["publication"]["garmin"] == empty
     assert data["calendar"] == {"copies": 0, "conflicts": 0, "last_run": None}
 
 
-def test_overview_counts_publications_watches_and_calendar_copies(runtime) -> None:
+def test_overview_counts_per_place_what_needs_a_look_and_calendar_copies(runtime) -> None:
     now = datetime(2026, 10, 31, 9, 0, tzinfo=UTC)
     ledger = {
         "assessment_id": "a",
@@ -36,16 +36,18 @@ def test_overview_counts_publications_watches_and_calendar_copies(runtime) -> No
             ],
         )
         conn.execute(
-            publication_mirror.insert().values(
+            text_sync.insert().values(
                 group_id="garmin:9",
+                state="conflict",
                 strava_id="1",
                 garmin_id="9",
-                language="nl",
-                state="active",
-                first_published_at=now,
+                synced={},
+                noticed={},
                 watch_until=now,
-                next_check_at=now,
-                last_error="Garmin did not return the mirrored description",
+                seen_at=now,
+                last_checked_at=now,
+                last_error="The garmin description has a changed VibeSynergy section",
+                created_at=now,
                 updated_at=now,
             )
         )
@@ -81,13 +83,16 @@ def test_overview_counts_publications_watches_and_calendar_copies(runtime) -> No
                 )
             )
 
-    data = cross_sync.overview(runtime.engine)
+    attempts = {"garmin:7": {"state": "needs_review"}, "3": {"state": "published"}}
+    data = cross_sync.overview(runtime.engine, attempts)
     pub = data["publication"]
     assert pub["strava"]["count"] == 1 and pub["strava"]["last_at"].startswith("2026-10-31")
     assert pub["garmin"]["count"] == 1
     assert pub["uncertain"] == 1
-    assert pub["watching"] == 1
-    assert pub["problem"] == "Garmin did not return the mirrored description"
+    # Strava: the unfinished write on 2. Garmin: the text sync stopped on 9, the run on 7.
+    assert (pub["strava"]["needs_review"], pub["strava"]["review_activity"]) == (1, "strava:2")
+    assert pub["garmin"]["needs_review"] == 2
+    assert pub["garmin"]["review_activity"] == "garmin:9"
     assert data["calendar"]["copies"] == 1
     assert data["calendar"]["conflicts"] == 1
     assert data["calendar"]["last_run"]["status"] == "done"

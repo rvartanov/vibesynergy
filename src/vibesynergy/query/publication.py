@@ -463,6 +463,20 @@ def _delete_checkpoint(rt, destination: str, source_id: str) -> None:
         )
 
 
+def targets(rt) -> list[str]:
+    """Settings → Publishing and sync → "Publish to" (#175): Strava and/or Garmin, Strava first."""
+    from vibesynergy.core.config import publication_targets
+
+    return publication_targets(load_settings(rt.settings.config_path).publication)
+
+
+def group_lock(rt, group: str):
+    """Serializes the work on one workout across platforms: publishing to every target,
+    removing it, and a text-sync check (taken before, never inside, the per-platform
+    publication lock)."""
+    return SecretStore(rt.settings.secrets_dir, "publication").lock(f"group-{group}")
+
+
 def publish(
     rt,
     activity_id: str,
@@ -471,30 +485,28 @@ def publish(
     *,
     language: str = "en",
     client=None,
-    mirror: bool = True,
+    others: bool = True,
 ) -> dict:
     """User-triggered only. A retry verifies an interrupted write before writing again.
 
-    A verified Strava publication mirrors to Garmin and starts the 7-day watch
-    (publication_mirror); these run after the Strava lock is released. Nothing is written
-    to intervals.icu (#114, #160): it passes a description on to the linked Strava activity,
-    and reads the activities from its own import. With the text sync on, the name and the
-    public text are then synced (``text_sync.after_publish``), and the gear with them.
+    VibeSynergy is the source (#175): after a verified publication on ``destination`` the
+    same section goes to the other places under "Publish to" (``targets``) that have a copy
+    of the workout, each through the same guarded path. A failure there never undoes this
+    publication; it is in ``result["others"]``. Nothing is written to intervals.icu (#114,
+    #160): it passes a description on to the linked Strava activity, and reads the
+    activities from its own import. With the text sync on, the name, the public text and
+    the gear are then kept the same everywhere (``text_sync.after_publish``).
     """
-    result = _publish(
-        rt, activity_id, destination, expected_version, language=language, client=client
-    )
-    if destination == "strava" and mirror:
-        from vibesynergy.query import publication_mirror
-
-        if publication_mirror.enabled(rt):
-            result["mirror"] = publication_mirror.after_publish(
-                rt, activity_id, language, strava=client
-            )
-        else:
-            result["mirror"] = {"state": "disabled"}
-    if mirror:
-        # The name and public text follow on Strava and Garmin when that sync is on (#114).
+    group = views.resolve_activity(rt.engine, activity_id)
+    with group_lock(rt, group):
+        result = _publish(
+            rt, activity_id, destination, expected_version, language=language, client=client
+        )
+        if others and destination in targets(rt):
+            done = _publish_others(rt, activity_id, destination, language)
+            if done:
+                result["others"] = done
+    if others:
         from vibesynergy.query import text_sync
 
         if text_sync.enabled(rt):
@@ -502,6 +514,64 @@ def publish(
                 rt, activity_id, clients={destination: client} if client else None
             )
     return result
+
+
+def publish_others(rt, activity_id: str, destination: str, *, language: str = "en") -> dict:
+    """The section is on ``destination`` already: put it on the other targets too (a place
+    added under "Publish to" after the workout was published)."""
+    if destination not in targets(rt):
+        return {}
+    with group_lock(rt, views.resolve_activity(rt.engine, activity_id)):
+        return _publish_others(rt, activity_id, destination, language)
+
+
+def _publish_others(rt, activity_id: str, destination: str, language: str) -> dict:
+    """The section on every other target that has a copy: ``{platform: {state, error?}}``.
+
+    ``published`` (written and read back), ``unchanged`` (already there), ``waiting`` (no
+    figures yet) or ``failed`` (tried again on the next publish or insight update). A target
+    without a single copy of the workout is left out."""
+    out: dict[str, dict] = {}
+    for other in targets(rt):
+        if other == destination:
+            continue
+        done = _publish_other(rt, activity_id, other, language)
+        if done["state"] != "not_linked":
+            out[other] = done
+    return out
+
+
+# A group holds a few Garmin copies at most (Zwift's upload and the watch).
+_MAX_COPIES = 3
+
+
+def _publish_other(rt, activity_id: str, other: str, language: str) -> dict:
+    """One other target. A copy removed there (``Gone``, #151) is marked by the provider and
+    the copy that is left is tried in the same call."""
+    removed: list[str] = []
+    for _ in range(_MAX_COPIES + 1):
+        try:
+            _source_id(rt, activity_id, other)
+        except Conflict:
+            return {"state": "not_linked", **({"removed": removed} if removed else {})}
+        try:
+            item = preview(rt, activity_id, other, language=language)
+            if item["state"] != "ready":
+                return {"state": "waiting"}
+            already = item["already_published"]
+            # Also when it is there already: an interrupted write is verified, not redone.
+            _publish(rt, activity_id, other, item["preview_version"], language=language)
+            if already:
+                return {"state": "unchanged"}
+            return {"state": "published", **({"removed": removed} if removed else {})}
+        except Gone as exc:
+            if exc.source_id in removed:
+                return {"state": "failed", "error": str(exc)[:300]}
+            source_removed.mark(rt.engine, other, exc.source_id, reason=exc.reason)
+            removed.append(exc.source_id)
+        except Exception as exc:  # recorded; this publication stays
+            return {"state": "failed", "error": str(exc)[:300]}
+    return {"state": "failed", "error": "Copies keep disappearing; tried again later"}
 
 
 def _publish(
@@ -582,24 +652,36 @@ def unpublish(
 ) -> dict:
     """Remove only the exact owned block, with the same guarded read-back and retry.
 
-    Removing the Strava block stops the mirror watch and removes the mirrored Garmin block
-    as well; both providers keep their text.
-    """
-    if destination != "strava":
-        return _unpublish(
-            rt, activity_id, destination, expected_version, language=language, client=client
-        )
-    from vibesynergy.query import publication_mirror
-
-    with publication_mirror.stopping(rt, activity_id):
+    The section is then removed from the other platform as well, wherever VibeSynergy put it
+    (``result["others"]``); every platform keeps its own text."""
+    group = views.resolve_activity(rt.engine, activity_id)
+    with group_lock(rt, group):
         result = _unpublish(
             rt, activity_id, destination, expected_version, language=language, client=client
         )
-    if destination == "strava":
-        try:
-            result["mirror"] = publication_mirror.after_unpublish(rt, activity_id, language)
-        except Exception as exc:  # the Strava removal itself is verified and stays
-            result["mirror"] = {"state": "removed", "garmin": "failed", "error": str(exc)[:300]}
+        others: dict[str, dict] = {}
+        for other in ("strava", "garmin"):
+            if other == destination:
+                continue
+            try:
+                source_id = _source_id(rt, activity_id, other)
+            except Conflict:
+                continue
+            if not _ledger(rt, other, source_id):
+                continue
+            try:
+                item = preview(rt, activity_id, other, language=language)
+                if item["state"] in ("ready", "undo_pending") and (
+                    item.get("already_published") or item["state"] == "undo_pending"
+                ):
+                    _unpublish(rt, activity_id, other, item["preview_version"], language=language)
+                    others[other] = {"state": "removed"}
+                else:
+                    others[other] = {"state": "needs_review"}
+            except Exception as exc:  # this removal is verified and stays
+                others[other] = {"state": "failed", "error": str(exc)[:300]}
+        if others:
+            result["others"] = others
     return result
 
 

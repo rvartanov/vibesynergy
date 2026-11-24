@@ -9,7 +9,7 @@ from test_coach_predictions import _call
 from test_evidence import START, put
 from test_publication import DEFAULT_OPENER, garmin_activity
 from test_publication_auto import NOW, switch_on
-from test_publication_mirror import FakeGarmin, FakeStrava
+from test_publication_targets import FakeGarmin, FakeStrava
 
 from vibesynergy.query import (
     coach_workouts,
@@ -172,7 +172,8 @@ def test_later_insight_updates_the_published_block_and_the_garmin_copy(runtime, 
         f"Eigen woorden van mij\n\n{DEFAULT_OPENER}\n-Persoonlijke AI inzicht: {PUBLIC}\n"
     )
     assert garmin.text.endswith(strava.text.split("\n\n", 1)[1])
-    assert garmin.text.startswith("Eigen woorden van mij")
+    # Garmin keeps its own text: the Strava text is the text sync's, which is off (#175).
+    assert garmin.text.startswith("Garmin words\n\n")
     with runtime.engine.connect() as conn:
         rows = conn.execute(select(publication_ledger)).mappings().all()
     assert {(r["source"], r["state"]) for r in rows} == {
@@ -183,7 +184,7 @@ def test_later_insight_updates_the_published_block_and_the_garmin_copy(runtime, 
     [insight_audit] = audits(runtime, "publication.insight")
     assert insight_audit["outcome"] == "ok" and insight_audit["detail"]["entry_id"] == entry["id"]
     assert PUBLIC not in str(insight_audit["detail"])
-    assert [r["target"] for r in audits(runtime, "publication.update")] == ["strava:2"]
+    assert [r["target"] for r in audits(runtime, "publication.update")] == ["strava:2", "garmin:1"]
     # Idempotent: nothing more to do, nothing written again.
     writes = len(strava.writes)
     assert not publication_auto.due(runtime, now=later + timedelta(minutes=5))

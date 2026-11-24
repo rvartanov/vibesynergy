@@ -3,9 +3,14 @@
 The same check also keeps the workout's gear in step (``gear_sync``, phase 5): one switch,
 one watch, one Strava read per check.
 
-Phase 3 of #114. Off until Settings → Sync between sources switches it on
+Phase 3 of #114. Off until Settings → Publishing and sync switches it on
 (``[publication] text_sync_enabled = true``); while off nothing here reads or writes a
 platform, and publication works exactly as before.
+
+Since #175 this is the only path that writes a workout's name and public text to Garmin
+and reads Strava's back: the old Strava → Garmin copy (``publication_mirror``) is gone.
+Publishing puts VibeSynergy's section on every place under "Publish to"
+(``publication.targets``); this sync only works with those places.
 
 **What is synced.** For a *published* workout (a verified VibeSynergy section on its Strava
 or Garmin copy): its **name** and the athlete's own **public text**. A description becomes
@@ -30,8 +35,8 @@ typed. On a tie the platform wins over VibeSynergy, and Strava over Garmin.
 **First sync with a platform** (no last-written text yet). The public text: the paragraphs
 the platform has that VibeSynergy does not are added to VibeSynergy's text (source: that
 platform), then the result is pushed, so nothing is lost and nothing doubled. The name: the
-name you gave in VibeSynergy wins; without one the Strava name is taken (as the mirror did),
-else the Garmin name.
+name you gave in VibeSynergy wins; without one the Strava name is taken, else the Garmin
+name.
 
 **No echo.** A platform text equal to the last-written one is never an outside change, so a
 push of VibeSynergy's own comes back as "nothing changed". Compared without differences in
@@ -108,8 +113,8 @@ class Review(Exception):
 
 
 def enabled(rt) -> bool:
-    """Settings → Sync between sources → "Keep name, texts and gear the same on Strava and
-    Garmin" (the gear follows the same switch, ``gear_sync``)."""
+    """Settings → Publishing and sync → "Keep name, texts and gear the same everywhere" (the
+    gear follows the same switch, ``gear_sync``)."""
     from vibesynergy.core.config import load_settings
 
     return load_settings(rt.settings.config_path).publication.get("text_sync_enabled") is True
@@ -195,8 +200,11 @@ def _published_groups(conn, refs: list[tuple[str, str]]) -> set[tuple[str, str]]
 
 
 def targets(rt, group: str) -> dict[str, str]:
-    """The one Strava and the one Garmin copy the workout's texts are synced with."""
-    from vibesynergy.query import multisport, publication_format, source_removed
+    """The one Strava and the one Garmin copy the workout's texts are synced with: only the
+    places under "Publish to" (#175)."""
+    from vibesynergy.query import multisport, publication, publication_format, source_removed
+
+    chosen = publication.targets(rt)
 
     with rt.engine.connect() as conn:
         row = (
@@ -215,11 +223,11 @@ def targets(rt, group: str) -> dict[str, str]:
     strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
     garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
     holder = str(row["sport"] or "").lower() in multisport.MULTI
-    if len(strava) == 1 and not holder:
+    if len(strava) == 1 and not holder and "strava" in chosen:
         out["strava"] = strava[0]
     if len(garmin) > 1:  # Zwift's upload and the watch: the copy publication writes to
         garmin = [g for g in [publication_format.copy_id(rt, group, "garmin")] if g]
-    if len(garmin) == 1:
+    if len(garmin) == 1 and "garmin" in chosen:
         out["garmin"] = garmin[0]
     return out
 
@@ -592,7 +600,7 @@ def _first_sync(
     if len(first) < len(remote):
         return target  # a copy that joins later gets the agreed name
     if not target or not _vs_edited(rt.engine, group, "name"):
-        for platform in PLATFORMS:  # the Strava name first, as the mirror did
+        for platform in PLATFORMS:  # the Strava name first
             name = remote.get(platform, {}).get("name") if platform in first else None
             if not name:
                 continue
@@ -739,13 +747,13 @@ def after_publish(rt, activity_id: str, *, clients=None) -> dict[str, Any]:
     workout and sync its texts now. A failure never undoes the publication."""
     if not enabled(rt):
         return {"state": "off"}
-    from vibesynergy.query import publication_mirror
+    from vibesynergy.query import publication
 
     now = datetime.now(UTC)
     try:
         row = enroll(rt, activity_id, now=now)
         group = row["group_id"]
-        with publication_mirror.lock(rt, group):
+        with publication.group_lock(rt, group):
             result = sync_one(rt, group, now=now, clients=clients)
         _update(
             rt.engine,
@@ -779,7 +787,7 @@ def run(rt, *, now: datetime | None = None, clients=None) -> dict[str, Any]:
     }
     if not enabled(rt):
         return {**summary, "state": "off"}
-    from vibesynergy.query import publication_mirror
+    from vibesynergy.query import publication
 
     now = now or datetime.now(UTC)
     _enroll_recent(rt, now)
@@ -798,7 +806,7 @@ def run(rt, *, now: datetime | None = None, clients=None) -> dict[str, Any]:
     for row in rows:
         group = row["group_id"]
         try:
-            with publication_mirror.lock(rt, group):
+            with publication.group_lock(rt, group):
                 result = sync_one(rt, group, now=now, clients=clients)
         except RateLimited as exc:
             summary["rate_limited"] = True

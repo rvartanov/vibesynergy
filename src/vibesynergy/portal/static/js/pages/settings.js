@@ -33,7 +33,7 @@ import * as historyPage from "./history.js";
 // thresholds) live on Training → Zones & thresholds; #/settings/you redirects there.
 const THEMES = [
   ["sources", N("Sources")],
-  ["sync", N("Sync between sources")],
+  ["sync", N("Publishing and sync")],
   ["alerts", N("Alerts")],
   ["sharing", N("Sharing")],
   ["account", N("Account")],
@@ -494,6 +494,10 @@ function publicationFieldError(section, field) {
 }
 
 function validatePublication(publication) {
+  // "Publish to" (#175): at least one place, or nothing could be published.
+  if (publication.querySelector("[name=publish_target]") && !publication.querySelector("[name=publish_target]:checked")) {
+    return t("Choose at least one place to publish to.");
+  }
   for (const field of ["opener", "closer", "label_stats", "label_quote"]) {
     const message = publicationFieldError(publication, field);
     if (message) return message;
@@ -507,9 +511,8 @@ function publicationChanges(publication) {
   const pub = {};
   if (has("quote_enabled")) pub.quote_enabled = has("quote_enabled").checked;
   if (has("weather_enabled")) pub.weather_enabled = has("weather_enabled").checked;
-  if (has("garmin_mirror_enabled")) pub.garmin_mirror_enabled = has("garmin_mirror_enabled").checked;
+  if (has("publish_target")) pub.targets = [...publication.querySelectorAll("[name=publish_target]:checked")].map((item) => item.value);
   if (has("text_sync_enabled")) pub.text_sync_enabled = has("text_sync_enabled").checked;
-  if (has("icu_description_enabled")) pub.icu_description_enabled = has("icu_description_enabled").checked;
   // New workouts public = published by themselves; only me = you tick Publish (#114).
   if (has("new_workouts")) pub.auto_publish = publication.querySelector("[name=new_workouts]:checked")?.value === "public";
   if (has("publication_language")) pub.language = has("publication_language").value;

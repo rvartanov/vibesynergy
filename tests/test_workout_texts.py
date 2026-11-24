@@ -172,7 +172,7 @@ def test_the_private_text_never_reaches_anything_public(runtime):
 
 
 def test_the_private_text_is_not_in_the_published_description(runtime, monkeypatch):
-    from test_publication_mirror import FakeStrava
+    from test_publication_targets import FakeStrava
 
     from vibesynergy.query import publication, publication_plugins
 

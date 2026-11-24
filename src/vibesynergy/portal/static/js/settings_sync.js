@@ -1,5 +1,5 @@
-// Settings → Sync between sources (split from pages/settings.js): what VibeSynergy
-// writes from one service to another (publication, calendars, agent links).
+// Settings → Publishing and sync (split from pages/settings.js): what VibeSynergy
+// writes from one service to another (publishing workouts, calendars).
 import { ago, esc, number } from "./format.js";
 import { language, N, t } from "./i18n.js";
 import { select } from "./settings_pieces.js";
@@ -19,62 +19,71 @@ const QUOTE_SOURCES = {
   maxims: [N("Maxims"), N("La Rochefoucauld")],
 };
 
-// Settings → Sync between sources: what VibeSynergy writes from one service to another.
+// Settings → Publishing and sync: what VibeSynergy writes from one service to another.
 export function statusLine(tone, text) {
   return `<li><span class="chip ${tone}">${esc(tone === "good" ? t("OK") : t("Needs action"))}</span> ${text}</li>`;
 }
 
+const PLATFORM = { strava: "Strava", garmin: "Garmin" };
+
+// One line per place under "Publish to" (#175): connected, may write, last synced and
+// the workouts that need a look, with a link to the first one.
+function targetLine(platform, login, pub) {
+  const sources = `<a href="#/settings/sources">${t("Connect in Sources")}</a>`;
+  if (login?.state !== "logged in") {
+    const text = platform === "strava" ? t("Strava is not connected.") : t("Garmin is not connected.");
+    return statusLine("warning", `${esc(text)} ${sources}`);
+  }
+  if (platform === "strava" && login.write_access !== "granted") {
+    return statusLine("warning", `${esc(t("Strava is connected, but VibeSynergy may not edit descriptions. Sign in to Strava again and allow uploads."))} <a href="#/settings/sources">${t("Sources")}</a>`);
+  }
+  const ok = platform === "strava"
+    ? t("Strava is connected and VibeSynergy may edit descriptions.")
+    : t("Garmin is connected and VibeSynergy may edit descriptions.");
+  const last = pub.last_at
+    ? t("Last synced {when}.", { when: ago(pub.last_at) })
+    : t("Nothing published here yet.");
+  if (!pub.needs_review) return statusLine("good", `${esc(ok)} ${esc(last)}`);
+  const look = pub.needs_review === 1
+    ? t("1 workout needs a look.")
+    : t("{n} workouts need a look.", { n: number(pub.needs_review) });
+  const link = pub.review_activity
+    ? ` <a href="#/activity/${encodeURIComponent(pub.review_activity)}">${t("Open the workout")}</a>`
+    : "";
+  return statusLine("warning", `${esc(ok)} ${esc(last)} ${esc(look)}${link}`);
+}
+
 export function publicationStatus(s) {
   const byId = Object.fromEntries(s.sources.map((src) => [src.id, src]));
-  const strava = byId.strava?.login;
-  const garmin = byId.garmin?.login;
   const pub = s.cross_sync?.publication || {};
-  const lines = [];
-  if (strava?.state !== "logged in") {
-    lines.push(statusLine("warning", `${esc(t("Strava is not connected."))} <a href="#/settings/sources">${t("Connect in Sources")}</a>`));
-  } else if (strava.write_access !== "granted") {
-    lines.push(statusLine("warning", `${esc(t("Strava is connected, but VibeSynergy may not edit descriptions. Sign in to Strava again and allow uploads."))} <a href="#/settings/sources">${t("Sources")}</a>`));
-  } else {
-    lines.push(statusLine("good", esc(t("Strava is connected and VibeSynergy may edit descriptions."))));
+  const targets = s.publication?.targets || ["strava", "garmin"];
+  const lines = targets.map((platform) => targetLine(platform, byId[platform]?.login, pub[platform] || {}));
+  // The figures come from Garmin even when nothing is published there.
+  if (!targets.includes("garmin") && byId.garmin?.login?.state !== "logged in") {
+    lines.push(statusLine("warning", `${esc(t("Garmin is not connected, so there are no figures to publish."))} <a href="#/settings/sources">${t("Connect in Sources")}</a>`));
   }
-  if (garmin?.state === "logged in") lines.push(statusLine("good", esc(t("Garmin is connected."))));
-  else lines.push(statusLine("warning", `${esc(t("Garmin is not connected, so there are no figures to publish."))} <a href="#/settings/sources">${t("Connect in Sources")}</a>`));
-  const auto = s.publication?.auto || {};
-  if (auto.enabled) lines.push(statusLine("good", esc(t("New activities are published by themselves."))));
-  const texts = s.publication?.text_sync || {};
-  if (texts.enabled) lines.push(statusLine("good", esc(t("Names, public texts and gear are kept the same on Strava and Garmin."))));
-  if (texts.needs_review) {
-    lines.push(statusLine("warning", `${esc(t("{n} workouts are no longer synced because their description needs a look. Publish them again from their page.", { n: number(texts.needs_review) }))}${texts.problem ? ` <details><summary>${t("Details")}</summary><span class="sub">${esc(texts.problem)}</span></details>` : ""}`));
-  }
-  if (auto.needs_review) {
-    lines.push(statusLine("warning", `${esc(t("{n} activities were not published. Open them and publish from their page.", { n: number(auto.needs_review) }))}${auto.problem ? ` <details><summary>${t("Details")}</summary><span class="sub">${esc(auto.problem)}</span></details>` : ""}`));
-  }
-  const last = pub.strava?.last_at
-    ? t("Last published on Strava {when}.", { when: ago(pub.strava.last_at) })
-    : t("Nothing has been published on Strava yet.");
-  const problem = pub.problem || pub.conflicts
-    ? `<p class="sub">${esc(t("The last copy to Garmin needs a look. Open the activity and preview it again."))}</p>
-      ${pub.problem ? `<details><summary>${t("Details")}</summary><p class="sub">${esc(pub.problem)}</p></details>` : ""}`
-    : "";
-  return `<ul class="sync-status">${lines.join("")}</ul><p>${esc(last)}</p>${problem}`;
+  return `<ul class="sync-status">${lines.join("")}</ul>`;
 }
 
 export function publicationOptions(s) {
   const pub = s.publication;
   const pubLabelDefaults = pub.defaults.labels[language()] || pub.defaults.labels.en;
   const lang = pub.language || pub.auto?.language || language();
+  const targets = pub.targets || ["strava", "garmin"];
   return `<div data-publication>
     <fieldset class="settings-field" aria-describedby="sync-auto-help"><legend>${t("New workouts")}</legend>
       <label class="check"><input type="radio" name="new_workouts" value="public"${pub.auto_publish ? " checked" : ""}> ${t("Public: published by themselves")}</label>
       <label class="check"><input type="radio" name="new_workouts" value="only_me"${pub.auto_publish ? "" : " checked"}> ${t("Only me: you publish them yourself")}</label>
-      <p class="sub" id="sync-auto-help">${t("Public: a new Garmin activity gets its figures on Strava within about 15 minutes, and the Publish tick on the workout starts on. Only me: nothing is published until you tick Publish on the workout. Who can see the activity on Strava itself is still set on Strava. Activities from before you choose Public stay as they are.")}</p>
+      <p class="sub" id="sync-auto-help">${t("Public: a new workout is published within about 15 minutes, and the Publish tick on the workout starts on. Only me: nothing is published until you tick Publish on the workout. Who can see the activity on Strava itself is still set on Strava. Workouts from before you choose Public stay as they are.")}</p>
     </fieldset>
-    <div class="settings-grid"><label>${t("Language of the text")} <select class="btn" name="publication_language">${[["nl", "Nederlands"], ["en", "English"]].map(([v, label]) => `<option value="${v}"${v === lang ? " selected" : ""}>${label}</option>`).join("")}</select></label></div>
-    <label class="check"><input type="checkbox" name="garmin_mirror_enabled" aria-describedby="sync-mirror-help"${pub.garmin_mirror_enabled !== false ? " checked" : ""}> ${t("Copy the Strava text to Garmin too")}</label>
-    <p class="sub" id="sync-mirror-help">${t("Garmin gets the same text and title as Strava, and follows your edits on Strava for 7 days. When off, publishing stays on Strava.")}</p>
-    <label class="check"><input type="checkbox" name="text_sync_enabled" aria-describedby="sync-texts-help"${pub.text_sync_enabled ? " checked" : ""}> ${t("Keep name, texts and gear the same on Strava and Garmin")}</label>
-    <p class="sub" id="sync-texts-help">${t("A published workout gets the same name, public text and gear in VibeSynergy, on Strava and on Garmin. Change it in one place and the others follow within a few minutes; every version stays in the workout's history. Strava takes one bike or pair of shoes, Garmin the gear you matched on the Gear page; swim gear such as a pull buoy stays in VibeSynergy. Your private text is never sent. Who can see the activity on Strava stays set on Strava.")} <a href="#/gear">${t("Match your gear")}</a></p>
+    <fieldset class="settings-field" aria-describedby="sync-targets-help"><legend>${t("Publish to")}</legend>
+      ${["strava", "garmin"].map((p) => `<label class="check"><input type="checkbox" name="publish_target" value="${p}"${targets.includes(p) ? " checked" : ""}> ${PLATFORM[p]}</label>`).join("")}
+      <p class="sub" id="sync-targets-help">${t("A published workout gets VibeSynergy's section on each place you tick, below the text that is already there.")}</p>
+    </fieldset>
+    <label class="check"><input type="checkbox" name="text_sync_enabled" aria-describedby="sync-texts-help"${pub.text_sync_enabled ? " checked" : ""}> ${t("Keep name, texts and gear the same everywhere")}</label>
+    <p class="sub" id="sync-texts-help">${t("A published workout gets the same name, public text and gear in VibeSynergy and on the places you publish to. Change it in one place and the others follow within a few minutes; every version stays in the workout's history. Strava takes one bike or pair of shoes, Garmin the gear you matched on the Gear page; swim gear such as a pull buoy stays in VibeSynergy. Your private text is never sent. Who can see the activity on Strava stays set on Strava.")} <a href="#/gear">${t("Match your gear")}</a></p>
     <details><summary>${t("What goes in the text")}</summary>
+      <div class="settings-grid"><label>${t("Language of the text")} <select class="btn" name="publication_language">${[["nl", "Nederlands"], ["en", "English"]].map(([v, label]) => `<option value="${v}"${v === lang ? " selected" : ""}>${label}</option>`).join("")}</select></label></div>
       <label class="check"><input type="checkbox" name="quote_enabled"${pub.quote_enabled ? " checked" : ""}> ${t("Add a sourced quote")}</label>
       <label class="check"><input type="checkbox" name="weather_enabled"${pub.weather_enabled ? " checked" : ""}> ${t("Add the weather during the activity")}</label>
       <fieldset class="settings-field"><legend>${t("Where quotes are fetched")}</legend>
@@ -116,14 +125,10 @@ export function calendarStatus(s) {
 
 export function syncTabHtml(s) {
   return `<section class="card" data-sync-publication>
-      <h2>${t("Garmin → Strava")}</h2>
-      <p class="sub">${t("VibeSynergy adds your Garmin figures to the activity description on Strava, below your own text. You can also publish one activity from its page.")}</p>
+      <h2>${t("Publish workouts")}</h2>
+      <p class="sub">${t("Your workouts are VibeSynergy's. When you publish one, VibeSynergy keeps its name, public text, statistics and gear the same on Strava and Garmin.")}</p>
       ${publicationStatus(s)}
       ${publicationOptions(s)}
-    </section>
-    <section class="card">
-      <h2>${t("AI coach after a workout")}</h2>
-      <p class="sub">${t("Your AI coach's links (webhooks) and running your AI coach on the API are under Coach → Settings.")} <a href="#/coach/settings">${t("Open the coach settings")}</a></p>
     </section>
     <section class="card" data-sync-calendar>
       <h2>${t("Garmin → calendar")}</h2>

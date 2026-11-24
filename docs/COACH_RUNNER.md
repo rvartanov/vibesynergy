@@ -578,7 +578,7 @@ still works: a run with "brick" in its name and that day's ride.
 3. Per task, choose the provider and model when you want another than the default.
 4. Turn off the routines in your AI app that do the same jobs ("Coach
    ochtend", "Coach avond", "Coach weekreview", "Coach na training"), and switch off the
-   "AI coach after a workout" webhook link in Settings → Sync between sources. Otherwise both
+   webhook link in Coach → Settings. Otherwise both
    run: the entries stay single (same idempotency keys) but you pay twice and get two
    messages.
 5. Watch the first day: Coach → Settings shows the last run per job and this month's usage.

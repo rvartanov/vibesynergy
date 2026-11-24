@@ -1,10 +1,10 @@
 """A Garmin copy removed on Garmin (#151): marked, kept, and no longer a live source.
 
 As on 21-11-2026: Zwift's upload (here ``garmin:1``, the group's own id) was deleted on
-Garmin while the watch's copy (``garmin:3``) stayed. The mirror retargets to the copy that is
-left, and stops retrying the one that is gone. Every provider is synthetic."""
+Garmin while the watch's copy (``garmin:3``) stayed. Publishing to Garmin (#175) goes to the
+copy that is left, and never tries the one that is gone again. Every provider is synthetic."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 from garminconnect import GarminConnectNotFoundError
@@ -12,20 +12,18 @@ from sqlalchemy import select
 from test_evidence import START
 from test_publication_dup_garmin import zwift_and_watch
 from test_publication_insight import PUBLIC, write
-from test_publication_mirror import FakeStrava
+from test_publication_targets import FakeStrava
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.query import (
     publication,
     publication_auto,
     publication_format,
-    publication_mirror,
     publication_plugins,
     source_removed,
     views,
 )
 from vibesynergy.store.schema import activity
-from vibesynergy.store.schema import publication_mirror as mirror_table
 from vibesynergy.sync.engine import DatasetResult
 
 
@@ -85,36 +83,22 @@ def publish(runtime):
     )
 
 
-def watch(runtime):
-    with runtime.engine.connect() as conn:
-        return conn.execute(select(mirror_table)).mappings().one()
-
-
-def test_mirror_retargets_to_the_copy_that_is_left_and_stops_retrying(runtime, ride):
-    strava, garmin = ride
+def test_publishing_goes_to_the_copy_that_is_left_and_stops_retrying(runtime, ride):
+    _strava, garmin = ride
     assert publication_format.copy_id(runtime, "garmin:1", "garmin") == "1"  # before
     result = publish(runtime)
-    assert result["mirror"]["state"] == "watching" and "error" not in result["mirror"]
-    assert result["mirror"]["garmin"] == "updated"
-    assert result["mirror"]["garmin_removed"] == ["1"]
+    assert result["others"]["garmin"] == {"state": "published", "removed": ["1"]}
     assert garmin.writes == ["3"] and PUBLIC in garmin.text["3"]
-    assert garmin.title["3"] == strava.title
     assert source_removed.is_removed(runtime.engine, "garmin", "1")
-    row = watch(runtime)
-    assert row["garmin_id"] == "3" and row["last_error"] is None
     # The choice rule, the Garmin target and the figures all follow the copy that is left.
     assert publication_format.copy_id(runtime, "garmin:1", "garmin") == "3"
     assert publication._source_id(runtime, "garmin:1", "garmin") == "3"
     assert publication_format.garmin_fields(runtime, "garmin:1")["training_load"] == 59.0
-    # Next checks: no more attempts on the removed copy, no errors.
+    # Publishing again: no more attempts on the removed copy, no errors.
     garmin.reads.clear()
-    for minutes in (30, 60):
-        summary = publication_mirror.run(
-            runtime, now=datetime.now(UTC) + timedelta(minutes=minutes)
-        )
-        assert summary["failed"] == 0 and summary["checked"] == 1
+    again = publication.publish_others(runtime, "garmin:1", "strava", language="nl")
+    assert again == {"garmin": {"state": "unchanged"}}
     assert "1" not in garmin.reads
-    assert watch(runtime)["last_error"] is None
 
 
 def test_the_removed_copy_keeps_its_row_and_shows_on_the_workout_page(runtime, ride):
@@ -130,17 +114,15 @@ def test_the_removed_copy_keeps_its_row_and_shows_on_the_workout_page(runtime, r
     assert detail["activity"]["group_id"] == "garmin:1"  # the group and its history stay
 
 
-def test_without_a_garmin_copy_left_the_mirror_ends_quietly(runtime, ride):
+def test_without_a_garmin_copy_left_publishing_ends_quietly(runtime, ride):
     _, garmin = ride
     garmin.alive.clear()
     result = publish(runtime)
-    assert result["mirror"]["garmin"] == "not_linked"
-    assert result["mirror"]["garmin_removed"] == ["1", "3"]
+    assert result["state"] == "verified" and "others" not in result
     assert not publication_format.has_garmin(runtime, "garmin:1")
     reads = len(garmin.reads)
-    summary = publication_mirror.run(runtime, now=datetime.now(UTC) + timedelta(minutes=30))
-    assert summary["failed"] == 0 and len(garmin.reads) == reads
-    assert watch(runtime)["garmin_id"] is None
+    assert publication.publish_others(runtime, "garmin:1", "strava", language="nl") == {}
+    assert len(garmin.reads) == reads
 
 
 def test_auto_publish_targets_the_live_copy(runtime, ride):

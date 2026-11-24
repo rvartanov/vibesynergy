@@ -11,7 +11,7 @@ from test_evidence import START, put
 from test_publication import garmin_activity
 from test_publication_auto import NOW, switch_on
 from test_publication_insight import PUBLIC, write
-from test_publication_mirror import FakeGarmin, FakeStrava
+from test_publication_targets import FakeGarmin, FakeStrava
 
 from vibesynergy.query import (
     annotations,

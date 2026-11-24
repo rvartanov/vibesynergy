@@ -4,7 +4,7 @@ VibeSynergy emits small versioned events, ``{"type", "version", "id", "occurred_
 that carry ids and non-sensitive facts only. An agent reads the details and writes back over
 MCP (``vibesynergy_activity_insights``, ``vibesynergy_coach_write``), so nothing here depends on one
 AI provider. Agents either poll (``vibesynergy_events`` over MCP, ``recent``) or subscribe a
-webhook in Settings → Sync between sources.
+webhook in Coach → Settings.
 
 ``activity.ready`` is the first type. New activities are watched after every derive
 (``observe``) and become ready once nothing merged into them for ``DEBOUNCE``, so the Garmin

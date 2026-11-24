@@ -1,34 +1,40 @@
 WEBVTT
 
-00:00:04.101 --> 00:00:07.840
+00:00:06.179 --> 00:00:09.998
 Settings → Sources: connect Garmin, Strava, Withings, intervals.icu or a calendar.
 
-00:00:07.890 --> 00:00:11.007
+00:00:10.048 --> 00:00:13.197
 Garmin: sign in with your Garmin account and choose 'Connect Garmin'.
 
-00:00:11.057 --> 00:00:14.141
+00:00:13.247 --> 00:00:16.365
 'Update now' fetches the latest data right away.
 
-00:00:14.191 --> 00:00:18.809
+00:00:16.415 --> 00:00:21.182
 The mark in front of the name shows on your watch which workouts come from VibeSynergy.
 
-00:00:18.859 --> 00:00:22.543
+00:00:21.232 --> 00:00:24.949
 Or choose a mark per workout type; the defaults are filled in.
 
-00:00:22.593 --> 00:00:29.839
+00:00:24.999 --> 00:00:32.659
 Multisport gets the marks of its sports, or one mark of its own.
 
-00:00:29.889 --> 00:00:35.105
+00:00:32.709 --> 00:00:37.958
 intervals.icu gets a copy of your plan. Here you see the last copy and what was copied; your messages only list real plan changes.
 
-00:00:35.155 --> 00:00:39.598
+00:00:38.008 --> 00:00:42.667
 Older data? Import the export zip from Garmin or Strava.
 
-00:00:39.648 --> 00:00:43.336
-Sync: what VibeSynergy writes back, such as a summary in Strava.
+00:00:42.717 --> 00:00:46.860
+Publishing and sync: what VibeSynergy writes out. Your workouts are VibeSynergy's; publish one and it stays the same everywhere.
 
-00:00:43.386 --> 00:00:47.271
+00:00:46.910 --> 00:00:50.840
 New workouts: public (published by themselves) or only me (you tick Publish yourself).
 
-00:00:47.321 --> 00:00:54.064
-Keep name, texts and gear the same: a published workout has the same name, public text and gear everywhere. Off by default.
+00:00:50.890 --> 00:00:55.053
+Publish to: Strava, Garmin or both. Each place keeps its own text, with VibeSynergy's section below it.
+
+00:00:55.103 --> 00:01:00.510
+Keep name, texts and gear the same everywhere: a published workout has the same name, public text and gear everywhere. Off by default.
+
+00:01:00.560 --> 00:01:08.380
+What goes in the text: language, quote, weather and the block's markers.

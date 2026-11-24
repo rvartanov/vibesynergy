@@ -16,12 +16,11 @@ Nothing here is reachable from a share link (``portal/share.py`` lists the route
 page may read, and these are not among them).
 
 What the tick does now: publishing writes VibeSynergy's section (the insight, the statistics
-and the optional weather and quote) into the Strava description, below the text that is
-already there, and copies that description to Garmin when the Garmin copy is on. Without a
-Strava copy it writes the section into the Garmin description. With "Sync names and texts
-with Strava and Garmin" on (``text_sync``), the name and the public text of a published
-workout are kept the same on Strava and Garmin as well; without it they are not sent. The
-private part is never sent.
+and the optional weather and quote) into the description on every place under "Publish to"
+(Strava and/or Garmin, #175) that has a copy of the workout, below the text that is already
+there. With "Keep name, texts and gear the same everywhere" on (``text_sync``), the name, the
+public text and the gear of a published workout are kept the same there as well; without it
+they are not sent. The private part is never sent.
 """
 
 from __future__ import annotations
@@ -69,14 +68,21 @@ def _start(rt, group: str) -> datetime | None:
         )
 
 
-def _destination(rt, group: str) -> tuple[str | None, str | None]:
-    """Where the tick publishes: Strava (one copy), else Garmin; None when neither fits."""
-    for destination in ("strava", "garmin"):
+def _destinations(rt, group: str) -> list[tuple[str, str]]:
+    """The places under "Publish to" with one copy of the workout, Strava first."""
+    out = []
+    for destination in publication.targets(rt):
         try:
-            return destination, publication._source_id(rt, group, destination)
+            out.append((destination, publication._source_id(rt, group, destination)))
         except publication.Conflict:
             continue
-    return None, None
+    return out
+
+
+def _destination(rt, group: str) -> tuple[str | None, str | None]:
+    """Where the tick publishes first (the others follow); None when no place fits."""
+    found = _destinations(rt, group)
+    return found[0] if found else (None, None)
 
 
 def publish_state(rt, activity_id: str, *, now: datetime | None = None) -> dict[str, Any]:
@@ -88,14 +94,16 @@ def publish_state(rt, activity_id: str, *, now: datetime | None = None) -> dict[
     single Strava or Garmin copy to publish to). ``default`` is the setting for new workouts:
     ``public`` or ``only_me``."""
     group = views.resolve_activity(rt.engine, activity_id)
-    destination, source_id = _destination(rt, group)
+    found = _destinations(rt, group)
+    destination, source_id = found[0] if found else (None, None)
     default = "public" if publication_auto.enabled(rt) else "only_me"
     from vibesynergy.query import text_sync
 
     out: dict[str, Any] = {
         "destination": destination,
+        # Every place the tick publishes to (#175): the first one, then the others.
+        "destinations": [d for d, _ in found],
         "default": default,
-        "mirror": destination == "strava" and _mirror_on(rt),
         # The name and public text go to Strava and Garmin only with this sync on (phase 3).
         "texts_synced": text_sync.enabled(rt),
         "strava_private": _strava_private(rt, source_id) if destination == "strava" else False,
@@ -108,10 +116,8 @@ def publish_state(rt, activity_id: str, *, now: datetime | None = None) -> dict[
     if ledger and ledger["state"] in ("pending", "removing"):
         return {**out, "state": "busy", "checked": ledger["state"] == "pending"}
     start = _start(rt, group)
-    if (
-        destination == "strava"
-        and start is not None
-        and publication_auto.will_publish(rt, source_id, start, now=now)
+    if start is not None and publication_auto.will_publish(
+        rt, destination, source_id, start, now=now
     ):
         return {**out, "state": "automatic", "checked": True}
     return {**out, "state": "off", "checked": False}
@@ -132,12 +138,6 @@ def _strava_private(rt, source_id: str | None) -> bool:
         )
     extra = extra if isinstance(extra, dict) else {}
     return extra.get("private") is True or extra.get("visibility") == "only_me"
-
-
-def _mirror_on(rt) -> bool:
-    from vibesynergy.query import publication_mirror
-
-    return publication_mirror.enabled(rt)
 
 
 def _insight_versions(rt, group: str) -> list[dict[str, Any]]:
@@ -272,18 +272,30 @@ def set_published(
                 rt, group, destination, item["preview_version"], language=language, client=client
             )
         elif item["state"] == "ready":
-            result = {"state": "verified", "destination": destination}
+            result = {
+                "state": "verified",
+                "destination": destination,
+                "others": publication.publish_others(rt, group, destination, language=language),
+            }
         if publish_state(rt, group)["state"] == "published":
             # Published from VibeSynergy: the first insight follows when there is none (#114).
             from vibesynergy.coach_runner import insight_rewrite
 
             insight_rewrite.after_publish(rt, group)
     else:
-        if destination == "strava":
-            publication_auto.keep_private(rt, source_id, now=datetime.now(UTC))
-        if publication._ledger(rt, destination, source_id):
-            item = publication.preview(rt, group, destination, language=language, client=client)
+        publication_auto.keep_private(rt, destination, source_id, now=datetime.now(UTC))
+        # Removed where it is, the others follow (also a place no longer under "Publish to").
+        for platform in ("strava", "garmin"):
+            try:
+                found_id = publication._source_id(rt, group, platform)
+            except publication.Conflict:
+                continue
+            if not publication._ledger(rt, platform, found_id):
+                continue
+            mine = client if platform == destination else None
+            item = publication.preview(rt, group, platform, language=language, client=mine)
             result = publication.unpublish(
-                rt, group, destination, item["preview_version"], language=language, client=client
+                rt, group, platform, item["preview_version"], language=language, client=mine
             )
+            break
     return {"result": result, "publish": publish_state(rt, group)}

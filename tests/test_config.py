@@ -58,7 +58,7 @@ def test_retired_publication_keys_are_ignored_with_one_warning(
     path = tmp_path / "config.toml"
     path.write_text(
         '[publication]\ninsight_enabled = false\nlabel_insight = "bad: label"\n'
-        "quote_enabled = false\n"
+        "icu_description_enabled = true\nquote_enabled = false\n"
     )
     with caplog.at_level("WARNING", logger="vibesynergy.core.config"):
         first = load_settings(path)
@@ -68,4 +68,5 @@ def test_retired_publication_keys_are_ignored_with_one_warning(
     assert warnings == [
         "[publication] insight_enabled is ignored; nothing uses it any more",
         "[publication] label_insight is ignored; nothing uses it any more",
+        "[publication] icu_description_enabled is ignored; nothing uses it any more",
     ]

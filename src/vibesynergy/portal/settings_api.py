@@ -23,7 +23,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from vibesynergy import alerts, bugs, dropfolder, mailer
 from vibesynergy.api import oauth as mcp_oauth
 from vibesynergy.core import config_edit
-from vibesynergy.core.config import DEFAULT_PORTAL_PORT, ConfigError, load_settings
+from vibesynergy.core.config import (
+    DEFAULT_PORTAL_PORT,
+    ConfigError,
+    load_settings,
+    publication_targets,
+)
 from vibesynergy.core.secrets import SecretStore
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.derive.unify import DEFAULT_BEST_SOURCE
@@ -492,9 +497,8 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 # On by default; a saved false switches one off.
                 "quote_enabled": bool(on_disk.publication.get("quote_enabled", True)),
                 "weather_enabled": bool(on_disk.publication.get("weather_enabled", True)),
-                "garmin_mirror_enabled": bool(
-                    on_disk.publication.get("garmin_mirror_enabled", True)
-                ),
+                # "Publish to" (#175): an older file's Garmin copy switch reads as Garmin.
+                "targets": publication_targets(on_disk.publication),
                 "text_sync_enabled": on_disk.publication.get("text_sync_enabled") is True,
                 "text_sync": text_sync.status(rt),
                 "quote_themes": on_disk.publication.get("quote_themes", list(THEMES)),
@@ -563,7 +567,7 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "effective": str(dropfolder.folder(on_disk)),
             },
             "thresholds": _threshold_summary(rt.engine),
-            "cross_sync": cross_sync.overview(rt.engine),
+            "cross_sync": cross_sync.overview(rt.engine, publication_auto.attempts(rt)),
             "restart_needed": _differs(settings, on_disk),
             "restart_tabs": restart_tabs(settings, on_disk),
             "can_restart": systemd_unit() is not None,

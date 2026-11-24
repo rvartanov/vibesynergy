@@ -1,23 +1,26 @@
-"""Garmin → Strava without a click: publish new activities by themselves.
+"""Publish new workouts by themselves ("New workouts: public").
 
 Until October 2026 an external coach published each new activity over MCP. When it was
 retired nothing called the publication any more, so Strava descriptions stopped getting
 the Garmin figures although every part of the chain still worked.
 
-With ``[publication] auto_publish = true`` (switched on in Settings → Sync between sources)
-the scheduler looks for new activities every 5 minutes. A candidate:
+With ``[publication] auto_publish = true`` (switched on in Settings → Publishing and sync)
+the scheduler looks for new activities every 5 minutes. Where it publishes first is the
+first place under "Publish to" (``publication.targets``, #175): Strava when it is chosen,
+else Garmin. A candidate:
 
 - started after the switch went on (``auto_publish_since``) and within the last two days,
   and at least ``SETTLE`` ago, so Garmin's figures are in;
-- has exactly one Strava copy and a Garmin copy in the unified activity (with several Garmin
-  copies, such as Zwift's upload and the watch recording, the one the figures come from), or
-  only one Strava copy and still no Garmin copy ``WAIT_FOR_GARMIN`` after it ended (its block
-  then carries whatever Strava has);
-- has no publication ledger row on Strava yet (published by hand, or already done).
+- with Strava chosen: has exactly one Strava copy and a Garmin copy in the unified activity
+  (with several Garmin copies, such as Zwift's upload and the watch recording, the one the
+  figures come from), or only one Strava copy and still no Garmin copy ``WAIT_FOR_GARMIN``
+  after it ended (its block then carries whatever Strava has); with only Garmin chosen: one
+  Garmin copy;
+- has no publication ledger row there yet (published by hand, or already done).
 
 Each candidate goes through the same guarded path as the Publish button: preview, publish
-with that preview version, read-back and the ledger checkpoint, then the Garmin copy when
-that is on. A description that already holds a VibeSynergy section or changed under a pending
+with that preview version, read-back and the ledger checkpoint, then the other place under
+"Publish to". A description that already holds a VibeSynergy section or changed under a pending
 write is a conflict: that activity is left for review and never retried. Other failures are
 retried with growing gaps, at most ``MAX_TRIES`` times. Strava's rate limit ends the run.
 Attempts are kept in the ``publication`` secret store (no description text).
@@ -31,8 +34,11 @@ evening routine or the run publishing starts (#114). Each run therefore also loo
 activities verified on Strava (by this run, the Publish tick or a publish tool) whose block
 lacks the coach's current insight (or still shows a withdrawn one), in the same window or
 rewritten by the AI coach within it, and publishes them again through that same path: only
-the VibeSynergy block is replaced, the Garmin mirror follows, and each update gets a
+the VibeSynergy block is replaced, the other place under "Publish to" follows, and each
+update gets a
 ``publication.insight`` audit row. This runs whether or not new workouts are public.
+
+Attempts are keyed by the Strava id (as before #175) or ``garmin:<id>``.
 """
 
 from __future__ import annotations
@@ -104,8 +110,29 @@ def attempts(rt) -> dict[str, dict[str, Any]]:
     return dict(_store(rt).get(STATE) or {})
 
 
+def attempt_key(destination: str, source_id: str) -> str:
+    """Strava attempts keep their plain id (as stored before #175); Garmin's get a prefix."""
+    return str(source_id) if destination == "strava" else f"{destination}:{source_id}"
+
+
+def _first(rt, group: str, refs: list[str], chosen: list[str]) -> tuple[str, str] | None:
+    """Where this run publishes the workout first: Strava when chosen and there is one
+    Strava copy, else Garmin when only Garmin is chosen. None: nowhere (yet)."""
+    from vibesynergy.query import publication_format
+
+    strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
+    garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
+    if "strava" in chosen:
+        return ("strava", strava[0]) if len(strava) == 1 else None
+    if "garmin" in chosen:
+        if len(garmin) > 1:  # Zwift's upload and the watch: the copy the figures come from
+            garmin = [g for g in [publication_format.copy_id(rt, group, "garmin")] if g]
+        return ("garmin", garmin[0]) if len(garmin) == 1 else None
+    return None
+
+
 def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
-    from vibesynergy.query import publication_format, source_removed
+    from vibesynergy.query import publication, publication_format, source_removed
 
     if not enabled(rt):
         return []
@@ -133,26 +160,25 @@ def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
             .all()
         )
         published = set(
-            conn.execute(
-                select(publication_ledger.c.source_id).where(
-                    publication_ledger.c.source == "strava"
-                )
-            ).scalars()
+            conn.execute(select(publication_ledger.c.source, publication_ledger.c.source_id)).all()
         )
         gone = source_removed.removed(conn, [r for row in rows for r in row["sources"] or []])
+    chosen = publication.targets(rt)
     tried = attempts(rt)
     out = []
     for row in rows:
         refs = [r for r in row["sources"] or [] if r not in gone]  # live copies only (#151)
+        first = _first(rt, row["group_id"], refs, chosen)
+        if first is None or first in published:
+            continue
+        destination, source_id = first
         strava = [r.split(":", 1)[1] for r in refs if r.startswith("strava:")]
         garmin = [r.split(":", 1)[1] for r in refs if r.startswith("garmin:")]
-        if len(strava) != 1 or strava[0] in published:
-            continue
         if len(garmin) > 1:  # Zwift's upload and the watch: the copy the figures come from
             garmin = [publication_format.copy_id(rt, row["group_id"], "garmin")]
         if not garmin and not _no_garmin_coming(row, now):
             continue
-        seen = tried.get(strava[0]) or {}
+        seen = tried.get(attempt_key(destination, source_id)) or {}
         if seen.get("state") in DONE:
             continue
         retry_at = seen.get("retry_at")
@@ -161,7 +187,9 @@ def candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any]]:
         out.append(
             {
                 "group_id": row["group_id"],
-                "strava_id": strava[0],
+                "destination": destination,
+                "source_id": source_id,
+                "strava_id": strava[0] if len(strava) == 1 else None,
                 "garmin_id": garmin[0] if garmin else None,
             }
         )
@@ -194,7 +222,7 @@ def refresh_candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any
     Publish tick started, after the activity was published; a withdrawn insight removes the
     line again.
     """
-    from vibesynergy.query import publication_insight
+    from vibesynergy.query import publication, publication_insight, source_removed
 
     now = now or datetime.now(UTC)
     floor = now - LOOKBACK
@@ -213,35 +241,49 @@ def refresh_candidates(rt, *, now: datetime | None = None) -> list[dict[str, Any
             .all()
         )
         verified = {
-            row.source_id: row.owned_block
+            (row.source, row.source_id): row.owned_block
             for row in conn.execute(
-                select(publication_ledger.c.source_id, publication_ledger.c.owned_block).where(
-                    publication_ledger.c.source == "strava",
-                    publication_ledger.c.state == "verified",
-                )
+                select(
+                    publication_ledger.c.source,
+                    publication_ledger.c.source_id,
+                    publication_ledger.c.owned_block,
+                ).where(publication_ledger.c.state == "verified")
             )
         }
+        gone = source_removed.removed(conn, [r for row in rows for r in row["sources"] or []])
+    chosen = publication.targets(rt)
     tried = attempts(rt)
     out = []
     for row in rows:
-        strava = [r.split(":", 1)[1] for r in row["sources"] or [] if r.startswith("strava:")]
-        if len(strava) != 1 or strava[0] not in verified:
+        refs = [r for r in row["sources"] or [] if r not in gone]
+        first = _first(rt, row["group_id"], refs, chosen)
+        if first is None or first not in verified:
             continue
-        owned = verified[strava[0]] or ""
+        destination, source_id = first
+        owned = verified[first] or ""
         insight = publication_insight.for_activity(rt.engine, row["group_id"])
         if insight and insight["text"] in owned:
             continue
         if not insight and not _has_insight_line(owned):
             continue
         entry = insight["entry_id"] if insight else None
-        seen = tried.get(f"insight:{strava[0]}") or {}
+        key = attempt_key(destination, source_id)
+        seen = tried.get(f"insight:{key}") or {}
         if seen.get("entry") == entry:
             if seen.get("state") in DONE:
                 continue
             retry_at = seen.get("retry_at")
             if retry_at and datetime.fromisoformat(retry_at) > now:
                 continue
-        out.append({"group_id": row["group_id"], "strava_id": strava[0], "entry_id": entry})
+        out.append(
+            {
+                "group_id": row["group_id"],
+                "destination": destination,
+                "source_id": source_id,
+                "strava_id": source_id if destination == "strava" else None,
+                "entry_id": entry,
+            }
+        )
     return out
 
 
@@ -254,7 +296,7 @@ def due(rt, *, now: datetime | None = None) -> bool:
         return False
 
 
-def _record(rt, strava_id: str, now: datetime, **values: Any) -> None:
+def _record(rt, key: str, now: datetime, **values: Any) -> None:
     store = _store(rt)
     with store.lock("auto"):
         state = dict(store.get(STATE) or {})
@@ -264,8 +306,8 @@ def _record(rt, strava_id: str, now: datetime, **values: Any) -> None:
             for key, entry in state.items()
             if _aware(datetime.fromisoformat(entry.get("at") or now.isoformat())) >= cutoff
         }
-        previous = state.get(strava_id) or {}
-        state[strava_id] = {**previous, **values, "at": now.isoformat()}
+        previous = state.get(key) or {}
+        state[key] = {**previous, **values, "at": now.isoformat()}
         store.set(STATE, state)
 
 
@@ -276,7 +318,7 @@ def _audit(rt, outcome: str, candidate: dict, detail: dict, action="publication.
                 at=utc_now(),
                 actor="vibesynergy",
                 action=action,
-                target=f"strava:{candidate['strava_id']}",
+                target=f"{candidate['destination']}:{candidate['source_id']}",
                 outcome=outcome,
                 detail={"group_id": candidate["group_id"], **detail},
             )
@@ -308,14 +350,16 @@ def _refresh_insights(rt, summary: dict, lang: str, now: datetime, client) -> No
     from vibesynergy.query import publication
 
     for candidate in refresh_candidates(rt, now=now):
-        key = f"insight:{candidate['strava_id']}"
+        destination = candidate["destination"]
+        key = f"insight:{attempt_key(destination, candidate['source_id'])}"
         seen = attempts(rt).get(key) or {}
         same = seen.get("entry") == candidate["entry_id"]
         tries = (int(seen.get("tries", 0)) if same else 0) + 1
         detail = {"entry_id": candidate["entry_id"], "language": lang}
         try:
+            mine = client if destination == "strava" else None
             item = publication.preview(
-                rt, candidate["group_id"], "strava", language=lang, client=client
+                rt, candidate["group_id"], destination, language=lang, client=mine
             )
             if item["state"] != "ready":
                 raise publication.Conflict("Garmin statistics are required before publication")
@@ -323,12 +367,12 @@ def _refresh_insights(rt, summary: dict, lang: str, now: datetime, client) -> No
                 result = publication.publish(
                     rt,
                     candidate["group_id"],
-                    "strava",
+                    destination,
                     item["preview_version"],
                     language=lang,
-                    client=client,
+                    client=mine,
                 )
-                detail["mirror"] = (result.get("mirror") or {}).get("state")
+                detail["others"] = _others(result)
         except RateLimited as exc:
             retry = getattr(exc, "retry_at", None)
             later = retry if isinstance(retry, datetime) and retry > now else now + RETRY
@@ -370,7 +414,9 @@ def _refresh_insights(rt, summary: dict, lang: str, now: datetime, client) -> No
                     action="publication.insight",
                 )
             summary["review" if review else "failed"] += 1
-            log.warning("insight update of %s on Strava: %s", candidate["group_id"], message)
+            log.warning(
+                "insight update of %s on %s: %s", candidate["group_id"], destination, message
+            )
             continue
         _record(
             rt, key, now, entry=candidate["entry_id"], state="published", tries=tries, error=None
@@ -383,11 +429,13 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
     from vibesynergy.query import publication
 
     for candidate in found:
-        key = candidate["strava_id"]
+        destination = candidate["destination"]
+        key = attempt_key(destination, candidate["source_id"])
+        mine = client if destination == "strava" else None
         tries = int((attempts(rt).get(key) or {}).get("tries", 0)) + 1
         try:
             item = publication.preview(
-                rt, candidate["group_id"], "strava", language=lang, client=client
+                rt, candidate["group_id"], destination, language=lang, client=mine
             )
             if item["state"] != "ready":
                 # No Garmin figures yet. Try again later; give up after MAX_TRIES.
@@ -408,10 +456,10 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
             result = publication.publish(
                 rt,
                 candidate["group_id"],
-                "strava",
+                destination,
                 item["preview_version"],
                 language=lang,
-                client=client,
+                client=mine,
             )
         except RateLimited as exc:
             retry = getattr(exc, "retry_at", None)
@@ -436,7 +484,9 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
             if review:
                 _audit(rt, "needs_review", candidate, {"error": message})
             summary["review" if review else "failed"] += 1
-            log.warning("automatic Strava publication of %s: %s", candidate["group_id"], message)
+            log.warning(
+                "automatic publication of %s on %s: %s", candidate["group_id"], destination, message
+            )
             continue
         except Exception as exc:  # network or provider trouble: try again later
             message = f"{type(exc).__name__}: {exc}"[:300]
@@ -452,12 +502,15 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
             )
             summary["failed"] += 1
             log.warning(
-                "automatic Strava publication of %s failed: %s", candidate["group_id"], message
+                "automatic publication of %s on %s failed: %s",
+                candidate["group_id"],
+                destination,
+                message,
             )
             continue
-        mirror = (result.get("mirror") or {}).get("state")
-        _record(rt, key, now, state="published", tries=tries, mirror=mirror, error=None)
-        _audit(rt, "ok", candidate, {"language": lang, "mirror": mirror})
+        others = _others(result)
+        _record(rt, key, now, state="published", tries=tries, others=others, error=None)
+        _audit(rt, "ok", candidate, {"language": lang, "others": others})
         summary["published"] += 1
         # "New workouts: public" is the tick on by itself: the first insight follows (#114).
         from vibesynergy.coach_runner import insight_rewrite
@@ -465,9 +518,16 @@ def _publish_new(rt, found: list, summary: dict, lang: str, now: datetime, clien
         insight_rewrite.after_publish(rt, candidate["group_id"])
 
 
-def will_publish(rt, strava_id: str, start_utc: datetime, *, now: datetime | None = None) -> bool:
-    """Whether the automatic run is still going to publish this Strava copy: switched on
-    (new workouts public), started in its window and not done, left for review or unticked.
+def _others(result: dict) -> dict[str, str]:
+    """Per other place under "Publish to": how it went (``publication._publish_others``)."""
+    return {k: v.get("state") for k, v in (result.get("others") or {}).items()}
+
+
+def will_publish(
+    rt, destination: str, source_id: str, start_utc: datetime, *, now: datetime | None = None
+) -> bool:
+    """Whether the automatic run is still going to publish this copy: switched on (new
+    workouts public), started in its window and not done, left for review or unticked.
     """
     if not enabled(rt):
         return False
@@ -477,12 +537,13 @@ def will_publish(rt, strava_id: str, start_utc: datetime, *, now: datetime | Non
     now = now or datetime.now(UTC)
     if _aware(start_utc) < max(start, now - LOOKBACK):
         return False
-    return (attempts(rt).get(str(strava_id)) or {}).get("state") not in DONE
+    key = attempt_key(destination, source_id)
+    return (attempts(rt).get(key) or {}).get("state") not in DONE
 
 
-def keep_private(rt, strava_id: str, *, now: datetime | None = None) -> None:
+def keep_private(rt, destination: str, source_id: str, *, now: datetime | None = None) -> None:
     """The athlete unticked Publish (#114): the automatic run never publishes it again."""
-    _record(rt, str(strava_id), now or datetime.now(UTC), state=KEPT)
+    _record(rt, attempt_key(destination, source_id), now or datetime.now(UTC), state=KEPT)
 
 
 def status(rt) -> dict[str, Any]:

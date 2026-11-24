@@ -4,12 +4,13 @@ A Garmin copy of an activity can disappear on Garmin (deleted by hand, or Garmin
 dedupe of a Zwift upload next to the watch recording). VibeSynergy keeps the ``activity``
 row and its raw history, and records the removal in ``source_removed``. A removed copy
 leaves the group's *live* sources: the copy choice of #146 (``publication_format._choose``),
-the publication target and the Garmin mirror then use a copy that still exists.
+the publication target and the text sync then use a copy that still exists.
 
 Found in two ways:
 
 - a Garmin read or write answers 404, and one re-check answers 404 again
-  (``publication.GarminProvider``); the mirror then retargets in the same check;
+  (``publication.GarminProvider``); publishing to the other targets then tries the copy
+  that is left in the same call;
 - the light check after a Garmin sync (``check_recent``): a recent activity that VS has but
   that the fresh Garmin activity list no longer holds is asked for once; 404 marks it.
 

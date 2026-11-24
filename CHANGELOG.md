@@ -13,6 +13,18 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Publishing and sync** (#175): Settings → Sync between sources is now **Publishing and
+  sync**, with one card, **Publish workouts**. Choose under **Publish to** where a published
+  workout goes: Strava, Garmin or both (Garmin without Strava works too). Each place keeps its
+  own text with VibeSynergy's section below it; **Keep name, texts and gear the same
+  everywhere** makes the name, text and gear the same. The old "Copy the Strava text to
+  Garmin too" is now the Garmin tick (your choice carries over), and the separate copy that
+  followed Strava for 7 days is gone, so Strava is no longer read twice. One status line per
+  place says whether it is connected, may be written to, when it last synced and which
+  workout needs a look. The language, quote, weather and markers are under **What goes in
+  the text**. The card "AI coach after a workout" left this page; its link is under Coach →
+  Settings.
+
 ## 0.1.0-beta.0.10 – 23-11-2026
 
 - **Gear with one tap** (#114): the workout page suggests the gear you most likely used (the

@@ -752,24 +752,6 @@
                 }
             }
         ],
-        "./src/vibesynergy/query/publication_mirror.py": [
-            {
-                "code": "reportReturnType",
-                "range": {
-                    "startColumn": 11,
-                    "endColumn": 27,
-                    "lineCount": 1
-                }
-            },
-            {
-                "code": "reportAttributeAccessIssue",
-                "range": {
-                    "startColumn": 15,
-                    "endColumn": 26,
-                    "lineCount": 1
-                }
-            }
-        ],
         "./src/vibesynergy/query/publication_plugins.py": [
             {
                 "code": "reportOperatorIssue",

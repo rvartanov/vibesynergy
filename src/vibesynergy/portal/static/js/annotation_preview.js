@@ -28,18 +28,19 @@ function blockedHtml(data) {
   return `${insight}<p class="sub">${esc(t("Not published: {reason}", { reason: blockedMessage(data) }))}</p>`;
 }
 
+// What happened on the other place under "Publish to" (#175), said after the first one.
 function publishResult(destination, data) {
-  const mirror = data?.mirror;
-  if (destination === "strava" && mirror?.error) return t("Published on Strava. Garmin will be tried again.");
-  if (destination === "strava" && mirror?.state === "watching") return t("Published on Strava and copied to Garmin.");
-  if (destination === "strava" && mirror?.state === "disabled") return t("Published on Strava.");
+  const garmin = data?.others?.garmin?.state;
+  if (destination === "strava" && garmin === "failed") return t("Published on Strava. Garmin will be tried again.");
+  if (destination === "strava" && (garmin === "published" || garmin === "unchanged")) return t("Published on Strava and on Garmin.");
+  if (destination === "strava") return t("Published on Strava.");
   return t("Published and checked on the connected service.");
 }
 
 function removeResult(destination, data) {
-  const garmin = data?.mirror?.garmin;
-  if (destination === "strava" && garmin === "failed") return t("Removed on Strava. Garmin still needs another try.");
-  if (destination === "strava" && garmin === "removed") return t("Removed on Strava and on Garmin.");
+  const other = data?.others?.[destination === "strava" ? "garmin" : "strava"]?.state;
+  if (other === "failed" || other === "needs_review") return t("Removed here. The other platform still needs another try.");
+  if (other === "removed") return t("Removed on Strava and on Garmin.");
   return t("VibeSynergy section removed and checked.");
 }
 

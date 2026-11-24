@@ -1319,14 +1319,16 @@ def _sources(r: Rec):
         "Older data? Import the export zip from Garmin or Strava.",
         2.6,
     )
-    r.click(r.pg.get_by_role("link", name="Synchronisatie").first)
+    r.click(r.pg.get_by_role("link", name="Publiceren en sync").first)
     r.say(
-        "Synchronisatie: wat VibeSynergy terugschrijft, zoals een samenvatting in Strava.",
-        "Sync: what VibeSynergy writes back, such as a summary in Strava.",
-        2.8,
+        "Publiceren en sync: wat VibeSynergy naar buiten schrijft. Je trainingen zijn van "
+        "VibeSynergy; publiceer je er een, dan blijft die overal gelijk.",
+        "Publishing and sync: what VibeSynergy writes out. Your workouts are VibeSynergy's; "
+        "publish one and it stays the same everywhere.",
+        3.2,
     )
     fresh = r.pg.locator("fieldset", has_text="Nieuwe trainingen").first
-    r.check(fresh.count() > 0, "Sync should ask how new workouts start")
+    r.check(fresh.count() > 0, "Publishing should ask how new workouts start")
     r.point(fresh)
     r.say(
         "Nieuwe trainingen: openbaar (vanzelf gepubliceerd) of alleen ik "
@@ -1334,15 +1336,33 @@ def _sources(r: Rec):
         "New workouts: public (published by themselves) or only me (you tick Publish yourself).",
         3.0,
     )
-    texts = r.pg.locator("label", has_text="Naam, teksten en materiaal gelijk houden").first
-    r.check(texts.count() > 0, "Sync should offer to keep name, texts and gear the same")
+    where = r.pg.locator("fieldset", has_text="Publiceer naar").first
+    r.check(where.count() > 0, "Publishing should ask where to publish to")
+    r.point(where)
+    r.say(
+        "Publiceer naar: Strava, Garmin of allebei. Elke plek houdt zijn eigen tekst, met het "
+        "blok van VibeSynergy eronder.",
+        "Publish to: Strava, Garmin or both. Each place keeps its own text, with VibeSynergy's "
+        "section below it.",
+        3.2,
+    )
+    texts = r.pg.locator("label", has_text="Naam, teksten en materiaal overal gelijk houden").first
+    r.check(texts.count() > 0, "Publishing should offer to keep name, texts and gear the same")
     r.point(texts)
     r.say(
-        "Naam, teksten en materiaal gelijk houden: een gepubliceerde training heeft overal "
-        "dezelfde naam, openbare tekst en hetzelfde materiaal. Staat standaard uit.",
-        "Keep name, texts and gear the same: a published workout has the same name, public "
-        "text and gear everywhere. Off by default.",
+        "Naam, teksten en materiaal overal gelijk houden: een gepubliceerde training heeft "
+        "overal dezelfde naam, openbare tekst en hetzelfde materiaal. Staat standaard uit.",
+        "Keep name, texts and gear the same everywhere: a published workout has the same name, "
+        "public text and gear everywhere. Off by default.",
         3.4,
+    )
+    what = r.pg.locator("summary", has_text="Wat er in de tekst komt").first
+    r.check(what.count() > 0, "Publishing should keep the text options together")
+    r.click(what)
+    r.say(
+        "Wat er in de tekst komt: taal, citaat, weer en de markeringen van het blok.",
+        "What goes in the text: language, quote, weather and the block's markers.",
+        2.8,
     )
 
 

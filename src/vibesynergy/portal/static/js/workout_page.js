@@ -25,13 +25,14 @@ function sourceLabel(source) {
 // What the tick does now, said plainly per destination.
 function publishHelp(p) {
   if (p.state === "unavailable") return t("Connect a matching Garmin or Strava activity before publishing.");
-  const what = p.destination === "garmin"
-    ? t("Publishing adds the AI-coach insight and the statistics to the description on Garmin, below the text that is already there.")
-    : p.mirror
-      ? t("Publishing adds the AI-coach insight and the statistics to the description on Strava, below the text that is already there, and copies that description to Garmin.")
+  const places = (p.destinations || [p.destination]).filter(Boolean);
+  const what = places.length > 1
+    ? t("Publishing adds the AI-coach insight and the statistics to the description on Strava and on Garmin, below the text that is already there.")
+    : places[0] === "garmin"
+      ? t("Publishing adds the AI-coach insight and the statistics to the description on Garmin, below the text that is already there.")
       : t("Publishing adds the AI-coach insight and the statistics to the description on Strava, below the text that is already there.");
   const texts = p.texts_synced
-    ? t("Once published, the name and your public text are kept the same on Strava and Garmin. Your private part is never sent.")
+    ? t("Once published, the name, your public text and the gear are kept the same everywhere. Your private part is never sent.")
     : t("The name and the texts you write here are not sent.");
   const hidden = p.strava_private
     ? ` ${t("On Strava only you can see this activity. VibeSynergy cannot make it public; change that on Strava.")}`

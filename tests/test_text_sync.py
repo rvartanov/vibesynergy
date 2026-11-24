@@ -19,7 +19,6 @@ from vibesynergy.core.errors import RateLimited
 from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query import (
     publication,
-    publication_mirror,
     publication_plugins,
     text_sync,
     workout_page,
@@ -135,19 +134,19 @@ def test_off_by_default_nothing_is_synced(runtime, fakes):
     strava, garmin = fakes
     assert text_sync.enabled(runtime) is False
     item, result = _publish(runtime)
+    reads = strava.reads
     assert "texts" not in result
-    # As before: the mirror copies the Strava text and title to Garmin, and nothing else.
-    assert garmin.text == f"Strava words\n\n{item['owned_block']}"
-    assert garmin.name == "Morning trail"
+    # Only VibeSynergy's section goes to Garmin (#175): no Strava text, no Strava name.
+    assert garmin.text == item["owned_block"]
+    assert garmin.name == "Amsterdam Hardlopen"
     before = _counts(strava, garmin)
     workout_texts.set_texts(runtime.engine, "garmin:1", name="Nieuw", public="Andere tekst")
     assert text_sync.due(runtime, now=_later(60)) is False
     assert text_sync.run(runtime, now=_later(60))["state"] == "off"
     assert _counts(strava, garmin) == before
     assert "Andere tekst" not in strava.sent() + garmin.sent()
-    reads = strava.reads
-    publication_mirror.run(runtime, now=_later(31))
-    assert strava.reads == reads + 1  # only the mirror's own check
+    # Nothing follows Strava afterwards: the old copy's watch is gone (#175).
+    assert strava.reads == reads
 
 
 def test_the_setting_is_saved_and_off_is_the_default(runtime):
@@ -185,7 +184,7 @@ def test_publishing_merges_both_texts_and_pushes_name_and_text(runtime, fakes):
     assert strava.text == f"Strava words\n\nGarmin words\n\n{owned}"
     assert garmin.text == f"Strava words\n\nGarmin words\n\n{owned}"
     assert strava.text.count(owned) == 1 and garmin.text.count(owned) == 1
-    assert garmin.name == "Morning trail"  # the Strava name, as the mirror did
+    assert garmin.name == "Morning trail"  # the Strava name
     assert SECRET not in strava.sent() + garmin.sent()
     history = workout_texts.history(runtime.engine, "garmin:1", "public")
     assert history[0]["source"] == "strava" and history[0]["author"] == "sync"
@@ -398,7 +397,7 @@ def test_a_hand_edited_block_is_left_for_review(runtime, fakes, synced):
     assert _counts(strava, garmin) == before
 
 
-# --- privacy, rate limits, the mirror, visibility ------------------------------------------
+# --- privacy, rate limits, one sync path, visibility ------------------------------------------
 
 
 def test_the_private_text_never_goes_out(runtime, fakes, synced):
@@ -437,17 +436,12 @@ def test_periodic_reads_stay_within_the_strava_budget(runtime, fakes, synced):
     assert text_sync.due(runtime, now=now + timedelta(days=8)) is False
 
 
-def test_with_the_sync_on_the_mirror_never_overwrites_a_garmin_edit(runtime, fakes, synced):
+def test_the_text_sync_is_the_only_path_that_follows_a_garmin_edit(runtime, fakes, synced):
+    """#175: the old copy no longer reads Strava or writes Garmin next to the text sync."""
     strava, garmin = fakes
     owned, _ = synced
     garmin.text = f"Alleen op Garmin getypt\n\n{owned}"
     garmin.name = "Garmin naam"
-    publication_mirror.run(runtime, now=_later(31))
-    assert garmin.text == f"Alleen op Garmin getypt\n\n{owned}"
-    assert garmin.name == "Garmin naam"
-    with runtime.engine.connect() as conn:
-        mirror_state = conn.execute(select(publication_mirror.publication_mirror.c.state))
-        assert mirror_state.scalar() == "active"
     # The text sync takes the Garmin edit in and passes it to Strava.
     text_sync.run(runtime, now=_later(3 * 60))
     assert strava.name == "Garmin naam"
