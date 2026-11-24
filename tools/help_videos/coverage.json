@@ -21,7 +21,8 @@
     "plan_lines.js",
     "daily_review.js",
     "recovery_summary.js",
-    "daily_advice.js"
+    "daily_advice.js",
+    "workout_ref.js"
   ],
   "quicklog": [
     "quicklog.js"
@@ -53,7 +54,8 @@
     "plan_labels.js",
     "compliance.js",
     "race_phase.js",
-    "pages/training.js"
+    "pages/training.js",
+    "workout_ref.js"
   ],
   "races": [
     "race_events.js"
@@ -75,7 +77,8 @@
   ],
   "coach": [
     "pages/coach.js",
-    "coach_*.js"
+    "coach_*.js",
+    "workout_ref.js"
   ],
   "coach-methods": [
     "coach_knowledge.js",

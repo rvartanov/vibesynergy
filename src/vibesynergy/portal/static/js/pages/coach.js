@@ -15,6 +15,8 @@ import { N, t } from "../i18n.js";
 import { entryTone, sessionsHtml, splitCurrent } from "../coach_message.js";
 import { adviceHtml, adviceLevel, continuityHtml, reportHeadHtml, versionsHtml, viewHeadHtml } from "../daily_advice.js";
 import { isoToday } from "../period_picker.js";
+import { withSportIcon } from "../symbols.js";
+import { workoutRefHtml } from "../workout_ref.js";
 
 const COACH_TIMEOUT_MS = 15000;
 
@@ -471,7 +473,11 @@ function coachEntryHtml(entry, names, { head = true } = {}) {
   const safety = entry.safety_line
     ? `<p class="safety-line">${esc(t(entry.safety_line))}</p>`
     : "";
-  const coach = `<p>${esc(advice)}</p>${caveat ? `<p class="sub">${esc(caveat)}</p>` : ""}${sessionsHtml(entry.meta?.sessions)}`;
+  // A plan change names its session: it links to the activity or opens to its steps (#181).
+  const changed = entry.plan_session
+    ? `<ul class="coach-sessions"><li>${workoutRefHtml(entry.plan_session, { label: (html) => withSportIcon(entry.plan_session.sport, html) })}</li></ul>`
+    : "";
+  const coach = `<p>${esc(advice)}</p>${caveat ? `<p class="sub">${esc(caveat)}</p>` : ""}${sessionsHtml(entry.advice_sessions || entry.meta?.sessions)}${changed}`;
   const body = entry.advice_mode === "safety_override"
     ? `${safety}<details class="coach-note"><summary>${t("Your AI coach's note")}</summary>${coach}</details>`
     : `${safety}${coach}`;

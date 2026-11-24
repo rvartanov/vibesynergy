@@ -608,4 +608,6 @@ def register(kit: PortalKit) -> None:
         for entry in entries:
             entry["replies"] = replies.get(entry.get("id"), [])
             entry["advice_view"] = shown.get(entry.get("id"))
+        # The sessions an advice lists, linked to their workout or activity (#181).
+        advice_view.with_session_links(rt, entries)
         return envelope({"entries": entries})

@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from test_coach_runner import FakeModel, done, tool_use
 from test_evidence import START
 from test_workout_page import WRITE, _client, _fake, _workout
@@ -183,7 +183,12 @@ def test_a_text_change_after_the_insight_gives_one_debounced_rewrite(runtime, mo
     schedule.enqueue_due(runtime, later + timedelta(minutes=1))
     assert len(insight_jobs(runtime)) == 1
     assert insight_rewrite.status(runtime, group, later)["state"] == "rewriting"
-    # The rewrite runs: a redo with its own key; the same state never runs again.
+    # The rewrite runs: a redo with its own key; the same state never runs again. Other
+    # tasks the scheduler found due at this hour (the evening review after 21:00) are no
+    # part of this test: they would run first.
+    mine = {j["id"] for j in insight_jobs(runtime)}
+    with runtime.engine.begin() as conn:
+        conn.execute(delete(job).where(job.c.kind == schedule.JOB, job.c.id.not_in(mine)))
     key = runner.insight_key(group, item["run_key"], redo=True)
     insight_model(
         monkeypatch,

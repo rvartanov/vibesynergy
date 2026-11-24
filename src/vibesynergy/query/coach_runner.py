@@ -171,6 +171,8 @@ def report(rt, entry_id: int, tr=None) -> dict[str, Any]:
     tr = tr or ENGLISH
     shown = advice_view.view(rt, dict(row), tr)
     entry["advice_view"] = shown
+    # The sessions it lists, linked to their workout or activity (#181), read now.
+    advice_view.with_session_links(rt, [entry])
     day = daily_advice.advice_day(dict(row)) if shown and not shown["second_opinion"] else None
     return {
         "entry": entry,

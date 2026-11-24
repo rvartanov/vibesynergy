@@ -30,3 +30,20 @@ test("now holds today and yesterday, plus open proposals of any age", () => {
   assert.deepEqual(current.map((e) => e.id), [1, 2, 4]);
   assert.deepEqual(archive.map((e) => e.id), [3]);
 });
+
+test("a session links to its activity once done, opens to its workout while planned (#181)", () => {
+  const html = sessionsHtml([
+    { title: "Lange rit", decision: "done", activity_id: "g 1/2" },
+    { title: "Duurloop", decision: "keep", note: "rustig", workout: "- 10m Z2" },
+    { title: "Zwemmen", decision: "skip" },
+  ]);
+  assert.match(html, /<a href="#\/activity\/g%201%2F2" data-workout-activity>Lange rit<\/a>/);
+  assert.match(
+    html,
+    /<details class="collapsible workout-ref" data-workout-steps><summary><span>Duurloop <span class="sub">rustig<\/span><\/span><\/summary>/,
+  );
+  assert.match(html, /<ul class="workout-steps"><li>10m /);
+  assert.match(html, /<span class="chip recovery">Skip<\/span> Zwemmen<\/li>/);
+  assert.equal((html.match(/<details/g) || []).length, 1);
+  assert.equal((html.match(/<a /g) || []).length, 1);
+});

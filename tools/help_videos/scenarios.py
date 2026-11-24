@@ -107,9 +107,12 @@ def today(r: Rec):
     # And a badly recorded night, so the sleep check shows (#100).
     _demo("demo_coach_roles.py", "seed")
     _demo("demo_sleep_check.py", "seed")
+    # A small plan, so a workout under Coming up opens to its steps (#181).
+    _demo("demo_workout_links.py", "seed")
     try:
         _today(r)
     finally:
+        _demo("demo_workout_links.py", "clear")
         _demo("demo_sleep_check.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
@@ -238,6 +241,20 @@ def _today(r: Rec):
         "colour and the day it is for. The notice names the same day.",
         3.4,
     )
+    # A workout under Coming up opens to its steps; a done one links to its activity (#181).
+    coming = r.pg.locator("[data-block='upcoming'] [data-workout-steps] summary").first
+    r.check(coming.count() > 0, "a planned workout under Coming up should open to its steps")
+    coming.evaluate("e => e.scrollIntoView({block: 'center'})")
+    r.click(coming)
+    r.say(
+        "Onder Komt eraan klap je een training open om de stappen te zien. Is hij gedaan, "
+        "dan ga je met de naam naar de activiteit.",
+        "Under Coming up, open a workout to see its steps. Once it is done, its name takes "
+        "you to the activity.",
+        3.2,
+    )
+    r.click(coming)
+    r.pg.evaluate("window.scrollTo(0, 0)")
     r.point(card(r, "Herstel"))
     r.say(
         "Herstel vergelijkt HRV, slaap en rusthartslag met wat normaal is voor jou.",
@@ -642,11 +659,30 @@ def calendar(r: Rec):
 
 @scenario("planning", "Planning & voortgang", "Planning & progress")
 def planning(r: Rec):
+    # A small plan, so a done workout links to its activity (#181).
+    _demo("demo_workout_links.py", "seed")
+    try:
+        _planning(r)
+    finally:
+        _demo("demo_workout_links.py", "clear")
+
+
+def _planning(r: Rec):
     r.go("planning")
     r.say(
         "Planning & voortgang: wat er deze week gepland is en wat je al deed.",
         "Planning & progress: what is planned this week and what you already did.",
     )
+    done = r.pg.locator(".plan-days [data-workout-activity]").first
+    r.check(done.count() > 0, "a done workout in the plan should link to its activity (#181)")
+    done.evaluate("e => e.scrollIntoView({block: 'center'})")
+    r.point(done)
+    r.say(
+        "Een gedane training linkt naar de activiteit; een geplande klap je open voor de stappen.",
+        "A done workout links to its activity; open a planned one to see its steps.",
+        2.8,
+    )
+    r.pg.evaluate("window.scrollTo(0, 0)")
     r.click(r.pg.get_by_role("link", name="Vorige week"))
     r.say(
         "Blader door de weken om plan en uitvoering te vergelijken.",
@@ -885,9 +921,12 @@ def coach(r: Rec):
     _demo("demo_coach_roles.py", "seed")
     # A real plan change, and an old copy to intervals.icu that stays hidden (#141).
     _demo("demo_plan_copy.py", "seed")
+    # A small plan, so the workouts an advice names link and open (#181).
+    _demo("demo_workout_links.py", "seed")
     try:
         _coach(r)
     finally:
+        _demo("demo_workout_links.py", "clear")
         _demo("demo_plan_copy.py", "clear")
         _demo("demo_coach_roles.py", "clear")
 
@@ -927,6 +966,28 @@ def _coach(r: Rec):
         "Every advice is named after the day it is for, with when and why it came: the "
         "evening preview is the advice for tomorrow.",
         2.6,
+    )
+    # The workouts an advice names (#181): planned, they open to their steps; done, they
+    # link to the activity.
+    tomorrow = r.pg.locator('article[data-entry-type="evening"]', has_text="Advies voor morgen")
+    steps = tomorrow.locator("[data-workout-steps] summary").first
+    r.check(steps.count() > 0, "tomorrow's advice should open its workout to the steps")
+    steps.evaluate("e => e.scrollIntoView({block: 'center'})")
+    r.click(steps)
+    r.say(
+        "De trainingen in een advies klap je open om de stappen te zien.",
+        "Open a workout in an advice to see its steps.",
+        2.6,
+    )
+    r.click(steps)
+    done = r.pg.locator("article [data-workout-activity]").first
+    r.check(done.count() > 0, "a done workout in an advice should link to its activity")
+    done.evaluate("e => e.scrollIntoView({block: 'center'})")
+    r.point(done)
+    r.say(
+        "Is een training gedaan, dan brengt de naam je naar de activiteit.",
+        "Once a workout is done, its name takes you to the activity.",
+        2.4,
     )
     # A plan change says why and, under Details, what changed; a copy is no message (#141).
     change = r.pg.locator('article[data-entry-type="plan_change"]')

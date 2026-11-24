@@ -293,6 +293,12 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   no push, no mail; the notice points at it. From the evening run until midnight the start
   page shows tomorrow's advice in a small card under today's. Notice and push texts end on a
   whole sentence or word, with "…".
+- **Workouts you can open** (#181): every workout an advice names, on the Coach page and
+  the report page, opens to its steps from VibeSynergy's plan, and once done it links to the
+  activity; one the plan does not have stays plain text. A plan change on the Coach page
+  shows its session the same way, as do the workouts under Coming up on the start page; on
+  the plan page a done workout links to its activity. The stored advice is never changed:
+  the links are made when it is read.
 - **One ongoing conversation per day** (#115): every run of your AI coach (07:00, an
   update, the evening, a check-in, pain) starts from the day so far: the earlier versions
   of the advice and your replies. A new version says what changed and why ("Changed

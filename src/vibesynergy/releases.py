@@ -256,6 +256,13 @@ ITEMS: tuple[Item, ...] = (
         "come in by themselves, each photo once, and show on share links too. Strava and "
         "Garmin take no photos from other apps, so the ones you add stay in VibeSynergy.",
     ),
+    Item(
+        "181-workout-links",
+        "you",
+        "A workout named in an advice, a plan change or Coming up now opens to its steps, "
+        "and once done it takes you to the activity. On the plan page a done workout links "
+        "to its activity too.",
+    ),
 )
 
 VERSION = RELEASES[0].version

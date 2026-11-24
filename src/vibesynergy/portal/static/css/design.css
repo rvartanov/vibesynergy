@@ -570,6 +570,10 @@ table.activities td { vertical-align: middle; }
 /* Coach messages: the verdict per session */
 .coach-sessions { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: grid; gap: 4px; }
 .coach-sessions li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+/* A planned workout named anywhere opens to its steps (#181, workout_ref.js): the title is
+   the summary, the steps fill the row's width when open. */
+.workout-ref { flex: 1 1 16rem; min-width: 0; }
+.workout-ref > summary { font-weight: 400; }
 .coach-entry > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .coach-archive [data-archive-type] { margin: var(--space-2) 0; }
 /* Gear */

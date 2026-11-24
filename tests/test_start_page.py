@@ -192,6 +192,35 @@ def test_upcoming_links_a_done_workout(runtime) -> None:
     assert item["status"] == "done" and item["activity_id"] == "g:done"
 
 
+def test_upcoming_opens_a_planned_workout_to_its_steps(runtime) -> None:
+    """#181: a planned workout of VibeSynergy's plan carries its text; done, it links."""
+    from vibesynergy.query import plan_model
+
+    today = date(2026, 11, 1)
+    plan_model.create_plan(
+        runtime.engine,
+        name="Test plan",
+        start=today,
+        end=today + timedelta(days=30),
+        reason="test",
+        author="test",
+    )
+    plan_model.set_session(
+        runtime.engine,
+        session_id=None,
+        day=today + timedelta(days=1),
+        name="Tempoloop",
+        sport="Run",
+        description="- 15m Z2 HR\n- 20m Z3 HR",
+        reason="test",
+        author="test",
+    )
+    by_day = {d["date"]: d["items"] for d in start_page.upcoming(runtime.engine, today)["days"]}
+    (item,) = by_day[str(today + timedelta(days=1))]
+    assert item["title"] == "Tempoloop" and "20m Z3" in item["workout"]
+    assert item["activity_id"] is None
+
+
 def test_upcoming_api(client) -> None:
     data = client.get("/api/upcoming").json()["data"]
     assert len(data["days"]) == 7
