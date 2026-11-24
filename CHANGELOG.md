@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.11 – 24-11-2026
+
 - **Publishing and sync** (#175): Settings → Sync between sources is now **Publishing and
   sync**, with one card, **Publish workouts**. Choose under **Publish to** where a published
   workout goes: Strava, Garmin or both (Garmin without Strava works too). Each place keeps its
