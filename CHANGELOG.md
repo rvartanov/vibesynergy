@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.15 – 24-11-2026
+
 - **Workouts you can open** (#181): a workout named in an advice ("Advies voor morgen"),
   in a plan change on the Coach page or under Coming up on the start page opens to its
   steps, and once it is done it takes you to the activity. On the plan page a done workout
