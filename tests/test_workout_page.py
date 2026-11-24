@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from test_evidence import START, put
 from test_publication import garmin_activity
-from test_publication_mirror import FakeStrava
+from test_publication_targets import FakeStrava
 
 from vibesynergy.core import config_edit
 from vibesynergy.portal.app import create_portal_app
@@ -51,9 +51,7 @@ def _client(rt):
 def _fake(rt, monkeypatch, fake=None):
     fake = fake or FakeStrava()
     monkeypatch.setattr(publication, "provider", lambda _rt, _dest: fake)
-    config_edit.apply_changes(
-        rt.settings.config_path, {"publication": {"garmin_mirror_enabled": False}}
-    )
+    config_edit.apply_changes(rt.settings.config_path, {"publication": {"targets": ["strava"]}})
     return fake
 
 
@@ -80,8 +78,8 @@ def test_the_page_reads_texts_parts_history_and_the_tick(runtime):
     assert COACH_PRIVATE not in json.dumps(data["public"])
     assert data["publish"] == {
         "destination": "strava",
+        "destinations": ["strava", "garmin"],  # "Publish to" (#175): both by default
         "default": "only_me",  # the setting's default: what VibeSynergy did before
-        "mirror": True,
         "state": "off",
         "checked": False,
         "texts_synced": False,  # names and texts go out only with the text sync on
@@ -224,7 +222,7 @@ def test_without_a_strava_copy_the_tick_publishes_to_garmin(runtime, monkeypatch
     monkeypatch.setattr(publication, "provider", lambda _rt, dest: fake)
     group = _workout(runtime, strava=False)
     state = workout_page.publish_state(runtime, group)
-    assert state["destination"] == "garmin" and state["mirror"] is False
+    assert state["destination"] == "garmin" and state["destinations"] == ["garmin"]
     done = workout_page.set_published(runtime, group, True)
     assert done["publish"]["state"] == "published" and fake.writes
 

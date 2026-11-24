@@ -10,7 +10,7 @@ from test_evidence import START, put
 from test_publication import DEFAULT_OPENER, garmin_activity
 from test_publication_auto import NOW, switch_on
 from test_publication_insight import PRIVATE, PUBLIC, write
-from test_publication_mirror import FakeGarmin, FakeStrava
+from test_publication_targets import FakeGarmin, FakeStrava
 
 from vibesynergy.core import config_edit
 from vibesynergy.query import publication, publication_auto, publication_plugins
@@ -185,19 +185,25 @@ def test_the_client_has_no_description_write():
 
 
 def test_the_retired_switch_is_not_saved_any_more(runtime):
-    from vibesynergy.core.config import ConfigError
+    from vibesynergy.core.config import ConfigError, load_settings
 
     with pytest.raises(ConfigError, match="icu_description_enabled"):
         config_edit.apply_changes(
             runtime.settings.config_path, {"publication": {"icu_description_enabled": False}}
         )
+    # An old file that still has it: ignored on load, dropped on the next save (#175).
+    path = runtime.settings.config_path
+    path.write_text(path.read_text() + "\n[publication]\nicu_description_enabled = true\n")
+    assert "icu_description_enabled" not in load_settings(path).publication
+    config_edit.apply_changes(path, {"publication": {"quote_enabled": False}})
+    assert "icu_description_enabled" not in path.read_text()
 
 
 def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime, both, icu):
     """22 Nov: block published, the athlete typed his text on Strava, the insight update
     went to Strava with the text and then to intervals.icu without it, which wrote that
-    copy back to Strava. intervals.icu is no longer written, so the text stays on Strava
-    and Garmin."""
+    copy back to Strava. intervals.icu is no longer written, so the text stays on Strava,
+    and Garmin keeps its own text with the same new block (#175)."""
     strava, garmin = both
     strava.text = ""
     switch_on(runtime, language="nl")
@@ -211,7 +217,8 @@ def test_insight_update_keeps_text_typed_on_strava_after_the_first_block(runtime
     assert summary["insight_updated"] == 1 and summary["review"] == 0
     assert strava.text.startswith(f"{mine}\n\n{DEFAULT_OPENER}")
     assert PUBLIC in strava.text and strava.text.count(CLOSER) == 1
-    assert garmin.text == strava.text
+    block = strava.text.split("\n\n", 1)[1]
+    assert garmin.text == f"Garmin words\n\n{block}"
     assert icu_writes(icu) == []
     writes = (len(strava.writes), len(garmin.writes))
     publication_auto.run(runtime, now=NOW + timedelta(minutes=20))

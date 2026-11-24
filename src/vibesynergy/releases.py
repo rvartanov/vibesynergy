@@ -211,6 +211,22 @@ ITEMS: tuple[Item, ...] = (
         "item (bike or shoes) plus extra items; with the text sync on, Strava gets the "
         "main item and Garmin the items matched to its gear.",
     ),
+    Item(
+        "175-publish",
+        "you",
+        "Settings → Publishing and sync: choose where a published workout goes, Strava, "
+        "Garmin or both. Each place keeps its own text with VibeSynergy's section below "
+        "it; switch on keeping name, texts and gear the same to make them match. Your "
+        "earlier Garmin choice carries over.",
+    ),
+    Item(
+        "175-ai-publish",
+        "ai",
+        "Publishing a workout now goes to every place the athlete chose ([publication] "
+        "targets: strava and/or garmin): vibesynergy_activity_publish and _unpublish "
+        "return the other place's outcome in others. The old Strava to Garmin copy is "
+        "gone; only the text sync writes names and public texts to Garmin.",
+    ),
 )
 
 VERSION = RELEASES[0].version

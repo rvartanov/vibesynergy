@@ -1,4 +1,4 @@
-"""Garmin → Strava publication without a click; every provider is synthetic."""
+"""Publishing new workouts without a click; every provider is synthetic."""
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_evidence import START, put
 from test_publication import DEFAULT_OPENER, garmin_activity
-from test_publication_mirror import FakeGarmin, FakeStrava
+from test_publication_targets import FakeGarmin, FakeStrava
 
 from vibesynergy.core import config_edit
 from vibesynergy.core.config import ConfigError, load_settings

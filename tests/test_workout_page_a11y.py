@@ -17,7 +17,7 @@ import uvicorn
 from test_evidence import put
 from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 from test_publication import garmin_activity
-from test_publication_mirror import FakeStrava
+from test_publication_targets import FakeStrava
 
 from vibesynergy.core import config_edit
 from vibesynergy.portal.app import create_portal_app
@@ -41,7 +41,7 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
     fake = FakeStrava()
     monkeypatch.setattr(publication, "provider", lambda _rt, _dest: fake)
     config_edit.apply_changes(
-        runtime.settings.config_path, {"publication": {"garmin_mirror_enabled": False}}
+        runtime.settings.config_path, {"publication": {"targets": ["strava"]}}
     )
     a = garmin_activity()
     put(runtime, "garmin", a)

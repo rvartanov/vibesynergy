@@ -735,7 +735,6 @@ def serve(
             garmin_strength,
             kb_editorial,
             publication_auto,
-            publication_mirror,
             quote_sources,
             text_sync,
         )
@@ -745,13 +744,13 @@ def serve(
             rt.registry,
             rt.jobs,
             services={
-                # Strava -> Garmin mirror watches: due ones are checked every 5 minutes.
-                publication_mirror.JOB: lambda: publication_mirror.due(rt),
-                # Garmin → Strava: new activities, when Settings → Sync switched it on.
+                # New workouts to Strava and/or Garmin, when Settings → Publishing and sync
+                # has "New workouts: public".
                 publication_auto.JOB: lambda: publication_auto.due(rt),
-                # Names and public texts VS <-> Strava <-> Garmin; off until switched on.
+                # Names, public texts and gear VS <-> Strava <-> Garmin; off until switched on.
+                # The only path that writes them to Garmin and reads Strava back (#175).
                 text_sync.JOB: lambda: text_sync.due(rt),
-                # Garmin → CalDAV mirror. Off until Settings → Sync between sources turns it on.
+                # Garmin → CalDAV mirror. Off until Settings → Publishing and sync turns it on.
                 calendar_mirror.JOB: lambda: calendar_mirror.due(rt),
                 # Strength and pilates with exercise steps to Garmin.
                 garmin_strength.JOB: lambda: garmin_strength.due(rt),

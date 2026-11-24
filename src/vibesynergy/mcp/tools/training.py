@@ -155,7 +155,8 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_activity_publish(
         id: str, destination: str, preview_version: str, language: str = "en"
     ) -> dict[str, Any]:
-        """Publish one previewed description, then verify it from the provider."""
+        """Publish one previewed description, then verify it from the provider. The same
+        section then goes to the other places the athlete publishes to (``others``)."""
         from vibesynergy.query import publication
 
         return envelope(
@@ -166,7 +167,8 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_activity_unpublish(
         id: str, destination: str, preview_version: str, language: str = "en"
     ) -> dict[str, Any]:
-        """Remove an unchanged VibeSynergy section and verify the provider text."""
+        """Remove an unchanged VibeSynergy section and verify the provider text; it is
+        removed from the other platform too (``others``)."""
         from vibesynergy.query import publication
 
         return envelope(

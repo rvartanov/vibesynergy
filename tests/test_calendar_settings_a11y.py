@@ -102,7 +102,7 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
                     api.get("/api/caldav").json()["data"]["selected"][0]["classification"]
                     == "coaching"
                 )
-                # Copying Garmin workouts lives on Settings → Sync between sources.
+                # Copying Garmin workouts lives on Settings → Publishing and sync.
                 page.goto(base + "/#/settings/sync")
                 page.locator("[data-calendar-copy] [data-garmin-mirror-preview]").wait_for()
                 assert _tab_until(

@@ -1,8 +1,8 @@
 """Gear of a published workout kept the same in VibeSynergy, on Strava and on Garmin (#114,
 phase 5).
 
-**One switch, one watch.** The gear follows the switch of the texts: Settings → Sync between
-sources → "Keep name, texts and gear the same on Strava and Garmin" (``[publication]
+**One switch, one watch.** The gear follows the switch of the texts: Settings → Publishing
+and sync → "Keep name, texts and gear the same everywhere" (``[publication]
 text_sync_enabled``). It is checked in the same three-way check as the name and public text
 (``text_sync._sync_one`` calls ``sync``), on the same watch and with the same Strava read: the
 activity Strava returns holds its ``gear_id``. While the switch is off nothing here runs.

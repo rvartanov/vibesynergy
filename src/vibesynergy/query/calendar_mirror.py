@@ -1076,7 +1076,7 @@ def preview(
 
 
 def run(rt) -> dict[str, Any]:
-    """One reconcile. Off unless Settings → Sync between sources has copying turned on."""
+    """One reconcile. Off unless Settings → Publishing and sync has copying turned on."""
     if not account.mirror_enabled(rt.settings):
         return _skipped("disabled")
     if not account.writes_allowed(rt.settings):

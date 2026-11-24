@@ -145,7 +145,9 @@ def load_settings(config_path: Path | None = None) -> Settings:
                 "[server] mcp_secret_url is ignored; the secret-link MCP address has been "
                 "removed (use OAuth or a personal access token at /vibesynergy/mcp)"
             )
-    publication = _without_retired(dict(raw.get("publication", {})), "publication")
+    publication = migrate_publication(
+        _without_retired(dict(raw.get("publication", {})), "publication")
+    )
     _without_retired(dict(raw.get("coach", {})), "coach")  # nothing else lives in [coach]
     settings = Settings(
         config_path=path,
@@ -175,8 +177,9 @@ def load_settings(config_path: Path | None = None) -> Settings:
 # Keys nothing reads any more. An old config file still loads: each key is dropped with
 # one warning per process.
 RETIRED_KEYS = {
-    # The AI insight section left publication with the internal coach.
-    "publication": ("insight_enabled", "label_insight"),
+    # The AI insight section left publication with the internal coach; intervals.icu takes
+    # no part in description sync any more (#114, #175).
+    "publication": ("insight_enabled", "label_insight", "icu_description_enabled"),
     # The WhatsApp alert channel and its local bridge were removed on 31-10-2026.
     "alerts": ("whatsapp_phone", "whatsapp_bridge"),
     # VibeSynergy no longer adds approved workouts to Garmin.
@@ -185,6 +188,31 @@ RETIRED_KEYS = {
     "user": ("load_source",),
 }
 _RETIRED_KEYS_WARNED: set[str] = set()  # "[section] key"
+
+# Where publishing writes (#175): Settings → Publishing and sync → "Publish to".
+PUBLICATION_TARGETS = ("strava", "garmin")
+# Keys an older config used that now mean something else: read once, saved the new way.
+MIGRATED_PUBLICATION_KEYS = ("garmin_mirror_enabled",)
+
+
+def migrate_publication(table: dict[str, Any]) -> dict[str, Any]:
+    """``garmin_mirror_enabled`` (the old "Copy the Strava text to Garmin too") became the
+    Garmin target under "Publish to" (#175). A file that still has it loads as
+    ``targets``; the next save from the portal writes ``targets`` and drops the old key."""
+    if "garmin_mirror_enabled" not in table:
+        return table
+    mirror = table.pop("garmin_mirror_enabled")
+    if not isinstance(mirror, bool):
+        raise ConfigError("[publication] garmin_mirror_enabled must be true or false")
+    if "targets" not in table:
+        table["targets"] = ["strava", "garmin"] if mirror else ["strava"]
+    return table
+
+
+def publication_targets(publication: dict[str, Any]) -> list[str]:
+    """Where a published workout goes, Strava first: both unless the file says otherwise."""
+    chosen = publication.get("targets", list(PUBLICATION_TARGETS))
+    return [t for t in PUBLICATION_TARGETS if t in chosen]
 
 
 def _without_retired(table: dict[str, Any], section: str) -> dict[str, Any]:
@@ -211,13 +239,15 @@ def _validate(settings: Settings) -> None:
         raise ConfigError("[publication] language must be en or nl")
     from vibesynergy.query.publication_plugins import THEMES
 
-    for key in (
-        "quote_enabled",
-        "weather_enabled",
-        "garmin_mirror_enabled",
-        "text_sync_enabled",
-        "icu_description_enabled",  # retired (#114): VibeSynergy no longer writes there
+    targets = settings.publication.get("targets", list(PUBLICATION_TARGETS))
+    if (
+        not isinstance(targets, list)
+        or not targets
+        or any(t not in PUBLICATION_TARGETS for t in targets)
+        or len(set(targets)) != len(targets)
     ):
+        raise ConfigError("[publication] targets must name strava and/or garmin")
+    for key in ("quote_enabled", "weather_enabled", "text_sync_enabled"):
         if not isinstance(settings.publication.get(key, True), bool):
             raise ConfigError(f"[publication] {key} must be true or false")
     themes = settings.publication.get("quote_themes", list(THEMES))

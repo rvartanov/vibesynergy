@@ -361,12 +361,20 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   part** (your AI coach's comments, read-only, then your own private text), each with its
   history and **Restore**; also through AI apps (MCP), and your AI coach reads them.
 - **Publish tick** on the workout page (#114): ticking it publishes VibeSynergy's block (the
-  AI coach's insight, the figures, the optional weather and quote) in the Strava description,
-  copied to Garmin when that is on (Garmin's own description without a Strava copy); unticking
-  removes the block again. The name and your texts are not sent by it. Settings → Sync between
-  sources → **New workouts**: *public* (published by themselves, the tick starts on) or *only
+  AI coach's insight, the figures, the optional weather and quote) in the description on each
+  place under **Publish to**, below the text that is already there; unticking removes the
+  block everywhere again. The name and your texts are not sent by it. Settings → Publishing
+  and sync → **New workouts**: *public* (published by themselves, the tick starts on) or *only
   me* (the default: nothing goes out until you tick it). Unticking a workout that would be
   published by itself keeps it to you.
+- **Publish workouts** (#175, Settings → **Publishing and sync**): your workouts are
+  VibeSynergy's, and publishing one writes it out. **Publish to**: Strava, Garmin or both (both
+  by default; Garmin without Strava works too). Each place keeps its own text above
+  VibeSynergy's block; *Keep name, texts and gear the same everywhere* makes them the same.
+  One status line per place says whether it is connected, whether VibeSynergy may write
+  there, when it last synced and which workouts need a look, with a link to the first. The
+  earlier "Copy the Strava text to Garmin too" switch is now the Garmin tick (an older
+  setting carries over), and its separate 7-day copy is gone.
 - **The insight follows your texts** (#114): the AI coach's insight reads the workout's name,
   public text and private text in VibeSynergy (the private text as context only). Publishing
   from VibeSynergy (the tick, or *new workouts: public*) has the first insight written when
@@ -375,11 +383,12 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   the insight** on the workout page stores your comment privately and has it rewritten at
   once with it in mind. At most `[coach_runner] insight_rewrites_per_day` rewrites per
   workout per day (default 3; 0 switches them off). The page shows when the insight is being
-  written and the earlier insights; a new insight reaches every published Strava section
-  (and its Garmin copy) by itself.
-- **Names and texts the same everywhere** (#114, Settings → Sync between sources → *Keep
-  name, texts and gear the same on Strava and Garmin*, off by default): a published workout's name and
-  public text are kept the same in VibeSynergy, on Strava and on Garmin; the description is
+  written and the earlier insights; a new insight reaches every published section on Strava
+  and Garmin by itself.
+- **Names and texts the same everywhere** (#114, Settings → Publishing and sync → *Keep
+  name, texts and gear the same everywhere*, off by default): a published workout's name and
+  public text are kept the same in VibeSynergy and on the places under *Publish to* (Strava,
+  Garmin); since #175 this is the only thing that writes them to Garmin; the description is
   your public text, then VibeSynergy's block. A change in VibeSynergy, on Strava or on Garmin
   is taken in (with its source and time in the history) and passed on within a few minutes;
   when two places changed, the latest change wins and the other version stays in the history

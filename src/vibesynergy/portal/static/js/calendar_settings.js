@@ -82,7 +82,7 @@ export async function caldavSettings(el, { stale, query }) {
       <div data-caldav-live role="status" aria-live="polite">${notice ? `<div class="notice info">${esc(notice)}</div>` : ""}</div>
       ${step === "signin" ? signIn(message) : step === "choose" ? choose(message) : step === "confirm" ? confirmStep(message) : connected(message)}
       ${step === "connected" ? classifications() : ""}
-      <p class="sub">${t("Copying Garmin workouts onto this calendar is under Sync between sources.")} <a href="#/settings/sync">${t("Sync between sources")}</a></p>`;
+      <p class="sub">${t("Copying Garmin workouts onto this calendar is under Publishing and sync.")} <a href="#/settings/sync">${t("Publishing and sync")}</a></p>`;
     bindStep();
     if (message) el.querySelector("#caldav-error")?.focus();
     else if (focusNext) el.querySelector("[data-step-heading]")?.focus();

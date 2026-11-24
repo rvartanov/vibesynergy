@@ -17,7 +17,14 @@ from typing import Any
 
 import tomlkit
 
-from vibesynergy.core.config import RETIRED_KEYS, ConfigError, Settings, load_settings
+from vibesynergy.core.config import (
+    MIGRATED_PUBLICATION_KEYS,
+    RETIRED_KEYS,
+    ConfigError,
+    Settings,
+    load_settings,
+    migrate_publication,
+)
 
 USER_KEYS = (
     "timezone",
@@ -51,7 +58,7 @@ PUBLICATION_KEYS = (
     "language",
     "quote_enabled",
     "weather_enabled",
-    "garmin_mirror_enabled",
+    "targets",
     "text_sync_enabled",
     "quote_themes",
     "quote_sources",
@@ -105,6 +112,8 @@ def apply_changes(path: Path, changes: dict[str, Any]) -> Settings:
     _merge(document, "mail", changes.get("mail"), MAIL_KEYS)
     _merge(document, "dropfolder", changes.get("dropfolder"), DROPFOLDER_KEYS)
     _merge(document, "ai", changes.get("ai"), AI_KEYS)
+    if changes.get("publication"):
+        _migrate_publication_file(document)
     _merge(document, "publication", changes.get("publication"), PUBLICATION_KEYS)
     for source_id, values in (changes.get("sources") or {}).items():
         sources = _table(document, "sources")
@@ -189,6 +198,23 @@ def _merge(
             raise ConfigError(f"[{key}] {name} must be a number of minutes (0 = off)")
         else:
             table[name] = value
+
+
+def _migrate_publication_file(document: Any) -> None:
+    """Saving publication settings writes an older file the new way (#175): the old Garmin
+    copy switch becomes ``targets`` and keys nothing reads any more are dropped."""
+    table = document.get("publication")
+    if table is None:
+        return
+    old = {key: table[key] for key in MIGRATED_PUBLICATION_KEYS if key in table}
+    current = migrate_publication(
+        {k: v.unwrap() if hasattr(v, "unwrap") else v for k, v in old.items()}
+    )
+    if "targets" in current and "targets" not in table:
+        table["targets"] = current["targets"]
+    for key in MIGRATED_PUBLICATION_KEYS:
+        table.pop(key, None)
+    _drop_retired(document, "publication")
 
 
 def _drop_retired(document: Any, section: str) -> None:

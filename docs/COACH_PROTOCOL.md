@@ -155,7 +155,7 @@ The task register (`tasks` in `vibesynergy_coach_handbook`, generated from the h
 registry and the settings) lists every coach task with its triggers, its scheduled time
 (`due`, local time) and days, its context chain, contract and approval steps, plus its last
 run and the runs that are missing (`missing_after` is when a run counts as missing). A missing morning, evening or weekly entry reaches the athlete as a
-notification, so every run writes its entry with the idempotency key from the prompt. With a webhook link on `coach.run_missed` (Settings → Sync between sources) VibeSynergy
+notification, so every run writes its entry with the idempotency key from the prompt. With a webhook link on `coach.run_missed` (Coach → Settings) VibeSynergy
 also starts the routine itself; the run context names `task` and `date`, so write the entry
 for that date.
 
@@ -324,7 +324,7 @@ message.
 
 VibeSynergy tells you something happened; details stay behind MCP ([EVENTS.md](EVENTS.md)).
 
-- **Push**: a webhook link in Settings → Sync between sources ("AI coach after a workout"),
+- **Push**: a webhook link in Coach → Settings ("AI coach after a workout"),
   kind *Webhook with signature* (Standard Webhooks, verify the HMAC), *Webhook with token*
   (bearer), or the adapter for a routine in an AI app. Pick the types you want; for the insight run
   that is `activity.published`.

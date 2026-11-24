@@ -114,7 +114,7 @@ provider or model, and the server enforces them for every write tool
   takes `activity_id` (group id or any `garmin:`/`strava:` id; stored as the group id in
   `meta.activity_id`) and `public_insight` (`meta.public_insight`). That one or two sentence
   text, and nothing else from the entry, becomes the `-Persoonlijke AI inzicht:` line of the
-  activity's VibeSynergy block on Strava, the Garmin mirror and intervals.icu. The coach
+  activity's VibeSynergy block on Strava and/or Garmin (where the athlete publishes to). The coach
   decides what may go public: no health, diary, injury, sleep or other private details. At
   most 300 characters, one paragraph, no `[`, `]`, `/*` or `*/`; anything else is refused. Per activity the newest
   entry (by `at`) that sets `public_insight` wins; `""` withdraws the line. Entries without
@@ -138,7 +138,7 @@ provider or model, and the server enforces them for every write tool
   `public_insight_missing`; `activity.published` names activities the athlete just made
   public on Strava (title, description and gear final): the moment to write the public
   insight. A polling coach knows what to fill without a webhook. The
-  same events go to webhook links set up in Settings → Sync between sources. Schema and
+  same events go to webhook links set up in Coach → Settings. Schema and
   delivery rules: [EVENTS.md](EVENTS.md).
 - Workout proposals removed (1-11-2026): `vibesynergy_coach_propose`,
   `vibesynergy_plan_status` and `vibesynergy_plan_withdraw` are gone, with VibeSynergy's own
@@ -368,9 +368,9 @@ provider or model, and the server enforces them for every write tool
   `vibesynergy_activity_set_texts` (`diary.write`) writes name, public and/or private
   (source `vs`); `vibesynergy_activity_restore_text` (`diary.write`) makes an old version
   current again as a new version. The private text is context only: it is never published,
-  never in a share link and never in `vibesynergy_activity`. With Settings → Sync between
-  sources → *Keep name, texts and gear the same on Strava and Garmin* on, a published workout's name and
-  public text are kept the same on Strava and Garmin (two-way): edits made there come in as
+  never in a share link and never in `vibesynergy_activity`. With Settings → Publishing and
+  sync → *Keep name, texts and gear the same everywhere* on, a published workout's name and
+  public text are kept the same on the places it is published to (two-way): edits made there come in as
   versions with source `strava` or `garmin` (author `sync`), and a version that lost to a
   later change is kept with kind `overwritten` (never the current text). Without it nothing
   is sent; nothing is ever sent to intervals.icu. The AI coach's activity context reads these
@@ -385,7 +385,7 @@ provider or model, and the server enforces them for every write tool
   `[coach_runner] insight_rewrites_per_day` (default 3, 0 = off) per workout per day. The
   run's context block `insight_rewrite` holds the current insight, the texts changed after
   it and the corrections; a `public_insight` that quotes the private text or a correction is
-  refused. The new line reaches every published Strava section (and its Garmin copy) within
+  refused. The new line reaches every published section on Strava and Garmin within
   about five minutes, whether or not new workouts are public.
 - Training: `vibesynergy_training_load`, `vibesynergy_volume`, `vibesynergy_fitness`,
   `vibesynergy_intensity_distribution`
@@ -1504,9 +1504,15 @@ provider description and returns the exact composed text with `preview_version`.
 `vibesynergy_activity_publish(id, destination, preview_version, language="en")` writes once on
 explicit request and returns `verified` only after provider read-back. Destinations are
 `garmin` and `strava`. A changed preview, unknown marker or uncertain previous write blocks
-publication.
+publication. When the destination is one of the places under Settings → Publishing and sync
+→ *Publish to* (`[publication] targets`, both by default), the same section then goes to the
+other one too, through the same guarded path; the result's `others` says how that went
+(`published`, `unchanged`, `waiting` or `failed`; a failure never undoes the first write).
+Only VibeSynergy's section is written there: the name and the public text are the text
+sync's (#175; the earlier Strava → Garmin copy with its 7-day watch is gone).
 `vibesynergy_activity_unpublish(id, destination, preview_version, language="en")` removes
-only the checked VibeSynergy section after an explicit call and verifies provider read-back.
+only the checked VibeSynergy section after an explicit call and verifies provider read-back,
+and removes it from the other platform too where VibeSynergy put it (`others`).
 
 VibeSynergy does not write activity descriptions to intervals.icu (#114, since the 22 Nov
 2026 incident #160: intervals.icu passed the block on to the linked Strava activity and the

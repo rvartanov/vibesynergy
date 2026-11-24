@@ -18,7 +18,7 @@ current then goes out, once per day: a version replaced overnight is never sent.
 
 Not held: VibeSynergy's own alerts (a login, a quiet source, a failed sync, the rules'
 health warnings, the budget mail) follow Settings → Alerts; webhooks to AI apps have their
-own quiet hours (Settings → Sync between sources, ``agent_events``); the public insight line
+own quiet hours (Coach → Settings, ``agent_events``); the public insight line
 is written into the activity's own description and is no message to the athlete; sending a
 report again by hand is the athlete's own request. VibeSynergy sends no Garmin or Strava
 messages; an AI coach over MCP is told the window in ``vibesynergy_coach_state`` and the
