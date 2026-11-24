@@ -188,7 +188,7 @@ and show where the AI and the rules differed from `rules_floor`.
 
 ### Safety in the context
 
-The base block `safety` (version 3) is in every task's context and carries:
+The base block `safety` (version 4) is in every task's context and carries:
 
 - `floor`: the rules' level, colour, the rules that fired, each one's reason, and notes;
 - `sleep_check` (#100): the night's automatic sleep check with the athlete's choice on top:
@@ -198,7 +198,8 @@ The base block `safety` (version 3) is in every task's context and carries:
   `sleep_incomplete`; a night updated later is one of its reasons;
 - `measurement`: whether the night was updated after its first reading and which readiness
   reading counts;
-- `checkin`, `complaints`, `pain_today`;
+- `checkin`, `complaints`, `pain_today`; in a run with block `recent_words` (#170) the
+  check-in's note is only there, in full, and `checkin.note` points to it;
 - `injuries`: the injury log of the last 14 days.
 
 Each part is built on its own: an empty injury log does not hide a floor that fired, and a
@@ -218,6 +219,38 @@ speed, intensity) and `zones` (seconds per HR and power zone). No provider `extr
 account, profile or owner fields. The block fits itself to its 8000 characters
 (`fit_activities`) and is never cut afterwards: the laps give way first (a `laps_total`
 stays), then the zones, the effort and the summary; the athlete's own words never.
+
+### The athlete's own words of the last days (#170)
+
+The AI coach works as in one uninterrupted session with a moving context. Block
+`recent_words` (in the chains of `morning`, `evening`, `weekly`, `injury`, `checkin`,
+`reply` and `insight`; `coach_runner/recent_words.py`, data from `query/recent_words.py`)
+holds what the athlete wrote in the last `[coach_runner] recent_words_days` days (default
+9, at most 31), newest day first, one entry per day, also a day without words:
+
+- `checkin_note`: the full check-in note;
+- `complaints`: each pain entry logged that day, with the complaint's title, pain, timing
+  and the athlete's note;
+- `notes`: diary notes that are not about a workout (an AI's notes are left out; a note
+  over several days once, on its first day in the window);
+- `workouts`: per workout its id, sport and the newest version of its own `name`, `public`
+  and `private` text (`workout_texts.texts`), plus linked `notes` not already in those
+  texts. `private_is` says private texts and notes are context only.
+
+The block fits itself to its 9000 characters and is never cut afterwards. Today and
+yesterday stay verbatim. Older days are compressed oldest first, in steps (each text to 240,
+120, then 60 characters, cut at a word with " …", then left out with a count in
+`left_out`) until the block fits; a complaint is never shortened and no day is left out. A
+compressed day has `samengevat: true`; `vibesynergy_notes`, `vibesynergy_injuries` and
+`vibesynergy_activity_texts` give the full text. The compression is deterministic, so the
+same words give the same block and nothing is cached. Only when today's and yesterday's
+words alone are over the budget does the block go over it.
+
+No text is given twice in a run: a paragraph repeated between a workout's texts and its
+notes is given once (`workout_texts.unseen`), today's check-in note is only here, and the
+insight's own workout is in block `activity` (here `"see": "activity"`). The insight writes
+a public line (INS-2), so it gets only the names and public texts of the other workouts of
+those days: no check-in notes, complaints, diary notes, private texts or workout notes.
 
 ### The plan in the context: VibeSynergy only (#111)
 

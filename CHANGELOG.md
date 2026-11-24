@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Your AI coach remembers what you wrote** (#170): every advice now takes in your own words
+  of the last 9 days: check-in notes, complaints, diary notes and the name, texts and notes
+  of each workout. "Shoulder felt stiff" with yesterday's swim is in today's advice. When
+  there is a lot, older days are shortened, but complaints stay word for word and no day is
+  left out. AI apps: context block `recent_words`, harness stamp `c7`.
+
 ## 0.1.0-beta.0.12 – 24-11-2026
 
 - **Week progress on a phone**: when you open a sport on the dashboard, a workout's text

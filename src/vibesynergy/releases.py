@@ -229,6 +229,24 @@ ITEMS: tuple[Item, ...] = (
         "return the other place's outcome in others. The old Strava to Garmin copy is "
         "gone; only the text sync writes names and public texts to Garmin.",
     ),
+    Item(
+        "170-own-words",
+        "you",
+        "Your AI coach now keeps what you wrote in the last 9 days in mind in every piece of "
+        "advice: your check-in notes, complaints, diary notes and the name, texts and notes of "
+        "each workout. Yesterday's \"shoulder felt stiff\" is in today's advice.",
+    ),
+    Item(
+        "170-ai-own-words",
+        "ai",
+        "Every advice task (morning, evening, week, check-in, injury, reply) and the insight get "
+        "context block recent_words: the athlete's own words of the last [coach_runner] "
+        "recent_words_days days (default 9), newest first. Today and yesterday are verbatim; an "
+        "older day marked samengevat is shortened, with complaints verbatim, and "
+        "vibesynergy_notes, vibesynergy_injuries and vibesynergy_activity_texts give the full "
+        "text. Today's check-in note is only in this block. The insight gets only names and "
+        "public texts of the other workouts.",
+    ),
 )
 
 VERSION = RELEASES[0].version

@@ -63,7 +63,7 @@ def test_start_message_carries_the_context(rt, monkeypatch):
     )
     text = runner.start_message(rt, "morning", DAY)
     assert '<context name="weather" v="1">\nWeer: zonnig' in text
-    assert '<context name="safety" v="3">' in text
+    assert '<context name="safety" v="4">' in text
 
 
 def test_contract_issues():
