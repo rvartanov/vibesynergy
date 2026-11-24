@@ -6,7 +6,6 @@ import { esc, longDate, sportName, userDate, userDateTime } from "../format.js";
 import { coachMemory, coachSettings } from "../coach_settings.js";
 import { coachShell, coachTabsHtml } from "../coach_tabs.js";
 import { coachRunnerSettings } from "../coach_runner_settings.js";
-import { agentLinkSettings } from "../agent_links.js";
 import { bindReplies, repliesHtml } from "../coach_replies.js";
 import {
   dailyKindHtml,
@@ -69,19 +68,13 @@ async function profile(el, stale) {
     <p><a href="#/coach/memory">${t("Change this under Memory")}</a></p>`;
 }
 
-// Settings tab, everything about the coach in one place: its own settings, running the
-// coach on the API (/#133), and the links (webhooks) that start a coach routine.
+// Settings tab, everything about the coach in one place: its own settings and running the
+// coach on the API (/#133).
 async function fillSettings(el, stale) {
   el.innerHTML = `<div data-coach-settings><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></div>
-    <section class="card" data-coach-runner aria-labelledby="coach-runner-title"><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></section>
-    <section class="card" data-sync-agents aria-labelledby="coach-agents-title">
-      <h2 id="coach-agents-title">${esc(t("AI coach after a workout"))}</h2>
-      <p class="sub">${esc(t("VibeSynergy tells your AI coach when you make an activity public on Strava, so its insight is there right away. It only sends which activity it is; your AI coach reads the rest itself."))}</p>
-      <div data-agent-links></div>
-    </section>`;
+    <section class="card" data-coach-runner aria-labelledby="coach-runner-title"><p class="sub" role="status" aria-busy="true">${esc(t("Loading…"))}</p></section>`;
   const settingsEl = el.querySelector("[data-coach-settings]");
   const runnerEl = el.querySelector("[data-coach-runner]");
-  const agentsEl = el.querySelector("[data-agent-links]");
   const failed = (target) => {
     if (!stale() && target.isConnected) {
       target.innerHTML = `<div class="notice error" role="alert"><p>${esc(t("This part could not load right now."))}</p></div>`;
@@ -90,7 +83,6 @@ async function fillSettings(el, stale) {
   await Promise.all([
     coachSettings(settingsEl, stale).catch(() => failed(settingsEl)),
     coachRunnerSettings(runnerEl, stale).catch(() => failed(runnerEl)),
-    agentLinkSettings(agentsEl, { stale }).catch(() => failed(agentsEl)),
   ]);
 }
 

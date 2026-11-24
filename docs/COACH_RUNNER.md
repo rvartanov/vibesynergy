@@ -94,7 +94,6 @@ activity's insight (`vibesynergy coach redo insight <activity_id>`, or
 | `catch_up` | code, no model | – | – | – |
 | advice run (#89, #90) | the `morning` task at 07:00 and, for new data, `morning`, `injury`, `checkin` or `evening` | yes | yes | yes, with `safety` and the target day |
 | Daily review narrative (`query/daily_coach.py`) | no model: `narrative_enabled` is false and the text is fixed | – | – | – |
-| Cloud routine webhooks (`query/agent_events.py`) | outside VibeSynergy: they fire a routine in an AI app, which comes back over MCP | by `vibesynergy_coach_prompt` | by `include_context=true` | yes, at `vibesynergy_coach_write` |
 
 Gaps found and closed in #88:
 
@@ -610,8 +609,7 @@ still works: a run with "brick" in its name and that day's ride.
    the monthly limit, switch it on.
 3. Per task, choose the provider and model when you want another than the default.
 4. Turn off the routines in your AI app that do the same jobs ("Coach
-   ochtend", "Coach avond", "Coach weekreview", "Coach na training"), and switch off the
-   webhook link in Coach → Settings. Otherwise both
+   ochtend", "Coach avond", "Coach weekreview", "Coach na training"). Otherwise both
    run: the entries stay single (same idempotency keys) but you pay twice and get two
    messages.
 5. Watch the first day: Coach → Settings shows the last run per job and this month's usage.

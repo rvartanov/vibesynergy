@@ -83,10 +83,10 @@ def test_named_models_finds_names_and_only_names() -> None:
 # --- the guard: model-facing text --------------------------------------------------------
 
 # Modules whose whole source is model-facing or steers it: no model or provider name at
-# all, comments included. The provider adapters, the model list and prices, the provider
-# settings and the routine adapter are not in this list (coach_runner/model.py,
-# settings.py, pricing.py, __init__.py, runner.py, query/agent_events.py): they have to
-# name what they talk to. What runner.py sends is checked on the wire, in the run below.
+# all, comments included. The provider adapters, the model list and prices and the provider
+# settings are not in this list (coach_runner/model.py, settings.py, pricing.py,
+# __init__.py, runner.py): they have to name what they talk to. What runner.py sends is
+# checked on the wire, in the run below.
 NEUTRAL_MODULES = (
     "coach_runner/prompts.py",
     "coach_runner/contract.py",
@@ -94,6 +94,7 @@ NEUTRAL_MODULES = (
     "coach_runner/registry.py",
     "coach_runner/report.py",
     "coach_runner/tools.py",
+    "query/agent_events.py",  # the events AI apps pull; no routine adapter since #182
     "query/coach.py",
     "query/coach_handbook.py",
     "query/coach_prompts.py",
@@ -188,10 +189,6 @@ def test_role_check_knows_role_from_thing() -> None:
 
 # Portal texts that may name a provider: where the athlete picks one. Nothing else.
 PROVIDER_SETTINGS_TEXTS = {
-    # The kind of link for one vendor's routine API, and where its address comes from.
-    "Claude Code routine",
-    "Enter the routine's API address "
-    "(https://api.anthropic.com/v1/claude_code/routines/<id>/fire) or its id.",
     # Coach → Settings → AI providers: why two of them take a key.
     "Keys are kept encrypted and never shown again. OpenAI and xAI do not let other apps "
     "sign in with your ChatGPT or Grok account, so those take an API key.",
@@ -241,7 +238,7 @@ def test_portal_texts_call_the_role_ai_coach() -> None:
 
 def test_provider_names_in_the_portal_stay_in_the_provider_settings() -> None:
     """In the pages' own code a provider is named only where one is picked."""
-    allowed = {"coach_runner_settings.js", "agent_links.js"}
+    allowed = {"coach_runner_settings.js"}
     found = {}
     for path in sorted((SRC / "portal" / "static" / "js").rglob("*.js")):
         if "vendor" in path.parts or path.name in allowed:

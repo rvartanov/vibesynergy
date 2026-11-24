@@ -264,6 +264,20 @@ ITEMS: tuple[Item, ...] = (
         "and once done it takes you to the activity. On the plan page a done workout links "
         "to its activity too.",
     ),
+    Item(
+        "182-coach-links",
+        "you",
+        'The card "AI coach after a workout" under Coach → Settings is gone: nothing used it '
+        "any more. Your AI coach in VibeSynergy still writes its insight as soon as you make a "
+        "workout public.",
+    ),
+    Item(
+        "182-ai-coach-links",
+        "ai",
+        "VibeSynergy no longer sends events to AI apps over webhooks (the outgoing coach links "
+        "are gone). Read activity.ready, activity.published and coach.run_missed with "
+        "vibesynergy_events; the vibesynergy.test event no longer exists.",
+    ),
 )
 
 VERSION = RELEASES[0].version

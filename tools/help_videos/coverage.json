@@ -114,7 +114,6 @@
   ],
   "sharing": [
     "settings_shares.js",
-    "agent_links.js",
     "settings_access.js"
   ],
   "account": [

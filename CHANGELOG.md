@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **No more outgoing coach links** (#182): the card "AI coach after a workout" under Coach →
+  Settings is gone, with the webhooks it sent to routines in an AI app. Nothing used them any
+  more. Your AI coach in VibeSynergy still writes its insight when you make a workout public,
+  and AI apps still read the events with `vibesynergy_events`. The update deletes the stored
+  links and their secrets; their history stays.
+
 ## 0.1.0-beta.0.15 – 24-11-2026
 
 - **Workouts you can open** (#181): a workout named in an advice ("Advies voor morgen"),

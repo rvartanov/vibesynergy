@@ -787,7 +787,7 @@ def register(kit: ToolKit) -> None:
     def vibesynergy_events(
         since: str | None = None, types: list[str] | None = None, limit: int = 50
     ) -> dict[str, Any]:
-        """VibeSynergy's events for agents that poll instead of receiving webhooks, oldest
+        """VibeSynergy's events, for AI coaches that poll (VibeSynergy pushes none), oldest
         first: {type, version, id, occurred_at, data}. since is an ISO time (default the
         last 24 hours); pass next_since back to continue. types: activity.ready (new
         merged activities with ids, date, sport and public_insight_missing) and

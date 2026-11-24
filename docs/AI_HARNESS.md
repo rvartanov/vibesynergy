@@ -17,8 +17,8 @@ One word per thing, in every text: the portal, the docs, the prompts and what a 
 | **Fixed rules** | vaste regels | The safety rules in code that compute a level without any model; the AI coach's advice is held against them. |
 
 A model or provider name appears only where one is chosen or talked to: the provider
-adapters (`coach_runner/model.py`), the model list and prices, the provider settings in
-Coach → Settings, and the adapter for one vendor's routines (`query/agent_events.py`).
+adapters (`coach_runner/model.py`), the model list and prices, and the provider settings in
+Coach → Settings.
 `tests/test_model_neutral.py` fails when one shows up anywhere else a model or the athlete
 reads, and when the role is called anything but AI coach; the knowledge base warns
 (`knowledge.lint`, in the handbook's warnings and at a proposal) when a routine instruction
@@ -194,8 +194,7 @@ channels, and the delivery code enforces it for what VibeSynergy sends
   scheduler tick) they go out; for a day's advice only the version that is current then,
   once. Sending a report again by hand is the athlete's own request and is not held.
 - **Not held:** VibeSynergy's own alerts (logins, quiet sources, failed syncs, the rules'
-  health warnings, the budget mail; Settings → Alerts), webhooks to AI apps (their own quiet
-  hours per link), the public insight line (written into the activity's description, no
+  health warnings, the budget mail; Settings → Alerts), the public insight line (written into the activity's description, no
   message). VibeSynergy sends no Garmin or Strava messages; an AI coach over MCP must not
   either outside the window.
 - **Default 07:00, with the morning advice.** The fixed advice run is 07:00 by default, so

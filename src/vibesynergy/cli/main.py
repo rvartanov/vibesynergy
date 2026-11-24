@@ -759,7 +759,7 @@ def serve(
                 garmin_strength.JOB: lambda: garmin_strength.due(rt),
                 # Quotes from Wikiquote, Quotable and ZenQuotes when a theme runs low.
                 quote_sources.JOB: lambda: quote_sources.due_service(rt),
-                # Agent events: debounced activity.ready and webhook deliveries.
+                # Agent events: debounced activity.ready, activity.published and missed runs.
                 agent_events.JOB: lambda: agent_events.due(rt),
                 # API coach runner: morning, evening, weekly. Off until Coach → Settings.
                 coach_schedule.SCHEDULE_JOB: lambda: coach_schedule.due(rt),

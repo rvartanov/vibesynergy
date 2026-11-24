@@ -137,9 +137,8 @@ provider or model, and the server enforces them for every write tool
   hours; `next_since` continues). `activity.ready` names new merged activities with
   `public_insight_missing`; `activity.published` names activities the athlete just made
   public on Strava (title, description and gear final): the moment to write the public
-  insight. A polling coach knows what to fill without a webhook. The
-  same events go to webhook links set up in Coach → Settings. Schema and
-  delivery rules: [EVENTS.md](EVENTS.md).
+  insight. A polling coach knows what to fill without a webhook. Schema:
+  [EVENTS.md](EVENTS.md).
 - Workout proposals removed (1-11-2026): `vibesynergy_coach_propose`,
   `vibesynergy_plan_status` and `vibesynergy_plan_withdraw` are gone, with VibeSynergy's own
   propose → approve → Garmin push route. They were never called. The plan is written to

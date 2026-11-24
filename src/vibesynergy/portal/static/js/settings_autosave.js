@@ -67,7 +67,7 @@ export function bindAutosave(root, { save, statusEl, debounceMs = DEFAULT_MS, on
   };
 
   // Controls with their own save button (or inside a block marked data-autosave-skip, such as
-  // the AI coach links card) never trigger the section's autosave: a blur from switching windows
+  // a coach task's settings) never trigger the section's autosave: a blur from switching windows
   // would otherwise save and redraw the tab, wiping a half-filled form.
   const skippable = (target) =>
     target.matches('input[type="file"], [data-import] input') ||
