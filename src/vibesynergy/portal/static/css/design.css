@@ -130,7 +130,7 @@ html { scroll-padding-top: 8rem; }
 .cal-option input { width: 24px; height: 24px; margin: 0; }
 .cal-name { font-weight: 600; }
 .cal-meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-.cal-url { overflow-wrap: anywhere; }
+.cal-url { overflow-wrap: break-word; }
 .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--line); vertical-align: middle; }
 [data-step-heading]:focus { outline: 3px solid var(--focus); outline-offset: 3px; }
 .notice.error:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
@@ -463,7 +463,9 @@ a.week-day:hover { background: var(--wash); }
 .wp-sport .wp-left { grid-column: 1 / -1; margin: 0; }
 .wp-detail h3 { font-size: var(--type-secondary); margin: var(--space-2) 0 var(--space-1); }
 .wp-sessions { list-style: none; margin: 0 0 var(--space-2); padding: 0; display: grid; gap: var(--space-2); }
-.wp-session { display: flex; gap: var(--space-2); align-items: flex-start; }
+.wp-session { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-start; }
+/* The text takes the full row under the chips on a phone (24-11), next to them when there is room. */
+.wp-body { flex: 1 1 18rem; min-width: 0; overflow-wrap: break-word; }
 .wp-session .chip { flex-shrink: 0; }
 .wp-day { font-weight: 600; margin-right: 4px; }
 .wp-actual { display: block; }
@@ -572,7 +574,7 @@ table.activities td { vertical-align: middle; }
 .coach-archive [data-archive-type] { margin: var(--space-2) 0; }
 /* Gear */
 .gear-list { list-style: none; padding: 0; margin: 0 0 var(--space-4); display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
-.gear-item h3 { margin: 0; overflow-wrap: anywhere; }
+.gear-item h3 { margin: 0; overflow-wrap: break-word; }
 .gear-life { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
 .gear-life meter { flex: 1; min-width: 0; height: 12px; }
 .gear-form { display: grid; gap: var(--space-1); margin-top: var(--space-2); }
@@ -628,7 +630,7 @@ a.foot-link { display: inline-flex; align-items: center; }
      squeezed the brand and its text ran over the name. */
   .header-sync-chips, .header-warn-notices { order: 4; flex-basis: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0 0 6px; }
   .header-sync-chip { border-radius: 12px; background: var(--surface); justify-content: space-between; }
-  .header-sync-chip > a, .header-sync-chip > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .header-sync-chip > a, .header-sync-chip > span { flex: 1; min-width: 0; overflow-wrap: break-word; }
 }
 @media (max-width: 440px) {
   .top { gap: 2px; }
@@ -712,7 +714,7 @@ a.foot-link { display: inline-flex; align-items: center; }
 /* Settings on a phone. A long line in the update log wraps instead of making the whole page
    wider than the screen, and a group of radio choices reads as rows: button, then label,
    without the browser's own frame around the group. */
-.details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; margin: var(--space-2) 0 0; }
+.details pre { white-space: pre-wrap; overflow-wrap: break-word; max-width: 100%; margin: var(--space-2) 0 0; }
 fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0; min-width: 0; }
 .settings-field label.check { display: flex; flex-direction: row; align-items: center; gap: var(--space-2); min-height: var(--control); color: var(--ink); }
 .settings-field label.check input { width: auto; flex: none; margin: 0; }
@@ -741,7 +743,7 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .workout-texts .wt-field input[type="text"], .workout-texts .wt-field textarea { width: 100%; max-width: var(--measure, 75ch); text-align: left; }
 .workout-texts .wt-versions, .workout-texts .wt-coach { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .workout-texts .wt-versions li, .workout-texts .wt-coach li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
-.workout-texts .wt-version-text { white-space: pre-line; overflow-wrap: anywhere; margin: var(--space-1) 0; }
+.workout-texts .wt-version-text { white-space: pre-line; overflow-wrap: break-word; margin: var(--space-1) 0; }
 .workout-texts .wt-publish { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--grid); }
 
 /* The workout's gear (#114): one tap on the suggestion, a small picker for the rest. */
@@ -753,5 +755,5 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .workout-gear .wt-versions { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .workout-gear .wt-versions li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
 .gear-map-list { list-style: none; padding: 0; margin: var(--space-2) 0; display: grid; gap: var(--space-3); }
-.gear-map-list label { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.gear-map-list label { display: block; font-weight: 600; overflow-wrap: break-word; }
 .gear-map-list select { max-width: 100%; }
