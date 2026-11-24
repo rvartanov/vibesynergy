@@ -99,6 +99,9 @@ class Runtime:
         from vibesynergy.query import text_sync
 
         handlers[text_sync.JOB] = lambda _job: text_sync.run(self)
+        from vibesynergy.query import media_pull
+
+        handlers[media_pull.JOB] = lambda _job: media_pull.run(self)
         handlers[calendar_mirror.JOB] = lambda _job: calendar_mirror.run(self)
         handlers[garmin_strength.JOB] = lambda _job: garmin_strength.run(self)
         from vibesynergy.query import quote_sources

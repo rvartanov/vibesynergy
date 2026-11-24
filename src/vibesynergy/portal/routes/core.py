@@ -8,8 +8,9 @@ from typing import Any
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
-from fastapi import Request
-from fastapi.responses import JSONResponse
+from fastapi import Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse, Response
 
 from vibesynergy import __version__
 from vibesynergy.core.timeutil import Window
@@ -33,6 +34,7 @@ from vibesynergy.portal.api import (
     GearServiceDone,
     PortalKit,
     WorkoutGearRequest,
+    WorkoutMediaChange,
     _date,
     tile_url,
 )
@@ -422,6 +424,100 @@ def register(kit: PortalKit) -> None:
         except ValueError as exc:
             return JSONResponse(status_code=400, content={"error": str(exc)})
         return envelope(workout_gear.page(rt, request.id, today()))
+
+    # The workout's photos (#114, phase 6). Reading them is part of a shared Activities page
+    # (``share.PAGES``); adding, removing and restoring are the owner's.
+    def _media_code(exc: Exception) -> str:
+        from vibesynergy.query import workout_media
+
+        return {
+            workout_media.NotAPhoto: "not_a_photo",
+            workout_media.TooLarge: "too_large",
+            workout_media.TooMany: "too_many",
+        }.get(type(exc), "invalid")
+
+    def _media_error(exc: Exception) -> JSONResponse:
+        status = 404 if isinstance(exc, LookupError) else 400
+        return JSONResponse(
+            status_code=status, content={"error": str(exc), "code": _media_code(exc)}
+        )
+
+    @router.get("/activity-media")
+    def activity_media_route(request: Request, id: str):
+        """The workout's photos; on your own portal also the removed ones and the history."""
+        from vibesynergy.query import media_pull, workout_media
+
+        shared = bool(request.scope.get("vibesynergy_share"))
+        try:
+            data = workout_media.photos(engine, id, shared=shared)
+        except ValueError as exc:
+            return JSONResponse(status_code=404, content={"error": str(exc)})
+        if not shared:
+            data["from"] = media_pull.readable(rt)
+            data["max_mb"] = workout_media.MAX_BYTES // (1024 * 1024)
+        return envelope(data)
+
+    @router.get("/activity-media/photo/{media_id}")
+    def activity_media_photo(request: Request, media_id: str, size: str = "display"):
+        """One photo as JPEG, without the camera's metadata. Never the original file."""
+        from vibesynergy.query import workout_media
+
+        shared = bool(request.scope.get("vibesynergy_share"))
+        try:
+            data = workout_media.file(engine, rt.raw.blobs, media_id, size, shared=shared)
+        except (LookupError, FileNotFoundError):
+            return JSONResponse(status_code=404, content={"error": "no such photo"})
+        except ValueError as exc:
+            return JSONResponse(status_code=400, content={"error": str(exc)})
+        # A photo's sizes never change: the browser may keep them.
+        return Response(
+            data,
+            media_type="image/jpeg",
+            headers={"cache-control": "private, max-age=31536000, immutable"},
+        )
+
+    @router.post("/activity-media/upload")
+    async def activity_media_upload(id: str, files: list[UploadFile]):
+        """Add photos to the workout. They stay in VibeSynergy: Strava and Garmin take no
+        photos from other apps."""
+        from vibesynergy.query import workout_media
+
+        results = []
+        for upload in files[:20]:
+            name = (upload.filename or "photo")[:200]
+            data = await upload.read(workout_media.MAX_BYTES + 1)
+            try:
+                done = await run_in_threadpool(
+                    workout_media.add, engine, rt.raw.blobs, id, data, author="portal"
+                )
+            except (workout_media.NotAPhoto, workout_media.TooLarge, workout_media.TooMany) as exc:
+                results.append({"file": name, "state": "refused", "code": _media_code(exc)})
+                continue
+            except ValueError as exc:
+                return _media_error(exc)
+            results.append({"file": name, **done})
+        return envelope({**workout_media.photos(engine, id), "results": results})
+
+    @router.post("/activity-media/remove")
+    def activity_media_remove(request: WorkoutMediaChange):
+        """Hide a photo in VibeSynergy; it stays on Strava and Garmin."""
+        from vibesynergy.query import workout_media
+
+        try:
+            workout_media.remove(engine, request.id, request.media, author="portal")
+        except (LookupError, ValueError) as exc:
+            return _media_error(exc)
+        return envelope(workout_media.photos(engine, request.id))
+
+    @router.post("/activity-media/restore")
+    def activity_media_restore(request: WorkoutMediaChange):
+        from vibesynergy.query import workout_media
+
+        try:
+            workout_media.restore(engine, request.id, request.media, author="portal")
+        except (LookupError, ValueError) as exc:
+            return _media_error(exc)
+        return envelope(workout_media.photos(engine, request.id))
 
     @router.get("/gear-map")
     def gear_map_route() -> dict[str, Any]:

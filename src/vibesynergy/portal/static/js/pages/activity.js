@@ -21,6 +21,7 @@ import {
 import { N, t } from "../i18n.js";
 import { bindNoteForm, noteFormHtml } from "../quicklog.js";
 import { workoutGear } from "../workout_gear.js";
+import { workoutMedia } from "../workout_media.js";
 import { workoutTexts } from "../workout_page.js";
 import { averageSpeed, distanceText, sportFamily, speedChannel, speedLabel, speedText } from "../sport_units.js";
 import { withSportIcon, tagChip } from "../symbols.js";
@@ -101,6 +102,7 @@ export async function render(view, { args, meta, stale }) {
     ${multisportHtml(reply.data.multisport)}
     ${meta.data.share ? "" : `<section class="card workout-texts" aria-labelledby="wt-title" data-workout-texts hidden></section>`}
     ${meta.data.share ? "" : `<section class="card workout-gear" aria-labelledby="wg-title" data-workout-gear hidden></section>`}
+    <section class="card workout-media" aria-labelledby="wm-title" data-workout-media hidden></section>
     ${effortCardHtml(effort, !!meta.data.share)}
     <section class="card activity-notes" data-activity-notes${notes.length ? "" : " hidden"}>${notesHtml(notes)}</section>
     ${hasRoute ? `<section class="card map-card"><div class="map" role="region" aria-label="${esc(t("Route map"))}"></div></section>` : ""}
@@ -133,6 +135,8 @@ export async function render(view, { args, meta, stale }) {
   // follows the name you gave it here.
   // The gear: one tap links the likely gear, with the reason (#114).
   if (!meta.data.share) workoutGear(view.querySelector("[data-workout-gear]"), id, { stale, tz });
+  // The photos: yours and those from Strava and Garmin; a shared page only shows them (#114).
+  workoutMedia(view.querySelector("[data-workout-media]"), id, { stale, tz, shared: !!meta.data.share });
   if (!meta.data.share) {
     workoutTexts(view.querySelector("[data-workout-texts]"), id, {
       stale,

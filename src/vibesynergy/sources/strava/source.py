@@ -70,6 +70,10 @@ _REVISION_FIELDS = (
 def revision(summary: dict) -> str:
     """A token for an activity's state; kudos and the like don't change it."""
     state = [summary.get(k) for k in _REVISION_FIELDS]
+    # Photos added later make a new version, so they are taken in (#114). Only when there
+    # are any: the token of an activity without photos stays what it was.
+    if summary.get("total_photo_count"):
+        state.append({"photos": summary["total_photo_count"]})
     return hashlib.sha256(json.dumps(state, default=str).encode()).hexdigest()[:16]
 
 

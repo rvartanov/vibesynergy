@@ -248,6 +248,13 @@ ITEMS: tuple[Item, ...] = (
         "text. Today's check-in note is only in this block. The insight gets only names and "
         "public texts of the other workouts.",
     ),
+    Item(
+        "114-photos",
+        "you",
+        "Add photos to a workout on its page. The photos on its Strava and Garmin copies "
+        "come in by themselves, each photo once, and show on share links too. Strava and "
+        "Garmin take no photos from other apps, so the ones you add stay in VibeSynergy.",
+    ),
 )
 
 VERSION = RELEASES[0].version

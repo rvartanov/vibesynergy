@@ -19,6 +19,7 @@ dependencies = [
     "garminconnect==0.3.20",
     "icalendar>=6.3",
     "mcp>=2.2",
+    "pillow>=12",
     "pyarrow>=25",
     "python-ulid>=4.0",
     "recurring-ical-events>=3.8",

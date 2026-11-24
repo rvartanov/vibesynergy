@@ -549,6 +549,72 @@ def _workout_gear(r: Rec):
         )
 
 
+@scenario("workout-photos", "Foto's bij een training", "Photos on a workout")
+def workout_photos(r: Rec):
+    # One photo "from Garmin" on the newest workout, and the photo the video adds; both are
+    # synthetic and taken out afterwards.
+    _demo("demo_photos.py", "seed")
+    try:
+        _workout_photos(r)
+    finally:
+        _demo("demo_photos.py", "clear")
+
+
+def _workout_photos(r: Rec):
+    r.go("activities")
+    first = r.pg.locator("main a[href^='#/activity/']").first
+    r.check(first.count() > 0, "the activities list should have a workout")
+    r.click(first)
+    r.pg.wait_for_load_state("networkidle")
+    media = r.pg.locator("[data-workout-media]")
+    media.locator("#wm-title").wait_for()
+    media.scroll_into_view_if_needed()
+    r.point(media.locator("#wm-title"))
+    r.check("Van Garmin" in media.inner_text(), "the seeded photo should show as Van Garmin")
+    r.say(
+        "De foto's bij je training op Strava en Garmin komen vanzelf binnen.",
+        "The photos of your workout on Strava and Garmin come in by themselves.",
+        2.8,
+    )
+    add = media.locator("[data-wm-add]")
+    with r.pg.expect_file_chooser() as chooser:
+        r.click(add)
+    chooser.value.set_files(str(H / "tour" / "photo.jpg"))
+    status = media.locator("[data-wm-status]")
+    status.get_by_text("Foto's toegevoegd: 1.", exact=True).wait_for()
+    r.check(media.locator(".wm-grid img").count() == 2, "the added photo should show")
+    r.say(
+        "Met Foto's toevoegen zet je er zelf een bij. Die blijft in VibeSynergy: Strava en "
+        "Garmin nemen geen foto's van andere apps aan.",
+        "Add photos puts one there yourself. It stays in VibeSynergy: Strava and Garmin take "
+        "no photos from other apps.",
+        3.6,
+    )
+    r.point(media.locator(".wm-grid img").last)
+    r.say(
+        "Ze staan ook op gedeelde links, zonder de plek waar de foto is gemaakt.",
+        "They show on share links too, without the place the photo was taken.",
+        2.8,
+    )
+    r.click(media.locator("[data-wm-remove]").last)
+    status.get_by_text("Uit VibeSynergy verwijderd.", exact=False).wait_for()
+    r.say(
+        "Verwijderen haalt een foto alleen hier weg; op Strava en Garmin wordt niets gewist.",
+        "Removing takes a photo away here only; nothing is deleted on Strava or Garmin.",
+        3.0,
+    )
+    r.click(media.locator("[data-wm-history] summary"))
+    back = media.locator("[data-wm-restore]")
+    r.check(back.count() == 1, "the history should offer Terugzetten")
+    r.click(back)
+    status.get_by_text("Teruggezet.", exact=True).wait_for()
+    r.say(
+        "In de geschiedenis zet je hem terug. Elke wijziging blijft daar staan.",
+        "Put it back from the history. Every change stays there.",
+        2.8,
+    )
+
+
 @scenario("calendar", "Kalender: terugkijken en vooruitkijken", "Calendar: looking back and ahead")
 def calendar(r: Rec):
     r.go("schedule")

@@ -33,7 +33,16 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         "read": ("/diary",),
         "write": ("/diary/note", "/diary/checkin", "/diary/injury"),
     },
-    "activities": {"read": ("/activities", "/activity", "/activity-weather")},
+    # The workout's photos too (#114): never a removed one, never the original file.
+    "activities": {
+        "read": (
+            "/activities",
+            "/activity",
+            "/activity-weather",
+            "/activity-media",
+            "/activity-media/photo/",
+        )
+    },
     "metrics": {"read": ("/series", "/catalog")},
     # Planning & progress took over Training and Training plan; older links name either
     # and open the merged page.

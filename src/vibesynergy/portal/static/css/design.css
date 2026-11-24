@@ -754,6 +754,15 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .workout-gear [data-wg-linked] { font-weight: 600; }
 .workout-gear .wt-versions { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .workout-gear .wt-versions li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
+.workout-media .wm-grid { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--space-2); }
+.workout-media .wm-grid li { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.workout-media .wm-grid a { display: block; border-radius: 8px; overflow: hidden; }
+.workout-media .wm-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--grid); border-radius: 8px; }
+.workout-media .wm-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); }
+.workout-media .wm-removed img { opacity: 0.6; }
+.workout-media .wt-versions { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.workout-media .wt-versions li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
+.workout-media h3 { margin-top: var(--space-3); }
 .gear-map-list { list-style: none; padding: 0; margin: var(--space-2) 0; display: grid; gap: var(--space-3); }
 .gear-map-list label { display: block; font-weight: 600; overflow-wrap: break-word; }
 .gear-map-list select { max-width: 100%; }
