@@ -1,46 +1,46 @@
 WEBVTT
 
-00:00:11.992 --> 00:00:15.169
+00:00:09.430 --> 00:00:12.588
 Training → Coach: your AI coach's advice, knowledge, rules, memory and tasks.
 
-00:00:15.219 --> 00:00:20.971
+00:00:12.638 --> 00:00:18.278
 With today's advice you see the second opinion of an advisory AI coach, and where it differs. In the messages below it has its own label.
 
-00:00:21.021 --> 00:00:26.901
+00:00:18.328 --> 00:00:24.207
 Every advice is named after the day it is for, with when and why it came: the evening preview is the advice for tomorrow.
 
-00:00:26.951 --> 00:00:32.562
+00:00:24.257 --> 00:00:29.704
 A plan change says why, and under Details what changed. A copy to intervals.icu is not a plan change and is not listed here.
 
-00:00:32.612 --> 00:00:38.212
+00:00:29.754 --> 00:00:35.193
 Earlier versions of today are listed below, with the time and why the advice changed. An older version is marked replaced.
 
-00:00:38.262 --> 00:00:44.507
+00:00:35.243 --> 00:00:41.160
 Every notice opens exactly the advice it is about, with the day, when and why. When that is an older version, it says so, with a link to the current advice.
 
-00:00:44.557 --> 00:00:47.793
+00:00:41.210 --> 00:00:44.338
 Settings: turn your AI coach on and choose an AI provider.
 
-00:00:47.843 --> 00:00:51.365
+00:00:44.388 --> 00:00:47.881
 Paste your own API key here and choose 'Save key'.
 
-00:00:51.415 --> 00:00:54.961
+00:00:47.931 --> 00:00:51.426
 New data makes a new version of the advice during the day. Choose how many updates a day at most; you see what that costs.
 
-00:00:55.011 --> 00:00:59.645
+00:00:51.476 --> 00:00:55.919
 Contact window: when an AI coach may reach you, from 7 to 23 by default. Outside it the advice is still made, but notices wait until the window opens.
 
-00:00:59.695 --> 00:01:07.280
+00:00:55.969 --> 00:01:03.233
 Per task you set when your AI coach runs, for example the morning advice at 7.
 
-00:01:07.330 --> 00:01:14.858
+00:01:03.283 --> 00:01:10.285
 Memory: how your AI coach talks and what it remembers. Everything saves by itself.
 
-00:01:14.908 --> 00:01:21.083
+00:01:10.335 --> 00:01:16.364
 Under 'What to remember' each note is one line; tap it to edit. A fixed day simply goes in the text.
 
-00:01:21.133 --> 00:01:25.856
+00:01:16.414 --> 00:01:20.932
 Knowledge: the articles your AI coach relies on. You approve changes.
 
-00:01:25.906 --> 00:01:35.784
+00:01:20.982 --> 00:01:30.564
 Log: every change in what your AI coach knows, to look back on.

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
-from vibesynergy.coach_runner import registry
+from vibesynergy.coach_runner import recent_words, registry
 from vibesynergy.core.timeutil import Window
 
 log = logging.getLogger(__name__)
@@ -24,8 +24,9 @@ log = logging.getLogger(__name__)
 # 3: replies carry their id and the daily advice gets ``coach_team``, #118; 4: the daily
 # advice gets ``day_thread``, #115; 5: the safety block's ``sleep_check`` is the night's
 # sleep check, #100; 6: the insight gets ``insight_rewrite`` and the activity's notes are
-# marked context only, #114).
-VERSION = 6
+# marked context only, #114; 7: the athlete's own words of the last days in ``recent_words``
+# for every advice task and the insight, and today's check-in note only there, #170).
+VERSION = 7
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,7 @@ def _safety(rt, day, cache):
     if not isinstance(brief, dict):
         return {"floor": brief, "injuries": injuries}
     safety = brief.get("safety") or {}
-    checkin = brief.get("checkin")
+    checkin = _checkin(brief.get("checkin"), cache)
     return {
         "floor": {
             "level": safety.get("level"),
@@ -150,6 +151,16 @@ def _safety(rt, day, cache):
         "pain_today": brief.get("pain_today") or [],
         "injuries": injuries,
     }
+
+
+NOTE_IN_RECENT_WORDS = "volledig in blok recent_words"
+
+
+def _checkin(found: Any, cache: dict[str, Any]) -> Any:
+    """The check-in; with ``recent_words`` in the run its note is only there, in full (#170)."""
+    if isinstance(found, dict) and found.get("note") and recent_words.in_chain(cache):
+        return {**found, "note": NOTE_IN_RECENT_WORDS}
+    return found
 
 
 def _sleep_check(found: Any) -> dict[str, Any] | None:
@@ -175,7 +186,9 @@ def _memory(rt, day, cache):
 def _today(rt, day, cache):
     brief = _brief(rt, day, cache)
     keys = ("date", "checkin", "complaints", "pain_today", "load", "today", "tomorrow")
-    return {k: brief.get(k) for k in keys} | {"race": brief.get("race")}
+    out = {k: brief.get(k) for k in keys} | {"race": brief.get("race")}
+    out["checkin"] = _checkin(out["checkin"], cache)
+    return out
 
 
 def _recovery(rt, day, cache):
@@ -657,6 +670,10 @@ def fit_activities(found: list[dict[str, Any]], budget: int) -> list[dict[str, A
     return out
 
 
+def _recent_words(rt, day, cache):
+    return recent_words.build(rt, day, cache)
+
+
 def _activity(rt, day, cache):
     ids = cache.get("activity_ids") or []
     found = [activity_view(rt, str(i)) for i in ids[:MAX_ACTIVITIES]]
@@ -750,10 +767,11 @@ BLOCKS: dict[str, Block] = {
             "Veiligheid: regeluitkomst, slaapcheck, meetgaten, check-in, klachten, blessures",
             4000,
             _safety,
-            version=3,
+            version=4,
         ),
         Block("coach_memory", "Coachgeheugen", 2000, _memory),
-        Block("today", "Vandaag", 3000, _today, version=2),
+        # Version 3 (#170): with ``recent_words`` in the run the check-in note is there.
+        Block("today", "Vandaag", 3000, _today, version=3),
         Block("recovery", "Herstel", 1200, _recovery),
         # Version 2 (#153): Garmin workouts and events that are not VibeSynergy's own
         # (Garmin Coach, added by hand) are gone from the guard and the week.
@@ -785,6 +803,16 @@ BLOCKS: dict[str, Block] = {
             ACTIVITY_BUDGET,
             _activity,
             version=2,
+            cut=False,
+        ),
+        # #170: the moving context. Fits itself to its budget by compressing older days, so
+        # it is never cut afterwards.
+        Block(
+            "recent_words",
+            "Eigen woorden van de atleet, afgelopen dagen: check-in-notities, klachten, "
+            "notities en per workout de eigen naam, openbare en privétekst",
+            recent_words.BUDGET,
+            _recent_words,
             cut=False,
         ),
         Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),

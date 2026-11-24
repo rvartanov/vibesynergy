@@ -92,6 +92,11 @@ pain), it continues **one conversation**: the day thread. The harness guards it.
   replies on it; the evening run also gets the day it reviews. The start message names the
   current version by id. An AI coach over MCP gets the same block through
   `vibesynergy_coach_prompt(job, include_context=true)`.
+- **The athlete's own words move along** (#170): every advice task and the insight also get
+  block `recent_words`, what the athlete wrote in the last 9 days (check-in notes,
+  complaints, diary notes, each workout's name, public and private text and notes), with
+  older days compressed to a fixed budget
+  ([COACH_RUNNER.md](COACH_RUNNER.md#the-athletes-own-words-of-the-last-days-170)).
 - **The rule** (harness rules v7, step 4): build on the thread; say what changes against
   the previous version and why; never contradict an earlier version without the reason.
 - **The contract** (harness v3): a daily advice for a day that already has a valid version

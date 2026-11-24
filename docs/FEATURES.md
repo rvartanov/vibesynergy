@@ -295,6 +295,14 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   is never sent. The start page, the Coach page, the notices, the mail and the AI apps over
   MCP show the same thread in the same order, also when an AI coach in an app wrote a
   version. A daily check reports any gap on the Coach page.
+- **Your own words in every advice** (#170): your AI coach works as in one ongoing session
+  that moves along with the days. Every advice (morning, evening, week, check-in, injury)
+  reads what you wrote in the last 9 days (`[coach_runner] recent_words_days`): your
+  check-in notes, complaints, diary notes and per workout its name, public and private text
+  and its notes, newest day first. Today and yesterday go in word for word; when there is
+  a lot, older days are shortened (complaints stay word for word), and no day is left out.
+  The line under a public workout reads only the names and public texts of your other
+  workouts.
 - **One harness for every AI coach**: each task has a versioned prompt and rules, a fixed
   context that starts with the safety outcome (the rules' level and reasons, sleep check,
   measurement gaps, check-in, complaints, injuries), and an output contract. An entry that

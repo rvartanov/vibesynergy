@@ -300,7 +300,7 @@ def test_an_mcp_coach_gets_the_runners_rules_context_and_contract(rt, today):
     assert data["harness"]["chain"][:4] == list(registry.BASE_CONTEXT)
     # The same preloaded chain as the runner's start message.
     assert data["context"]["text"] == context.preload(rt, "morning", DAY)["text"]
-    assert '<context name="safety" v="3">' in data["context"]["text"]
+    assert '<context name="safety" v="4">' in data["context"]["text"]
     plain = _mcp(rt, "vibesynergy_coach_prompt", job="weekly").structured_content["data"]
     assert "context" not in plain and plain["contract"]["safety_required"] is False
     book = _mcp(rt, "vibesynergy_coach_handbook", include_protocol=False)
@@ -444,7 +444,7 @@ def test_a_fired_floor_reaches_the_coach_when_the_injury_log_is_empty(rt):
     assert journal.injuries(rt.engine, DAY, days=14) == []
     found = context.preload(rt, "morning", DAY)
     block = next(b for b in found["blocks"] if b["name"] == "safety")
-    assert block == {"name": "safety", "version": 3, "chars": block["chars"], "ok": True}
+    assert block == {"name": "safety", "version": 4, "chars": block["chars"], "ok": True}
     safety = _block_data(found, "safety")
     assert safety["injuries"] == "geen" or safety["injuries"] == []
     assert safety["floor"]["level"] == "flag" and safety["floor"]["colour"] == "amber"

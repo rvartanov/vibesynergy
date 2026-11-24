@@ -371,10 +371,10 @@ def test_the_guard_never_lets_a_private_sentence_into_the_public_line(runtime):
 
 
 def test_the_context_change_is_stamped(runtime):
-    assert context.VERSION == 6
+    assert context.VERSION == 7
     assert "insight_rewrite" in registry.chain_for("insight")
-    assert prompts.harness_stamp(runtime.settings, "insight").endswith(".c6")
-    assert contract.stamp("p", "r", 6).endswith("c6")
+    assert prompts.harness_stamp(runtime.settings, "insight").endswith(".c7")
+    assert contract.stamp("p", "r", 7).endswith("c7")
     triggers = {t.detail for t in registry.BY_ID["insight"].triggers}
     assert {"activity.published", "workout.published", "workout.texts_changed"} <= triggers
 

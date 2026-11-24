@@ -71,6 +71,7 @@ const CONTEXT_NAMES = {
   block: N("the block that ends"),
   threshold_signals: N("measured values that differ from your thresholds"),
   kb_due: N("the articles longest without a check"),
+  recent_words: N("your own words of the last days"),
 };
 const MODEL_HINTS = ["claude-opus-5-5", "claude-sonnet-5", "claude-haiku-4-5-20251001", "gpt-5", "gpt-5-mini", "grok-4", "llama3.1", "qwen2.5"];
 
