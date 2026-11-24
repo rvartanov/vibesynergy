@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.14 – 24-11-2026
+
 - **Photos on the workout page** (#114): add photos to a workout with *Add photos*; the
   photos on its Strava and Garmin copies come in by themselves, each photo once. They show
   on the workout page and on share links, without the place they were taken. Strava and
