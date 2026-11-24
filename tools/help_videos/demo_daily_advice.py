@@ -94,6 +94,10 @@ def seed(rt: Runtime) -> None:
         "harness": {**meta["harness"], "target": day.isoformat(), "trigger": "schedule"},
     }
     meta["harness"].update(target=day.isoformat(), trigger="event", changes=["checkin"])
+    # The sessions it names (#181): with demo_workout_links' plan they link and open.
+    meta["sessions"] = [
+        {"title": "Duurloop Z2 45'", "decision": "adjust", "note": "45 minuten, geen tempo"}
+    ]
     with rt.engine.begin() as conn:
         earlier = conn.execute(
             insert(coach_decision_log).values(
@@ -149,6 +153,7 @@ def seed(rt: Runtime) -> None:
                         "colour": "amber",
                         "reasons": ["Je rusthartslag is twee dagen hoger"],
                     },
+                    "sessions": [{"title": "Rustige rit Z2 1u", "decision": "keep"}],
                     "harness": {
                         "version": 3,
                         "via": "runner",

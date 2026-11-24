@@ -137,6 +137,9 @@ def upcoming(engine: Engine, today: date, days: int = UPCOMING_DAYS) -> dict[str
                 "sport": item.get("sport"),
                 "status": item.get("status"),
                 "activity_id": done[0]["id"] if done else None,
+                # The planned workout's text from VibeSynergy's plan, so the start page can
+                # open it to its steps (#181); a done one links to its activity instead.
+                "workout": item.get("description") if shown == "workout" and not done else None,
             }
         )
     return {

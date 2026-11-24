@@ -11,6 +11,7 @@ import { mount, series, token, tooltipBase } from "../charts.js";
 import { addDays, dayMonth, esc, hoursMinutes, isNum, km, longDate, number, shortDate, sportName } from "../format.js";
 import { N, language, t } from "../i18n.js";
 import { workoutHtml } from "../workout_text.js";
+import { workoutRefHtml } from "../workout_ref.js";
 import { formLinkHtml } from "../form_block.js";
 import { sportIcon, sportKey } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
@@ -357,9 +358,15 @@ function sessionHtml(item) {
   if (isNum(item.duration_s)) facts.push(hoursMinutes(item.duration_s));
   if (isNum(item.distance_m)) facts.push(km(item.distance_m));
   const chip = label && item.status !== "upcoming" ? ` <span class="chip ${tone}">${esc(t(label))}</span>` : "";
-  const text = item.description
+  // Done, the title links to the activity (#181); still planned, its steps fold open below.
+  const done = item.done_by?.id;
+  const text = item.description && !done
     ? `<details class="collapsible"><summary>${t("Workout details")}</summary>${workoutHtml(item.description)}</details>`
     : "";
-  return `<div class="plan-session" data-sport="${sportKey(item.sport)}"><p><b><span class="sport-icon">${sportIcon(sportKey(item.sport))}</span>${esc(item.title || sportName(item.sport))}</b>${chip}</p>
+  const title = workoutRefHtml(
+    { title: item.title || sportName(item.sport), activity_id: done },
+    { label: (html) => `<span class="sport-icon">${sportIcon(sportKey(item.sport))}</span>${html}` },
+  );
+  return `<div class="plan-session" data-sport="${sportKey(item.sport)}"><p><b>${title}</b>${chip}</p>
     <p class="sub">${esc(facts.join(" · "))}</p>${text}</div>`;
 }

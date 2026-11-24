@@ -3,6 +3,7 @@
 // status chip. Colour is never the only signal: each chip has an icon and a word.
 import { esc } from "./format.js";
 import { N, t } from "./i18n.js";
+import { workoutRefHtml } from "./workout_ref.js";
 
 // Verdict per planned session -> [tone, label]. The same words in portal and mail.
 export const DECISIONS = {
@@ -31,13 +32,15 @@ export function entryTone(type) {
   return TONES[type] || "info";
 }
 
+// Each session links to its activity once done, or opens to its workout (#181); the links
+// come from the server (``advice_view.link_sessions``), never from the stored entry.
 export function sessionsHtml(sessions) {
   const rows = (Array.isArray(sessions) ? sessions : [])
     .filter((s) => s && DECISIONS[s.decision] && s.title)
     .map((s) => {
       const [tone, label] = DECISIONS[s.decision];
       const note = s.note ? ` <span class="sub">${esc(s.note)}</span>` : "";
-      return `<li><span class="chip ${tone}">${esc(t(label))}</span> ${esc(s.title)}${note}</li>`;
+      return `<li><span class="chip ${tone}">${esc(t(label))}</span> ${workoutRefHtml(s, { note })}</li>`;
     });
   return rows.length ? `<ul class="coach-sessions">${rows.join("")}</ul>` : "";
 }

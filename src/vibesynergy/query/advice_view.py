@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -215,6 +215,101 @@ def day_done(entry: dict[str, Any], planned: list[dict[str, Any]] | None) -> boo
 def plan_done(planned: list[dict[str, Any]] | None) -> bool:
     """Every planned training of the day is done by the plan's own match."""
     return bool(planned) and all(i.get("status") in ("done", "changed") for i in planned)
+
+
+# --- the sessions as links (#181) ------------------------------------------------------------
+
+
+def day_sessions(rt, day: date, today: date, weeks: dict[date, list] | None = None) -> list:
+    """The planned sessions of ``day`` in VibeSynergy's plan, as the week progress has them
+    (``week_progress``, plan against done): title, status, the workout text and, once
+    done, the activity. ``weeks`` keeps each week read once across a feed."""
+    from vibesynergy.query import week_progress
+
+    weeks = {} if weeks is None else weeks
+    monday = day - timedelta(days=day.weekday())
+    if monday not in weeks:
+        try:
+            progress = week_progress.week_progress(
+                rt.engine, monday, today, raw=getattr(rt, "raw", None), include_calendar=False
+            )
+            found = [s for s in progress.get("sessions") or [] if s.get("in_plan")]
+        except Exception:
+            log.debug("reading the plan for the advice sessions failed", exc_info=True)
+            found = []
+        weeks[monday] = found
+    return [s for s in weeks[monday] if s.get("date") == day.isoformat()]
+
+
+def link_sessions(sessions: Any, planned: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The advice's sessions (``meta.sessions``, as stored) each with what the portal links
+    it to, matched with the day's plan by title (``_norm``), each plan session once:
+    ``activity_id`` once it is done, else ``workout`` (the planned workout's text) and its
+    ``sport``. A session without a match, or without either, stays as it was. The stored
+    entry is never changed: this is a copy, made when it is read."""
+    free = list(planned)
+    out = []
+    for session in sessions if isinstance(sessions, list) else []:
+        if not isinstance(session, dict):
+            continue
+        shown = dict(session)
+        key = _norm(session.get("title"))
+        match = next((p for p in free if key and _norm(p.get("title")) == key), None)
+        if match is not None:
+            free.remove(match)
+            if match.get("activity_id"):
+                shown["activity_id"] = str(match["activity_id"])
+            elif match.get("description"):
+                shown["workout"] = match["description"]
+                shown["sport"] = match.get("sport")
+        out.append(shown)
+    return out
+
+
+def _entry_day(entry: dict[str, Any]) -> date | None:
+    value = entry.get("advice_day") or entry.get("for_date")
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10]) if value else None
+    except ValueError:
+        return None
+
+
+# A change to VibeSynergy's plan that leaves a session in it (``meta.plan``, #141).
+_PLAN_SESSION_ACTIONS = frozenset({"session_add", "session_change", "session_move"})
+
+
+def _plan_change_session(entry: dict[str, Any]) -> tuple[dict[str, Any], date] | None:
+    change = (entry.get("meta") or {}).get("plan") or {}
+    if entry.get("entry_type") != "plan_change" or change.get("action") not in (
+        _PLAN_SESSION_ACTIONS
+    ):
+        return None
+    day = _entry_day({"for_date": change.get("date")})
+    if not change.get("name") or day is None:
+        return None
+    return {"title": change["name"], "sport": change.get("sport")}, day
+
+
+def with_session_links(rt, entries: list[dict[str, Any]]) -> None:
+    """Give every entry that lists sessions its ``advice_sessions`` (``link_sessions``), and
+    a plan change the session it is about (``plan_session``, only when it links to
+    something), for the Coach page and the report page; each week's plan is read once."""
+    today = today_in(rt.settings.timezone)
+    weeks: dict[date, list] = {}
+    for entry in entries:
+        sessions = (entry.get("meta") or {}).get("sessions")
+        day = _entry_day(entry)
+        if sessions and day is not None:
+            planned = day_sessions(rt, day, today, weeks)
+            entry["advice_sessions"] = link_sessions(sessions, planned)
+        changed = _plan_change_session(entry)
+        if changed is not None:
+            session, on = changed
+            (linked,) = link_sessions([session], day_sessions(rt, on, today, weeks))
+            if linked.get("activity_id") or linked.get("workout"):
+                entry["plan_session"] = linked
 
 
 # --- when to notify --------------------------------------------------------------------------

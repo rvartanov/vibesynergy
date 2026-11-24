@@ -8,6 +8,7 @@ import { sparkline } from "./charts.js";
 import { addDays, dayMonth, esc, isNum, metricLabel, number, shortDate, sportName, value, weekday } from "./format.js";
 import { N, t } from "./i18n.js";
 import { withSportIcon } from "./symbols.js";
+import { workoutRefHtml } from "./workout_ref.js";
 import { measurementsHtml } from "./pages/day.js";
 import { DEFAULT_ORDER, moveVisible, orderChange, toggleHidden, togglePinned } from "./start_layout.js";
 
@@ -134,8 +135,11 @@ function itemHtml(item, linkActivities) {
   if (item.kind === "event") return `<span class="chip info">${t("event")}</span> ${title}`;
   const done = item.status === "done" || item.status === "changed";
   const chip = done ? ` <span class="chip good">${t(item.status === "done" ? "done" : "≈ changed")}</span>` : item.status === "missed" ? ` <span class="chip warning">${t("missed")}</span>` : "";
-  const link = item.activity_id && linkActivities ? ` · <a href="#/activity/${encodeURIComponent(item.activity_id)}">${t("Open activity")}</a>` : "";
-  return `${withSportIcon(item.sport, title)}${chip}${link}`;
+  // Done, the title links to the activity; planned, it opens to its steps (#181).
+  return workoutRefHtml(
+    { ...item, title: item.title || sportName(item.sport) || t("Workout") },
+    { note: chip, label: (html) => withSportIcon(item.sport, html), linkActivities },
+  );
 }
 
 // Best efforts: the block lives in bests_block.js (also used by Fitness).
