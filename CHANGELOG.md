@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.13 – 24-11-2026
+
 - **Your AI coach remembers what you wrote** (#170): every advice now takes in your own words
   of the last 9 days: check-in notes, complaints, diary notes and the name, texts and notes
   of each workout. "Shoulder felt stiff" with yesterday's swim is in today's advice. When
