@@ -146,7 +146,7 @@ function sessionHtml(session, { linkActivities }) {
     ? `<details class="collapsible wp-details"><summary>${esc(t("Workout details"))}</summary>${workoutHtml(session.description)}</details>`
     : "";
   const fit = session.in_plan && session.actual ? ` ${complianceChip(session.compliance, session.compliance_source)}` : "";
-  return `<li class="wp-session">${chip(session.status, session.comparison)}${fit} <span><span class="wp-day" title="${esc(longDate(session.date))}">${esc(day)}</span> ${name}${lines}${text ? `<span class="sub wp-actual">${esc(text)}</span>` : ""}${details}</span></li>`;
+  return `<li class="wp-session">${chip(session.status, session.comparison)}${fit} <span class="wp-body"><span class="wp-day" title="${esc(longDate(session.date))}">${esc(day)}</span> ${name}${lines}${text ? `<span class="sub wp-actual">${esc(text)}</span>` : ""}${details}</span></li>`;
 }
 
 function sportHtml(sport, sessions, options) {
