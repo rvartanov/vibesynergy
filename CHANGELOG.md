@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.12 – 24-11-2026
+
 - **Week progress on a phone**: when you open a sport on the dashboard, a workout's text
   now runs under its status chips on a narrow screen instead of squeezed in a thin column
   beside them.
