@@ -1174,7 +1174,8 @@ agent_event = Table(
     Index("ix_coach_event_occurred_at", "occurred_at"),
 )
 
-# The outbox: one row per event and webhook subscription, so a restart never sends twice.
+# The outbox of the outgoing coach links: one row per event and webhook subscription. The
+# links were removed in #182; the rows stay as their history and nothing writes new ones.
 # state: pending, retry, sending, sent, failed, gave_up, skipped, expired, unknown.
 agent_event_delivery = Table(
     "agent_event_delivery",

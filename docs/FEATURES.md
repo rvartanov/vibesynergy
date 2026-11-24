@@ -351,6 +351,12 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   write diary notes and coach entries, propose plan changes. Per app you choose the scopes
   (`read`, `read.expert`, `diary.write`, `coach.write`, `plan.propose`, `plan.write`, `sync`,
   `publish`, `sql`). OAuth with your passphrase, or personal access tokens that expire.
+- **Events for AI coaches** ([EVENTS.md](EVENTS.md)): VibeSynergy notes when a new workout is
+  in, when you make it public on Strava and when a coach run was missed. Your AI coach inside
+  VibeSynergy writes its insight as soon as a workout goes public; AI apps read the same
+  events over MCP (`vibesynergy_events`). VibeSynergy sends them nowhere: the outgoing coach
+  links (webhooks to routines in an AI app, "AI coach after a workout" under Coach → Settings)
+  were removed (#182); their stored secrets are deleted on the update, their history stays.
 - **Coach apps** (Settings → Sharing): the connected apps, their scopes and activity, revoke.
 - **More than one AI coach, with roles** (Settings → Sharing → Coach apps): each app and
   token is your own agent (writes count as approved), the primary AI coach (exactly one;

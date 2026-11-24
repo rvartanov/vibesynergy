@@ -41,7 +41,6 @@ from vibesynergy.portal import share
 from vibesynergy.portal.api import build_router, tile_cache, tile_cache_enabled, tile_url
 from vibesynergy.portal.caldav_api import build_caldav_router
 from vibesynergy.portal.coach_runner_api import build_coach_runner_router
-from vibesynergy.portal.events_api import build_events_router
 from vibesynergy.portal.hosts import allowed_hosts, redirect_target
 from vibesynergy.portal.settings_api import build_settings_router
 from vibesynergy.portal.start_api import build_start_router
@@ -219,7 +218,6 @@ def create_portal_app(rt: Runtime, *, share_mode: bool = False, caldav_http=None
     if not share_mode:
         app.include_router(build_settings_router(rt), prefix="/api")
         app.include_router(build_caldav_router(rt, caldav_http), prefix="/api")
-        app.include_router(build_events_router(rt), prefix="/api")
         app.include_router(build_coach_runner_router(rt), prefix="/api")
         app.include_router(build_thresholds_router(rt), prefix="/api")
 

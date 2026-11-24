@@ -735,13 +735,6 @@ def test_populated_portal_accessibility(tmp_path, monkeypatch) -> None:
     findings: list[dict] = []
     try:
         seeded = populate(rt)
-        from vibesynergy.query import agent_events
-
-        agent_events.save_subscription(
-            rt,
-            {"name": "Coach na training", "auth": "claude_routine", "url": "trig_01SYNTHETIC"},
-            secret="synthetic-routine-token",
-        )
         routes = _routes(seeded["activity"])
         server = uvicorn.Server(
             uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
@@ -880,7 +873,7 @@ def _states(browser, base: str, axe: str, findings: list[dict]) -> None:
         page.wait_for_timeout(100)
     if "konden niet worden bijgewerkt" not in text and "couldn't be updated" not in text:
         findings.append({"where": "sync error", "missing": "actionable sync failure"})
-    _agent_link_axe(page, base, findings)
+    _coach_settings_axe(page, base, findings)
     # The feed names the AI coach.
     _open(page, base, "#/coach")
     page.locator(".coach-entry").first.wait_for(timeout=8000)
@@ -1312,7 +1305,6 @@ def _tasks(browser, base: str, seeded: dict, findings: list[dict]) -> None:
             page.get_by_text("Opgeslagen.", exact=True).first.wait_for(timeout=8000)
         except Exception as exc:
             findings.append({"where": "coach setting", "error": str(exc)})
-    _agent_link_events(page, base, findings)
     _open(page, base, "#/settings/calendar")
     if not _tab_until(
         page,
@@ -1606,58 +1598,12 @@ def _coach_tabs(browser, base: str, findings: list[dict]) -> None:
     context.close()
 
 
-def _agent_link_events(page, base: str, findings: list[dict]) -> None:
-    """Keyboard only: open a coach link's settings and choose when it gets a message."""
+def _coach_settings_axe(page, base: str, findings: list[dict]) -> None:
+    """axe on Coach → Settings, which has no card for outgoing coach links any more (#182)."""
     _open(page, base, "#/coach/settings")
-    page.locator("[data-agent-link]").first.wait_for(timeout=8000)
-    # Start the Tab order at the section (a click on its heading moves no control). The click
-    # focuses <main> (tabindex -1), so Tab starts at the top of the page: wait for the API
-    # coach card above, and allow for its controls (on, time and days per report, and since
-    # a key per AI provider and a provider and model per task).
     page.locator("#coach-runner-title").wait_for(timeout=8000)
-    page.locator("[data-sync-agents] h2").click()
-    if not _tab_until(
-        page,
-        """() => document.activeElement?.tagName === 'SUMMARY'
-          && !!document.activeElement.closest('[data-agent-link]')""",
-        steps=120,
-    ):
-        findings.append({"where": "agent link", "missing": "link settings summary"})
-        return
-    page.keyboard.press("Enter")
-    if not _tab_until(
-        page,
-        "() => document.activeElement?.value === 'activity.ready'",
-        steps=20,
-    ):
-        findings.append({"where": "agent link", "missing": "event type choice"})
-        return
-    page.keyboard.press("Space")
-    try:
-        page.get_by_text("Opgeslagen.", exact=True).first.wait_for(timeout=8000)
-    except Exception as exc:
-        findings.append({"where": "agent link events", "error": str(exc)})
-        return
-    state = page.evaluate(
-        """() => ({
-          focus: document.activeElement?.value,
-          open: !!document.activeElement?.closest('details')?.open,
-          checked: [...document.querySelectorAll('[name="event_type"]:checked')]
-            .map((box) => box.value),
-        })"""
-    )
-    if state != {
-        "focus": "activity.ready",
-        "open": True,
-        "checked": ["activity.published", "activity.ready"],
-    }:
-        findings.append({"where": "agent link events", "state": state})
-
-
-def _agent_link_axe(page, base: str, findings: list[dict]) -> None:
-    """axe on a coach link with its settings open (the event choice is inside)."""
-    _open(page, base, "#/coach/settings")
-    page.locator("[data-agent-link] details summary").first.click()
     violations = _axe(page)
     if violations:
-        findings.append({"where": "nl light agent link settings open", "axe": violations})
+        findings.append({"where": "nl light coach settings", "axe": violations})
+    if page.locator("[data-sync-agents], [data-agent-links]").count():
+        findings.append({"where": "coach settings", "found": "the removed coach links card"})

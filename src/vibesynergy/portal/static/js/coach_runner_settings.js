@@ -287,7 +287,7 @@ function cardHtml(data) {
     <p class="sub">${esc(t("Let your AI coach run inside VibeSynergy on your own API key: the morning and evening advice, the Sunday week review and the line under a public activity. Each report comes by mail, and you can reply here."))}</p>
     <label class="check"><input type="checkbox" role="switch" name="enabled" aria-describedby="coach-runner-switch-hint"${data.enabled ? " checked" : ""}${data.api_key_set ? "" : " disabled"}> ${esc(t("Coach via API"))}</label>
     <p class="sub" id="coach-runner-switch-hint">${esc(!data.api_key_set ? t("Add an API key first.") : data.enabled ? t("On: your AI coach runs here on your API key.") : t("Off until you switch it on."))}</p>
-    ${data.enabled ? `<div class="notice advice" role="note"><p>${esc(t("Turn off the routines in your AI app for the morning, the evening, the week review and after a workout, and the coach link under Coach → Settings. Otherwise your AI coach runs twice."))}</p></div>` : ""}
+    ${data.enabled ? `<div class="notice advice" role="note"><p>${esc(t("Turn off the routines in your AI app for the morning, the evening, the week review and after a workout. Otherwise your AI coach runs twice."))}</p></div>` : ""}
     <div class="settings-grid">
       <div class="settings-field">
         <label for="coach-runner-cap">${esc(t("Monthly limit in dollars"))}</label>

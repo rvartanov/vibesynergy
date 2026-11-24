@@ -216,16 +216,6 @@
                 }
             }
         ],
-        "./src/vibesynergy/query/agent_events.py": [
-            {
-                "code": "reportArgumentType",
-                "range": {
-                    "startColumn": 31,
-                    "endColumn": 36,
-                    "lineCount": 1
-                }
-            }
-        ],
         "./src/vibesynergy/query/analysis.py": [
             {
                 "code": "reportArgumentType",

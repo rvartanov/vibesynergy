@@ -649,7 +649,7 @@ def publish(rt):
     put(rt, "garmin", activity())
     put(rt, "strava", strava_public(private=False))
     agent_events.observe(rt, now=T0)
-    return agent_events.run(rt, now=T0 + timedelta(minutes=6), http=lambda *a: None)
+    return agent_events.run(rt, now=T0 + timedelta(minutes=6))
 
 
 def coach_jobs(rt):
@@ -791,6 +791,24 @@ def test_insight_redo_writes_a_new_entry_and_keeps_the_old(rt, mail, monkeypatch
     assert dict(rows[0]) == old_row  # the earlier entry is untouched
     with pytest.raises(schedule.TestRunError, match="Unknown activity"):
         schedule.enqueue_insight_redo(rt, "garmin:404")
+
+
+def test_insight_run_needs_no_outgoing_link(rt):
+    """The outgoing links are gone (#182): with none stored, activity.published is still
+    emitted and the AI coach inside VibeSynergy still queues its insight run."""
+    from vibesynergy.core.secrets import SecretStore
+    from vibesynergy.store.schema import agent_event_delivery
+
+    enable(rt)
+    store = SecretStore(rt.settings.secrets_dir, agent_events.STORE)
+    assert agent_events.LINKS not in store.documents()
+    result = publish(rt)
+    assert result["published"]
+    (queued,) = coach_jobs(rt)
+    assert queued["payload"]["run_key"] == result["published"]
+    assert queued["payload"]["trigger"] == "event"
+    with rt.engine.connect() as conn:
+        assert conn.execute(select(agent_event_delivery)).first() is None
 
 
 def test_internal_subscriber_failure_never_blocks_the_event(rt, monkeypatch):
