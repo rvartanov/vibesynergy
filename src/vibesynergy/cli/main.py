@@ -734,6 +734,7 @@ def serve(
             calendar_mirror,
             garmin_strength,
             kb_editorial,
+            media_pull,
             publication_auto,
             quote_sources,
             text_sync,
@@ -750,6 +751,8 @@ def serve(
                 # Names, public texts and gear VS <-> Strava <-> Garmin; off until switched on.
                 # The only path that writes them to Garmin and reads Strava back (#175).
                 text_sync.JOB: lambda: text_sync.due(rt),
+                # Photos of workouts from Strava and Garmin: read only, never written (#114).
+                media_pull.JOB: lambda: media_pull.due(rt),
                 # Garmin → CalDAV mirror. Off until Settings → Publishing and sync turns it on.
                 calendar_mirror.JOB: lambda: calendar_mirror.due(rt),
                 # Strength and pilates with exercise steps to Garmin.

@@ -120,9 +120,10 @@ export function meta() {
 }
 
 // File upload (multipart), with the same write header as post().
-export async function upload(path, files) {
+export async function upload(path, files, params = {}) {
   const form = new FormData();
   for (const file of files) form.append("files", file, file.name);
-  return call("POST", url(path), () => fetch(url(path), { method: "POST", headers: { "x-vibesynergy": "portal" }, body: form }));
+  const target = url(path, params);
+  return call("POST", target, () => fetch(target, { method: "POST", headers: { "x-vibesynergy": "portal" }, body: form }));
 }
 

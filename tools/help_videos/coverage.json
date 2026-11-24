@@ -39,6 +39,9 @@
     "workout_gear.js",
     "pages/gear.js"
   ],
+  "workout-photos": [
+    "workout_media.js"
+  ],
   "calendar": [
     "pages/schedule.js",
     "pages/calendar.js"

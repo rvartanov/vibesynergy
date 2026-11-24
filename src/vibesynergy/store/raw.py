@@ -65,6 +65,11 @@ class RawStore:
         self._engine = engine
         self._blobs = blobs
 
+    @property
+    def blobs(self) -> BlobStore:
+        """The blob store the payloads live in (workout photos use it too, #114)."""
+        return self._blobs
+
     def put(
         self,
         *,

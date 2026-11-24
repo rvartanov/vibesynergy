@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Photos on the workout page** (#114): add photos to a workout with *Add photos*; the
+  photos on its Strava and Garmin copies come in by themselves, each photo once. They show
+  on the workout page and on share links, without the place they were taken. Strava and
+  Garmin take no photos from other apps, so a photo you add stays in VibeSynergy; removing
+  one only removes it here and can be undone.
+
 ## 0.1.0-beta.0.13 – 24-11-2026
 
 - **Your AI coach remembers what you wrote** (#170): every advice now takes in your own words

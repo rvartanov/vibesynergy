@@ -146,7 +146,14 @@ Details: [SOURCES.md](SOURCES.md).
 - **Activity page**: summary, route map, aligned stream charts (a marker follows the route),
   laps, time in zones, the copy from each source, the training load and how it was counted,
   RPE and Feel, gear, purpose, notes, your name and texts with their history, the Publish
-  tick, the published description.
+  tick, the published description, the workout's photos.
+- **Photos of a workout** (#114): *Add photos* on the workout page (JPEG, PNG, WebP or GIF),
+  and the photos on its Strava and Garmin copies come in by themselves. One photo is kept
+  once, also when it comes from several places or in another size. Strava and Garmin take
+  no photos from other apps, so a photo you add stays in VibeSynergy. Removing a photo
+  only removes it here (it stays on Strava and Garmin, nothing is deleted there) and can be
+  put back from the workout's photo history. Shown on the workout page and on share links
+  with Activities, always without the camera's location data; a removed photo never.
 - **RPE and Feel**: from Garmin, or your own entry, which is always possible and wins.
 - **Training load per session** (VibeSynergy's own): power (TSS) on the bike, pace against CSS
   in the water, otherwise the heart-rate stream (an hour at threshold is 100), with the

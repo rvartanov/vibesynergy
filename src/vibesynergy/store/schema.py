@@ -1481,6 +1481,74 @@ gear_change = Table(
     Column("at", UTCDateTime, nullable=False),
 )
 
+# Photos of a workout (#114, phase 6, ``query/workout_media.py``). The original and the two
+# sizes the portal shows (re-encoded without the camera's location data) are blobs; a row is
+# never deleted: removing it in VibeSynergy sets ``removed_at``. Found by any member key, like
+# ``workout_text``. ``phash``: a 64-bit difference hash, to find the same photo from another
+# place. ``source``: vs (added in the portal), strava or garmin.
+media_item = Table(
+    "media_item",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("group_id", String, nullable=False, index=True),
+    Column("sha256", String, nullable=False),
+    Column("content_type", String, nullable=False),
+    Column("size", Integer, nullable=False),
+    Column("width", Integer, nullable=False),
+    Column("height", Integer, nullable=False),
+    Column("phash", String, nullable=False),
+    Column("display_sha256", String, nullable=False),
+    Column("thumb_sha256", String, nullable=False),
+    Column("caption", String),
+    Column("taken_at", UTCDateTime),
+    Column("source", String, nullable=False),
+    Column("author", String),
+    Column("added_at", UTCDateTime, nullable=False),
+    Column("removed_at", UTCDateTime),
+)
+
+# A photo taken in from Strava or Garmin, by the platform's photo id: fetched once, and never
+# back after you removed it in VibeSynergy.
+media_origin = Table(
+    "media_origin",
+    metadata,
+    Column("source", String, nullable=False),
+    Column("photo_id", String, nullable=False),
+    Column("source_id", String, nullable=False),  # the platform's activity id
+    Column("media_id", String, nullable=False, index=True),
+    Column("at", UTCDateTime, nullable=False),
+    PrimaryKeyConstraint("source", "photo_id"),
+)
+
+# Every change of a workout's photos: added, merged (the same photo also came from another
+# place), removed or restored. Only ever added.
+media_change = Table(
+    "media_change",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("group_id", String, nullable=False, index=True),
+    Column("media_id", String, nullable=False),
+    Column("action", String, nullable=False),
+    Column("source", String, nullable=False),
+    Column("author", String),
+    Column("at", UTCDateTime, nullable=False),
+)
+
+# Which Strava and Garmin copies were looked at for photos, with the stored version of the
+# activity (``raw_id``): an unchanged copy is not read again (``query/media_pull.py``).
+media_check = Table(
+    "media_check",
+    metadata,
+    Column("source", String, nullable=False),
+    Column("source_id", String, nullable=False),
+    Column("raw_id", String),
+    Column("photos", Integer, nullable=False),
+    Column("checked_at", UTCDateTime, nullable=False),
+    Column("next_at", UTCDateTime),
+    Column("error", String),
+    PrimaryKeyConstraint("source", "source_id"),
+)
+
 # Portal login (query/auth.py): one account per installation. Secrets never in plain text:
 # the password as an scrypt hash, tokens and session ids as SHA-256 hashes, the TOTP secret
 # in the encrypted secret store.

@@ -27,6 +27,7 @@ adds a dependency or vendors/adapts outside code must update this file.**
 | fitdecode | 0.11.0 | MIT | https://github.com/polyvertex/fitdecode |
 | mcp | 2.2.0 | MIT | https://github.com/modelcontextprotocol/python-sdk |
 | garminconnect | 0.3.20 | MIT | https://github.com/cyberjunky/python-garminconnect |
+| pillow | 13.0.0 | MIT-CMU | https://github.com/python-pillow/Pillow |
 | pyarrow | 25.0.1 | Apache-2.0 | https://arrow.apache.org |
 | requests | 2.34.2 | Apache-2.0 | https://requests.readthedocs.io |
 | python-ulid | 4.0.1 | MIT | https://github.com/mdomke/python-ulid |
