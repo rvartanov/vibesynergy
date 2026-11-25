@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 import tempfile
+import threading
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -39,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, func, select, update
+from sqlalchemy.exc import IntegrityError
 
 from vibesynergy.core.ids import new_id
 from vibesynergy.core.timeutil import utc_now
@@ -46,6 +49,7 @@ from vibesynergy.query import video
 from vibesynergy.store.blobs import BlobStore, file_sha256
 from vibesynergy.store.schema import media_change, media_item, media_origin
 
+log = logging.getLogger(__name__)
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin")
 # added: a new photo; merged: the same photo also came from another place (or again);
 # removed / restored: hidden in VibeSynergy, or back.
@@ -58,6 +62,8 @@ MAX_PIXELS = 100_000_000
 MAX_PER_WORKOUT = 60
 # A phone's video of a few minutes in 4K; Strava itself takes 30 seconds at most.
 MAX_VIDEO_BYTES = 500 * 1024 * 1024
+# One upload request at most: one full video and photos with it.
+MAX_UPLOAD_BYTES = 1024 * 1024 * 1024
 KINDS: tuple[str, ...] = ("photo", "video")
 NoVideoTool = video.NoVideoTool  # ffmpeg is missing: videos can't be taken in
 DISPLAY_PX = 2048
@@ -329,6 +335,9 @@ def add_video(
     _check(source, origin)
     if origin and known(engine, source, origin[0]):
         return {"state": "known", "media": None}
+    with path.open("rb") as fh:
+        if not video.looks_like_video(fh.read(16)):
+            raise NotAPhoto("choose an MP4 or MOV video")
     size = path.stat().st_size
     if size > MAX_VIDEO_BYTES:
         raise TooLarge(f"a video can be at most {MAX_VIDEO_BYTES // (1024 * 1024)} MB")
@@ -377,6 +386,41 @@ def _poster(frame: bytes) -> Processed:
         raise NotAPhoto("the video has no picture to show") from exc
 
 
+def _same(rows: list[dict[str, Any]], sha256: str, phash: str | None) -> dict[str, Any] | None:
+    """The workout's copy of this file (by SHA-256) or, for a photo, of this picture."""
+    same = next((r for r in rows if r["sha256"] == sha256), None)
+    if same is None and phash:
+        same = next(
+            (
+                r
+                for r in rows
+                if r["kind"] == "photo" and distance(r["phash"], phash) <= SAME_PHOTO_BITS
+            ),
+            None,
+        )
+    return same
+
+
+def _live(rows: list[dict[str, Any]]) -> int:
+    return sum(1 for r in rows if r["removed_at"] is None)
+
+
+def _taken(conn, source: str, photo_id: str) -> dict[str, Any] | None:
+    """What a platform photo or video became, if it was taken in (or skipped) before."""
+    found = conn.execute(
+        select(media_origin.c.media_id, media_item.c.kind)
+        .select_from(media_origin.outerjoin(media_item, media_item.c.id == media_origin.c.media_id))
+        .where(media_origin.c.source == source, media_origin.c.photo_id == photo_id)
+    ).first()
+    return None if found is None else {"media": found.media_id or None, "kind": found.kind}
+
+
+def _already(taken: dict[str, Any]) -> dict[str, Any]:
+    if not taken["media"]:  # skipped before: not a photo VibeSynergy can read
+        return {"state": "known", "media": None}
+    return {"state": "same", "media": taken["media"], "kind": taken["kind"], "restored": False}
+
+
 def _keep(
     engine: Engine,
     activity_id: str,
@@ -391,76 +435,102 @@ def _keep(
     author: str | None,
     now: datetime | None,
 ) -> dict[str, Any]:
-    """The workout's copy of a photo or video: merged with the one it already has, or new
-    (``store`` keeps the files and gives the row's values)."""
+    """The workout's copy of a photo or video: merged with the one it already has, or new.
+
+    ``store`` (keeping the files and making the sizes, for a video seconds of ffmpeg) runs
+    before any transaction. The write itself takes SQLite's write lock up front (``BEGIN
+    IMMEDIATE``) and looks again at what may have changed meanwhile: the same file or platform
+    photo added by another request, or the workout filled up."""
     group, keys = _group(engine, activity_id)
     now = now or utc_now()
-    with engine.begin() as conn:
+    with engine.connect() as conn:
         rows = _rows(conn, keys)
-        same = next((r for r in rows if r["sha256"] == sha256), None)
-        if same is None and phash:
-            same = next(
-                (
-                    r
-                    for r in rows
-                    if r["kind"] == "photo" and distance(r["phash"], phash) <= SAME_PHOTO_BITS
-                ),
-                None,
+    values: dict[str, Any] | None = None
+    if _same(rows, sha256, phash) is None:
+        if _live(rows) >= MAX_PER_WORKOUT:
+            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos and videos")
+        values = store()
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("BEGIN IMMEDIATE")
+            if origin and (taken := _taken(conn, source, origin[0])) is not None:
+                return _already(taken)  # taken in by another request meanwhile
+            rows = _rows(conn, keys)
+            same = _same(rows, sha256, phash)
+            if same is not None:
+                done = _merge(conn, group, same, source, origin, author, now)
+                conn.commit()
+                return done
+            if _live(rows) >= MAX_PER_WORKOUT:
+                raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos and videos")
+            if values is None:  # rows are never deleted, so the copy seen before is there
+                raise RuntimeError("the workout's copy of this file went missing")
+            media_id = new_id("med")
+            conn.execute(
+                media_item.insert().values(
+                    id=media_id,
+                    group_id=group,
+                    sha256=sha256,
+                    caption=(caption or "").strip()[:500] or None,
+                    taken_at=taken_at,
+                    source=source,
+                    author=author,
+                    added_at=now,
+                    removed_at=None,
+                    **values,
+                )
             )
-        if same is not None:
             if origin:
                 conn.execute(
                     media_origin.insert().values(
                         source=source,
                         photo_id=origin[0],
                         source_id=origin[1],
-                        media_id=same["id"],
+                        media_id=media_id,
                         at=now,
                     )
                 )
-                _change(conn, group, same["id"], "merged", source, author, now)
-            restored = source == "vs" and same["removed_at"] is not None
-            if restored:
-                conn.execute(
-                    update(media_item).where(media_item.c.id == same["id"]).values(removed_at=None)
-                )
-                _change(conn, group, same["id"], "restored", source, author, now)
-            return {
-                "state": "same",
-                "media": same["id"],
-                "kind": same["kind"],
-                "restored": restored,
-            }
-        if sum(1 for r in rows if r["removed_at"] is None) >= MAX_PER_WORKOUT:
-            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos and videos")
-        values = store()
-        media_id = new_id("med")
+            _change(conn, group, media_id, "added", source, author, now)
+            conn.commit()
+    except IntegrityError:
+        # Another writer recorded this platform photo between our look and our insert.
+        if not origin:
+            raise
+        with engine.connect() as conn:
+            taken = _taken(conn, source, origin[0])
+        if taken is None:
+            raise
+        return _already(taken)
+    return {"state": "added", "media": media_id, "kind": values["kind"]}
+
+
+def _merge(
+    conn,
+    group: str,
+    same: dict[str, Any],
+    source: str,
+    origin: tuple[str, str] | None,
+    author: str | None,
+    now: datetime,
+) -> dict[str, Any]:
+    if origin:
         conn.execute(
-            media_item.insert().values(
-                id=media_id,
-                group_id=group,
-                sha256=sha256,
-                caption=(caption or "").strip()[:500] or None,
-                taken_at=taken_at,
+            media_origin.insert().values(
                 source=source,
-                author=author,
-                added_at=now,
-                removed_at=None,
-                **values,
+                photo_id=origin[0],
+                source_id=origin[1],
+                media_id=same["id"],
+                at=now,
             )
         )
-        if origin:
-            conn.execute(
-                media_origin.insert().values(
-                    source=source,
-                    photo_id=origin[0],
-                    source_id=origin[1],
-                    media_id=media_id,
-                    at=now,
-                )
-            )
-        _change(conn, group, media_id, "added", source, author, now)
-    return {"state": "added", "media": media_id, "kind": values["kind"]}
+        _change(conn, group, same["id"], "merged", source, author, now)
+    restored = source == "vs" and same["removed_at"] is not None
+    if restored:
+        conn.execute(
+            update(media_item).where(media_item.c.id == same["id"]).values(removed_at=None)
+        )
+        _change(conn, group, same["id"], "restored", source, author, now)
+    return {"state": "same", "media": same["id"], "kind": same["kind"], "restored": restored}
 
 
 def _own(conn, keys: list[str], media_id: str) -> dict[str, Any]:
@@ -516,6 +586,8 @@ def _public(row: dict[str, Any], places: list[str]) -> dict[str, Any]:
         "id": row["id"],
         "kind": row["kind"],
         "duration_s": row["duration_s"],
+        # In the video's address, so a copy made again is never served from a stale cache.
+        "stream": (row["stream_sha256"] or "")[:16] or None,
         "source": row["source"],
         # Every place this photo came from: where it was first, then the others.
         "places": places,
@@ -594,26 +666,67 @@ def file(
     return blobs.get(row["display_sha256" if size == "display" else "thumb_sha256"])
 
 
+class NotReady(RuntimeError):
+    """The playable copy is being made again; asked again in a moment, it is there."""
+
+
+_remuxing: dict[str, threading.Lock] = {}
+_remuxing_guard = threading.Lock()
+
+
+def _remux_lock(media_id: str) -> threading.Lock:
+    with _remuxing_guard:
+        return _remuxing.setdefault(media_id, threading.Lock())
+
+
+def _remake(engine: Engine, blobs: BlobStore, row: dict[str, Any]) -> Path:
+    """Make a video's playable copy again from the original (once at a time per video)."""
+    with _remux_lock(row["id"]):
+        path = blobs.plain_path(row["stream_sha256"], ".mp4")
+        if path.exists():  # made by the request that held the lock before us
+            return path
+        with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+            original, playable = Path(tmp) / "original", Path(tmp) / "playable.mp4"
+            blobs.copy_to(row["sha256"], original)
+            video.strip(original, playable)
+            made = blobs.put_plain_file(playable, ".mp4")
+        if made != row["stream_sha256"]:  # another ffmpeg: keep the new copy
+            with engine.begin() as conn:
+                conn.execute(
+                    update(media_item)
+                    .where(media_item.c.id == row["id"])
+                    .values(stream_sha256=made)
+                )
+        return blobs.plain_path(made, ".mp4")
+
+
+def _remake_quietly(engine: Engine, blobs: BlobStore, row: dict[str, Any]) -> None:
+    try:
+        _remake(engine, blobs, row)
+    except Exception:  # the next request tries again
+        log.warning("making a video's playable copy again failed", exc_info=True)
+
+
 def video_file(engine: Engine, blobs: BlobStore, media_id: str, *, shared: bool = False) -> Path:
     """The playable copy of a video (MP4 without the file's metadata), as a file to serve in
-    parts. Made again from the original when it is missing. Never the original itself."""
+    parts. Never the original itself.
+
+    A missing copy is made again from the original, by one request at a time. On your own
+    portal the request waits for it; a share link never starts that work in its own request:
+    it gets ``NotReady`` while the copy is made in the background."""
     row = _shown(engine, media_id, shared)
     if row["kind"] != "video" or not row["stream_sha256"]:
         raise LookupError("no such video")
     path = blobs.plain_path(row["stream_sha256"], ".mp4")
     if path.exists():
         return path
-    with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
-        original, playable = Path(tmp) / "original", Path(tmp) / "playable.mp4"
-        blobs.copy_to(row["sha256"], original)
-        video.strip(original, playable)
-        made = blobs.put_plain_file(playable, ".mp4")
-    if made != row["stream_sha256"]:  # another ffmpeg: keep the new copy
-        with engine.begin() as conn:
-            conn.execute(
-                update(media_item).where(media_item.c.id == media_id).values(stream_sha256=made)
-            )
-    return blobs.plain_path(made, ".mp4")
+    if not shared:
+        return _remake(engine, blobs, row)
+    if not _remux_lock(media_id).locked():
+        threading.Thread(
+            target=_remake_quietly, args=(engine, blobs, row), daemon=True, name="video-remux"
+        ).start()
+    raise NotReady("the video is being prepared")
 
 
 def count(engine: Engine, activity_id: str) -> int:

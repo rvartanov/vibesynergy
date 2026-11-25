@@ -18,8 +18,9 @@ function photoUrl(id, size) {
   return url(`activity-media/photo/${encodeURIComponent(id)}`, { size });
 }
 
-function videoUrl(id) {
-  return url(`activity-media/video/${encodeURIComponent(id)}`);
+// `v` names the playable copy, so a copy made again is never taken from the browser's cache.
+function videoUrl(p) {
+  return url(`activity-media/video/${encodeURIComponent(p.id)}`, { v: p.stream || "" });
 }
 
 function altText(p, n, total) {
@@ -35,7 +36,7 @@ export function clock(seconds) {
 
 function itemHtml(p, alt) {
   if (p.kind === "video") {
-    return `<video controls preload="none" playsinline poster="${esc(photoUrl(p.id, "thumb"))}" aria-label="${esc(alt)}"><source src="${esc(videoUrl(p.id))}" type="video/mp4"></video>`;
+    return `<video controls preload="none" playsinline poster="${esc(photoUrl(p.id, "thumb"))}" aria-label="${esc(alt)}"><source src="${esc(videoUrl(p))}" type="video/mp4"></video>`;
   }
   return `<a href="${esc(photoUrl(p.id, "display"))}" target="_blank" rel="noopener" aria-label="${esc(t("{photo}, full size", { photo: alt }))}"><img src="${esc(photoUrl(p.id, "thumb"))}" alt="${esc(alt)}" loading="lazy" decoding="async"></a>`;
 }

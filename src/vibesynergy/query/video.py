@@ -55,6 +55,14 @@ def looks_like_video(head: bytes) -> bool:
     return box in _MOV_ATOMS
 
 
+# Every file ffmpeg reads here is a local MP4/MOV: no other demuxer, no other protocol.
+_INPUT = ("-protocol_whitelist", "file", "-f", "mov")
+
+
+def _local(path: Path) -> str:
+    return f"file:{path.resolve()}"
+
+
 def _tool(name: str) -> str:
     found = shutil.which(name)
     if not found:
@@ -84,7 +92,7 @@ def probe(path: Path) -> Probe:
             "-v", "error",
             "-print_format", "json",
             "-show_format", "-show_streams",
-            str(path),
+            *_INPUT, _local(path),
         ],
         PROBE_TIMEOUT_S,
     )  # fmt: skip
@@ -134,7 +142,7 @@ def strip(src: Path, dst: Path) -> None:
         [
             _tool("ffmpeg"),
             "-nostdin", "-v", "error", "-y",
-            "-i", str(src),
+            *_INPUT, "-i", _local(src),
             "-map", "0:v:0", "-map", "0:a:0?",
             "-map_metadata", "-1", "-map_chapters", "-1",
             "-c", "copy",
@@ -157,7 +165,7 @@ def poster(src: Path, duration_s: float | None) -> bytes:
             _tool("ffmpeg"),
             "-nostdin", "-v", "error",
             "-ss", f"{at:.2f}",
-            "-i", str(src),
+            *_INPUT, "-i", _local(src),
             "-frames:v", "1",
             "-f", "image2", "-c:v", "mjpeg", "-q:v", "2",
             "pipe:1",
@@ -166,17 +174,18 @@ def poster(src: Path, duration_s: float | None) -> bytes:
     )  # fmt: skip
 
 
-def fetch_hls(url: str, dst: Path, max_bytes: int, timeout: float = COPY_TIMEOUT_S) -> None:
-    """A streamed video (HLS, ``.m3u8``) fetched into one MP4 file, over https only."""
+def remux_hls(playlist: Path, dst: Path, timeout: float = COPY_TIMEOUT_S) -> None:
+    """A streamed video (HLS) whose playlist and parts were already downloaded next to
+    ``playlist`` (by ``media_pull``, with verified TLS) put together into one MP4. ffmpeg
+    reads local files only."""
     _run(
         [
             _tool("ffmpeg"),
             "-nostdin", "-v", "error", "-y",
-            "-protocol_whitelist", "https,tls,tcp,crypto,hls",
-            "-i", url,
+            "-protocol_whitelist", "file,crypto",
+            "-f", "hls", "-i", _local(playlist),
             "-map", "0:v:0", "-map", "0:a:0?",
             "-c", "copy",
-            "-fs", str(max_bytes),
             "-movflags", "+faststart",
             "-f", "mp4",
             str(dst),

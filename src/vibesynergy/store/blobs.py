@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import IO
 
 import zstandard
 
@@ -26,6 +29,27 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _write_once(target: Path, write: Callable[[IO[bytes]], None]) -> None:
+    """Write ``target`` through a temporary file of its own in the same folder, then move it
+    in place. Two writers of the same blob each have their own temporary file (threads in one
+    process too); the second move finds the same content there, which is fine."""
+    if target.exists():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    tmp = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            write(out)
+        try:
+            os.replace(tmp, target)
+        except OSError:
+            if not target.exists():
+                raise
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 class BlobStore:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -35,12 +59,10 @@ class BlobStore:
 
     def put(self, data: bytes) -> str:
         sha256 = hashlib.sha256(data).hexdigest()
-        path = self.path_for(sha256)
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(f".{os.getpid()}.tmp")
-            tmp.write_bytes(zstandard.ZstdCompressor(level=_LEVEL).compress(data))
-            os.replace(tmp, path)
+        _write_once(
+            self.path_for(sha256),
+            lambda out: out.write(zstandard.ZstdCompressor(level=_LEVEL).compress(data)),
+        )
         return sha256
 
     def get(self, sha256: str) -> bytes:
@@ -52,15 +74,14 @@ class BlobStore:
     def put_file(self, path: Path) -> str:
         """``put`` for a file too large to hold in memory: hashed and compressed in streams."""
         sha256 = file_sha256(path)
-        target = self.path_for(sha256)
-        if not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            tmp = target.with_suffix(f".{os.getpid()}.tmp")
-            with path.open("rb") as src, tmp.open("wb") as dst:
+
+        def write(out: IO[bytes]) -> None:
+            with path.open("rb") as src:
                 # The size in the frame header, so ``get`` can read it like any other blob.
                 compressor = zstandard.ZstdCompressor(level=_LEVEL)
-                compressor.copy_stream(src, dst, size=path.stat().st_size)
-            os.replace(tmp, target)
+                compressor.copy_stream(src, out, size=path.stat().st_size)
+
+        _write_once(self.path_for(sha256), write)
         return sha256
 
     def copy_to(self, sha256: str, dest: Path) -> None:
@@ -74,12 +95,11 @@ class BlobStore:
     def put_plain_file(self, path: Path, suffix: str) -> str:
         """Keep a file uncompressed, by its SHA-256, so it can be read in parts."""
         sha256 = file_sha256(path)
-        target = self.plain_path(sha256, suffix)
-        if not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            tmp = target.with_suffix(f".{os.getpid()}.tmp")
-            with path.open("rb") as src, tmp.open("wb") as dst:
+
+        def write(out: IO[bytes]) -> None:
+            with path.open("rb") as src:
                 while chunk := src.read(_CHUNK):
-                    dst.write(chunk)
-            os.replace(tmp, target)
+                    out.write(chunk)
+
+        _write_once(self.plain_path(sha256, suffix), write)
         return sha256

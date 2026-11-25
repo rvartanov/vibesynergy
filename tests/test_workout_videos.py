@@ -7,24 +7,29 @@ Synthetic videos made with ffmpeg in the test; the tests skip without it."""
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
+import os
 import shutil
 import subprocess
+import threading
 import zipfile
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from test_strava_export import HEADER, ROWS
 from test_workout_media import WRITE, FakeReader, _act, _stored, picture
 
 from vibesynergy import imports
 from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query import media_pull, video, workout_media
-from vibesynergy.store.schema import media_item
+from vibesynergy.store.blobs import BlobStore
+from vibesynergy.store.schema import media_check, media_item, media_origin
 
 needs_ffmpeg = pytest.mark.skipif(
     not (shutil.which("ffmpeg") and shutil.which("ffprobe")), reason="ffmpeg is not installed"
@@ -295,32 +300,159 @@ def test_strava_videos_come_in_once(runtime, clip):
     assert again["added"] == 0 and reader.fetched == ["https://cdn.example.test/v1.m3u8"]
 
 
-def test_a_strava_video_without_ffmpeg_waits_for_the_next_look(runtime, monkeypatch):
-    _act(runtime, "11")
+def test_a_strava_video_without_ffmpeg_waits_without_using_up_the_retry(runtime, monkeypatch):
+    run = _act(runtime, "11")
+    _stored(runtime, "strava", "11", 1)
     monkeypatch.setattr(video.shutil, "which", lambda name: None)
     fake = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
     reader = VideoReader({}, {"v1": fake})
     result = media_pull.pull_one(runtime, reader, "strava", "11")
-    assert result["added"] == 0 and "NoVideoTool" in result["errors"][0]
-    assert not workout_media.known(runtime.engine, "strava", "v1")  # tried again later
+    assert result["added"] == 0 and not result["errors"] and result["waiting"]
+    assert reader.fetched == []  # nothing downloaded that can't be used
+    assert not workout_media.known(runtime.engine, "strava", "v1")
+    later = datetime(2026, 11, 25, 12, tzinfo=UTC)
+    for n in range(3):  # each wait is looked at again: it never uses up the one retry
+        media_pull.run(runtime, now=later + media_pull.RETRY * n * 2, readers={"strava": reader})
+        with runtime.engine.connect() as conn:
+            check = conn.execute(select(media_check)).mappings().one()
+        assert check["error"].startswith(media_pull.WAITING) and check["next_at"] is not None
+    assert run and len(reader.reads) == 4
 
 
-def test_a_streamed_strava_video_is_fetched_with_ffmpeg(tmp_path, monkeypatch):
-    calls = []
-    monkeypatch.setattr(video, "fetch_hls", lambda url, dest, limit: calls.append(url) or
-                        dest.write_bytes(b"x"))  # fmt: skip
-    media_pull.download_video("https://cdn.example.test/v/index.m3u8", tmp_path / "v", 5)
-    assert calls == ["https://cdn.example.test/v/index.m3u8"]
+@needs_ffmpeg
+def test_a_run_downloads_a_limited_number_of_videos(runtime, clip, other_clip, monkeypatch):
+    run = _act(runtime, "11")
+    _stored(runtime, "strava", "11", 2)
+    monkeypatch.setattr(media_pull, "MAX_VIDEOS_PER_RUN", 1)
+    reader = VideoReader({}, {"v1": clip, "v2": other_clip})
+    now = datetime(2026, 11, 25, 12, tzinfo=UTC)
+    first = media_pull.run(runtime, now=now, readers={"strava": reader})
+    assert first["added"] == 1 and len(reader.fetched) == 1
+    second = media_pull.run(runtime, now=now + timedelta(minutes=30), readers={"strava": reader})
+    assert second["added"] == 1 and len(reader.fetched) == 2
+    assert workout_media.count(runtime.engine, run) == 2
+
+
+class FakeWeb:
+    """``requests.get`` for a few https addresses; records what was asked."""
+
+    def __init__(self, pages: dict[str, bytes], types: dict[str, str] | None = None):
+        self.pages, self.types, self.asked = pages, types or {}, []
+
+    def get(self, url, **kw):
+        self.asked.append(url)
+        assert kw.get("verify", True) is True  # TLS is always verified
+        web = self
+
+        class Response:
+            def __init__(self):
+                self.url = url
+                self.headers = {"content-type": web.types.get(url, "application/octet-stream")}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def raise_for_status(self):
+                if url not in web.pages:
+                    raise OSError(f"404 {url}")
+
+            def iter_content(self, size):
+                data = web.pages[url]
+                for i in range(0, len(data), size):
+                    yield data[i : i + size]
+
+        return Response()
+
+
+@pytest.fixture
+def hls(tmp_path, clip):
+    """The clip as a streamed video: a playlist and its parts, read from memory."""
+    folder = tmp_path / "hls"
+    folder.mkdir()
+    source = folder / "clip.mp4"
+    source.write_bytes(clip)
+    subprocess.run(
+        # H.264 as Strava streams it (MPEG-4 part 2 in TS lacks the size ffmpeg needs).
+        ["ffmpeg", "-v", "error", "-y", "-i", str(source), "-c:v", "libx264",
+         "-pix_fmt", "yuv420p", "-c:a", "copy", "-f", "hls",
+         "-hls_time", "1", "-hls_list_size", "0", str(folder / "index.m3u8")],
+        check=True,
+    )  # fmt: skip
+    base = "https://video.strava.example/v1/"
+    pages = {base + f.name: f.read_bytes() for f in folder.glob("*.ts")}
+    pages[base + "index.m3u8"] = (folder / "index.m3u8").read_bytes()
+    master = b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\nlow/index.m3u8\n"
+    master += b"#EXT-X-STREAM-INF:BANDWIDTH=900\nindex.m3u8\n"
+    pages["https://video.strava.example/master.m3u8"] = master.replace(
+        b"index.m3u8\n", b"v1/index.m3u8\n", 2
+    ).replace(b"low/v1/index.m3u8", b"low/index.m3u8")
+    return base, pages
+
+
+def test_only_https_on_the_playlists_host_or_strava_hosts():
+    allowed = media_pull._host_allowed
+    assert allowed("https://cdn.example.test/a.ts", "cdn.example.test")
+    assert allowed("https://dgtzuqphqg23d.cloudfront.net/a.ts", "cdn.example.test")
+    assert allowed("https://videos.strava.com/a.ts", None)
+    assert not allowed("http://cdn.example.test/a.ts", "cdn.example.test")
+    assert not allowed("https://evil.example/a.ts", "cdn.example.test")
+    assert not allowed("https://strava.com.evil.example/a.ts", "cdn.example.test")
+    assert not allowed("file:///etc/passwd", None)
+
+
+@needs_ffmpeg
+def test_a_streamed_video_is_downloaded_with_verified_tls_and_put_together(
+    tmp_path, hls, monkeypatch
+):
+    import requests
+
+    base, pages = hls
+    web = FakeWeb(pages)
+    monkeypatch.setattr(requests, "get", web.get)
+    dest = tmp_path / "video.mp4"
+    media_pull.download_video("https://video.strava.example/master.m3u8", dest, 5)
+    assert video.probe(dest).duration_s and video.looks_like_video(dest.read_bytes()[:16])
+    assert web.asked[1] == base + "index.m3u8"  # the best stream of the master playlist
+    assert all(u.startswith("https://video.strava.example/") for u in web.asked)
+
+
+@needs_ffmpeg
+def test_a_part_of_a_stream_on_another_host_is_refused(tmp_path, hls, monkeypatch):
+    import requests
+
+    base, pages = hls
+    playlist = pages[base + "index.m3u8"].decode()
+    first = next(line for line in playlist.splitlines() if line.endswith(".ts"))
+    pages[base + "index.m3u8"] = playlist.replace(
+        first, f"https://evil.example/{first}", 1
+    ).encode()
+    web = FakeWeb(pages)
+    monkeypatch.setattr(requests, "get", web.get)
+    with pytest.raises(ValueError, match="somewhere else"):
+        media_pull.download_video(base + "index.m3u8", tmp_path / "v.mp4", 5)
+    assert not any("evil" in u for u in web.asked)
+
+
+def test_a_video_download_has_one_deadline(tmp_path, monkeypatch):
+    import requests
+
+    web = FakeWeb({"https://cdn.example.test/v.mp4": b"\x00" * (3 * 1024 * 1024)})
+    monkeypatch.setattr(requests, "get", web.get)
+    with pytest.raises(TimeoutError):
+        media_pull.download_video("https://cdn.example.test/v.mp4", tmp_path / "v", 5, 0)
     with pytest.raises(ValueError):
         media_pull.download_video("http://cdn.example.test/v.mp4", tmp_path / "w", 5)
 
 
 @needs_ffmpeg
-def test_hls_reads_only_over_https(tmp_path):
-    playlist = tmp_path / "local.m3u8"
-    playlist.write_text("#EXTM3U\n#EXT-X-ENDLIST\n")
+def test_remuxing_a_stream_reads_local_files_only(tmp_path):
+    playlist = tmp_path / "index.m3u8"
+    playlist.write_text("#EXTM3U\n#EXT-X-TARGETDURATION:1\nhttps://evil.example/a.ts\n")
     with pytest.raises(video.NotAVideo):
-        video.fetch_hls(playlist.as_uri(), tmp_path / "out.mp4", 10_000)
+        video.remux_hls(playlist, tmp_path / "out.mp4")
 
 
 # --- the Strava archive ------------------------------------------------------------------
@@ -346,3 +478,146 @@ def test_the_strava_archive_brings_the_videos(runtime, tmp_path, clip):
     assert [p["kind"] for p in shown] == ["video"]
     again = {r.dataset: r for r in imports.import_strava_export(runtime, path)}["media"]
     assert again.new_versions == 0 and again.skipped == 2
+
+
+# --- races and limits --------------------------------------------------------------------
+
+
+@needs_ffmpeg
+def test_the_same_video_added_at_once_is_kept_once(runtime, tmp_path, clip):
+    run = _act(runtime, "1")
+    paths = [_file(tmp_path, clip, f"c{n}.mp4") for n in range(4)]
+    results, errors = [], []
+    start = threading.Barrier(len(paths))
+
+    def add(path, origin):
+        try:
+            start.wait()
+            results.append(
+                workout_media.add_video(
+                    runtime.engine, runtime.raw.blobs, run, path, source="strava", origin=origin
+                )
+            )
+        except Exception as exc:  # pragma: no cover - reported below
+            errors.append(exc)
+
+    # Two of them are the same Strava video (one platform id), two come under other ids.
+    origins = [("v1", "1"), ("v1", "1"), ("v2", "1"), ("v3", "1")]
+    threads = [threading.Thread(target=add, args=a) for a in zip(paths, origins, strict=True)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors, errors
+    states = sorted(r["state"] for r in results)
+    # One added; the others found it ("known" only if v1's twin came in after it finished).
+    assert states[0] == "added" and set(states[1:]) <= {"same", "known"}
+    with runtime.engine.connect() as conn:
+        assert conn.scalar(select(func.count()).select_from(media_item)) == 1
+        ids = {r.photo_id: r.media_id for r in conn.execute(select(media_origin))}
+    assert set(ids) == {"v1", "v2", "v3"} and len(set(ids.values())) == 1
+
+
+@needs_ffmpeg
+def test_a_full_workout_is_checked_again_when_the_file_is_written(runtime, clip, monkeypatch):
+    run = _act(runtime, "1")
+    monkeypatch.setattr(workout_media, "MAX_PER_WORKOUT", 1)
+    real = video.strip
+
+    def slow_strip(src, dst):
+        real(src, dst)
+        # Meanwhile another request fills the workout.
+        workout_media.add(runtime.engine, runtime.raw.blobs, run, picture(1))
+
+    monkeypatch.setattr(video, "strip", slow_strip)
+    with pytest.raises(workout_media.TooMany):
+        workout_media.add(runtime.engine, runtime.raw.blobs, run, clip)
+    assert workout_media.count(runtime.engine, run) == 1
+
+
+def test_a_photo_named_mp4_is_no_video(runtime, tmp_path):
+    run = _act(runtime, "1")
+    with pytest.raises(workout_media.NotAPhoto):
+        workout_media.add_video(
+            runtime.engine, runtime.raw.blobs, run, _file(tmp_path, picture(1), "x.mp4")
+        )
+
+
+def test_blobs_written_at_once_do_not_collide(tmp_path, monkeypatch):
+    blobs = BlobStore(tmp_path / "blobs")
+    big = tmp_path / "big.bin"
+    big.write_bytes(bytes(range(256)) * 40_000)
+    start = threading.Barrier(8)
+    shas, errors = [], []
+
+    def put():
+        try:
+            start.wait()
+            shas.append(blobs.put_file(big))
+            shas.append(blobs.put_plain_file(big, ".mp4"))
+        except Exception as exc:  # pragma: no cover - reported below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=put) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors, errors
+    assert len(set(shas)) == 1
+    assert blobs.get(shas[0]) == big.read_bytes()
+    assert blobs.plain_path(shas[0], ".mp4").read_bytes() == big.read_bytes()
+    assert not [p for p in (tmp_path / "blobs").rglob("*.tmp")]  # no leftovers
+    # A move that fails because another writer just put the same blob there is fine.
+    data = b"written by two"
+    target = blobs.path_for(hashlib.sha256(data).hexdigest())
+    real = os.replace
+
+    def lost_race(src, dst):
+        real(src, dst)
+        raise OSError("busy")
+
+    monkeypatch.setattr(os, "replace", lost_race)
+    blobs.put(data)
+    assert target.exists() and blobs.get(target.name.removesuffix(".zst")) == data
+
+
+def test_an_upload_too_large_is_refused_before_it_is_read(runtime, monkeypatch):
+    run = _act(runtime, "1")
+    monkeypatch.setattr(workout_media, "MAX_UPLOAD_BYTES", 1000)
+    client = TestClient(create_portal_app(runtime), base_url="http://localhost")
+    reply = client.post(
+        "/api/activity-media/upload",
+        params={"id": run},
+        files=[("files", ("big.jpg", picture(1), "image/jpeg"))],
+        headers=WRITE,
+    )
+    assert reply.status_code == 413 and reply.json()["code"] == "too_large"
+    assert workout_media.count(runtime.engine, run) == 0
+
+
+@needs_ffmpeg
+def test_a_share_link_does_not_remake_a_video_in_its_own_request(runtime, tmp_path, clip):
+    from vibesynergy.api.app import create_app
+    from vibesynergy.portal import share
+    from vibesynergy.runtime import Runtime
+
+    host = "server.example.ts.net"
+    rt = Runtime.open(replace(runtime.settings, server={"public_url": f"https://{host}"}))
+    try:
+        run = _act(rt, "1")
+        media = workout_media.add(rt.engine, rt.raw.blobs, run, clip)["media"]
+        shown = workout_media.photos(rt.engine, run)["photos"][0]
+        assert shown["stream"] and len(shown["stream"]) == 16  # the ?v= of its address
+        path = workout_media.video_file(rt.engine, rt.raw.blobs, media)
+        path.unlink()
+        code, _ = share.create(rt.engine, "Coach Anna", ["activities"], can_write=False)
+        client = TestClient(create_app(rt, with_mcp=False), base_url=f"https://{host}")
+        address = f"/vibesynergy/share/{code}/api/activity-media/video/{media}"
+        busy = client.get(address)
+        assert busy.status_code == 503 and busy.headers["retry-after"]
+        for thread in [t for t in threading.enumerate() if t.name == "video-remux"]:
+            thread.join(timeout=60)
+        assert client.get(address).status_code == 200
+    finally:
+        rt.close()

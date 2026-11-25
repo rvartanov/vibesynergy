@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
-from fastapi import Request, UploadFile
+from fastapi import Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -488,6 +488,12 @@ def register(kit: PortalKit) -> None:
         shared = bool(request.scope.get("vibesynergy_share"))
         try:
             path = workout_media.video_file(engine, rt.raw.blobs, media_id, shared=shared)
+        except workout_media.NotReady:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "the video is being prepared"},
+                headers={"retry-after": "10"},
+            )
         except (LookupError, FileNotFoundError, video.NoVideoTool, video.NotAVideo):
             return JSONResponse(status_code=404, content={"error": "no such video"})
         return FileResponse(
@@ -497,10 +503,29 @@ def register(kit: PortalKit) -> None:
         )
 
     @router.post("/activity-media/upload")
-    async def activity_media_upload(id: str, files: list[UploadFile]):
-        """Add photos to the workout. They stay in VibeSynergy: Strava and Garmin take no
-        photos from other apps."""
+    async def activity_media_upload(request: Request, id: str):
+        """Add photos and videos to the workout. They stay in VibeSynergy: Strava and Garmin
+        take none from other apps.
+
+        Disk: the request body is spooled to the temporary folder before this runs (at most
+        ``MAX_UPLOAD_BYTES``), a video is copied once more there and remuxed next to it, so
+        one full upload needs about 2.5 GB free there for a moment, plus what it adds to the
+        blob store (the original compressed and the playable copy)."""
+        from starlette.datastructures import UploadFile as FormFile
+
         from vibesynergy.query import video, workout_media
+
+        length = request.headers.get("content-length", "")
+        if not length.isdigit():
+            return JSONResponse(status_code=411, content={"error": "the upload has no length"})
+        if int(length) > workout_media.MAX_UPLOAD_BYTES:
+            mb = workout_media.MAX_UPLOAD_BYTES // (1024 * 1024)
+            return JSONResponse(
+                status_code=413,
+                content={"error": f"upload at most {mb} MB at once", "code": "too_large"},
+            )
+        form = await request.form(max_files=100)
+        files = [f for f in form.getlist("files") if isinstance(f, FormFile)]
 
         refused = (
             workout_media.NotAPhoto,
@@ -527,9 +552,10 @@ def register(kit: PortalKit) -> None:
             except ValueError as exc:
                 return _media_error(exc)
             results.append({"file": name, **done})
+        await form.close()
         return envelope({**workout_media.photos(engine, id), "results": results})
 
-    def _add_video(upload: UploadFile, id: str) -> dict[str, Any]:
+    def _add_video(upload: Any, id: str) -> dict[str, Any]:
         """A video upload goes to disk first: it can be far larger than a photo."""
         import tempfile
 

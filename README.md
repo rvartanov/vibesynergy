@@ -35,7 +35,9 @@ In short:
   ```
 
   Workout videos need [ffmpeg](https://ffmpeg.org/) (`brew install ffmpeg`,
-  `apt install ffmpeg`); without it everything else works, photos included.
+  `apt install ffmpeg`); without it everything else works, photos included. A video upload
+  (at most 500 MB, 1 GB per upload) needs about 2.5 GB free in the temporary folder for a
+  moment.
 
 Open the link, choose a password, and optionally a second step (a code by mail or an
 authenticator app). To look around without any account: `vibesynergy init --demo` and
