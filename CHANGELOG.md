@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Gear in the workout's notes** (#112): a planned workout that needs gear now says so in one
+  line at the top of its notes, like "Materiaal: pullbuoy, paddles". You see it on the start
+  page, in This week's workout details, in the Garmin workout and in intervals.icu. The plan
+  builder writes it, the AI coach adds it, and VibeSynergy adds it from the steps when it is
+  missing, never twice.
+
 ## 0.1.0-beta.0.20 – 25-11-2026
 
 - **Multisport and Zwift in published workouts** (#114): every Strava part of a brick or

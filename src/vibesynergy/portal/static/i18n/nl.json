@@ -3510,5 +3510,17 @@
  "Part {index}/{count}: running": "Deel {index}/{count}: lopen",
  "Part {index}/{count}: transition": "Deel {index}/{count}: wissel",
  "Part {index}/{count}": "Deel {index}/{count}",
- "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.": "Een brick of triatlon die je publiceert krijgt de tekst nu op elk onderdeel op Strava, met een korte regel voor het onderdeel en de naam van de training met het onderdeel. Garmin krijgt hem één keer. Een naam die je op één onderdeel wijzigt, blijft op dat onderdeel."
+ "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.": "Een brick of triatlon die je publiceert krijgt de tekst nu op elk onderdeel op Strava, met een korte regel voor het onderdeel en de naam van de training met het onderdeel. Garmin krijgt hem één keer. Een naam die je op één onderdeel wijzigt, blijft op dat onderdeel.",
+ "Gear: {items}": "Materiaal: {items}",
+ "pull buoy": "pullbuoy",
+ "paddles": "paddles",
+ "fins": "vinnen",
+ "snorkel": "snorkel",
+ "kickboard": "plank",
+ "band": "band",
+ "wetsuit": "wetsuit",
+ "indoor trainer": "fietstrainer",
+ "trail shoes": "trailschoenen",
+ "A planned workout that needs gear now says so at the top of its notes, like \"Materiaal: pullbuoy, paddles\": on the start page, in This week, in Garmin and in intervals.icu.": "Een geplande training die materiaal nodig heeft, zegt dat nu bovenaan de notities, zoals \"Materiaal: pullbuoy, paddles\": op de startpagina, bij Deze week, in Garmin en in intervals.icu.",
+ "Harness rules v10: when the AI coach writes or changes a session that needs gear, it puts one line \"Materiaal: …\" at the top of the description; VibeSynergy adds it from the steps when it is missing.": "Harnasregels v10: schrijft of wijzigt de AI-coach een sessie die materiaal nodig heeft, dan zet hij bovenaan de beschrijving één regel \"Materiaal: …\"; VibeSynergy zet hem erbij vanuit de stappen als hij ontbreekt."
 }
