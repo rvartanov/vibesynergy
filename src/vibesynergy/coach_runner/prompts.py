@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 8
+RULES_VERSION = 9
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -243,13 +243,22 @@ INSIGHT_RULES = """\
 3. Een inzicht met gezondheids-, dagboek- of blessuredetails wordt geweigerd (INS-2). Het
    blok "safety" in de context is alleen voor jou: neem er niets uit over in het inzicht.
    Schrijf over de training zelf, of schrijf niets.
-4. Hoort een activiteit bij een multisport (brick, triatlon), dan staan de houder en alle
+4. Geef bij elk inzicht ook workout_name: een korte naam voor de training (hooguit een
+   regel, liefst onder de 50 tekens), in de taal van het publieke inzicht. De naam zegt
+   wat er echt gedaan is: de sport, binnen (Zwift, virtueel, trainer, loopband) of buiten,
+   de opbouw of kern van de training, de intensiteit en de afstand of duur; bij een
+   buitentraining de plaats als die bekend is. Het plan zegt alleen wat de sessie had
+   moeten zijn: neem de titel van de geplande sessie niet over, zeker niet als de sport
+   of de omgeving anders was (een geplande MTB-rit die op Zwift is gereden, is een
+   Zwift-rit). Geen gezondheidsdetails, geen model- of providernamen. Weet je niet wat
+   er gedaan is, laat workout_name dan weg.
+5. Hoort een activiteit bij een multisport (brick, triatlon), dan staan de houder en alle
    onderdelen in de activity_ids. Schrijf voor elk onderdeel zijn eigen inzicht, over dat
    onderdeel, en voor de houder één overkoepelend inzicht over het geheel: hoe de delen op
    elkaar aansloten (bijv. het lopen na de rit), niet de onderdelen opnieuw.
-5. Wordt een write geweigerd, lees dan de foutmelding, verbeter precies dat en schrijf
+6. Wordt een write geweigerd, lees dan de foutmelding, verbeter precies dat en schrijf
    opnieuw.
-6. Je hebt een vast budget per run. Daarna ben je klaar: antwoord met één korte regel.
+7. Je hebt een vast budget per run. Daarna ben je klaar: antwoord met één korte regel.
 """
 
 

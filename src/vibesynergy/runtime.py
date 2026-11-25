@@ -78,7 +78,7 @@ class Runtime:
         plan_model.shadow_refresh(self.engine, self.settings)
         from vibesynergy.query import auto_names
 
-        # New workouts get a name before agent events and publication pick them up (#114).
+        # The cutoff for the AI coach's names of new workouts (#114, #188).
         auto_names.after_derive(self)
         from vibesynergy.query import agent_events
 

@@ -271,20 +271,27 @@ def coach_write(
     activity_id: str | None = None,
     public_insight: str | None = None,
     sessions: list | None = None,
+    workout_name: str | None = None,
 ) -> dict[str, Any]:
     if entry_type not in COACH_ENTRY_TYPES:
         raise ValueError(f"entry_type must be one of {', '.join(sorted(COACH_ENTRY_TYPES))}")
     link: dict[str, str] = {}
-    if activity_id is not None or public_insight is not None:
+    if workout_name is not None and not str(workout_name).strip():
+        workout_name = None
+    if activity_id is not None or public_insight is not None or workout_name is not None:
         from vibesynergy.query import publication_insight
 
         if entry_type != publication_insight.ENTRY_TYPE:
-            raise ValueError("activity_id and public_insight belong to an activity_assessment")
+            raise ValueError(
+                "activity_id, public_insight and workout_name belong to an activity_assessment"
+            )
         if not activity_id:
-            raise ValueError("public_insight needs the activity_id it belongs to")
+            raise ValueError("public_insight and workout_name need the activity_id")
         link["activity_id"] = publication_insight.resolve_link(engine, activity_id)
         if public_insight is not None:
             link["public_insight"] = publication_insight.validate(public_insight)
+        if workout_name is not None:
+            link["workout_name"] = publication_insight.validate_name(workout_name)
     if idempotency_key is not None and not str(idempotency_key).strip():
         raise ValueError("idempotency_key must not be blank")
     from vibesynergy.query import predictions as prediction_store

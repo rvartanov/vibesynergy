@@ -301,6 +301,20 @@ ITEMS: tuple[Item, ...] = (
         "on Strava and in your Strava archive come in by themselves. They play on the workout "
         "page and on share links, without the place they were filmed.",
     ),
+    Item(
+        "188-ai-names",
+        "you",
+        "The AI coach now names new workouts when it writes the insight, after what you "
+        "actually did, such as a Zwift ride. It no longer copies the plan title. A name "
+        "you change yourself stays.",
+    ),
+    Item(
+        "188-ai-workout-name",
+        "ai",
+        "vibesynergy_coach_write takes workout_name with the public insight: a short "
+        "name for what was actually done, stored as the workout's name unless it is "
+        "locked or the setting is off (harness rules v9).",
+    ),
 )
 
 VERSION = RELEASES[0].version

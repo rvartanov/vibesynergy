@@ -46,9 +46,10 @@ ALL_FIELDS: tuple[str, ...] = (*FIELDS, CORRECTION)
 # Where a version came from. A seed carries the platform its text was taken from.
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin", "ai")
 # ``overwritten``: a version that lost to a later change in the two-way sync (phase 3): kept
-# in the history, never the current text. ``auto``: a name VibeSynergy gave the workout by
-# itself (``auto_names``, phase 7a). ``import``: a platform's name taken in on the first sync
-# (the device's own name, such as "Leeuwarden Hardlopen"), not a change of yours.
+# in the history, never the current text. ``auto``: a name VibeSynergy's AI coach gave the
+# workout with its insight (``auto_names``, phase 7a, #188). ``import``: a platform's name
+# taken in on the first sync (the device's own name, such as "Leeuwarden Hardlopen"), not a
+# change of yours.
 KINDS: tuple[str, ...] = ("seed", "edit", "restore", "overwritten", "auto", "import")
 OVERWRITTEN = "overwritten"
 AUTO = "auto"
@@ -477,16 +478,21 @@ def take_over(
     )
 
 
-def set_auto_name(engine: Engine, activity_id: str, name: str) -> dict[str, Any]:
-    """Store a name VibeSynergy gave the workout by itself (``auto_names``): source ``vs``,
-    kind ``auto``. Refused when the name is locked (``name_lock``). The two-way sync passes
-    it on like any VibeSynergy change (published workouts only)."""
+def set_auto_name(
+    engine: Engine, activity_id: str, name: str, *, source: str = "ai", author: str = "ai-coach"
+) -> dict[str, Any]:
+    """Store a name VibeSynergy gave the workout by itself (``auto_names``: the AI coach's
+    name from its insight, source ``ai``), kind ``auto``. Refused when the name is locked
+    (``name_lock``). The two-way sync passes it on like any VibeSynergy change (published
+    workouts only)."""
+    if source not in ("vs", "ai"):
+        raise ValueError("an automatic name comes from VibeSynergy or its AI coach")
     clean = _clean("name", name)
     if not clean:
         raise ValueError("an automatic name cannot be empty")
     if name_lock(history(engine, activity_id, "name")) is not None:
         raise ValueError("the name is locked: you changed it yourself")
-    return _write(engine, activity_id, {"name": clean}, source="vs", kind=AUTO, author="auto")
+    return _write(engine, activity_id, {"name": clean}, source=source, kind=AUTO, author=author)
 
 
 def restore(

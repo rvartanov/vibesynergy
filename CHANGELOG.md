@@ -13,6 +13,13 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **The AI coach names your workouts** (#188): a new workout's name now comes from the AI
+  coach, as part of its insight, and fits what you actually did (a Zwift ride is named as a
+  Zwift ride, also when the plan said MTB). The rule that copied the plan session's title is
+  gone; without an insight the workout keeps its name from Garmin or Strava. A name you change
+  yourself still stays. AI apps: `vibesynergy_coach_write` takes `workout_name` with the
+  insight (harness rules v9).
+
 ## 0.1.0-beta.0.18 – 25-11-2026
 
 - **Photos from the Strava archive** (#114): importing the Strava account archive also

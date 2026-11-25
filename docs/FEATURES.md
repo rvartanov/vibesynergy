@@ -409,18 +409,21 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   there, when it last synced and which workouts need a look, with a link to the first. The
   earlier "Copy the Strava text to Garmin too" switch is now the Garmin tick (an older
   setting carries over), and its separate 7-day copy is gone.
-- **Automatic workout names** (#114, Settings → Publishing and sync → *Give workouts a name
-  automatically*, on by default): a new workout gets the title of the VibeSynergy plan session
-  it matched, or else sport, part of the day (night before 6:00, morning, afternoon from
-  12:00, evening from 18:00) and the place Garmin gives it, such as "Ochtendloop Leeuwarden";
-  without a place only "Ochtendloop". In the language of the published text. The name is a
-  version in the name's history (*VibeSynergy · Named automatically*) and goes out with the
-  text sync like a name you type. A name you change yourself (here, or on Strava or Garmin
-  and pulled in by the sync), or a version you restore, locks it: the workout page shows
-  *Locked*, and VibeSynergy never names that workout automatically again. The name the
-  workout came in with from Garmin or Strava does not lock it. Only workouts that start after
-  the setting first took effect (or was switched on again) are named, within two days of
-  their start; switched off, names are left alone.
+- **Automatic workout names** (#114, #188, Settings → Publishing and sync → *Give workouts a
+  name automatically*, on by default): when the AI coach writes the insight of a new workout,
+  it writes a short name too, in the language of the published text, from what was actually
+  done: the sport, indoor (Zwift, virtual, trainer) or outdoor, the structure or main set, the
+  intensity, distance or duration, and the place of an outdoor workout. The plan only says
+  what the session was meant to be; its title is not copied (a planned MTB ride done on Zwift
+  is named as a Zwift ride). Without an insight the workout keeps its name from Garmin or
+  Strava; VibeSynergy no longer makes names by a rule. The name is a version in the name's
+  history (*AI coach · Named automatically*) and goes out with the text sync like a name you
+  type. A new insight (*Write the insight again*, a changed text, a correction) may rename it.
+  A name you change yourself (here, or on Strava or Garmin and pulled in by the sync), or a
+  version you restore, locks it: the workout page shows *Locked*, and the AI coach never names
+  that workout again. The name the workout came in with from Garmin or Strava does not lock
+  it. Only workouts that start after the setting first took effect (or was switched on again)
+  are named, also when the insight comes days later; switched off, names are left alone.
 - **The insight follows your texts** (#114): the AI coach's insight reads the workout's name,
   public text and private text in VibeSynergy (the private text as context only). Publishing
   from VibeSynergy (the tick, or *new workouts: public*) has the first insight written when

@@ -1,30 +1,34 @@
-"""Automatic workout names (#114, phase 7a): the rule, the lock, the cutoff. Synthetic data."""
+"""Automatic workout names (#114 phase 7a, #188): the AI coach's name from its insight, the
+lock, the cutoff. Synthetic data; no AI provider is called."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import timedelta
 
+import anyio
+import pytest
+from mcp import Client
 from test_evidence import START, activity, put
 
 from vibesynergy.core import config_edit
 from vibesynergy.core.config import load_settings
-from vibesynergy.query import auto_names, workout_texts
+from vibesynergy.mcp.server import build_server
+from vibesynergy.query import auto_names, publication_insight, workout_texts
 
 WRITE = {"x-vibesynergy": "portal"}
-NOW = START + timedelta(hours=2)
 
 
 def _settings(rt, **publication):
     config_edit.apply_changes(rt.settings.config_path, {"publication": publication})
 
 
-def _workout(rt, *, place="Leeuwarden", sport="running", hour_offset=0, source_id="1"):
-    # 08:00 local (UTC+2): a morning.
+def _workout(rt, *, place="Leeuwarden", sport="running", source_id="1"):
     garmin = replace(
         activity(),
         source_id=source_id,
-        start_utc=START - timedelta(hours=2 - hour_offset),
+        start_utc=START - timedelta(hours=2),
         tz_offset_s=7200,
         sport=sport,
         name="Leeuwarden Hardlopen",
@@ -44,105 +48,133 @@ def _name(rt, group):
     return workout_texts.texts(rt.engine, group)["name"]
 
 
-def test_part_of_day():
-    assert [auto_names.part_of_day(h) for h in (0, 5, 6, 11, 12, 17, 18, 23)] == [
-        "night", "night", "morning", "morning", "afternoon", "afternoon", "evening", "evening",
-    ]  # fmt: skip
+def _insight(rt, group, name, key="insight-1"):
+    """The AI coach writes its insight with a workout name, as over MCP."""
+    args = {
+        "entry_type": "activity_assessment",
+        "summary": "Rustige duurloop, goed gedoseerd.",
+        "idempotency_key": key,
+        "for_date": START.date().isoformat(),
+        "activity_id": group,
+        "public_insight": "Rustig en gelijkmatig gelopen.",
+    }
+    if name is not None:
+        args["workout_name"] = name
+
+    async def go():
+        async with Client(build_server(rt)) as client:
+            return await client.call_tool("vibesynergy_coach_write", args)
+
+    result = anyio.run(go)
+    text = result.content[0].text if result.content else ""
+    assert not result.is_error, text
+    found = result.structured_content or json.loads(text)
+    return found.get("data", found)
 
 
-def test_a_new_workout_gets_sport_part_of_day_and_place(runtime):
-    _ready(runtime, language="nl")
+def test_the_insight_names_the_workout(runtime):
+    _ready(runtime)
     group = _workout(runtime)
-    assert auto_names.run(runtime, now=NOW)["named"] == 1
+    entry = _insight(runtime, group, "  Duurloop Z2 10 km\nLeeuwarden ")
+    assert entry["meta"]["workout_name"] == "Duurloop Z2 10 km Leeuwarden"
     name = _name(runtime, group)
-    assert name["text"] == "Ochtendloop Leeuwarden"
-    assert name["lock"] is None
+    assert name["text"] == "Duurloop Z2 10 km Leeuwarden" and name["lock"] is None
     newest = workout_texts.history(runtime.engine, group, "name")[0]
-    assert (newest["source"], newest["kind"], newest["old_text"]) == (
-        "vs", "auto", "Leeuwarden Hardlopen",
-    )  # fmt: skip
+    assert (newest["kind"], newest["source"], newest["author"]) == ("auto", "ai", "ai-coach")
 
 
-def test_english_and_no_place(runtime):
-    _ready(runtime, language="en")
-    group = _workout(runtime, place=None, sport="road_biking", hour_offset=11)  # 19:00
-    auto_names.run(runtime, now=NOW + timedelta(hours=11))
-    assert _name(runtime, group)["text"] == "Evening ride"
-
-
-def test_the_plan_session_title_comes_first(runtime, monkeypatch):
-    _ready(runtime, language="nl")
+def test_a_rewritten_insight_renames_an_unlocked_name(runtime):
+    _ready(runtime)
     group = _workout(runtime)
-    monkeypatch.setattr(auto_names, "plan_title", lambda rt, g, day: "Duurloop Z2 60'")
-    auto_names.run(runtime, now=NOW)
-    assert _name(runtime, group)["text"] == "Duurloop Z2 60'"
+    _insight(runtime, group, "Duurloop")
+    _insight(runtime, group, "Duurloop met 4x1 km tempo", key="insight-1-redo")
+    assert _name(runtime, group)["text"] == "Duurloop met 4x1 km tempo"
 
 
-def test_no_plan_session_no_plan_title(runtime):
+def test_a_locked_name_is_not_overwritten(runtime):
+    _ready(runtime)
     group = _workout(runtime)
-    assert auto_names.plan_title(runtime, group, START.date()) is None
+    _insight(runtime, group, "Duurloop")
+    workout_texts.set_texts(runtime.engine, group, name="Rondje met Sanne", author="portal")
+    _insight(runtime, group, "Duurloop Z2", key="insight-1-redo")
+    assert _name(runtime, group)["text"] == "Rondje met Sanne"
+    assert auto_names.from_insight(runtime, group, "Iets anders") == "locked"
+
+
+def test_a_change_pulled_in_from_strava_locks_the_name(runtime):
+    _ready(runtime)
+    group = _workout(runtime)
+    workout_texts.take_over(runtime.engine, group, "name", "Bosrondje", source="strava")
+    assert auto_names.from_insight(runtime, group, "Duurloop") == "locked"
+    assert _name(runtime, group)["text"] == "Bosrondje"
+
+
+def test_the_platform_name_from_the_first_sync_does_not_lock(runtime):
+    _ready(runtime)
+    group = _workout(runtime)
+    workout_texts.take_over(
+        runtime.engine, group, "name", "Morning Run", source="strava", kind="import"
+    )
+    assert auto_names.from_insight(runtime, group, "Duurloop Leeuwarden") == "named"
+    assert _name(runtime, group)["text"] == "Duurloop Leeuwarden"
 
 
 def test_off_leaves_names_alone(runtime):
     _ready(runtime, auto_name_enabled=False)
     group = _workout(runtime)
-    assert auto_names.run(runtime, now=NOW) == {"named": 0, "locked": 0, "kept": 0}
+    entry = _insight(runtime, group, "Duurloop")
+    assert entry["meta"]["workout_name"] == "Duurloop"  # kept on the entry only
     assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
-    assert workout_texts.history(runtime.engine, group) == []
+    assert workout_texts.history(runtime.engine, group, "name") == []
+
+
+def test_no_name_in_the_insight_changes_nothing(runtime):
+    _ready(runtime)
+    group = _workout(runtime)
+    entry = _insight(runtime, group, None)
+    assert "workout_name" not in entry["meta"]
+    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert workout_texts.history(runtime.engine, group, "name") == []
+    assert auto_names.from_insight(runtime, group, "   ") == "kept"
 
 
 def test_the_history_is_never_renamed(runtime):
     group = _workout(runtime)
-    # First run with the setting on (the default): the cutoff is now, the workout is older.
-    assert auto_names.run(runtime, now=NOW)["named"] == 0
-    since = load_settings(runtime.settings.config_path).publication["auto_name_since"]
-    assert since == NOW.isoformat()
+    # The first derive with the setting on (the default) sets the cutoff: the workout is older.
+    auto_names.after_derive(runtime)
+    assert load_settings(runtime.settings.config_path).publication["auto_name_since"]
+    assert auto_names.from_insight(runtime, group, "Duurloop") == "old"
     assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
 
 
-def test_a_name_you_changed_is_locked_and_kept_on_reanalysis(runtime):
-    _ready(runtime, language="nl")
+def test_a_late_insight_still_names_a_new_workout(runtime):
+    """No window after the start: an insight written days later still names it."""
+    _ready(runtime)
     group = _workout(runtime)
-    auto_names.run(runtime, now=NOW)
-    workout_texts.set_texts(runtime.engine, group, name="Rondje met Sanne", author="portal")
-    lock = _name(runtime, group)["lock"]
-    assert lock and lock["source"] == "vs"
-    # Analysed again (a derive runs the naming again), and a plan match arrives later.
-    put(runtime, "garmin", replace(activity(), source_id="9", start_utc=START + timedelta(days=9)))
-    assert auto_names.run(runtime, now=NOW)["locked"] == 1
-    assert _name(runtime, group)["text"] == "Rondje met Sanne"
+    later = START + timedelta(days=9)
+    assert auto_names.from_insight(runtime, group, "Duurloop", now=later) == "named"
 
 
-def test_a_change_pulled_in_from_strava_locks_the_name(runtime):
-    _ready(runtime, language="nl")
+def test_derive_no_longer_names(runtime):
+    _ready(runtime)
     group = _workout(runtime)
-    auto_names.run(runtime, now=NOW)
-    workout_texts.take_over(runtime.engine, group, "name", "Bosrondje", source="strava")
-    assert _name(runtime, group)["lock"]["source"] == "strava"
-    assert auto_names.run(runtime, now=NOW)["named"] == 0
-    assert _name(runtime, group)["text"] == "Bosrondje"
+    runtime.derive()
+    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert workout_texts.history(runtime.engine, group, "name") == []
+    assert not hasattr(auto_names, "run")
 
 
-def test_the_platform_name_from_the_first_sync_does_not_lock(runtime):
-    _ready(runtime, language="nl")
-    group = _workout(runtime)
-    workout_texts.take_over(
-        runtime.engine, group, "name", "Morning Run", source="strava", kind="import"
-    )
-    assert _name(runtime, group)["lock"] is None
-    auto_names.run(runtime, now=NOW)
-    assert _name(runtime, group)["text"] == "Ochtendloop Leeuwarden"
+@pytest.mark.parametrize("bad", ["Duurloop na blessure knie", "Rit www.example.com"])
+def test_a_private_or_linked_name_is_refused(bad):
+    with pytest.raises(publication_insight.InsightError):
+        publication_insight.validate_name(bad)
 
 
 def test_an_automatic_name_never_writes_over_a_lock(runtime):
     group = _workout(runtime)
     workout_texts.set_texts(runtime.engine, group, name="Mijn naam")
-    try:
+    with pytest.raises(ValueError, match="locked"):
         workout_texts.set_auto_name(runtime.engine, group, "Ochtendloop")
-    except ValueError as exc:
-        assert "locked" in str(exc)
-    else:
-        raise AssertionError("an automatic name wrote over a locked name")
 
 
 def test_name_lock_from_the_history():
