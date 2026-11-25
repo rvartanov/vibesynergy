@@ -501,6 +501,9 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 "targets": publication_targets(on_disk.publication),
                 "text_sync_enabled": on_disk.publication.get("text_sync_enabled") is True,
                 "text_sync": text_sync.status(rt),
+                # On by default (#114, phase 7a); a saved false switches it off.
+                "auto_name_enabled": on_disk.publication.get("auto_name_enabled", True)
+                is not False,
                 "quote_themes": on_disk.publication.get("quote_themes", list(THEMES)),
                 "quote_sources": on_disk.publication.get("quote_sources", list(COLLECTIONS)),
                 "sources": list(COLLECTIONS),
@@ -693,6 +696,17 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             and publication_change["text_sync_enabled"] is not True
         ):
             publication_change["text_sync_enabled"] = None  # off is the default (#114)
+        if isinstance(publication_change, dict) and "auto_name_enabled" in publication_change:
+            publication_change.pop("auto_name_since", None)
+            if publication_change["auto_name_enabled"] is False:
+                publication_change["auto_name_enabled"] = False
+            else:
+                publication_change["auto_name_enabled"] = None  # on is the default (#114)
+                path = settings.config_path
+                was = load_settings(path).publication if path.exists() else {}
+                if was.get("auto_name_enabled") is False:
+                    # Switched back on: only workouts from now on, never the ones in between.
+                    publication_change["auto_name_since"] = utc_now().isoformat()
         try:
             saved = config_edit.apply_changes(settings.config_path, changes)
         except ConfigError as exc:

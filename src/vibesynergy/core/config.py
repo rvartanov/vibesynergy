@@ -235,6 +235,12 @@ def _validate(settings: Settings) -> None:
             datetime.fromisoformat(str(since))
         except ValueError as exc:
             raise ConfigError("[publication] auto_publish_since must be an ISO time") from exc
+    named = settings.publication.get("auto_name_since")
+    if named is not None:
+        try:
+            datetime.fromisoformat(str(named))
+        except ValueError as exc:
+            raise ConfigError("[publication] auto_name_since must be an ISO time") from exc
     if settings.publication.get("language", "nl") not in ("en", "nl"):
         raise ConfigError("[publication] language must be en or nl")
     from vibesynergy.query.publication_plugins import THEMES
@@ -247,7 +253,7 @@ def _validate(settings: Settings) -> None:
         or len(set(targets)) != len(targets)
     ):
         raise ConfigError("[publication] targets must name strava and/or garmin")
-    for key in ("quote_enabled", "weather_enabled", "text_sync_enabled"):
+    for key in ("quote_enabled", "weather_enabled", "text_sync_enabled", "auto_name_enabled"):
         if not isinstance(settings.publication.get(key, True), bool):
             raise ConfigError(f"[publication] {key} must be true or false")
     themes = settings.publication.get("quote_themes", list(THEMES))

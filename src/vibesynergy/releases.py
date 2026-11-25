@@ -279,6 +279,13 @@ ITEMS: tuple[Item, ...] = (
         "are gone). Read activity.ready, activity.published and coach.run_missed with "
         "vibesynergy_events; the vibesynergy.test event no longer exists.",
     ),
+    Item(
+        "114-auto-names",
+        "you",
+        "New workouts get a name by themselves: the title of their plan session, or else "
+        'sport, part of the day and place, such as "Morning run Leeuwarden". A name you change '
+        "yourself stays. Switch it off under Settings → Publishing and sync.",
+    ),
 )
 
 VERSION = RELEASES[0].version

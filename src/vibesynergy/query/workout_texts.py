@@ -46,9 +46,17 @@ ALL_FIELDS: tuple[str, ...] = (*FIELDS, CORRECTION)
 # Where a version came from. A seed carries the platform its text was taken from.
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin", "ai")
 # ``overwritten``: a version that lost to a later change in the two-way sync (phase 3): kept
-# in the history, never the current text.
-KINDS: tuple[str, ...] = ("seed", "edit", "restore", "overwritten")
+# in the history, never the current text. ``auto``: a name VibeSynergy gave the workout by
+# itself (``auto_names``, phase 7a). ``import``: a platform's name taken in on the first sync
+# (the device's own name, such as "Leeuwarden Hardlopen"), not a change of yours.
+KINDS: tuple[str, ...] = ("seed", "edit", "restore", "overwritten", "auto", "import")
 OVERWRITTEN = "overwritten"
+AUTO = "auto"
+IMPORT = "import"
+# A name version that locks the name (``name_lock``): a change you made, in VibeSynergy or
+# on Strava or Garmin (pulled in by the two-way sync), or a version you restored.
+_LOCKING_KINDS: tuple[str, ...] = ("edit", "restore")
+_LOCKING_SOURCES: tuple[str, ...] = ("vs", "strava", "garmin")
 # Technical limits, the size a description field takes on the platforms.
 MAX_NAME = 255
 MAX_TEXT = 20000
@@ -217,6 +225,25 @@ def _latest(conn, keys: list[str], fields: tuple[str, ...] = FIELDS) -> dict[str
     return latest
 
 
+def name_lock(versions: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Whether the workout's name is locked against automatic names, from its history.
+
+    Locked once any name version is a change of yours: an edit (kind ``edit``) or a restore
+    in VibeSynergy, or a change made on Strava or Garmin that the two-way sync pulled in.
+    Not locking: the ``seed`` (what was there), ``import`` (the platform's own name on the
+    first sync), ``auto`` (VibeSynergy's own name) and ``overwritten`` versions, and
+    versions from the AI coach. Returns the newest locking version
+    ``{version, source, at}``, or None. No separate flag: the history is the record."""
+    for v in versions:  # newest first
+        if (
+            v.get("field") == "name"
+            and v.get("kind") in _LOCKING_KINDS
+            and v.get("source") in _LOCKING_SOURCES
+        ):
+            return {"version": v["version"], "source": v["source"], "at": v["at"]}
+    return None
+
+
 def stored(engine: Engine, activity_id: str) -> dict[str, str]:
     """Only the texts VibeSynergy holds a version of: field -> current text. Empty when the
     workout has no version of its own yet (then ``derive`` is what there is)."""
@@ -254,6 +281,7 @@ def texts(engine: Engine, activity_id: str) -> dict[str, Any]:
                 "version": None,
                 "stored": False,
             }
+    out["name"]["lock"] = name_lock(history(engine, group, "name"))
     return out
 
 
@@ -432,17 +460,33 @@ def take_over(
     *,
     source: str,
     overwritten: list[tuple[str, str]] | None = None,
+    kind: str = "edit",
 ) -> dict[str, Any]:
     """The two-way sync's write (``text_sync``): ``text`` (None: leave the current text) from
     ``source`` becomes the current version, and each ``(text, source)`` in ``overwritten``
-    is kept in the history as a version that lost to it ("overwritten, from <source>")."""
+    is kept in the history as a version that lost to it ("overwritten, from <source>").
+    ``kind`` is ``import`` for a platform's name taken in on the first sync."""
+    if kind not in ("edit", IMPORT):
+        raise ValueError("the sync writes an edit or an import")
     if field not in ("name", "public"):
         raise ValueError("only the name and the public text are synced")
     changes = {field: _clean(field, text)} if text is not None else {}
     lost = [(field, _clean(field, t), s) for t, s in overwritten or () if s in SOURCES]
     return _write(
-        engine, activity_id, changes, source=source, kind="edit", author="sync", overwritten=lost
+        engine, activity_id, changes, source=source, kind=kind, author="sync", overwritten=lost
     )
+
+
+def set_auto_name(engine: Engine, activity_id: str, name: str) -> dict[str, Any]:
+    """Store a name VibeSynergy gave the workout by itself (``auto_names``): source ``vs``,
+    kind ``auto``. Refused when the name is locked (``name_lock``). The two-way sync passes
+    it on like any VibeSynergy change (published workouts only)."""
+    clean = _clean("name", name)
+    if not clean:
+        raise ValueError("an automatic name cannot be empty")
+    if name_lock(history(engine, activity_id, "name")) is not None:
+        raise ValueError("the name is locked: you changed it yourself")
+    return _write(engine, activity_id, {"name": clean}, source="vs", kind=AUTO, author="auto")
 
 
 def restore(

@@ -76,6 +76,10 @@ class Runtime:
         from vibesynergy.query import plan_model
 
         plan_model.shadow_refresh(self.engine, self.settings)
+        from vibesynergy.query import auto_names
+
+        # New workouts get a name before agent events and publication pick them up (#114).
+        auto_names.after_derive(self)
         from vibesynergy.query import agent_events
 
         agent_events.after_derive(self)

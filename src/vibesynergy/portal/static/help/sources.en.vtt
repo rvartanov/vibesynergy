@@ -1,40 +1,43 @@
 WEBVTT
 
-00:00:06.179 --> 00:00:09.998
+00:00:06.299 --> 00:00:10.057
 Settings → Sources: connect Garmin, Strava, Withings, intervals.icu or a calendar.
 
-00:00:10.048 --> 00:00:13.197
+00:00:10.107 --> 00:00:13.241
 Garmin: sign in with your Garmin account and choose 'Connect Garmin'.
 
-00:00:13.247 --> 00:00:16.365
+00:00:13.291 --> 00:00:16.390
 'Update now' fetches the latest data right away.
 
-00:00:16.415 --> 00:00:21.182
+00:00:16.440 --> 00:00:21.275
 The mark in front of the name shows on your watch which workouts come from VibeSynergy.
 
-00:00:21.232 --> 00:00:24.949
+00:00:21.325 --> 00:00:25.037
 Or choose a mark per workout type; the defaults are filled in.
 
-00:00:24.999 --> 00:00:32.659
+00:00:25.087 --> 00:00:32.473
 Multisport gets the marks of its sports, or one mark of its own.
 
-00:00:32.709 --> 00:00:37.958
+00:00:32.523 --> 00:00:37.747
 intervals.icu gets a copy of your plan. Here you see the last copy and what was copied; your messages only list real plan changes.
 
-00:00:38.008 --> 00:00:42.667
+00:00:37.797 --> 00:00:42.361
 Older data? Import the export zip from Garmin or Strava.
 
-00:00:42.717 --> 00:00:46.860
+00:00:42.411 --> 00:00:46.526
 Publishing and sync: what VibeSynergy writes out. Your workouts are VibeSynergy's; publish one and it stays the same everywhere.
 
-00:00:46.910 --> 00:00:50.840
+00:00:46.576 --> 00:00:50.475
 New workouts: public (published by themselves) or only me (you tick Publish yourself).
 
-00:00:50.890 --> 00:00:55.053
+00:00:50.525 --> 00:00:54.617
 Publish to: Strava, Garmin or both. Each place keeps its own text, with VibeSynergy's section below it.
 
-00:00:55.103 --> 00:01:00.510
+00:00:54.667 --> 00:00:58.952
 Keep name, texts and gear the same everywhere: a published workout has the same name, public text and gear everywhere. Off by default.
 
-00:01:00.560 --> 00:01:08.380
+00:00:59.002 --> 00:01:04.531
+Give workouts a name automatically: the title from your plan, or else sport, part of the day and place. A name you change yourself stays. On by default.
+
+00:01:04.581 --> 00:01:11.045
 What goes in the text: language, quote, weather and the block's markers.
