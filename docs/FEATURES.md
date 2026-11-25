@@ -445,8 +445,15 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   text, so nothing is lost or doubled. VibeSynergy never writes over a change it has not
   read, never touches a hand-edited block (that workout waits for review) and never sends the
   private text. Strava visibility is not changed: Strava's API can only make an activity more
-  private, so the workout page says when only you can see it on Strava. A multisport is
-  synced with its Garmin multisport activity only; its legs sync as workouts of their own.
+  private, so the workout page says when only you can see it on Strava. A multisport
+  (#114, phase 7b) gets its text once on Garmin, on the multisport activity; every part on
+  Strava gets the same public text under a short part line (*Deel 2/3: fietsen*) and the
+  workout's name with the part (*Frysman sim – zwemmen*), in the publication language. A text
+  changed on one part becomes the workout's text and reaches Garmin and the other parts; a
+  name changed on one part stays on that part only. Each part keeps its own gear. Zwift's
+  copies (on Strava, on Garmin and the watch's) are one workout: the texts go to one Strava
+  and one Garmin copy, the Zwift title gives way to the AI coach's name, and when the Garmin
+  copy changes the new one gets the agreed name without locking it.
 - **Gear the same everywhere** (#114, on the same switch and the same check as the name and
   texts, so no extra setting and no extra Strava reads): a published workout's gear is kept the same in
   VibeSynergy, on Strava (its one gear slot: the bike or the shoes) and on Garmin (the

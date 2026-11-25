@@ -3499,5 +3499,16 @@
  "Add photos and videos to a workout, see the ones from Strava and Garmin, and remove or put one back.": "Add photos and videos to a workout, see the ones from Strava and Garmin, and remove or put one back.",
  "Workouts can have videos now too. Add an MP4 or MOV on the workout page; the videos on Strava and in your Strava archive come in by themselves. They play on the workout page and on share links, without the place they were filmed.": "Workouts can have videos now too. Add an MP4 or MOV on the workout page; the videos on Strava and in your Strava archive come in by themselves. They play on the workout page and on share links, without the place they were filmed.",
  "The AI coach now names new workouts when it writes the insight, after what you actually did, such as a Zwift ride. It no longer copies the plan title. A name you change yourself stays.": "The AI coach now names new workouts when it writes the insight, after what you actually did, such as a Zwift ride. It no longer copies the plan title. A name you change yourself stays.",
- "vibesynergy_coach_write takes workout_name with the public insight: a short name for what was actually done, stored as the workout's name unless it is locked or the setting is off (harness rules v9).": "vibesynergy_coach_write takes workout_name with the public insight: a short name for what was actually done, stored as the workout's name unless it is locked or the setting is off (harness rules v9)."
+ "vibesynergy_coach_write takes workout_name with the public insight: a short name for what was actually done, stored as the workout's name unless it is locked or the setting is off (harness rules v9).": "vibesynergy_coach_write takes workout_name with the public insight: a short name for what was actually done, stored as the workout's name unless it is locked or the setting is off (harness rules v9).",
+ "{name} – swimming": "{name} – swimming",
+ "{name} – cycling": "{name} – cycling",
+ "{name} – running": "{name} – running",
+ "{name} – transition": "{name} – transition",
+ "{name} – part {index}": "{name} – part {index}",
+ "Part {index}/{count}: swimming": "Part {index}/{count}: swimming",
+ "Part {index}/{count}: cycling": "Part {index}/{count}: cycling",
+ "Part {index}/{count}: running": "Part {index}/{count}: running",
+ "Part {index}/{count}: transition": "Part {index}/{count}: transition",
+ "Part {index}/{count}": "Part {index}/{count}",
+ "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.": "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part."
 }

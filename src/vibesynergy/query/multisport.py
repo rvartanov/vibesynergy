@@ -160,3 +160,101 @@ def relatives(engine: Any, ids: list[str]) -> list[str]:
         if holder in out or any(leg in out for leg in legs):
             out.extend(i for i in [holder, *legs] if i not in out)
     return out
+
+
+# --- a multisport published (#114, phase 7b) ------------------------------------------------
+# Strava gets each part as an activity of its own; each carries the workout's public text
+# under a short part line, and the workout's name with the part ("Frysman sim - zwemmen").
+# The words are in the publication language (the English text is the i18n key).
+_NAMES = {
+    "swim": "{name} \u2013 swimming",
+    "bike": "{name} \u2013 cycling",
+    "run": "{name} \u2013 running",
+    "transition": "{name} \u2013 transition",
+    "other": "{name} \u2013 part {index}",
+}
+_LINES = {
+    "swim": "Part {index}/{count}: swimming",
+    "bike": "Part {index}/{count}: cycling",
+    "run": "Part {index}/{count}: running",
+    "transition": "Part {index}/{count}: transition",
+    "other": "Part {index}/{count}",
+}
+
+
+def part_kind(sport: str | None) -> str:
+    """``swim``, ``bike``, ``run``, ``transition`` or ``other``. Strava calls a transition a
+    ``Workout``; Garmin ``transition_v2``."""
+    from vibesynergy.query import units
+
+    key = (sport or "").lower()
+    if "transition" in key or key == "workout":
+        return "transition"
+    family = units.family(sport)
+    if family in ("pool_swim", "open_water_swim"):
+        return "swim"
+    return {"cycle": "bike", "run": "run"}.get(family, "other")
+
+
+def part_name(t, name: str, part: dict[str, Any]) -> str:
+    """The name of one part: the workout's name with the part, translated by ``t``."""
+    return t(_NAMES[part_kind(part.get("sport"))], name=name, index=part["index"])
+
+
+def part_line(t, part: dict[str, Any]) -> str:
+    """The short line above the public text on one part: ``Deel 2/3: fietsen``."""
+    kind = part_kind(part.get("sport"))
+    return t(_LINES[kind], index=part["index"], count=part["count"])
+
+
+def part_of(engine: Any, group: str) -> dict[str, Any] | None:
+    """The multisport ``group`` is a part of: ``{holder, index, count, sport}`` (index from 1,
+    in time order), else None."""
+    from sqlalchemy import select
+
+    from vibesynergy.query import series as qs
+    from vibesynergy.store.schema import activity_unified as t
+
+    with engine.connect() as conn:
+        day = conn.scalar(select(t.c.local_date).where(t.c.group_id == group))
+        if day is None:
+            return None
+        rows = [
+            {"id": r[0], "sport": r[1], "start_utc": r[2], "elapsed_s": r[3], "moving_s": r[4]}
+            for r in conn.execute(
+                select(
+                    t.c.group_id,
+                    t.c.sport,
+                    t.c.start_utc,
+                    t.c.elapsed_s,
+                    qs.activity_column("moving_s"),
+                ).where(t.c.local_date == day)
+            )
+        ]
+    sports = {r["id"]: r["sport"] for r in rows}
+    for holder, legs in sorted(parts(rows).items()):
+        if group in legs:
+            return {
+                "holder": holder,
+                "index": legs.index(group) + 1,
+                "count": len(legs),
+                "sport": sports.get(group),
+            }
+    return None
+
+
+def without_part_line(text: str | None) -> str:
+    """``text`` without a part line at its top, in either language and for any part number
+    (an outside change on a part goes into the holder's text without it)."""
+    from vibesynergy import i18n
+
+    text = (text or "").strip()
+    head, *rest = re.split(r"\n\s*\n", text, maxsplit=1)
+    for lang in i18n.LANGUAGES:
+        t = i18n.translator(lang)
+        for template in _LINES.values():
+            pattern = re.escape(t(template)).replace(r"\{index\}", r"\d+")
+            pattern = pattern.replace(r"\{count\}", r"\d+")
+            if re.fullmatch(pattern, " ".join(head.split())):
+                return rest[0].strip() if rest else ""
+    return text
