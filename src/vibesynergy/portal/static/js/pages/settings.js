@@ -513,6 +513,7 @@ function publicationChanges(publication) {
   if (has("weather_enabled")) pub.weather_enabled = has("weather_enabled").checked;
   if (has("publish_target")) pub.targets = [...publication.querySelectorAll("[name=publish_target]:checked")].map((item) => item.value);
   if (has("text_sync_enabled")) pub.text_sync_enabled = has("text_sync_enabled").checked;
+  if (has("auto_name_enabled")) pub.auto_name_enabled = has("auto_name_enabled").checked;
   // New workouts public = published by themselves; only me = you tick Publish (#114).
   if (has("new_workouts")) pub.auto_publish = publication.querySelector("[name=new_workouts]:checked")?.value === "public";
   if (has("publication_language")) pub.language = has("publication_language").value;

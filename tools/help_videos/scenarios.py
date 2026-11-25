@@ -1483,6 +1483,16 @@ def _sources(r: Rec):
         "public text and gear everywhere. Off by default.",
         3.4,
     )
+    names = r.pg.locator("label", has_text="Trainingen automatisch een naam geven").first
+    r.check(names.count() > 0, "Publishing should offer to name new workouts automatically")
+    r.point(names)
+    r.say(
+        "Trainingen automatisch een naam geven: de titel uit je schema, of anders sport, dagdeel "
+        "en plaats. Een naam die je zelf wijzigt blijft staan. Staat standaard aan.",
+        "Give workouts a name automatically: the title from your plan, or else sport, part of "
+        "the day and place. A name you change yourself stays. On by default.",
+        3.6,
+    )
     what = r.pg.locator("summary", has_text="Wat er in de tekst komt").first
     r.check(what.count() > 0, "Publishing should keep the text options together")
     r.click(what)

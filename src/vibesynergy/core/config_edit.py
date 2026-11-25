@@ -60,6 +60,8 @@ PUBLICATION_KEYS = (
     "weather_enabled",
     "targets",
     "text_sync_enabled",
+    "auto_name_enabled",
+    "auto_name_since",
     "quote_themes",
     "quote_sources",
     "quote_providers",

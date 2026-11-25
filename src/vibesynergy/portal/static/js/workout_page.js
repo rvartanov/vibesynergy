@@ -15,7 +15,7 @@ import { esc, userDateTime } from "./format.js";
 import { N, t } from "./i18n.js";
 
 const SOURCE = { vs: "VibeSynergy", strava: "Strava", garmin: "Garmin", ai: N("AI coach") };
-const KIND = { seed: N("Taken over"), edit: N("Edited"), restore: N("Restored"), overwritten: N("Overwritten") };
+const KIND = { seed: N("Taken over"), edit: N("Edited"), restore: N("Restored"), overwritten: N("Overwritten"), auto: N("Named automatically"), import: N("Taken over") };
 const FIELD_LABEL = { name: N("Name"), public: N("Your public text"), private: N("Your private text") };
 
 function sourceLabel(source) {
@@ -61,7 +61,13 @@ function publishHtml(p) {
   </section>`;
 }
 
-function historyHtml(field, versions, tz) {
+// A name you changed yourself is locked (#114): VibeSynergy no longer names it automatically.
+function lockHtml(lock) {
+  if (!lock) return "";
+  return `<p class="sub wt-lock"><span class="chip">${t("Locked")}</span> ${esc(t("You changed this name, so VibeSynergy no longer names this workout automatically."))}</p>`;
+}
+
+function historyHtml(field, versions, tz, lock = null) {
   const mine = versions.filter((v) => v.field === field);
   if (!mine.length) {
     return `<details class="wt-history"><summary>${t("History")}</summary><p class="sub">${t("No earlier versions yet. Your first change keeps what was there.")}</p></details>`;
@@ -79,7 +85,8 @@ function historyHtml(field, versions, tz) {
     const label = v.kind === "overwritten"
       ? t("Overwritten, from {source}", { source: sourceLabel(v.source) })
       : `${sourceLabel(v.source)} · ${t(KIND[v.kind] || v.kind)}`;
-    return `<li><div class="sub">${esc(label)} · <time datetime="${esc(v.at)}">${esc(when)}</time></div>
+    const locks = lock && lock.version === v.version ? ` <span class="chip">${t("Locks the name")}</span>` : "";
+    return `<li><div class="sub">${esc(label)} · <time datetime="${esc(v.at)}">${esc(when)}</time>${locks}</div>
       <div class="wt-version-text">${text}</div>${action}</li>`;
   }).join("");
   return `<details class="wt-history"><summary>${esc(t("History ({n})", { n: mine.length }))}</summary><ol class="wt-versions">${rows}</ol></details>`;
@@ -97,7 +104,8 @@ function textField(field, current, limit, versions, tz) {
     <label for="${id}">${t(FIELD_LABEL[field])}</label>${input}${from}
     <div class="ql-actions"><button class="btn" type="button" data-wt-save>${t("Save")}</button></div>
     <p class="sub" role="status" data-wt-status></p>
-    ${historyHtml(field, versions, tz)}
+    ${field === "name" ? lockHtml(current.lock) : ""}
+    ${historyHtml(field, versions, tz, field === "name" ? current.lock : null)}
   </div>`;
 }
 

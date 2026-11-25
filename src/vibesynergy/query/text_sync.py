@@ -605,7 +605,11 @@ def _first_sync(
             if not name:
                 continue
             if _key(name) != _key(target):
-                workout_texts.take_over(rt.engine, group, "name", name, source=platform)
+                # The platform's own name (the device default): no change of yours, so an
+                # automatic name may still replace it (``workout_texts.name_lock``).
+                workout_texts.take_over(
+                    rt.engine, group, "name", name, source=platform, kind=workout_texts.IMPORT
+                )
                 info["taken_from"] = info.get("taken_from") or platform
             return name
     return target
