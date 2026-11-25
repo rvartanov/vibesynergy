@@ -566,7 +566,7 @@ def _workout_gear(r: Rec):
         )
 
 
-@scenario("workout-photos", "Foto's bij een training", "Photos on a workout")
+@scenario("workout-photos", "Foto's en video's bij een training", "Photos and videos on a workout")
 def workout_photos(r: Rec):
     # One photo "from Garmin" on the newest workout, and the photo the video adds; both are
     # synthetic and taken out afterwards.
@@ -596,16 +596,23 @@ def _workout_photos(r: Rec):
     add = media.locator("[data-wm-add]")
     with r.pg.expect_file_chooser() as chooser:
         r.click(add)
-    chooser.value.set_files(str(H / "tour" / "photo.jpg"))
+    chooser.value.set_files([str(H / "tour" / "photo.jpg"), str(H / "tour" / "clip.mp4")])
     status = media.locator("[data-wm-status]")
-    status.get_by_text("Foto's toegevoegd: 1.", exact=True).wait_for()
+    status.get_by_text("Foto's toegevoegd: 1. Video's toegevoegd: 1.", exact=True).wait_for()
     r.check(media.locator(".wm-grid img").count() == 2, "the added photo should show")
+    r.check(media.locator(".wm-grid video").count() == 1, "the added video should show")
     r.say(
-        "Met Foto's toevoegen zet je er zelf een bij. Die blijft in VibeSynergy: Strava en "
-        "Garmin nemen geen foto's van andere apps aan.",
-        "Add photos puts one there yourself. It stays in VibeSynergy: Strava and Garmin take "
-        "no photos from other apps.",
+        "Met Foto's of video's toevoegen zet je er zelf een bij. Die blijft in VibeSynergy: "
+        "Strava en Garmin nemen niets van andere apps aan.",
+        "Add photos or videos puts one there yourself. It stays in VibeSynergy: Strava and "
+        "Garmin take nothing from other apps.",
         3.6,
+    )
+    r.point(media.locator(".wm-grid video"))
+    r.say(
+        "Een video speel je hier af, met het gewone afspeelscherm.",
+        "A video plays right here, in the usual player.",
+        2.6,
     )
     r.point(media.locator(".wm-grid img").last)
     r.say(
@@ -616,8 +623,9 @@ def _workout_photos(r: Rec):
     r.click(media.locator("[data-wm-remove]").last)
     status.get_by_text("Uit VibeSynergy verwijderd.", exact=False).wait_for()
     r.say(
-        "Verwijderen haalt een foto alleen hier weg; op Strava en Garmin wordt niets gewist.",
-        "Removing takes a photo away here only; nothing is deleted on Strava or Garmin.",
+        "Verwijderen haalt een foto of video alleen hier weg; op Strava en Garmin wordt niets "
+        "gewist.",
+        "Removing takes a photo or video away here only; nothing is deleted on Strava or Garmin.",
         3.0,
     )
     r.click(media.locator("[data-wm-history] summary"))

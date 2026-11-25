@@ -569,7 +569,11 @@ def import_archive(
     counts = None
     if media is not None:
         message += _media_message(media)
-        counts = {"files": (total or 0) - media.listed, "photos": media.new_versions}
+        counts = {
+            "files": (total or 0) - media.listed,
+            "photos": media.new_versions - media.videos,
+            "videos": media.videos,
+        }
     dropfolder.delete_archive(rt.settings, path)
     _update(
         rt,
@@ -587,11 +591,12 @@ def import_archive(
 
 def _media_message(media: Any) -> str:
     """The photos part of an archive import's result (the details, in English)."""
-    parts = [f"{_count(media.new_versions, 'photo', 'photos')} added"]
+    photos = media.new_versions - media.videos
+    parts = [f"{_count(photos, 'photo', 'photos')} added"]
+    if media.videos:
+        parts.append(f"{_count(media.videos, 'video', 'videos')} added")
     if media.skipped:
         parts.append(f"{_count(media.skipped, 'photo was', 'photos were')} already here")
-    if media.videos:
-        parts.append(f"{_count(media.videos, 'video', 'videos')} left out (photos only)")
     left = media.missing + media.unreadable + media.full + media.failed
     if left:
         parts.append(f"{_count(left, 'photo', 'photos')} could not be added")

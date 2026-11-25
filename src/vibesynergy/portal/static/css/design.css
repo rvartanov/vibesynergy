@@ -764,6 +764,7 @@ fieldset.settings-field { border: 0; padding: 0; margin-left: 0; margin-right: 0
 .workout-media .wm-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--grid); border-radius: 8px; }
 .workout-media .wm-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); }
 .workout-media .wm-removed img { opacity: 0.6; }
+.workout-media .wm-grid video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: var(--grid); border-radius: 8px; }
 .workout-media .wt-versions { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
 .workout-media .wt-versions li { padding: var(--space-2) 0; border-top: 1px solid var(--grid); }
 .workout-media h3 { margin-top: var(--space-3); }

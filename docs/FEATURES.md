@@ -66,7 +66,7 @@ Details: [SOURCES.md](SOURCES.md).
   account export.
 - **Withings**: weight and body composition, blood pressure.
 - **Strava**: activities, gear with mileage; history from the account archive, with the
-  workouts' photos (videos are left out).
+  workouts' photos and videos.
 - **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach
   Zwift and the other services connected there. A one-way mirror: its events are never read
   as the plan, the week notes, the targets or the races, and a change made there changes
@@ -155,6 +155,12 @@ Details: [SOURCES.md](SOURCES.md).
   only removes it here (it stays on Strava and Garmin, nothing is deleted there) and can be
   put back from the workout's photo history. Shown on the workout page and on share links
   with Activities, always without the camera's location data; a removed photo never.
+- **Videos of a workout** (#114): MP4 and MOV (up to 500 MB), added on the workout page or
+  taken in from Strava (also a streamed video) and the Strava archive, each video once (by
+  its bytes and by Strava's id). Kept as they came; played from a copy without the file's
+  metadata, with a poster frame, in the browser's own player (seeking works, also on a
+  phone), on the workout page and on share links. They count toward the workout's 60 photos
+  and videos. Needs ffmpeg (in the container); without it, photos are not affected.
 - **RPE and Feel**: from Garmin, or your own entry, which is always possible and wins.
 - **Training load per session** (VibeSynergy's own): power (TSS) on the bike, pace against CSS
   in the water, otherwise the heart-rate stream (an hour at threshold is 100), with the

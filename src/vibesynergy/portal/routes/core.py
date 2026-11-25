@@ -4,13 +4,14 @@ registers these modules in sequence, so routes match exactly as before."""
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
 from fastapi import Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from vibesynergy import __version__
 from vibesynergy.core.timeutil import Window
@@ -434,6 +435,7 @@ def register(kit: PortalKit) -> None:
             workout_media.NotAPhoto: "not_a_photo",
             workout_media.TooLarge: "too_large",
             workout_media.TooMany: "too_many",
+            workout_media.NoVideoTool: "no_video_tool",
         }.get(type(exc), "invalid")
 
     def _media_error(exc: Exception) -> JSONResponse:
@@ -455,6 +457,7 @@ def register(kit: PortalKit) -> None:
         if not shared:
             data["from"] = media_pull.readable(rt)
             data["max_mb"] = workout_media.MAX_BYTES // (1024 * 1024)
+            data["max_video_mb"] = workout_media.MAX_VIDEO_BYTES // (1024 * 1024)
         return envelope(data)
 
     @router.get("/activity-media/photo/{media_id}")
@@ -476,27 +479,70 @@ def register(kit: PortalKit) -> None:
             headers={"cache-control": "private, max-age=31536000, immutable"},
         )
 
+    @router.get("/activity-media/video/{media_id}")
+    def activity_media_video(request: Request, media_id: str):
+        """A video as MP4 without the file's metadata, served in parts (HTTP ranges) so a
+        player can seek and a phone can play it. Never the original file."""
+        from vibesynergy.query import video, workout_media
+
+        shared = bool(request.scope.get("vibesynergy_share"))
+        try:
+            path = workout_media.video_file(engine, rt.raw.blobs, media_id, shared=shared)
+        except (LookupError, FileNotFoundError, video.NoVideoTool, video.NotAVideo):
+            return JSONResponse(status_code=404, content={"error": "no such video"})
+        return FileResponse(
+            path,
+            media_type="video/mp4",
+            headers={"cache-control": "private, max-age=31536000, immutable"},
+        )
+
     @router.post("/activity-media/upload")
     async def activity_media_upload(id: str, files: list[UploadFile]):
         """Add photos to the workout. They stay in VibeSynergy: Strava and Garmin take no
         photos from other apps."""
-        from vibesynergy.query import workout_media
+        from vibesynergy.query import video, workout_media
 
+        refused = (
+            workout_media.NotAPhoto,
+            workout_media.TooLarge,
+            workout_media.TooMany,
+            workout_media.NoVideoTool,
+        )
         results = []
         for upload in files[:20]:
             name = (upload.filename or "photo")[:200]
-            data = await upload.read(workout_media.MAX_BYTES + 1)
+            head = await upload.read(16)
+            await upload.seek(0)
             try:
-                done = await run_in_threadpool(
-                    workout_media.add, engine, rt.raw.blobs, id, data, author="portal"
-                )
-            except (workout_media.NotAPhoto, workout_media.TooLarge, workout_media.TooMany) as exc:
+                if video.looks_like_video(head):
+                    done = await run_in_threadpool(_add_video, upload, id)
+                else:
+                    data = await upload.read(workout_media.MAX_BYTES + 1)
+                    done = await run_in_threadpool(
+                        workout_media.add, engine, rt.raw.blobs, id, data, author="portal"
+                    )
+            except refused as exc:
                 results.append({"file": name, "state": "refused", "code": _media_code(exc)})
                 continue
             except ValueError as exc:
                 return _media_error(exc)
             results.append({"file": name, **done})
         return envelope({**workout_media.photos(engine, id), "results": results})
+
+    def _add_video(upload: UploadFile, id: str) -> dict[str, Any]:
+        """A video upload goes to disk first: it can be far larger than a photo."""
+        import tempfile
+
+        from vibesynergy.query import workout_media
+
+        with tempfile.TemporaryDirectory(prefix="vs-upload-") as tmp:
+            path = Path(tmp) / "original"
+            with path.open("wb") as out:
+                while chunk := upload.file.read(1024 * 1024):
+                    out.write(chunk)
+                    if out.tell() > workout_media.MAX_VIDEO_BYTES:
+                        raise workout_media.TooLarge("the video is too large")
+            return workout_media.add_video(engine, rt.raw.blobs, id, path, author="portal")
 
     @router.post("/activity-media/remove")
     def activity_media_remove(request: WorkoutMediaChange):

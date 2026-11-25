@@ -26,8 +26,10 @@ first; Strava's rate limit ends a run and the rest waits.
 from __future__ import annotations
 
 import logging
+import tempfile
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
@@ -63,6 +65,10 @@ class Reader(Protocol):
 
     def download(self, url: str) -> bytes: ...
 
+    def download_video(self, url: str, dest: Path) -> None:
+        """A video (``"video": True`` in ``photos``) into the file ``dest``."""
+        ...
+
 
 def _when(value: Any) -> datetime | None:
     if not value:
@@ -74,6 +80,47 @@ def _when(value: Any) -> datetime | None:
     except (ValueError, OverflowError, OSError):
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def download_video(url: str, dest: Path, timeout: float) -> None:
+    """A video from the platform's own link into ``dest``: https only, at most
+    ``MAX_VIDEO_BYTES``, no login sent. A streamed video (HLS, ``.m3u8``) is fetched into one
+    MP4 by ffmpeg."""
+    import requests
+
+    from vibesynergy.query import video
+
+    if urlparse(url).scheme != "https":
+        raise ValueError("video links must be https")
+    limit = workout_media.MAX_VIDEO_BYTES
+    if urlparse(url).path.lower().endswith(".m3u8"):
+        _hls(url, dest, limit)
+        return
+    with requests.get(url, stream=True, timeout=timeout, allow_redirects=True) as response:
+        response.raise_for_status()
+        if "mpegurl" in response.headers.get("content-type", "").lower():
+            response.close()
+            _hls(url, dest, limit)
+            return
+        if int(response.headers.get("content-length") or 0) > limit:
+            raise workout_media.TooLarge("the video is too large")
+        with dest.open("wb") as out:
+            for chunk in response.iter_content(1024 * 1024):
+                out.write(chunk)
+                if out.tell() > limit:
+                    raise workout_media.TooLarge("the video is too large")
+    with dest.open("rb") as fh:
+        head = fh.read(16)
+    if not video.looks_like_video(head):
+        raise workout_media.NotAPhoto("the link gave no video")
+
+
+def _hls(url: str, dest: Path, limit: int) -> None:
+    from vibesynergy.query import video
+
+    video.fetch_hls(url, dest, limit)
+    if dest.stat().st_size >= limit:  # ffmpeg stopped at the limit
+        raise workout_media.TooLarge("the video is too large")
 
 
 def download(url: str, timeout: float) -> bytes:
@@ -113,11 +160,12 @@ class StravaReader:
         )
         out = []
         for photo in found or []:
-            if not isinstance(photo, dict) or photo.get("video_url"):
-                continue  # a video: not a photo VibeSynergy keeps
+            if not isinstance(photo, dict):
+                continue
             urls = photo.get("urls") or {}
             sizes = sorted(urls, key=lambda k: int(k) if str(k).isdigit() else 0)
-            url = urls.get(sizes[-1]) if sizes else None
+            # A video's urls are its poster; the video itself is video_url.
+            url = photo.get("video_url") or (urls.get(sizes[-1]) if sizes else None)
             photo_id = photo.get("unique_id") or photo.get("id")
             if not url or not photo_id or "placeholder" in str(url):
                 continue  # still being processed on Strava: the next look takes it
@@ -125,6 +173,7 @@ class StravaReader:
                 {
                     "photo_id": str(photo_id),
                     "url": str(url),
+                    "video": bool(photo.get("video_url")),
                     "caption": photo.get("caption"),
                     "taken_at": _when(photo.get("created_at")),
                 }
@@ -133,6 +182,9 @@ class StravaReader:
 
     def download(self, url: str) -> bytes:
         return download(url, self.timeout)
+
+    def download_video(self, url: str, dest: Path) -> None:
+        download_video(url, dest, self.timeout)
 
 
 class GarminReader:
@@ -167,6 +219,9 @@ class GarminReader:
 
     def download(self, url: str) -> bytes:
         return download(url, self.timeout)
+
+    def download_video(self, url: str, dest: Path) -> None:
+        download_video(url, dest, self.timeout)
 
 
 _READERS = {"strava": StravaReader, "garmin": GarminReader}
@@ -231,6 +286,11 @@ def pull_one(rt, reader: Reader, source: str, source_id: str) -> dict[str, Any]:
     for photo in listed:
         if workout_media.known(rt.engine, source, photo["photo_id"]):
             continue
+        if photo.get("video"):
+            _pull_video(rt, reader, source, source_id, photo, result)
+            if result.pop("full", False):
+                break
+            continue
         try:
             data = reader.download(photo["url"])
         except RateLimited:
@@ -261,6 +321,44 @@ def pull_one(rt, reader: Reader, source: str, source_id: str) -> dict[str, Any]:
         elif done["state"] == "same":
             result["same"] += 1
     return result
+
+
+def _pull_video(
+    rt, reader: Reader, source: str, source_id: str, photo: dict[str, Any], result: dict
+) -> None:
+    """One video, as ``pull_one`` does a photo: what can never be read is not asked again; a
+    download that fails, or a missing ffmpeg, waits for the next look."""
+    with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+        path = Path(tmp) / "original"
+        try:
+            reader.download_video(photo["url"], path)
+            done = workout_media.add_video(
+                rt.engine,
+                rt.raw.blobs,
+                f"{source}:{source_id}",
+                path,
+                source=source,
+                origin=(photo["photo_id"], source_id),
+                caption=photo.get("caption"),
+                taken_at=photo.get("taken_at"),
+            )
+        except RateLimited:
+            raise
+        except (workout_media.NotAPhoto, workout_media.TooLarge):
+            workout_media.skip(rt.engine, source, photo["photo_id"], source_id)
+            result["skipped"] += 1
+            return
+        except workout_media.TooMany:
+            result["errors"].append("the workout has as many photos as it can have")
+            result["full"] = True
+            return
+        except Exception as exc:  # no ffmpeg, an expired link, a network hiccup
+            result["errors"].append(f"{type(exc).__name__}: {exc}"[:200])
+            return
+    if done["state"] == "added":
+        result["added"] += 1
+    elif done["state"] == "same":
+        result["same"] += 1
 
 
 def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = None) -> dict:

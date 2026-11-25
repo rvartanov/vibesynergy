@@ -171,7 +171,7 @@ def test_add_remove_and_put_back_keep_every_change(runtime):
     added = workout_media.add(runtime.engine, blobs, run, picture(1))
     assert added["state"] == "added"
     again = workout_media.add(runtime.engine, blobs, run, picture(1))
-    assert again == {"state": "same", "media": added["media"], "restored": False}
+    assert again == {"state": "same", "media": added["media"], "kind": "photo", "restored": False}
     workout_media.add(runtime.engine, blobs, run, picture(2))
     listed = workout_media.photos(runtime.engine, run)
     assert [p["source"] for p in listed["photos"]] == ["vs", "vs"]
@@ -309,7 +309,7 @@ def test_photo_counts_come_from_the_stored_copies():
     assert media_pull.photo_count("garmin", {"activity": None}) == 0
 
 
-def test_the_strava_reader_lists_photos_and_skips_videos_and_placeholders():
+def test_the_strava_reader_lists_photos_and_videos_and_skips_placeholders():
     reader = media_pull.StravaReader.__new__(media_pull.StravaReader)
 
     class Client:
@@ -323,7 +323,10 @@ def test_the_strava_reader_lists_photos_and_skips_videos_and_placeholders():
 
     reader.client = Client()
     listed = reader.photos("11")
-    assert [(p["photo_id"], p["url"]) for p in listed] == [("p1", "https://x/l")]
+    assert [(p["photo_id"], p["url"], p["video"]) for p in listed] == [
+        ("p1", "https://x/l", False),
+        ("v1", "https://x/m", True),  # the video itself, not its poster
+    ]
 
 
 def test_a_photo_link_must_be_https():

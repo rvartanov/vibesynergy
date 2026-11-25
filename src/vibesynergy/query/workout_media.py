@@ -1,4 +1,9 @@
-"""Photos of a workout, kept in VibeSynergy (#114, phase 6).
+"""Photos and videos of a workout, kept in VibeSynergy (#114, phase 6).
+
+**Videos** (MP4, MOV) go the same way as photos, with ``kind = "video"``: the original as it
+came, a playable copy without the file's metadata (``stream_sha256``, see ``query.video``) and
+a poster frame as the two JPEG sizes. One video once by its SHA-256 and by the platform's id;
+videos count toward ``MAX_PER_WORKOUT`` with the photos.
 
 **Where they come from.** You add them on the workout page (source ``vs``), and the photos
 on the workout's Strava and Garmin copies are taken in by themselves (``media_pull``, source
@@ -25,16 +30,20 @@ from __future__ import annotations
 
 import hashlib
 import io
+import tempfile
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Engine, func, select, update
 
 from vibesynergy.core.ids import new_id
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.store.blobs import BlobStore
+from vibesynergy.query import video
+from vibesynergy.store.blobs import BlobStore, file_sha256
 from vibesynergy.store.schema import media_change, media_item, media_origin
 
 SOURCES: tuple[str, ...] = ("vs", "strava", "garmin")
@@ -45,7 +54,12 @@ SIZES: tuple[str, ...] = ("display", "thumb")
 # Technical limits: what a phone photo is at most, and what a page can show.
 MAX_BYTES = 30 * 1024 * 1024
 MAX_PIXELS = 100_000_000
+# Photos and videos together: one list on the page, as on Strava.
 MAX_PER_WORKOUT = 60
+# A phone's video of a few minutes in 4K; Strava itself takes 30 seconds at most.
+MAX_VIDEO_BYTES = 500 * 1024 * 1024
+KINDS: tuple[str, ...] = ("photo", "video")
+NoVideoTool = video.NoVideoTool  # ffmpeg is missing: videos can't be taken in
 DISPLAY_PX = 2048
 THUMB_PX = 480
 # Two difference hashes this close are the same picture (a resize or a recompression).
@@ -60,15 +74,16 @@ _FORMATS = {
 
 
 class NotAPhoto(ValueError):
-    """The file is not a photo VibeSynergy can read (JPEG, PNG, WebP or GIF)."""
+    """The file is not a photo (JPEG, PNG, WebP or GIF) or video (MP4, MOV) VibeSynergy can
+    read."""
 
 
 class TooLarge(ValueError):
-    """Larger than ``MAX_BYTES`` or ``MAX_PIXELS``."""
+    """Larger than ``MAX_BYTES`` or ``MAX_PIXELS`` (a video: ``MAX_VIDEO_BYTES``)."""
 
 
 class TooMany(ValueError):
-    """The workout already has ``MAX_PER_WORKOUT`` photos."""
+    """The workout already has ``MAX_PER_WORKOUT`` photos and videos."""
 
 
 @dataclass(frozen=True)
@@ -234,6 +249,13 @@ def skip(engine: Engine, source: str, photo_id: str, source_id: str) -> None:
             )
 
 
+def _check(source: str, origin: tuple[str, str] | None) -> None:
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {', '.join(SOURCES)}")
+    if (origin is None) != (source == "vs"):
+        raise ValueError("a photo from Strava or Garmin needs its photo id, and only then")
+
+
 def add(
     engine: Engine,
     blobs: BlobStore,
@@ -247,26 +269,144 @@ def add(
     author: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Add a photo to the workout. ``origin``: the platform's (photo id, activity id).
+    """Add a photo (or a video, see ``add_video``) to the workout. ``origin``: the
+    platform's (photo id, activity id).
 
     Returns ``{"state": "added" | "same" | "known", "media": id}``: ``same`` when the
     workout already has this photo (from any place), ``known`` when this platform photo was
     taken in before. A photo you add again after removing it comes back (``restored``); one
     from Strava or Garmin does not."""
-    if source not in SOURCES:
-        raise ValueError(f"source must be one of {', '.join(SOURCES)}")
-    if (origin is None) != (source == "vs"):
-        raise ValueError("a photo from Strava or Garmin needs its photo id, and only then")
+    _check(source, origin)
     if origin and known(engine, source, origin[0]):
         return {"state": "known", "media": None}
+    if video.looks_like_video(data[:16]):
+        with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+            path = Path(tmp) / "original"
+            path.write_bytes(data)
+            return add_video(
+                engine, blobs, activity_id, path, source=source, origin=origin,
+                caption=caption, taken_at=taken_at, author=author, now=now,
+            )  # fmt: skip
     photo = process(data)
+
+    def store() -> dict[str, Any]:
+        # Content-addressed: storing a file that is already there costs nothing.
+        blobs.put(data)
+        return {
+            "kind": "photo",
+            "content_type": photo.content_type,
+            "size": len(data),
+            "width": photo.width,
+            "height": photo.height,
+            "phash": photo.phash,
+            "display_sha256": blobs.put(photo.display),
+            "thumb_sha256": blobs.put(photo.thumb),
+        }
+
+    return _keep(
+        engine, activity_id, photo.sha256, photo.phash, store, source=source, origin=origin,
+        caption=caption, taken_at=taken_at, author=author, now=now,
+    )  # fmt: skip
+
+
+def add_video(
+    engine: Engine,
+    blobs: BlobStore,
+    activity_id: str,
+    path: Path,
+    *,
+    source: str = "vs",
+    origin: tuple[str, str] | None = None,
+    caption: str | None = None,
+    taken_at: datetime | None = None,
+    author: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Add a video (MP4 or MOV, a file on disk) to the workout, as ``add`` does a photo.
+
+    One video once: by its SHA-256 and by the platform's id. ``NoVideoTool`` when ffmpeg is
+    not installed; photos are not affected by that."""
+    _check(source, origin)
+    if origin and known(engine, source, origin[0]):
+        return {"state": "known", "media": None}
+    size = path.stat().st_size
+    if size > MAX_VIDEO_BYTES:
+        raise TooLarge(f"a video can be at most {MAX_VIDEO_BYTES // (1024 * 1024)} MB")
+    if not size:
+        raise NotAPhoto("the file is empty")
+    try:
+        found = video.probe(path)
+    except video.NotAVideo as exc:
+        raise NotAPhoto(str(exc)) from exc
+    sha256 = file_sha256(path)
+
+    def store() -> dict[str, Any]:
+        with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+            playable = Path(tmp) / "playable.mp4"
+            try:
+                video.strip(path, playable)
+                frame = video.poster(playable, found.duration_s)
+                poster = _poster(frame)
+            except video.NotAVideo as exc:
+                raise NotAPhoto(str(exc)) from exc
+            stream = blobs.put_plain_file(playable, ".mp4")
+        blobs.put_file(path)  # the original, as it came
+        return {
+            "kind": "video",
+            "content_type": found.content_type,
+            "size": size,
+            "width": found.width,
+            "height": found.height,
+            "phash": "",  # pictures only: a video is the same video by its bytes
+            "display_sha256": blobs.put(poster.display),
+            "thumb_sha256": blobs.put(poster.thumb),
+            "duration_s": found.duration_s,
+            "stream_sha256": stream,
+        }
+
+    return _keep(
+        engine, activity_id, sha256, None, store, source=source, origin=origin,
+        caption=caption, taken_at=taken_at, author=author, now=now,
+    )  # fmt: skip
+
+
+def _poster(frame: bytes) -> Processed:
+    try:
+        return process(frame)
+    except (NotAPhoto, TooLarge) as exc:
+        raise NotAPhoto("the video has no picture to show") from exc
+
+
+def _keep(
+    engine: Engine,
+    activity_id: str,
+    sha256: str,
+    phash: str | None,
+    store: Callable[[], dict[str, Any]],
+    *,
+    source: str,
+    origin: tuple[str, str] | None,
+    caption: str | None,
+    taken_at: datetime | None,
+    author: str | None,
+    now: datetime | None,
+) -> dict[str, Any]:
+    """The workout's copy of a photo or video: merged with the one it already has, or new
+    (``store`` keeps the files and gives the row's values)."""
     group, keys = _group(engine, activity_id)
     now = now or utc_now()
     with engine.begin() as conn:
         rows = _rows(conn, keys)
-        same = next((r for r in rows if r["sha256"] == photo.sha256), None) or next(
-            (r for r in rows if distance(r["phash"], photo.phash) <= SAME_PHOTO_BITS), None
-        )
+        same = next((r for r in rows if r["sha256"] == sha256), None)
+        if same is None and phash:
+            same = next(
+                (
+                    r
+                    for r in rows
+                    if r["kind"] == "photo" and distance(r["phash"], phash) <= SAME_PHOTO_BITS
+                ),
+                None,
+            )
         if same is not None:
             if origin:
                 conn.execute(
@@ -285,32 +425,28 @@ def add(
                     update(media_item).where(media_item.c.id == same["id"]).values(removed_at=None)
                 )
                 _change(conn, group, same["id"], "restored", source, author, now)
-            return {"state": "same", "media": same["id"], "restored": restored}
+            return {
+                "state": "same",
+                "media": same["id"],
+                "kind": same["kind"],
+                "restored": restored,
+            }
         if sum(1 for r in rows if r["removed_at"] is None) >= MAX_PER_WORKOUT:
-            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos")
-        # Content-addressed: storing a file that is already there costs nothing.
-        blobs.put(data)
-        display = blobs.put(photo.display)
-        thumb = blobs.put(photo.thumb)
+            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos and videos")
+        values = store()
         media_id = new_id("med")
         conn.execute(
             media_item.insert().values(
                 id=media_id,
                 group_id=group,
-                sha256=photo.sha256,
-                content_type=photo.content_type,
-                size=len(data),
-                width=photo.width,
-                height=photo.height,
-                phash=photo.phash,
-                display_sha256=display,
-                thumb_sha256=thumb,
+                sha256=sha256,
                 caption=(caption or "").strip()[:500] or None,
                 taken_at=taken_at,
                 source=source,
                 author=author,
                 added_at=now,
                 removed_at=None,
+                **values,
             )
         )
         if origin:
@@ -324,7 +460,7 @@ def add(
                 )
             )
         _change(conn, group, media_id, "added", source, author, now)
-    return {"state": "added", "media": media_id}
+    return {"state": "added", "media": media_id, "kind": values["kind"]}
 
 
 def _own(conn, keys: list[str], media_id: str) -> dict[str, Any]:
@@ -370,7 +506,7 @@ def restore(
             )
         )
         if (live or 0) >= MAX_PER_WORKOUT:
-            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos")
+            raise TooMany(f"a workout can have at most {MAX_PER_WORKOUT} photos and videos")
         conn.execute(update(media_item).where(media_item.c.id == media_id).values(removed_at=None))
         _change(conn, group, media_id, "restored", "vs", author, now)
 
@@ -378,6 +514,8 @@ def restore(
 def _public(row: dict[str, Any], places: list[str]) -> dict[str, Any]:
     return {
         "id": row["id"],
+        "kind": row["kind"],
+        "duration_s": row["duration_s"],
         "source": row["source"],
         # Every place this photo came from: where it was first, then the others.
         "places": places,
@@ -421,6 +559,7 @@ def photos(engine: Engine, activity_id: str, *, shared: bool = False) -> dict[st
     out: dict[str, Any] = {"group": group, "photos": shown}
     if not shared:
         number = {r["id"]: n for n, r in enumerate(rows, 1)}
+        kind = {r["id"]: r["kind"] for r in rows}
         out["removed"] = [_public(r, places[r["id"]]) for r in rows if r["removed_at"]]
         out["history"] = [
             {
@@ -429,24 +568,52 @@ def photos(engine: Engine, activity_id: str, *, shared: bool = False) -> dict[st
                 "source": c["source"],
                 "media": c["media_id"],
                 "number": number.get(c["media_id"]),
+                "kind": kind.get(c["media_id"], "photo"),
             }
             for c in changes
         ]
     return out
 
 
-def file(
-    engine: Engine, blobs: BlobStore, media_id: str, size: str, *, shared: bool = False
-) -> bytes:
-    """The JPEG of one photo in ``size`` (display or thumb). A share link gets no removed
-    photo; the original file is never served."""
-    if size not in SIZES:
-        raise ValueError(f"size must be one of {', '.join(SIZES)}")
+def _shown(engine: Engine, media_id: str, shared: bool) -> dict[str, Any]:
     with engine.connect() as conn:
         row = conn.execute(select(media_item).where(media_item.c.id == media_id)).mappings().first()
     if row is None or (shared and row["removed_at"] is not None):
         raise LookupError("no such photo")
+    return dict(row)
+
+
+def file(
+    engine: Engine, blobs: BlobStore, media_id: str, size: str, *, shared: bool = False
+) -> bytes:
+    """The JPEG of one photo in ``size`` (display or thumb); of a video, its poster frame. A
+    share link gets no removed photo; the original file is never served."""
+    if size not in SIZES:
+        raise ValueError(f"size must be one of {', '.join(SIZES)}")
+    row = _shown(engine, media_id, shared)
     return blobs.get(row["display_sha256" if size == "display" else "thumb_sha256"])
+
+
+def video_file(engine: Engine, blobs: BlobStore, media_id: str, *, shared: bool = False) -> Path:
+    """The playable copy of a video (MP4 without the file's metadata), as a file to serve in
+    parts. Made again from the original when it is missing. Never the original itself."""
+    row = _shown(engine, media_id, shared)
+    if row["kind"] != "video" or not row["stream_sha256"]:
+        raise LookupError("no such video")
+    path = blobs.plain_path(row["stream_sha256"], ".mp4")
+    if path.exists():
+        return path
+    with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+        original, playable = Path(tmp) / "original", Path(tmp) / "playable.mp4"
+        blobs.copy_to(row["sha256"], original)
+        video.strip(original, playable)
+        made = blobs.put_plain_file(playable, ".mp4")
+    if made != row["stream_sha256"]:  # another ffmpeg: keep the new copy
+        with engine.begin() as conn:
+            conn.execute(
+                update(media_item).where(media_item.c.id == media_id).values(stream_sha256=made)
+            )
+    return blobs.plain_path(made, ".mp4")
 
 
 def count(engine: Engine, activity_id: str) -> int:

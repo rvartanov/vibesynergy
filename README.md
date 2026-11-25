@@ -34,6 +34,9 @@ In short:
   vibesynergy serve                          # the portal on http://127.0.0.1:8447
   ```
 
+  Workout videos need [ffmpeg](https://ffmpeg.org/) (`brew install ffmpeg`,
+  `apt install ffmpeg`); without it everything else works, photos included.
+
 Open the link, choose a password, and optionally a second step (a code by mail or an
 authenticator app). To look around without any account: `vibesynergy init --demo` and
 `vibesynergy sync demo` (synthetic runs and rides with heart rate, pace and a route, plus

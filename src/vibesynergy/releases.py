@@ -293,6 +293,13 @@ ITEMS: tuple[Item, ...] = (
         "Importing your Strava archive now also brings the photos of your workouts, each "
         "photo once.",
     ),
+    Item(
+        "114-videos",
+        "you",
+        "Workouts can have videos now too. Add an MP4 or MOV on the workout page; the videos "
+        "on Strava and in your Strava archive come in by themselves. They play on the workout "
+        "page and on share links, without the place they were filmed.",
+    ),
 )
 
 VERSION = RELEASES[0].version
