@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.21 – 25-11-2026
+
 - **Gear in the workout's notes** (#112): a planned workout that needs gear now says so in one
   line at the top of its notes, like "Materiaal: pullbuoy, paddles". You see it on the start
   page, in This week's workout details, in the Garmin workout and in intervals.icu. The plan
