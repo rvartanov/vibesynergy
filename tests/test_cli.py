@@ -12,8 +12,8 @@ def run(*args: str):
 
 
 def test_init_sync_status(env) -> None:
-    assert "schema at revision 0065" in run("init")
-    assert "revision 0065" in run("init")  # idempotent
+    assert "schema at revision 0066" in run("init")
+    assert "revision 0066" in run("init")  # idempotent
     out = run("sync", "demo", "--start", "2026-03-01", "--end", "2026-03-03")
     assert "demo.daily" in out and "ok" in out
     status = run("status")

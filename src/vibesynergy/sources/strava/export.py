@@ -7,6 +7,9 @@ CSV gives one activity per row, keyed by the Strava activity id, so it lines up 
 copy (``strava``, the same id) and, by time, with Garmin's. Each original file becomes that
 activity's stream; a file already archived through another route (the FIT that Garmin
 uploaded to Strava) is skipped by content hash.
+The workout photos (``media/``, named in the CSV's ``Media`` column) go to the workout's
+photos with the API's photo id (the file name), so a photo is taken in once (#114); videos
+are left out.
 
 The archive isn't documented either. Several CSV columns appear twice, first rounded in the
 athlete's units, later precise in metres and seconds: the last one wins. Dates are UTC in a
@@ -83,6 +86,43 @@ def rows(data: bytes) -> Iterator[dict[str, str]]:
 def files_by_activity(data: bytes) -> dict[str, str]:
     """{file name in the archive: activity id} for the activities that have an original file."""
     return {r["filename"]: r["activity id"] for r in rows(data) if r.get("filename")}
+
+
+def media_by_activity(data: bytes) -> list[tuple[str, str]]:
+    """(activity id, media path in the archive) for every photo or video of every activity,
+    in the CSV's order. The ``Media`` column holds the paths separated by ``|``."""
+    out = []
+    for r in rows(data):
+        activity_id = r.get("activity id")
+        for name in (r.get("media") or "").split("|"):
+            if activity_id and name.strip():
+                out.append((activity_id, name.strip()))
+    return out
+
+
+def media_captions(data: bytes) -> dict[str, str]:
+    """{photo id: caption} from ``media.csv``. Strava fills an empty caption with the word
+    "caption"; that one, like an empty caption, is left out."""
+    reader = csv.reader(io.StringIO(data.decode("utf-8-sig", errors="replace")))
+    header = [h.strip().lower() for h in next(reader, [])]
+    if "media filename" not in header or "media caption" not in header:
+        return {}
+    name_at, caption_at = header.index("media filename"), header.index("media caption")
+    out = {}
+    for values in reader:
+        if len(values) <= max(name_at, caption_at):
+            continue
+        caption = values[caption_at].strip()
+        if caption and caption.lower() != "caption":
+            out[photo_id(values[name_at])] = caption
+    return out
+
+
+def photo_id(name: str) -> str:
+    """A media file's Strava photo id: its name without folder and extension (``unique_id``
+    in the API, so a photo from the archive and from the API is one photo)."""
+    stem = name.strip().rsplit("/", 1)[-1]
+    return stem.rsplit(".", 1)[0] if "." in stem else stem
 
 
 def map_activities(data: bytes, timezone: str) -> Iterator[Record]:

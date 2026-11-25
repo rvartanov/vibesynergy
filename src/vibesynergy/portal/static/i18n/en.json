@@ -1427,6 +1427,8 @@
  "Your older activities come from your Strava export. How to request it:": "Your older activities come from your Strava export. How to request it:",
  "Strava: export your account": "Strava: export your account",
  "Done: {n} files checked. Your activities are ready.": "Done: {n} files checked. Your activities are ready.",
+ "1 photo added.": "1 photo added.",
+ "{n} photos added.": "{n} photos added.",
  "Choose the Strava zip": "Choose the Strava zip",
  "Stop importing": "Stop importing",
  "Import progress": "Import progress",
@@ -3509,5 +3511,6 @@
  "Morning workout": "Morning workout",
  "Afternoon workout": "Afternoon workout",
  "Evening workout": "Evening workout",
- "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync.": "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync."
+ "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync.": "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync.",
+ "Importing your Strava archive now also brings the photos of your workouts, each photo once.": "Importing your Strava archive now also brings the photos of your workouts, each photo once."
 }

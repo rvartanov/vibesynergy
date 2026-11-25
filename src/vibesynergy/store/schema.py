@@ -771,6 +771,7 @@ history_fill = Table(
     Column("created_at", UTCDateTime, nullable=False),
     Column("updated_at", UTCDateTime, nullable=False),
     Column("finished_at", UTCDateTime),
+    Column("counts", JSON),  # archive: what it brought in, {"files": n, "photos": n}
 )
 
 # Versioned user-authored coaching context and policy, scoped for future athlete profiles.

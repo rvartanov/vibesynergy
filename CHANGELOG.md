@@ -13,6 +13,11 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Photos from the Strava archive** (#114): importing the Strava account archive also
+  brings the photos of your workouts, through the same path as the photos from Strava itself,
+  so each photo is kept once and is not fetched again. Videos are left out; the result says
+  how many photos were added.
+
 ## 0.1.0-beta.0.17 – 25-11-2026
 
 - **New workouts get a name by themselves** (#114): Settings → Publishing and sync → *Give

@@ -1427,6 +1427,8 @@
  "Your older activities come from your Strava export. How to request it:": "Je oudere activiteiten komen uit je Strava-export. Zo vraag je die aan:",
  "Strava: export your account": "Strava: exporteer je account",
  "Done: {n} files checked. Your activities are ready.": "Klaar: {n} bestanden bekeken. Je activiteiten staan klaar.",
+ "1 photo added.": "1 foto toegevoegd.",
+ "{n} photos added.": "{n} foto's toegevoegd.",
  "Choose the Strava zip": "Kies de Strava-zip",
  "Stop importing": "Stop met importeren",
  "Import progress": "Voortgang van het importeren",
@@ -3509,5 +3511,6 @@
  "Morning workout": "Ochtendtraining",
  "Afternoon workout": "Middagtraining",
  "Evening workout": "Avondtraining",
- "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync.": "Nieuwe trainingen krijgen vanzelf een naam: de titel van hun schemasessie, of anders sport, dagdeel en plaats, zoals \"Ochtendloop Leeuwarden\". Een naam die je zelf wijzigt blijft staan. Zet het uit onder Instellingen → Publiceren en sync."
+ "New workouts get a name by themselves: the title of their plan session, or else sport, part of the day and place, such as \"Morning run Leeuwarden\". A name you change yourself stays. Switch it off under Settings → Publishing and sync.": "Nieuwe trainingen krijgen vanzelf een naam: de titel van hun schemasessie, of anders sport, dagdeel en plaats, zoals \"Ochtendloop Leeuwarden\". Een naam die je zelf wijzigt blijft staan. Zet het uit onder Instellingen → Publiceren en sync.",
+ "Importing your Strava archive now also brings the photos of your workouts, each photo once.": "Je Strava-archief importeren neemt nu ook de foto's van je trainingen mee, elke foto één keer."
 }

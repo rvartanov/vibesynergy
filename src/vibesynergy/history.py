@@ -555,26 +555,47 @@ def import_archive(
             rt, fill_id, message=ARCHIVE_RETRY, failures=attempt, busy_s=time.monotonic() - began
         )
         raise RuntimeError("archive import retry") from exc
+    media = next((r for r in results if isinstance(r, imports.MediaResult)), None)
+    data = [r for r in results if r is not media]
     new = sum(r.new_versions for r in results)
-    known = sum(r.skipped for r in results)
-    errors = sum(r.normalise_errors for r in results)
+    known = sum(r.skipped for r in data)
+    errors = sum(r.normalise_errors for r in data)
     message = ("done: " if new else "done, nothing new: ") + summary(rt, fill["source"])
     if known:
         message += f"; {_count(known, 'file was', 'files were')} already here"
     if errors:
         message += f"; {errors:,} could not be read (kept in the raw archive)"
+    total = (_row(rt, fill_id) or {}).get("total")
+    counts = None
+    if media is not None:
+        message += _media_message(media)
+        counts = {"files": (total or 0) - media.listed, "photos": media.new_versions}
     dropfolder.delete_archive(rt.settings, path)
     _update(
         rt,
         fill_id,
         status="done",
-        done=(_row(rt, fill_id) or {}).get("total") or new,  # a counted archive: all of it
+        done=total or new,  # a counted archive: all of it
+        counts=counts,
         file=str(path),
         busy_s=time.monotonic() - began,
         message=message,
         finished_at=utc_now(),
     )
     _notify(rt, get(rt, fill_id))
+
+
+def _media_message(media: Any) -> str:
+    """The photos part of an archive import's result (the details, in English)."""
+    parts = [f"{_count(media.new_versions, 'photo', 'photos')} added"]
+    if media.skipped:
+        parts.append(f"{_count(media.skipped, 'photo was', 'photos were')} already here")
+    if media.videos:
+        parts.append(f"{_count(media.videos, 'video', 'videos')} left out (photos only)")
+    left = media.missing + media.unreadable + media.full + media.failed
+    if left:
+        parts.append(f"{_count(left, 'photo', 'photos')} could not be added")
+    return "; " + "; ".join(parts)
 
 
 def summary(rt: Any, source: str) -> str:

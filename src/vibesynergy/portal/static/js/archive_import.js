@@ -93,7 +93,14 @@ export async function archiveImport(el, { stale, source }) {
       return say(t("Importing: {pct}%", { pct: percent }), percent);
     }
     if (fill.status === "done") {
-      if (kind.counted) return say(t("Done: {n} files checked. Your activities are ready.", { n: number(fill.total || fill.done) }), null);
+      if (kind.counted) {
+        // Since the photos came along, total counts files and photos; counts keeps them apart.
+        const files = fill.counts?.files ?? (fill.total || fill.done);
+        const photos = fill.counts?.photos || 0;
+        const added = photos === 1 ? t("1 photo added.") : t("{n} photos added.", { n: number(photos) });
+        const done = t("Done: {n} files checked. Your activities are ready.", { n: number(files) });
+        return say(photos ? `${done} ${added}` : done, null);
+      }
       return say(t("Done: your Garmin history is in. Anything you already had was left alone."), null);
     }
     if (fill.status === "cancelled") return say(t("Importing was stopped. Choose the same file again to continue."), null);

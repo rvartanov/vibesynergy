@@ -1,4 +1,5 @@
-"""The Strava account archive: activities.csv and the original files, with synthetic data."""
+"""The Strava account archive: activities.csv, the original files and the workout photos,
+with synthetic data."""
 
 from __future__ import annotations
 
@@ -10,16 +11,24 @@ from datetime import UTC, date, datetime
 
 import pytest
 from fitgen import activity_fit, utc
-from sqlalchemy import select
+from sqlalchemy import func, select
 from test_dropfolder import TCX, gpx
+from test_workout_media import picture
 
 from vibesynergy import imports
 from vibesynergy.derive import unify
 from vibesynergy.model import Activity, Stream
 from vibesynergy.normalize.normaliser import write_records
-from vibesynergy.query import journal
+from vibesynergy.query import journal, workout_media
 from vibesynergy.sources.strava.export import map_file, parse_when
-from vibesynergy.store.schema import activity, activity_link, activity_unified, note
+from vibesynergy.store.schema import (
+    activity,
+    activity_link,
+    activity_unified,
+    media_item,
+    media_origin,
+    note,
+)
 
 RIDE = activity_fit(utc(2025, 3, 2, 9, 0, 0), 30, serial=4444)
 KNOWN = activity_fit(utc(2025, 3, 1, 9, 0, 0), 30, serial=5555)  # also uploaded to Garmin
@@ -164,3 +173,146 @@ def _file(tmp_path, data: bytes):
 
 def _fit_id(rt) -> str:
     return _rows(rt, activity, activity.c.source == "files")[0]["source_id"]
+
+
+# The workout photos (#114) ------------------------------------------------------------------
+
+HILL, LAKE, API_PHOTO = picture(1, (200, 160)), picture(2, (200, 160)), picture(3, (200, 160))
+
+
+def media_archive(tmp_path, media: dict[str, str]) -> object:
+    """A small archive whose activities name media (``|``-separated), with the media folder:
+    two photos, the hill photo again under another id, a video, a file that is no photo, and
+    one named photo that is missing from the zip."""
+    table = io.StringIO()
+    writer = csv.writer(table)
+    writer.writerow([*HEADER, "Media"])
+    writer.writerows([*row, media.get(row[0], "")] for row in ROWS)
+    captions = io.StringIO()
+    csv.writer(captions).writerows(
+        [["Media Filename", "Media Caption"], ["media/hill.jpg", "Top of the dyke"],
+         ["media/lake.jpg", "caption"]]
+    )  # fmt: skip
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("export_1/activities.csv", table.getvalue())
+        zf.writestr("export_1/activities/1001.fit.gz", gzip.compress(RIDE))
+        zf.writestr("export_1/activities/1002.gpx", gpx(20))
+        zf.writestr("export_1/media.csv", captions.getvalue())
+        zf.writestr("export_1/media/hill.jpg", HILL)
+        zf.writestr("export_1/media/hill-again.jpg", HILL)
+        zf.writestr("export_1/media/lake.jpg", LAKE)
+        zf.writestr("export_1/media/api.jpg", API_PHOTO)
+        zf.writestr("export_1/media/clip.mp4", b"\x00\x00\x00\x18ftypmp42 not really a video")
+        zf.writestr("export_1/media/broken.jpg", b"no picture in here")
+    path = tmp_path / "export_1.zip"
+    path.write_bytes(buf.getvalue())
+    return path
+
+
+MEDIA = {
+    "1001": "media/hill.jpg|media/clip.mp4|media/gone.jpg|media/hill-again.jpg",
+    "1002": "media/lake.jpg|media/hill.jpg",  # hill.jpg again: one file, one photo
+    "1003": "media/broken.jpg",
+}
+
+
+def _photos(rt, activity_id):
+    return workout_media.photos(rt.engine, activity_id)["photos"]
+
+
+def test_the_archive_brings_the_photos(runtime, tmp_path) -> None:
+    results = {r.dataset: r for r in imports.import_strava_export(runtime, media_archive(
+        tmp_path, MEDIA))}  # fmt: skip
+    media = results["media"]
+    assert isinstance(media, imports.MediaResult)
+    assert media.listed == 6 and media.new_versions == 2
+    assert (media.videos, media.missing, media.unreadable, media.failed) == (1, 1, 1, 0)
+    assert media.skipped == 1  # hill-again.jpg is the hill photo: kept once
+    ride = _photos(runtime, "strava_export:1001")
+    assert [p["caption"] for p in ride] == ["Top of the dyke"]
+    assert ride[0]["source"] == "strava" and ride[0]["places"] == ["strava"]
+    lake = _photos(runtime, "strava_export:1002")
+    assert [p["caption"] for p in lake] == [None]  # Strava's placeholder caption is no caption
+    with runtime.engine.connect() as conn:
+        assert conn.scalar(select(func.count()).select_from(media_item)) == 2
+        origins = {r.photo_id: r for r in conn.execute(select(media_origin))}
+    assert set(origins) == {"hill", "hill-again", "lake", "broken"}
+    assert origins["broken"].media_id == ""  # not a photo: remembered, not tried again
+    assert "clip" not in origins and "gone" not in origins
+
+    again = {r.dataset: r for r in imports.import_strava_export(runtime, media_archive(
+        tmp_path, MEDIA))}["media"]  # fmt: skip
+    assert again.new_versions == 0 and again.fetched == 0 and again.skipped == 4
+    with runtime.engine.connect() as conn:
+        assert conn.scalar(select(func.count()).select_from(media_item)) == 2
+
+
+def test_photos_known_from_the_api_are_not_taken_in_again(runtime, tmp_path) -> None:
+    api_copy = Activity(
+        "1001", datetime(2025, 3, 2, 9, tzinfo=UTC), date(2025, 3, 2), "Ride",
+        name="Rondje Friesland", elapsed_s=30.0, fit_id="strava-1001",
+    )  # fmt: skip
+    stored = runtime.raw.put(
+        source="strava", dataset="activities", item_key="1001", payload=b"{}",
+        content_type="application/json",
+    )  # fmt: skip
+    with runtime.engine.begin() as conn:
+        write_records(conn, [api_copy], source="strava", raw_item_id=stored.id)
+    unify.rebuild(runtime.engine)
+    taken = workout_media.add(
+        runtime.engine, runtime.raw.blobs, "strava:1001", API_PHOTO, source="strava",
+        origin=("api", "1001"),
+    )  # fmt: skip
+    assert taken["state"] == "added"
+
+    path = media_archive(tmp_path, {"1001": "media/api.jpg|media/hill.jpg"})
+    media = {r.dataset: r for r in imports.import_strava_export(runtime, path)}["media"]
+    assert (media.new_versions, media.skipped, media.fetched) == (1, 1, 1)
+    # The new photo joins the API's copy of the workout, next to the photo it had.
+    assert len(_photos(runtime, "strava:1001")) == 2
+    with runtime.engine.connect() as conn:
+        assert conn.scalar(select(func.count()).select_from(media_item)) == 2
+
+
+def test_one_photo_that_fails_does_not_stop_the_others(runtime, tmp_path, monkeypatch) -> None:
+    real = workout_media.add
+
+    def flaky(engine, blobs, key, data, **kw):
+        if kw["origin"][0] == "hill":
+            raise OSError("disk hiccup")
+        return real(engine, blobs, key, data, **kw)
+
+    monkeypatch.setattr(workout_media, "add", flaky)
+    path = media_archive(tmp_path, {"1001": "media/hill.jpg|media/lake.jpg"})
+    media = {r.dataset: r for r in imports.import_strava_export(runtime, path)}["media"]
+    assert (media.failed, media.new_versions) == (1, 1)
+    monkeypatch.setattr(workout_media, "add", real)
+    retried = {r.dataset: r for r in imports.import_strava_export(runtime, path)}["media"]
+    assert (retried.new_versions, retried.skipped) == (1, 1)  # the failed one comes in later
+
+
+def test_a_full_workout_counts_the_rest_and_goes_on(runtime, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(workout_media, "MAX_PER_WORKOUT", 1)
+    path = media_archive(
+        tmp_path, {"1001": "media/hill.jpg|media/lake.jpg", "1002": "media/api.jpg"}
+    )
+    media = {r.dataset: r for r in imports.import_strava_export(runtime, path)}["media"]
+    assert (media.new_versions, media.full) == (2, 1)
+
+
+def test_the_import_result_counts_files_and_photos_apart(runtime, tmp_path) -> None:
+    from test_history import settle
+
+    from vibesynergy import history
+
+    path = media_archive(tmp_path, MEDIA)
+    fill_id = history._insert(
+        runtime, source="strava_export", method="archive", status="running", file=str(path)
+    )
+    assert history.resume_archives(runtime) == 1
+    fill = settle(runtime, fill_id)
+    assert fill["status"] == "done"
+    assert fill["counts"] == {"files": 3, "photos": 2}  # 1001, 1002, 1004 have a file
+    assert fill["done"] == fill["total"] == 3 + 6
+    assert "2 photos added" in fill["message"] and "1 video left out" in fill["message"]
