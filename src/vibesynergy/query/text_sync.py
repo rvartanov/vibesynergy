@@ -60,10 +60,29 @@ ends a run and the rest waits.
 never changes the visibility: publishing makes the text public, and who can see the activity
 on Strava stays set on Strava (the workout page says so when it is private there).
 
-**Multisport.** A multisport holder is synced with its own Garmin multisport activity only:
-Strava gets its legs as separate activities, so which one is "the" Strava copy is not clear.
-The legs are workouts of their own and sync like any other. With several Garmin copies
-(Zwift's upload and the watch) only the copy publication writes to is synced.
+**Multisport (phase 7b).** Garmin keeps one multisport activity (the holder) and Strava
+gets every part as an activity of its own (``multisport.part_of``: a part starts inside the
+holder's span). The holder is synced with its Garmin multisport activity only, so Garmin gets
+the text once. Each part is synced with its own Strava copy only (never a Garmin copy of a
+part):
+
+- *public text*: the holder's public text under a short part line in the publication
+  language (``Deel 2/3: fietsen``). An outside change on a part (the line taken off) goes
+  into the holder's text, and from there to Garmin and the other parts;
+- *name*: the holder's name with the part (``Frysman sim - zwemmen``). A name changed on a
+  part (on Strava, or in VibeSynergy on that part) locks that part's name only: it then
+  keeps its own name and syncs like any workout's;
+- *gear*: each part has its own gear (bike gear on the ride, shoes on the run) and syncs it
+  with its Strava copy; the holder's gear goes to the Garmin multisport activity.
+
+A part is followed when it or its holder is published.
+
+**Copies (Zwift).** Zwift uploads its own copy to Strava, and often to Garmin too, next to the
+watch or head unit recording; the normal grouping puts them in one workout. With several
+Garmin copies only the copy publication writes to is synced, and nothing is ever uploaded.
+When that copy changes (the one written before was removed there), the new copy starts as a
+first sync: what VibeSynergy wrote to the old copy is never compared with the new one, so
+the new copy's own name is no outside change and locks nothing.
 """
 
 from __future__ import annotations
@@ -225,6 +244,8 @@ def targets(rt, group: str) -> dict[str, str]:
     holder = str(row["sport"] or "").lower() in multisport.MULTI
     if len(strava) == 1 and not holder and "strava" in chosen:
         out["strava"] = strava[0]
+    if multisport.part_of(rt.engine, group) is not None:
+        return out  # a part: its Strava copy only; Garmin gets the text on the holder
     if len(garmin) > 1:  # Zwift's upload and the watch: the copy publication writes to
         garmin = [g for g in [publication_format.copy_id(rt, group, "garmin")] if g]
     if len(garmin) == 1 and "garmin" in chosen:
@@ -232,10 +253,25 @@ def targets(rt, group: str) -> dict[str, str]:
     return out
 
 
-def published(rt, found: dict[str, str]) -> bool:
-    """A verified VibeSynergy section on the Strava or the Garmin copy."""
+def published(rt, found: dict[str, str], holder: str | None = None) -> bool:
+    """A verified VibeSynergy section on the Strava or the Garmin copy; for a multisport
+    part also on a copy of its ``holder``."""
     with rt.engine.connect() as conn:
-        return bool(_published_groups(conn, list(found.items())))
+        if _published_groups(conn, list(found.items())):
+            return True
+        return holder is not None and bool(_published_groups(conn, _refs(conn, holder)))
+
+
+def _refs(conn, group: str) -> list[tuple[str, str]]:
+    return [
+        (s, i)
+        for s, i in conn.execute(
+            select(activity_link.c.source, activity_link.c.source_id).where(
+                activity_link.c.group_id == group
+            )
+        )
+        if s in PLATFORMS
+    ]
 
 
 # --- scheduling --------------------------------------------------------------------------
@@ -279,9 +315,33 @@ def enroll(rt, activity_id: str, *, now: datetime | None = None) -> dict:
 def touch(engine: Engine, group: str, fields: list[str], now: datetime | None = None) -> None:
     """The name or public text changed in VibeSynergy: check the workout after ``DEBOUNCE``
     (each later change moves it on, so a run of edits is one push). A published workout that
-    is not followed yet is added. Never fails the save."""
+    is not followed yet is added. A multisport holder's name or text is on its parts too, so
+    they are checked as well. Never fails the save."""
     if not fields:
         return
+    if any(f in FIELDS for f in fields):
+        for part in _parts_of_holder(engine, group):
+            _touch(engine, part, now)
+    _touch(engine, group, now)
+
+
+def _parts_of_holder(engine: Engine, group: str) -> list[str]:
+    from vibesynergy.query import multisport
+
+    try:
+        with engine.connect() as conn:
+            sport = conn.scalar(
+                select(activity_unified.c.sport).where(activity_unified.c.group_id == group)
+            )
+        if not multisport.is_multisport(sport):
+            return []
+        return [g for g in multisport.relatives(engine, [group]) if g != group]
+    except Exception:
+        log.exception("could not find the parts of %s", group)
+        return []
+
+
+def _touch(engine: Engine, group: str, now: datetime | None) -> None:
     now = now or datetime.now(UTC)
     try:
         with engine.begin() as conn:
@@ -296,17 +356,12 @@ def touch(engine: Engine, group: str, fields: list[str], now: datetime | None = 
                         .values(next_check_at=now + DEBOUNCE, updated_at=now)
                     )
                 return
-            refs = [
-                (s, i)
-                for s, i in conn.execute(
-                    select(activity_link.c.source, activity_link.c.source_id).where(
-                        activity_link.c.group_id == group
-                    )
-                )
-                if s in PLATFORMS
-            ]
-            if not _published_groups(conn, refs):
-                return
+            if not _published_groups(conn, _refs(conn, group)):
+                from vibesynergy.query import multisport
+
+                part = multisport.part_of(conn.engine, group)
+                if part is None or not _published_groups(conn, _refs(conn, part["holder"])):
+                    return
             conn.execute(
                 text_sync.insert().values(
                     group_id=group,
@@ -348,6 +403,10 @@ def _unfollowed(conn, now: datetime, table=text_sync) -> set[str]:
         )
         if (s, i) in ledgers
     }
+    if groups:  # a published multisport: its parts are followed too (and a part's holder)
+        from vibesynergy.query import multisport
+
+        groups = set(multisport.relatives(conn.engine, sorted(groups)))
     found = conn.execute(select(table.c.group_id).where(table.c.group_id.in_(groups)))
     known = set(found.scalars())
     return groups - known
@@ -521,12 +580,19 @@ def _decide(
     synced: dict,
     noticed: dict,
     now: datetime,
+    take=None,
+    named: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """The text every platform should have for ``field``, after taking outside changes in.
+
+    ``take`` stores a text taken in (``workout_texts.take_over`` on ``group`` by default; a
+    multisport part's public text goes to its holder). ``named``: the name is VibeSynergy's
+    own (a part's name made from its holder's) and wins a first sync.
 
     Returns ``(text, info)``; ``info`` says what was taken over and what lost."""
     from vibesynergy.query import workout_texts
 
+    take = take or (lambda *a, **k: workout_texts.take_over(rt.engine, group, *a, **k))
     vs_text = current.get("text") or ""
     base = (synced.get("base") or {}).get(field)
     info: dict[str, Any] = {}
@@ -554,13 +620,9 @@ def _decide(
                 lost.append((text, source))
         if winner[2] == "vs":
             if lost:
-                workout_texts.take_over(
-                    rt.engine, group, field, None, source="vs", overwritten=lost
-                )
+                take(field, None, source="vs", overwritten=lost)
         else:
-            workout_texts.take_over(
-                rt.engine,
-                group,
+            take(
                 field,
                 winner[3] if _key(winner[3]) != _key(vs_text) else None,
                 source=winner[2],
@@ -572,12 +634,20 @@ def _decide(
             info["overwritten"] = [source for _, source in lost]
         target = winner[3]
     if first:
-        target = _first_sync(rt, group, field, target, remote, first, info)
+        target = _first_sync(rt, group, field, target, remote, first, info, take, named)
     return target, info
 
 
 def _first_sync(
-    rt, group: str, field: str, target: str, remote: dict, first: list[str], info: dict
+    rt,
+    group: str,
+    field: str,
+    target: str,
+    remote: dict,
+    first: list[str],
+    info: dict,
+    take,
+    named: bool = False,
 ) -> str:
     """A platform without a last-written text: merge, never drop (see the module text)."""
     from vibesynergy.query import workout_texts
@@ -594,12 +664,12 @@ def _first_sync(
                 merged = f"{merged}\n\n{extra}" if merged else extra
                 source = source or platform
         if source is not None:
-            workout_texts.take_over(rt.engine, group, "public", merged, source=source)
+            take("public", merged, source=source)
             info["taken_from"] = info.get("taken_from") or source
         return merged
     if len(first) < len(remote):
         return target  # a copy that joins later gets the agreed name
-    if not target or not _vs_edited(rt.engine, group, "name"):
+    if not target or not (named or _vs_edited(rt.engine, group, "name")):
         for platform in PLATFORMS:  # the Strava name first
             name = remote.get(platform, {}).get("name") if platform in first else None
             if not name:
@@ -607,9 +677,7 @@ def _first_sync(
             if _key(name) != _key(target):
                 # The platform's own name (the device default): no change of yours, so an
                 # automatic name may still replace it (``workout_texts.name_lock``).
-                workout_texts.take_over(
-                    rt.engine, group, "name", name, source=platform, kind=workout_texts.IMPORT
-                )
+                take("name", name, source=platform, kind=workout_texts.IMPORT)
                 info["taken_from"] = info.get("taken_from") or platform
             return name
     return target
@@ -677,16 +745,86 @@ def sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> di
         return _sync_one(rt, group, now=now, clients=clients)
 
 
+def _part_texts(rt, part: dict[str, Any], current: dict[str, Any]) -> tuple[dict, bool]:
+    """What a multisport part should carry (see the module text): the holder's public text
+    under the part line, and the holder's name with the part unless the part's own name is
+    locked. Returns ``(texts, named)``; ``named`` when the name is made from the holder's."""
+    from vibesynergy import i18n
+    from vibesynergy.query import multisport, publication_auto, workout_texts
+
+    t = i18n.translator(publication_auto.language(rt))
+    holder = workout_texts.texts(rt.engine, part["holder"])
+    out = dict(current)
+    name = holder["name"].get("text") or ""
+    named = bool(name) and not current["name"].get("lock")
+    if named:
+        made = multisport.part_name(t, name, part)[: workout_texts.MAX_NAME]
+        out["name"] = {**holder["name"], "text": made}
+    line = multisport.part_line(t, part)
+    body = holder["public"].get("text") or ""
+    out["public"] = {**holder["public"], "text": f"{line}\n\n{body}" if body else line}
+    return out, named
+
+
+def _part_take(rt, group: str, part: dict[str, Any], moved: list[str]):
+    """How a part stores what it takes in: its name on the part itself (a change there locks
+    that part's name only), its public text on the holder, without the part line."""
+    from vibesynergy.query import multisport, workout_texts
+
+    def take(field, text, *, source, overwritten=None, kind="edit"):
+        if field != "public":
+            return workout_texts.take_over(
+                rt.engine, group, field, text, source=source, overwritten=overwritten, kind=kind
+            )
+        strip = multisport.without_part_line
+        done = workout_texts.take_over(
+            rt.engine,
+            part["holder"],
+            "public",
+            None if text is None else strip(text),
+            source=source,
+            overwritten=[(strip(t), s) for t, s in overwritten or ()],
+            kind=kind,
+        )
+        if done["changed"]:
+            moved.append(source)
+        return done
+
+    return take
+
+
+def _new_copies(row: dict, found: dict[str, str], synced: dict) -> None:
+    """A platform's copy changed (the one written before was removed there, or a Zwift and a
+    watch copy swapped): forget what was written to the old one, so the new copy starts as a
+    first sync and its own name or text is never taken for an outside change."""
+    for platform in PLATFORMS:
+        if row.get(f"{platform}_id") == found.get(platform):
+            continue
+        synced.pop(platform, None)
+        gear = synced.get("gear")
+        if isinstance(gear, dict):
+            gear.pop(platform, None)
+
+
 def _sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> dict[str, Any]:
-    from vibesynergy.query import workout_texts
+    from vibesynergy.query import multisport, workout_texts
 
     now = now or datetime.now(UTC)
     row = _row(rt.engine, group)
     if row is None:
         row = enroll(rt, group, now=now)
     found = targets(rt, group)
+    synced = {k: dict(v) for k, v in (row["synced"] or {}).items()}
+    noticed = dict(row["noticed"] or {})
+    if any(row.get(f"{p}_id") != found.get(p) for p in PLATFORMS):
+        _new_copies(row, found, synced)
+        for platform in PLATFORMS:
+            if row.get(f"{platform}_id") != found.get(platform):
+                noticed.pop(platform, None)
+        _update(rt.engine, group, synced=synced, noticed=noticed)
     _update(rt.engine, group, strava_id=found.get("strava"), garmin_id=found.get("garmin"))
-    if not found or not published(rt, found):
+    part = multisport.part_of(rt.engine, group)
+    if not found or not published(rt, found, part["holder"] if part else None):
         _update(rt.engine, group, state="stopped", next_check_at=None)
         return {"state": "stopped"}
     live = _clients(rt, found, clients)
@@ -694,13 +832,23 @@ def _sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> d
     remote = {p: _remote(p, details[p]) for p in found}
     for platform, copy in remote.items():
         _check_block(rt, platform, found[platform], copy["description"])
-    synced = {k: dict(v) for k, v in (row["synced"] or {}).items()}
-    noticed = row["noticed"] or {}
     current = workout_texts.texts(rt.engine, group)
+    take, named, moved = None, False, []
+    if part:
+        current, named = _part_texts(rt, part, current)
+        take = _part_take(rt, group, part, moved)
+        if not synced.get("part"):
+            # First check as a part: the copy's own text is merged into the holder's.
+            for platform in PLATFORMS:
+                (synced.get(platform) or {}).pop("public", None)
+            (synced.get("base") or {}).pop("public", None)
+            synced["part"] = {"on": True}
     result: dict[str, Any] = {"state": "checked"}
     want: dict[str, dict[str, str]] = {p: {} for p in found}
     for field in FIELDS:
-        target, info = _decide(rt, group, field, current[field], remote, synced, noticed, now)
+        target, info = _decide(
+            rt, group, field, current[field], remote, synced, noticed, now, take, named
+        )
         if info:
             result[field] = info
         if field == "name" and not target:
@@ -726,6 +874,9 @@ def _sync_one(rt, group: str, *, now: datetime | None = None, clients=None) -> d
         written[platform] = sorted(fields)
     if written:
         result["written"] = written
+    if part and any(source in PLATFORMS for source in moved):
+        # A part's outside change is now the holder's text: Garmin and the other parts next.
+        touch(rt.engine, part["holder"], ["public"], now)
     # The gear, on the same check (#114, phase 5): Strava's gear id is in the read above.
     from vibesynergy.query import gear_sync
 

@@ -316,6 +316,13 @@ ITEMS: tuple[Item, ...] = (
         "name for what was actually done, stored as the workout's name unless it is "
         "locked or the setting is off (harness rules v9).",
     ),
+    Item(
+        "114-multisport",
+        "you",
+        "A brick or triathlon you publish now gets its text on every part on Strava, with "
+        "a short part line and the workout's name with the part. Garmin gets it once. A "
+        "name you change on one part stays on that part.",
+    ),
 )
 
 VERSION = RELEASES[0].version
