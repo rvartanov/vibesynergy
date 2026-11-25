@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.22 – 25-11-2026
+
 - **Every planned workout is complete on its own** (#192): a workout never says "zelfde drills
   als vorige week" any more. The AI coach writes every drill and step out by name with its
   cue (harness rules v11), so the watch shows what to do and the gear line sees the fins.
