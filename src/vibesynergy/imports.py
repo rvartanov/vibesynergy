@@ -9,12 +9,16 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
+import logging
 import shutil
 import tempfile
 import zipfile
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
+
+from sqlalchemy import func, select
 
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.fit.decode import is_fit
@@ -23,12 +27,32 @@ from vibesynergy.sources.base import FetchedItem
 from vibesynergy.sources.garmin.export import item_for
 from vibesynergy.sources.strava import export as strava_export
 from vibesynergy.sources.tracks import is_gpx, is_tcx
+from vibesynergy.store.schema import activity_link
 from vibesynergy.sync.engine import DatasetResult
+
+log = logging.getLogger(__name__)
 
 # progress(text, done, total): done and total are given when the import knows how many
 # there are, so a page can show "1,240 of 7,300".
 Progress = Callable[..., None]
 STRAVA_PROGRESS_EVERY = 25
+STRAVA_MEDIA_CSV = "media.csv"
+# VibeSynergy keeps photos only; a video in the archive is counted and left out.
+VIDEO_SUFFIXES = (".mp4", ".mov", ".m4v", ".webm", ".avi", ".3gp")
+
+
+@dataclass
+class MediaResult(DatasetResult):
+    """The archive's workout photos. ``new_versions`` is the photos added and ``skipped`` the
+    ones VibeSynergy already had (from the API, an earlier import, or the same picture
+    twice); the rest is counted by why it was left out."""
+
+    listed: int = 0  # photos and videos the activities name
+    videos: int = 0
+    missing: int = 0  # named in activities.csv but not in the zip
+    unreadable: int = 0  # not a photo VibeSynergy can read, or too large: not tried again
+    full: int = 0  # the workout has as many photos as it can hold
+    failed: int = 0  # anything else; the other photos still come in
 
 
 # An export is a zip of zips of small files. These bounds are far above any real export and
@@ -169,9 +193,12 @@ def import_strava_export(
     rt: Runtime, path: Path, progress: Progress | None = None
 ) -> list[DatasetResult]:
     """The Strava account archive: activities.csv, then each activity's original file
-    (unzipped from .gz). Files already archived by another route are skipped by hash."""
+    (unzipped from .gz), then the workout photos. Files already archived by another route are
+    skipped by hash; a photo VibeSynergy already has (also from the API) is skipped by its
+    Strava photo id."""
     source = strava_export.StravaExportSource.id
     results = {name: DatasetResult(source, name, None) for name in ("activities", "files")}
+    media = MediaResult(source, "media", None)
     started = utc_now()
     with zipfile.ZipFile(path) as zf:
         members = set(zf.namelist())
@@ -188,11 +215,13 @@ def import_strava_export(
         item = FetchedItem(strava_export.CSV_NAME, table, request={"path": csv_path})
         rt.sync.ingest(source, "activities", item, results["activities"])
         files = strava_export.files_by_activity(table)
+        photos = _unique_media(strava_export.media_by_activity(table))
+        total = len(files) + len(photos)
         if progress:
-            progress(f"0 of {len(files)} files", 0, len(files))
+            progress(f"0 of {len(files)} files", 0, total)
         for count, (name, activity_id) in enumerate(files.items(), start=1):
             if progress and count % STRAVA_PROGRESS_EVERY == 0:
-                progress(f"{count} of {len(files)} files", count, len(files))
+                progress(f"{count} of {len(files)} files", count, total)
             member = base + name
             if member not in members:
                 continue
@@ -207,11 +236,101 @@ def import_strava_export(
             item = FetchedItem(sha256, data, request=request, immutable=True)
             rt.sync.ingest(source, "files", item, results["files"])
         if progress:
-            progress(f"{len(files)} of {len(files)} files", len(files), len(files))
-    for result in results.values():
-        rt.sync.record_state(result, started)
-    rt.sync.changed(list(results.values()))
-    return list(results.values())
+            progress(f"{len(files)} of {len(files)} files", len(files), total)
+        for result in results.values():
+            rt.sync.record_state(result, started)
+        # The photos belong to the workouts, so those must exist first: grouped by derive.
+        rt.sync.changed(list(results.values()))
+        _import_strava_media(rt, zf, members, base, photos, media, progress, len(files), total)
+    return [*results.values(), media]
+
+
+def _unique_media(listed: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Each media file once (activity id, path): the first activity that names it."""
+    seen: set[str] = set()
+    out = []
+    for activity_id, name in listed:
+        photo_id = strava_export.photo_id(name)
+        if photo_id and photo_id not in seen:
+            seen.add(photo_id)
+            out.append((activity_id, name))
+    return out
+
+
+def _photo_workout(rt: Runtime, activity_id: str) -> str:
+    """The workout a photo goes to: the API's copy when there is one, else the archive's."""
+    with rt.engine.connect() as conn:
+        linked = conn.scalar(
+            select(func.count())
+            .select_from(activity_link)
+            .where(activity_link.c.source == "strava", activity_link.c.source_id == activity_id)
+        )
+    return f"strava:{activity_id}" if linked else f"strava_export:{activity_id}"
+
+
+def _import_strava_media(
+    rt: Runtime,
+    zf: zipfile.ZipFile,
+    members: set[str],
+    base: str,
+    photos: list[tuple[str, str]],
+    result: MediaResult,
+    progress: Progress | None,
+    offset: int,
+    total: int,
+) -> None:
+    """Take in the archive's photos through the same path as the photos from the API
+    (source ``strava``, the photo id as origin), so each one is kept once."""
+    from vibesynergy.query import workout_media
+
+    result.listed = len(photos)
+    captions: dict[str, str] = {}
+    if base + STRAVA_MEDIA_CSV in members:
+        captions = strava_export.media_captions(zf.read(base + STRAVA_MEDIA_CSV))
+    for count, (activity_id, name) in enumerate(photos, start=1):
+        if progress and count % STRAVA_PROGRESS_EVERY == 0:
+            progress(f"{count} of {len(photos)} photos", offset + count, total)
+        photo_id = strava_export.photo_id(name)
+        if name.lower().endswith(VIDEO_SUFFIXES):
+            result.videos += 1
+            continue
+        if workout_media.known(rt.engine, "strava", photo_id):
+            result.skipped += 1
+            continue
+        member = base + name
+        if member not in members:
+            result.missing += 1
+            continue
+        try:
+            if zf.getinfo(member).file_size > workout_media.MAX_BYTES:
+                raise workout_media.TooLarge("the photo is too large")
+            result.fetched += 1
+            done = workout_media.add(
+                rt.engine,
+                rt.raw.blobs,
+                _photo_workout(rt, activity_id),
+                zf.read(member),
+                source="strava",
+                origin=(photo_id, activity_id),
+                caption=captions.get(photo_id),
+            )
+        except (workout_media.NotAPhoto, workout_media.TooLarge):
+            workout_media.skip(rt.engine, "strava", photo_id, activity_id)
+            result.unreadable += 1
+            continue
+        except workout_media.TooMany:
+            result.full += 1
+            continue
+        except Exception as exc:  # one photo; the others still come in
+            log.warning("a photo from the Strava archive was not taken in: %s", type(exc).__name__)
+            result.failed += 1
+            continue
+        if done["state"] == "added":
+            result.new_versions += 1
+        else:
+            result.skipped += 1
+    if progress and photos:
+        progress(f"{len(photos)} of {len(photos)} photos", offset + len(photos), total)
 
 
 def _file_kind(content: bytes) -> str | None:

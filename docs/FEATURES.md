@@ -65,7 +65,8 @@ Details: [SOURCES.md](SOURCES.md).
   and thresholds, the training calendar, gear. History from the API or from a Garmin
   account export.
 - **Withings**: weight and body composition, blood pressure.
-- **Strava**: activities, gear with mileage; history from the account archive.
+- **Strava**: activities, gear with mileage; history from the account archive, with the
+  workouts' photos (videos are left out).
 - **intervals.icu**: where VibeSynergy puts a copy of the active plan, so its workouts reach
   Zwift and the other services connected there. A one-way mirror: its events are never read
   as the plan, the week notes, the targets or the races, and a change made there changes

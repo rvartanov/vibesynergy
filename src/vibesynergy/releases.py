@@ -287,6 +287,12 @@ ITEMS: tuple[Item, ...] = (
         'sport, part of the day and place, such as "Morning run Leeuwarden". A name you change '
         "yourself stays. Switch it off under Settings → Publishing and sync.",
     ),
+    Item(
+        "114-archive-photos",
+        "you",
+        "Importing your Strava archive now also brings the photos of your workouts, each "
+        "photo once.",
+    ),
 )
 
 VERSION = RELEASES[0].version
