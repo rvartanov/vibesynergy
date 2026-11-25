@@ -400,8 +400,11 @@ def start_message(
         p = payload or {}
         ids = ",".join(p.get("activity_ids") or [])
         fire = f"event={p.get('event_type', 'activity.published')} event_id={p.get('event_id', '')}"
+        from vibesynergy.query import publication_auto
+
         return (
             f"{head}\n<routine-fire-payload>{fire} activity_ids={ids}</routine-fire-payload>"
+            + f"\nTaal van het publieke inzicht en de naam: {publication_auto.language(rt)}."
             + _insight_lines(p, run_key)
             + _preloaded(rt, job, for_date, harness, activity_ids=p.get("activity_ids") or [])
         )

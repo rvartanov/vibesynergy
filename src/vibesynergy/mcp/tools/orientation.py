@@ -550,6 +550,7 @@ def register(kit: ToolKit) -> None:
         kb_rules: list[str] | None = None,
         activity_id: str | None = None,
         public_insight: str | None = None,
+        workout_name: str | None = None,
         sessions: list[dict[str, str]] | None = None,
         safety: dict[str, Any] | None = None,
         task: str | None = None,
@@ -604,11 +605,18 @@ def register(kit: ToolKit) -> None:
         wins; "" withdraws the line. Published blocks are updated within minutes when
         automatic publication is on. Because this line becomes public, it needs the
         ``publish`` permission; without it, write the entry without public_insight.
+        workout_name (with public_insight): a short name for the workout, in the language
+        of the public text, about what was actually done. Stored as the workout's name when
+        "Give workouts a name automatically" is on, the workout is new and the athlete has
+        not changed its name himself; it needs the ``publish`` permission too.
         """
-        if public_insight and public_insight.strip() and "publish" not in current_scopes():
+        public = bool(
+            (public_insight and public_insight.strip()) or (workout_name and workout_name.strip())
+        )
+        if public and "publish" not in current_scopes():
             raise ToolError(
-                "public_insight ends up in the public Strava/Garmin description, and this app "
-                "isn't allowed to publish. Write the entry without public_insight, or ask the "
+                "public_insight and workout_name end up on Strava/Garmin, and this app "
+                "isn't allowed to publish. Write the entry without them, or ask the "
                 "athlete to allow publishing for this app (Settings → Sharing → Coach apps)."
             )
         day = _date(for_date)
@@ -618,13 +626,13 @@ def register(kit: ToolKit) -> None:
         from vibesynergy.mcp import roles
 
         role = roles.current(engine)
-        if role == roles.ADVISORY and public_insight and public_insight.strip():
+        if role == roles.ADVISORY and public:
             raise roles.RoleError(
                 roles.refusal(
                     "vibesynergy_coach_write",
                     role,
-                    "with public_insight publishes a line on Strava/Garmin, and an advisory "
-                    "AI coach does not publish. Write the entry without public_insight.",
+                    "with public_insight or workout_name publishes on Strava/Garmin, and an "
+                    "advisory AI coach does not publish. Write the entry without them.",
                 )
             )
 
@@ -726,9 +734,21 @@ def register(kit: ToolKit) -> None:
                 activity_id=activity_id,
                 public_insight=public_insight,
                 sessions=sessions,
+                workout_name=workout_name,
             )
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
+        found_meta = row.get("meta")
+        stored_meta: dict[str, Any] = found_meta if isinstance(found_meta, dict) else {}
+        if stored_meta.get("workout_name") and stored_meta.get("activity_id"):
+            from vibesynergy.query import auto_names
+
+            # The AI coach's name for the workout (#188): stored unless the setting is off,
+            # the workout is old or the athlete changed its name himself.
+            try:
+                auto_names.from_insight(rt, stored_meta["activity_id"], stored_meta["workout_name"])
+            except Exception:  # the insight is stored; a name is not worth a failed write
+                log.exception("storing the AI coach's workout name failed")
         warnings = []
         if checked["task"] and not stamp["follows_current"] and stamp["via"] == "mcp":
             warnings.append(

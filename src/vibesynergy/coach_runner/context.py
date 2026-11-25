@@ -638,11 +638,22 @@ def activity_view(rt, activity_id: str) -> dict[str, Any]:
         "id": group,
         "own_words": _own_words(detail, _stored_texts(rt, group)),
         "summary": summary | units,
+        # Where the session was, for the workout name of an outdoor workout (#188).
+        "place": _place(rt, group),
         "effort": _effort(rt, group),
         "laps": laps,
         "zones": _zones(detail.get("zones") or []),
     }
     return {k: v for k, v in out.items() if v not in (None, [], {})}
+
+
+def _place(rt, group: str) -> str | None:
+    from vibesynergy.query import activity_weather
+
+    try:
+        return activity_weather.place(rt, group)
+    except Exception:  # the place is a nicety; the view goes without it
+        return None
 
 
 def _size(data: Any) -> int:

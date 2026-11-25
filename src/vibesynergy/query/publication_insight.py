@@ -79,6 +79,26 @@ def validate(text: str) -> str:
     return line
 
 
+def validate_name(text: str) -> str:
+    """The stored form of the workout name the AI coach writes with its insight (#188): one
+    line, at most ``workout_texts.MAX_NAME`` characters, nothing private, no link."""
+    from vibesynergy.query import workout_texts
+
+    if not isinstance(text, str):
+        raise InsightError("workout_name must be text")
+    line = " ".join(text.split())
+    if len(line) > workout_texts.MAX_NAME:
+        raise InsightError(f"workout_name must be at most {workout_texts.MAX_NAME} characters")
+    if PRIVATE.search(line):
+        raise InsightError(
+            "workout_name mentions private health, diary or injury details (INS-2). "
+            "Name the session only."
+        )
+    if _LINK.search(line):
+        raise InsightError("workout_name must not contain a link")
+    return line
+
+
 def _resolves_to(engine, ref: Any, group: str) -> bool | None:
     """True/False for an activity ref of this/another activity; None for other refs."""
     if not isinstance(ref, str) or ":" not in ref:
