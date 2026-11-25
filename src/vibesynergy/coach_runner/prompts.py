@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 10
+RULES_VERSION = 11
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -196,6 +196,12 @@ RUNNER_RULES = """\
   snorkel, plank, band, wetsuit; fietstrainer, trailschoenen), zet dan bovenaan de
   beschrijving één regel "Materiaal: pullbuoy, paddles" (in het Engels "Gear: pull buoy,
   paddles"). Staat er al zo'n regel, pas hem dan aan in plaats van een tweede te schrijven.
+- Elke sessie die je schrijft of wijzigt is compleet op zichzelf: elke drill en elke stap
+  staat er met naam en cue in, zodat {name} alles op het horloge heeft. Verwijs nooit naar
+  een andere sessie voor de inhoud ("zelfde drills als vorige week", "zoals dinsdag",
+  "zoals in week 4", "same as last week"): herhaal je een sessie, schrijf hem dan opnieuw
+  helemaal uit. Een verwijzing met stappen zonder naam wordt geweigerd
+  (incomplete_reference); een verwijzing bij uitgeschreven stappen geeft een waarschuwing.
 - Antwoorden van {name} op eerdere rapporten staan in het startbericht. Een expliciet
   "akkoord" of "ja" op een concreet voorstel geldt als akkoord (ICU-4): voer alleen dat
   voorstel uit, met approval_id "reply:<id>" van dat antwoord en een reden die ernaar
@@ -238,6 +244,12 @@ MCP_RULES = """\
   snorkel, plank, band, wetsuit; fietstrainer, trailschoenen), zet dan bovenaan de
   beschrijving één regel "Materiaal: pullbuoy, paddles" (in het Engels "Gear: pull buoy,
   paddles"). Staat er al zo'n regel, pas hem dan aan in plaats van een tweede te schrijven.
+- Elke sessie die je schrijft of wijzigt is compleet op zichzelf: elke drill en elke stap
+  staat er met naam en cue in, zodat {name} alles op het horloge heeft. Verwijs nooit naar
+  een andere sessie voor de inhoud ("zelfde drills als vorige week", "zoals dinsdag",
+  "zoals in week 4", "same as last week"): herhaal je een sessie, schrijf hem dan opnieuw
+  helemaal uit. Een verwijzing met stappen zonder naam wordt geweigerd
+  (incomplete_reference); een verwijzing bij uitgeschreven stappen geeft een waarschuwing.
 """
 
 INSIGHT_RULES = """\

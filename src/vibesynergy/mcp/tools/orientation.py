@@ -262,6 +262,12 @@ def register(kit: ToolKit) -> None:
             raise ToolError("description (intervals.icu text) or template_id is required")
         if not name.strip():
             raise ToolError("name is required")
+        from vibesynergy.query import self_contained
+
+        try:  # before the gate, so an incomplete session is never stored as a proposal
+            self_contained.refuse(description)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
         return _plan_write(
             "vibesynergy_plan_session_set",
             {

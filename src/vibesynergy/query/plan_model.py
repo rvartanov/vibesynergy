@@ -510,9 +510,11 @@ def set_session(
     parsed = workout_model.parse_intervals(description)
     if parsed.unparsed:
         raise ValueError(f"steps not understood: {parsed.unparsed}")
-    from vibesynergy.query import garmin_strength, gear_line
+    from vibesynergy.query import garmin_strength, gear_line, self_contained
 
     garmin_strength.check_description(description)  # a BlockError is a ValueError
+    # A reference to another session with nameless steps: nothing on the watch (#192).
+    self_contained.refuse(description)
     ident = session_id or f"{plan_id}:{day.isoformat()}:{slot or (sport or 'session').lower()}"
     seconds, metres = workout_model.planned_totals(parsed.steps, swim=family(sport) == "swim")
     row = {

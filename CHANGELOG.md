@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Every planned workout is complete on its own** (#192): a workout never says "zelfde drills
+  als vorige week" any more. The AI coach writes every drill and step out by name with its
+  cue (harness rules v11), so the watch shows what to do and the gear line sees the fins.
+  VibeSynergy refuses a session that refers to another one while its steps name nothing but
+  an intensity, and warns about a reference when the steps are written out.
+
 ## 0.1.0-beta.0.21 – 25-11-2026
 
 - **Gear in the workout's notes** (#112): a planned workout that needs gear now says so in one
