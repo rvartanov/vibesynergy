@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.17 – 25-11-2026
+
 - **New workouts get a name by themselves** (#114): Settings → Publishing and sync → *Give
   workouts a name automatically* (on by default). A new workout is named after the plan
   session it matched, or else its sport, part of the day and place, such as "Ochtendloop
