@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.18 – 25-11-2026
+
 - **Photos from the Strava archive** (#114): importing the Strava account archive also
   brings the photos of your workouts, through the same path as the photos from Strava itself,
   so each photo is kept once and is not fetched again. Videos are left out; the result says
