@@ -324,6 +324,20 @@ ITEMS: tuple[Item, ...] = (
         "a short part line and the workout's name with the part. Garmin gets it once. A "
         "name you change on one part stays on that part.",
     ),
+    Item(
+        "112-gear-line",
+        "you",
+        "A planned workout that needs gear now says so at the top of its notes, like "
+        '"Materiaal: pullbuoy, paddles": on the start page, in This week, in Garmin and '
+        "in intervals.icu.",
+    ),
+    Item(
+        "112-ai-gear-line",
+        "ai",
+        "Harness rules v10: when the AI coach writes or changes a session that needs "
+        'gear, it puts one line "Materiaal: …" at the top of the description; '
+        "VibeSynergy adds it from the steps when it is missing.",
+    ),
 )
 
 VERSION = RELEASES[0].version

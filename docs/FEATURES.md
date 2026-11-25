@@ -224,6 +224,13 @@ Details: [SOURCES.md](SOURCES.md).
   Methods & rules), not code. An AI coach proposes a change, you approve it as a diff, and
   the next workout uses it; sessions planned from a template are rebuilt on request
   (`vibesynergy_workout_rerender`, `vibesynergy plan rerender`), done sessions never change.
+- **Gear in the workout's notes** (#112): a planned session that needs gear starts its notes
+  with one line, "Materiaal: pullbuoy, paddles" (nl) or "Gear: pull buoy, paddles" (en), so
+  it is on the start page, in This week, in the Garmin workout and in intervals.icu. The plan
+  builder writes it when it generates a session; the AI coach adds it when it writes one
+  (harness rules v10); and VibeSynergy adds it from the step text (pull buoy, paddles, fins,
+  snorkel, kickboard, band, wetsuit; trainer for a ride, trail shoes for a run) when it is
+  missing. Never twice.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport. Gear of your own (#114):

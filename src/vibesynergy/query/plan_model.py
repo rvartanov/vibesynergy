@@ -510,7 +510,7 @@ def set_session(
     parsed = workout_model.parse_intervals(description)
     if parsed.unparsed:
         raise ValueError(f"steps not understood: {parsed.unparsed}")
-    from vibesynergy.query import garmin_strength
+    from vibesynergy.query import garmin_strength, gear_line
 
     garmin_strength.check_description(description)  # a BlockError is a ValueError
     ident = session_id or f"{plan_id}:{day.isoformat()}:{slot or (sport or 'session').lower()}"
@@ -523,7 +523,8 @@ def set_session(
         "duration_s": seconds,
         "distance_m": metres,
         "workout": {"steps": parsed.steps, "garmin_block": parsed.garmin_block},
-        "description": parsed.intro,
+        # The gear the steps name, as the first line of the notes, unless it is there (#112).
+        "description": gear_line.add(parsed.intro, parsed.steps, sport),
         "status": "planned",
     }
     made = template or _recognised(engine, name, day, description)

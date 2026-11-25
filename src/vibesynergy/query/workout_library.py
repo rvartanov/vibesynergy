@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 
-from vibesynergy.query import workout_method
+from vibesynergy.query import gear_line, workout_method
 from vibesynergy.query.workout_method import Method, Values
 from vibesynergy.query.workout_model import (
     SWIM_S_PER_M,
@@ -304,6 +304,8 @@ def render(
         from vibesynergy.query import swim_drills
 
         intro = swim_drills.intro(swim_drills.focus_for_week(int(values["week"])), lang)
+    # The gear its steps name, as the first line of its notes (#112).
+    intro = gear_line.add(intro, steps, template.sport, lang)
     workout = Workout(steps=steps, intro=intro)
     return {
         **base,

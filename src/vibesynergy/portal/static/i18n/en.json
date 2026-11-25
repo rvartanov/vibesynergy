@@ -3510,5 +3510,17 @@
  "Part {index}/{count}: running": "Part {index}/{count}: running",
  "Part {index}/{count}: transition": "Part {index}/{count}: transition",
  "Part {index}/{count}": "Part {index}/{count}",
- "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.": "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part."
+ "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.": "A brick or triathlon you publish now gets its text on every part on Strava, with a short part line and the workout's name with the part. Garmin gets it once. A name you change on one part stays on that part.",
+ "Gear: {items}": "Gear: {items}",
+ "pull buoy": "pull buoy",
+ "paddles": "paddles",
+ "fins": "fins",
+ "snorkel": "snorkel",
+ "kickboard": "kickboard",
+ "band": "band",
+ "wetsuit": "wetsuit",
+ "indoor trainer": "indoor trainer",
+ "trail shoes": "trail shoes",
+ "A planned workout that needs gear now says so at the top of its notes, like \"Materiaal: pullbuoy, paddles\": on the start page, in This week, in Garmin and in intervals.icu.": "A planned workout that needs gear now says so at the top of its notes, like \"Materiaal: pullbuoy, paddles\": on the start page, in This week, in Garmin and in intervals.icu.",
+ "Harness rules v10: when the AI coach writes or changes a session that needs gear, it puts one line \"Materiaal: …\" at the top of the description; VibeSynergy adds it from the steps when it is missing.": "Harness rules v10: when the AI coach writes or changes a session that needs gear, it puts one line \"Materiaal: …\" at the top of the description; VibeSynergy adds it from the steps when it is missing."
 }

@@ -45,7 +45,7 @@ REWRITES: tuple[tuple[re.Pattern[str], str], ...] = (
 
 # Bump when HARNESS_RULES, RUNNER_RULES, MCP_RULES or INSIGHT_RULES change. A test pins the
 # text to this number, so the rules cannot change without a new version (#88).
-RULES_VERSION = 9
+RULES_VERSION = 10
 
 # The rules every AI coach follows, the API runner and an AI app over MCP alike: one text,
 # from here. No model or provider is named in it (#96; tests/test_model_neutral.py), and it
@@ -192,6 +192,10 @@ RUNNER_RULES = """\
   week die een weeknotitie heeft, schrijft VibeSynergy direct door. Blijf binnen de
   weeknotitie en de weekdoelen van die week. Een bestaande sessie wijzigen, verplaatsen of
   overslaan, een weeknotitie en een weekdoel hebben altijd approval_id nodig.
+- Schrijf of wijzig je een sessie die materiaal nodig heeft (pullbuoy, paddles, vinnen,
+  snorkel, plank, band, wetsuit; fietstrainer, trailschoenen), zet dan bovenaan de
+  beschrijving één regel "Materiaal: pullbuoy, paddles" (in het Engels "Gear: pull buoy,
+  paddles"). Staat er al zo'n regel, pas hem dan aan in plaats van een tweede te schrijven.
 - Antwoorden van {name} op eerdere rapporten staan in het startbericht. Een expliciet
   "akkoord" of "ja" op een concreet voorstel geldt als akkoord (ICU-4): voer alleen dat
   voorstel uit, met approval_id "reply:<id>" van dat antwoord en een reden die ernaar
@@ -230,6 +234,10 @@ MCP_RULES = """\
     naast het dagadvies, niet in plaats ervan; je planwijzigingen worden altijd een
     voorstel dat {name} goedkeurt. Een write buiten je rol wordt geweigerd, met de reden.
 - Gebruik een idempotency_key per auteur: <taak>-<datum>-<key_suffix>.
+- Schrijf of wijzig je een sessie die materiaal nodig heeft (pullbuoy, paddles, vinnen,
+  snorkel, plank, band, wetsuit; fietstrainer, trailschoenen), zet dan bovenaan de
+  beschrijving één regel "Materiaal: pullbuoy, paddles" (in het Engels "Gear: pull buoy,
+  paddles"). Staat er al zo'n regel, pas hem dan aan in plaats van een tweede te schrijven.
 """
 
 INSIGHT_RULES = """\

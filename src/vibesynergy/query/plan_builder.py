@@ -417,6 +417,8 @@ def _sessions(
             "template": template,
             "name": done["name"],
             "minutes": round(done["seconds"] / 60),
+            # The session's text; its notes start with the gear line when it uses gear (#112).
+            "description": done["text"],
         }
 
     budget = sum(minutes.values())
