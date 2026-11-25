@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.20 – 25-11-2026
+
 - **Multisport and Zwift in published workouts** (#114): every Strava part of a brick or
   triathlon now gets the workout's public text under a short part line ("Deel 2/3: fietsen")
   and the workout's name with the part ("Frysman sim – zwemmen"); Garmin gets the text once,
