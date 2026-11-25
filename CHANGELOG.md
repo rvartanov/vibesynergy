@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.19 – 25-11-2026
+
 - **The AI coach names your workouts** (#188): a new workout's name now comes from the AI
   coach, as part of its insight, and fits what you actually did (a Zwift ride is named as a
   Zwift ride, also when the plan said MTB). The rule that copied the plan session's title is
