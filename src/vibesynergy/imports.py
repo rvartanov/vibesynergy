@@ -37,18 +37,18 @@ log = logging.getLogger(__name__)
 Progress = Callable[..., None]
 STRAVA_PROGRESS_EVERY = 25
 STRAVA_MEDIA_CSV = "media.csv"
-# VibeSynergy keeps photos only; a video in the archive is counted and left out.
+# The archive's videos: taken in as videos (MP4 and MOV; another kind is not readable).
 VIDEO_SUFFIXES = (".mp4", ".mov", ".m4v", ".webm", ".avi", ".3gp")
 
 
 @dataclass
 class MediaResult(DatasetResult):
-    """The archive's workout photos. ``new_versions`` is the photos added and ``skipped`` the
-    ones VibeSynergy already had (from the API, an earlier import, or the same picture
-    twice); the rest is counted by why it was left out."""
+    """The archive's workout photos and videos. ``new_versions`` is the ones added (``videos``
+    of them videos) and ``skipped`` the ones VibeSynergy already had (from the API, an
+    earlier import, or the same file twice); the rest is counted by why it was left out."""
 
     listed: int = 0  # photos and videos the activities name
-    videos: int = 0
+    videos: int = 0  # of the ones added (new_versions), the videos
     missing: int = 0  # named in activities.csv but not in the zip
     unreadable: int = 0  # not a photo VibeSynergy can read, or too large: not tried again
     full: int = 0  # the workout has as many photos as it can hold
@@ -279,8 +279,8 @@ def _import_strava_media(
     offset: int,
     total: int,
 ) -> None:
-    """Take in the archive's photos through the same path as the photos from the API
-    (source ``strava``, the photo id as origin), so each one is kept once."""
+    """Take in the archive's photos and videos through the same path as the ones from the
+    API (source ``strava``, the photo id as origin), so each one is kept once."""
     from vibesynergy.query import workout_media
 
     result.listed = len(photos)
@@ -291,9 +291,7 @@ def _import_strava_media(
         if progress and count % STRAVA_PROGRESS_EVERY == 0:
             progress(f"{count} of {len(photos)} photos", offset + count, total)
         photo_id = strava_export.photo_id(name)
-        if name.lower().endswith(VIDEO_SUFFIXES):
-            result.videos += 1
-            continue
+        is_video = name.lower().endswith(VIDEO_SUFFIXES)
         if workout_media.known(rt.engine, "strava", photo_id):
             result.skipped += 1
             continue
@@ -302,18 +300,24 @@ def _import_strava_media(
             result.missing += 1
             continue
         try:
-            if zf.getinfo(member).file_size > workout_media.MAX_BYTES:
-                raise workout_media.TooLarge("the photo is too large")
+            limit = workout_media.MAX_VIDEO_BYTES if is_video else workout_media.MAX_BYTES
+            if zf.getinfo(member).file_size > limit:
+                raise workout_media.TooLarge("the file is too large")
             result.fetched += 1
-            done = workout_media.add(
-                rt.engine,
-                rt.raw.blobs,
-                _photo_workout(rt, activity_id),
-                zf.read(member),
-                source="strava",
-                origin=(photo_id, activity_id),
-                caption=captions.get(photo_id),
-            )
+            options = {
+                "source": "strava",
+                "origin": (photo_id, activity_id),
+                "caption": captions.get(photo_id),
+            }
+            key = _photo_workout(rt, activity_id)
+            if is_video:
+                with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+                    path = Path(tmp) / "original"
+                    with zf.open(member) as src, path.open("wb") as dst:
+                        shutil.copyfileobj(src, dst, 1024 * 1024)
+                    done = workout_media.add_video(rt.engine, rt.raw.blobs, key, path, **options)
+            else:
+                done = workout_media.add(rt.engine, rt.raw.blobs, key, zf.read(member), **options)
         except (workout_media.NotAPhoto, workout_media.TooLarge):
             workout_media.skip(rt.engine, "strava", photo_id, activity_id)
             result.unreadable += 1
@@ -327,6 +331,7 @@ def _import_strava_media(
             continue
         if done["state"] == "added":
             result.new_versions += 1
+            result.videos += is_video
         else:
             result.skipped += 1
     if progress and photos:

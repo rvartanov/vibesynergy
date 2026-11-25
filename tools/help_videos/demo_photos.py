@@ -1,8 +1,9 @@
-"""Photos for the "workout-photos" help video, and taking them out again (#114).
+"""Photos and a video for the "workout-photos" help video, and taking them out again (#114).
 
 The demo has no Strava or Garmin login, so nothing comes in by itself. ``seed`` puts one
 synthetic photo "from Garmin" on the newest demo workout (as the photo pull would take it
-in) and writes the synthetic photo the video adds to ``~/vs-help-home/tour/photo.jpg``.
+in) and writes the synthetic photo and video the help video adds to
+``~/vs-help-home/tour/photo.jpg`` and ``clip.mp4`` (drawn by ffmpeg, nobody's video).
 ``clear`` takes out every photo and its history, so other videos and the next recording
 start from the same demo.
 
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import io
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -36,6 +38,7 @@ from vibesynergy.store.schema import (
 
 DEMO_HOME = Path.home() / "vs-help-home"
 UPLOAD = DEMO_HOME / "tour" / "photo.jpg"
+CLIP = DEMO_HOME / "tour" / "clip.mp4"
 
 
 def _guard() -> None:
@@ -88,6 +91,14 @@ def seed(rt: Runtime) -> None:
     )
     UPLOAD.parent.mkdir(parents=True, exist_ok=True)
     UPLOAD.write_bytes(landscape((220, 120, 80), (90, 110, 60), 300, mirror=True))
+    subprocess.run(
+        [
+            "ffmpeg", "-v", "error", "-y",
+            "-f", "lavfi", "-i", "smptebars=size=640x360:rate=25:duration=4",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", str(CLIP),
+        ],
+        check=True,
+    )  # fmt: skip
 
 
 def clear(rt: Runtime) -> None:
@@ -95,6 +106,7 @@ def clear(rt: Runtime) -> None:
         for table in (media_item, media_origin, media_change, media_check):
             conn.execute(delete(table))
     UPLOAD.unlink(missing_ok=True)
+    CLIP.unlink(missing_ok=True)
 
 
 def main() -> None:

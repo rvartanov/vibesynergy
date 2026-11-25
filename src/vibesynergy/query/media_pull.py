@@ -25,11 +25,15 @@ first; Strava's rate limit ends a run and the rest waits.
 
 from __future__ import annotations
 
+import io
 import logging
+import re
+import tempfile
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
-from urllib.parse import urlparse
+from pathlib import Path
+from typing import IO, Any, Protocol
+from urllib.parse import urljoin, urlparse
 
 from sqlalchemy import func, select
 
@@ -53,6 +57,16 @@ RETRY = timedelta(hours=6)
 MAX_SCAN = 200
 MAX_READS = 10
 STRAVA_SIZE = 2048  # the largest size Strava gives a photo in
+# Videos: at most this many downloads per run (the rest waits for the next one), each within
+# one deadline. A streamed video's parts come only from its own host or these (and their
+# subdomains).
+MAX_VIDEOS_PER_RUN = 3
+VIDEO_DEADLINE_S = 300.0
+MAX_PLAYLIST_BYTES = 1024 * 1024
+HLS_HOSTS: tuple[str, ...] = ("strava.com", "cloudfront.net")
+# media_check.error of a copy that only waits (no ffmpeg yet, or the run's video budget):
+# that look does not use up the one retry.
+WAITING = "waiting: "
 _last_run: float | None = None
 
 
@@ -62,6 +76,10 @@ class Reader(Protocol):
         ...
 
     def download(self, url: str) -> bytes: ...
+
+    def download_video(self, url: str, dest: Path) -> None:
+        """A video (``"video": True`` in ``photos``) into the file ``dest``."""
+        ...
 
 
 def _when(value: Any) -> datetime | None:
@@ -74,6 +92,157 @@ def _when(value: Any) -> datetime | None:
     except (ValueError, OverflowError, OSError):
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _host_allowed(url: str, playlist_host: str | None) -> bool:
+    """https, and on the playlist's own host or a Strava host or CDN (``HLS_HOSTS``)."""
+    parts = urlparse(url)
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https" or not host:
+        return False
+    if playlist_host and host == playlist_host.lower():
+        return True
+    return any(host == h or host.endswith("." + h) for h in HLS_HOSTS)
+
+
+class _Fetch:
+    """Downloads for one video: verified TLS (requests' default), one overall deadline and
+    one size limit for all its parts together."""
+
+    def __init__(self, timeout: float, deadline_s: float, limit: int) -> None:
+        self.timeout = timeout
+        self.deadline = time.monotonic() + deadline_s
+        self.left = limit
+
+    def _remaining(self) -> float:
+        left = self.deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("the video took too long to download")
+        return left
+
+    def to(self, url: str, out: IO[bytes], limit: int | None = None) -> str:
+        """Write ``url``'s body to ``out``; returns its content type."""
+        import requests
+
+        cap = self.left if limit is None else min(limit, self.left)
+        timeout = min(self.timeout, self._remaining())
+        with requests.get(url, stream=True, timeout=timeout, allow_redirects=True) as response:
+            response.raise_for_status()
+            if not _host_allowed(response.url, urlparse(url).hostname):
+                raise ValueError("the video link went to another place")
+            if int(response.headers.get("content-length") or 0) > cap:
+                raise workout_media.TooLarge("the video is too large")
+            written = 0
+            for chunk in response.iter_content(1024 * 1024):
+                self._remaining()
+                out.write(chunk)
+                written += len(chunk)
+                if written > cap:
+                    raise workout_media.TooLarge("the video is too large")
+            self.left -= written
+            return response.headers.get("content-type", "")
+
+    def text(self, url: str) -> str:
+        buf = io.BytesIO()
+        self.to(url, buf, MAX_PLAYLIST_BYTES)
+        return buf.getvalue().decode("utf-8", errors="replace")
+
+
+def download_video(
+    url: str, dest: Path, timeout: float, deadline_s: float = VIDEO_DEADLINE_S
+) -> None:
+    """A video from the platform's own link into ``dest``: https only, at most
+    ``MAX_VIDEO_BYTES`` and ``deadline_s`` seconds, no login sent. A streamed video (HLS,
+    ``.m3u8``) is downloaded part by part here, then put together by ffmpeg from local files."""
+    from vibesynergy.query import video
+
+    if urlparse(url).scheme != "https":
+        raise ValueError("video links must be https")
+    fetch = _Fetch(timeout, deadline_s, workout_media.MAX_VIDEO_BYTES)
+    if urlparse(url).path.lower().endswith(".m3u8"):
+        fetch_hls(url, dest, fetch)
+        return
+    with dest.open("wb") as out:
+        kind = fetch.to(url, out)
+    if "mpegurl" in kind.lower():
+        fetch_hls(url, dest, _Fetch(timeout, deadline_s, workout_media.MAX_VIDEO_BYTES))
+        return
+    with dest.open("rb") as fh:
+        head = fh.read(16)
+    if not video.looks_like_video(head):
+        raise workout_media.NotAPhoto("the link gave no video")
+
+
+_URI = re.compile(r'URI="([^"]*)"')
+_SEGMENT_SUFFIXES = (".ts", ".m4s", ".mp4", ".aac", ".m4a", ".m4v")
+
+
+def _variant(text: str, url: str) -> str | None:
+    """A master playlist's best stream (highest bandwidth), or None for a media playlist."""
+    best: tuple[int, str] | None = None
+    lines = [line.strip() for line in text.splitlines()]
+    for n, line in enumerate(lines):
+        if not line.startswith("#EXT-X-STREAM-INF"):
+            continue
+        found = re.search(r"BANDWIDTH=(\d+)", line)
+        rate = int(found.group(1)) if found else 0
+        target = next((x for x in lines[n + 1 :] if x and not x.startswith("#")), None)
+        if target and (best is None or rate > best[0]):
+            best = (rate, urljoin(url, target))
+    return best[1] if best else None
+
+
+def fetch_hls(url: str, dest: Path, fetch: _Fetch) -> None:
+    """A streamed video: its playlist, every part and key downloaded with verified TLS (only
+    from the playlist's host or a Strava host or CDN), then remuxed from local files."""
+    from vibesynergy.query import video
+
+    text = fetch.text(url)
+    if not text.lstrip().startswith("#EXTM3U"):
+        raise workout_media.NotAPhoto("the link gave no video")
+    variant = _variant(text, url)
+    if variant is not None:
+        if not _host_allowed(variant, urlparse(url).hostname):
+            raise ValueError("a part of the video is somewhere else")
+        url, text = variant, fetch.text(variant)
+        if _variant(text, url) is not None:
+            raise workout_media.NotAPhoto("the stream has no video parts")
+    host = urlparse(url).hostname
+    with tempfile.TemporaryDirectory(prefix="vs-hls-") as tmp:
+        folder = Path(tmp)
+        lines: list[str] = []
+        parts = 0
+
+        def local(target: str, name: str) -> str:
+            absolute = urljoin(url, target)
+            if not _host_allowed(absolute, host):
+                raise ValueError("a part of the video is somewhere else")
+            with (folder / name).open("wb") as out:
+                fetch.to(absolute, out)
+            return name
+
+        for raw in text.splitlines():
+            line = raw.strip()
+            uri = _URI.search(line) if line.startswith(("#EXT-X-KEY", "#EXT-X-MAP")) else None
+            if uri is not None:
+                parts += 1
+                kind = "key" if line.startswith("#EXT-X-KEY") else "mp4"
+                name = local(uri.group(1), f"part{parts:05d}.{kind}")
+                line = line[: uri.start(1)] + name + line[uri.end(1) :]
+            elif line and not line.startswith("#"):
+                parts += 1
+                suffix = Path(urlparse(line).path).suffix.lower()
+                suffix = suffix if suffix in _SEGMENT_SUFFIXES else ".ts"
+                line = local(line, f"part{parts:05d}{suffix}")
+            lines.append(line)
+        if not parts:
+            raise workout_media.NotAPhoto("the stream has no video parts")
+        playlist = folder / "index.m3u8"
+        playlist.write_text("\n".join(lines) + "\n")
+        try:
+            video.remux_hls(playlist, dest)
+        except video.NotAVideo as exc:
+            raise workout_media.NotAPhoto(str(exc)) from exc
 
 
 def download(url: str, timeout: float) -> bytes:
@@ -113,11 +282,12 @@ class StravaReader:
         )
         out = []
         for photo in found or []:
-            if not isinstance(photo, dict) or photo.get("video_url"):
-                continue  # a video: not a photo VibeSynergy keeps
+            if not isinstance(photo, dict):
+                continue
             urls = photo.get("urls") or {}
             sizes = sorted(urls, key=lambda k: int(k) if str(k).isdigit() else 0)
-            url = urls.get(sizes[-1]) if sizes else None
+            # A video's urls are its poster; the video itself is video_url.
+            url = photo.get("video_url") or (urls.get(sizes[-1]) if sizes else None)
             photo_id = photo.get("unique_id") or photo.get("id")
             if not url or not photo_id or "placeholder" in str(url):
                 continue  # still being processed on Strava: the next look takes it
@@ -125,6 +295,7 @@ class StravaReader:
                 {
                     "photo_id": str(photo_id),
                     "url": str(url),
+                    "video": bool(photo.get("video_url")),
                     "caption": photo.get("caption"),
                     "taken_at": _when(photo.get("created_at")),
                 }
@@ -133,6 +304,9 @@ class StravaReader:
 
     def download(self, url: str) -> bytes:
         return download(url, self.timeout)
+
+    def download_video(self, url: str, dest: Path) -> None:
+        download_video(url, dest, self.timeout)
 
 
 class GarminReader:
@@ -167,6 +341,9 @@ class GarminReader:
 
     def download(self, url: str) -> bytes:
         return download(url, self.timeout)
+
+    def download_video(self, url: str, dest: Path) -> None:
+        download_video(url, dest, self.timeout)
 
 
 _READERS = {"strava": StravaReader, "garmin": GarminReader}
@@ -223,13 +400,39 @@ def _save(conn, source: str, source_id: str, **values: Any) -> None:
         conn.execute(media_check.insert().values(source=source, source_id=source_id, **values))
 
 
-def pull_one(rt, reader: Reader, source: str, source_id: str) -> dict[str, Any]:
-    """Take in the photos of one Strava or Garmin activity VibeSynergy does not have yet."""
-    result: dict[str, Any] = {"added": 0, "same": 0, "skipped": 0, "errors": [], "listed": 0}
+def pull_one(
+    rt, reader: Reader, source: str, source_id: str, videos: list[int] | None = None
+) -> dict[str, Any]:
+    """Take in the photos and videos of one Strava or Garmin activity VibeSynergy does not
+    have yet. ``videos``: how many videos this run may still download (``[n]``, counted
+    down); a video beyond it, or one while ffmpeg is missing, only waits (``waiting``)."""
+    result: dict[str, Any] = {
+        "added": 0,
+        "same": 0,
+        "skipped": 0,
+        "errors": [],
+        "listed": 0,
+        "waiting": [],
+    }
     listed = reader.photos(source_id)
     result["listed"] = len(listed)
     for photo in listed:
         if workout_media.known(rt.engine, source, photo["photo_id"]):
+            continue
+        if photo.get("video"):
+            from vibesynergy.query import video
+
+            if not video.available():
+                result["waiting"].append("ffmpeg is not installed")
+                continue
+            if videos is not None:
+                if videos[0] <= 0:
+                    result["waiting"].append("the next run takes the next videos")
+                    continue
+                videos[0] -= 1
+            _pull_video(rt, reader, source, source_id, photo, result)
+            if result.pop("full", False):
+                break
             continue
         try:
             data = reader.download(photo["url"])
@@ -263,6 +466,58 @@ def pull_one(rt, reader: Reader, source: str, source_id: str) -> dict[str, Any]:
     return result
 
 
+def _pull_video(
+    rt, reader: Reader, source: str, source_id: str, photo: dict[str, Any], result: dict
+) -> None:
+    """One video, as ``pull_one`` does a photo: what can never be read is not asked again; a
+    download that fails is looked at once more, like a photo's. ffmpeg missing in the middle
+    only waits and does not use up that look."""
+    with tempfile.TemporaryDirectory(prefix="vs-video-") as tmp:
+        path = Path(tmp) / "original"
+        try:
+            reader.download_video(photo["url"], path)
+            done = workout_media.add_video(
+                rt.engine,
+                rt.raw.blobs,
+                f"{source}:{source_id}",
+                path,
+                source=source,
+                origin=(photo["photo_id"], source_id),
+                caption=photo.get("caption"),
+                taken_at=photo.get("taken_at"),
+            )
+        except RateLimited:
+            raise
+        except (workout_media.NotAPhoto, workout_media.TooLarge):
+            workout_media.skip(rt.engine, source, photo["photo_id"], source_id)
+            result["skipped"] += 1
+            return
+        except workout_media.TooMany:
+            result["errors"].append("the workout has as many photos as it can have")
+            result["full"] = True
+            return
+        except workout_media.NoVideoTool:
+            result["waiting"].append("ffmpeg is not installed")
+            return
+        except Exception as exc:  # an expired link, a network hiccup, the deadline
+            result["errors"].append(f"{type(exc).__name__}: {exc}"[:200])
+            return
+    if done["state"] == "added":
+        result["added"] += 1
+    elif done["state"] == "same":
+        result["same"] += 1
+
+
+def _retried(check: dict[str, Any] | None, raw_id: str) -> bool:
+    """Whether this stored version already had its one more look (a wait does not count)."""
+    return bool(
+        check
+        and check["raw_id"] == raw_id
+        and check["next_at"] is not None
+        and not str(check["error"] or "").startswith(WAITING)
+    )
+
+
 def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = None) -> dict:
     """The scheduled job: look at the stored Strava and Garmin copies, newest first, and take
     in the photos of those that have photos VibeSynergy does not have yet."""
@@ -281,6 +536,7 @@ def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = 
     if not sources:
         return {**summary, "state": "off"}
     made: dict[str, Reader] = dict(readers or {})
+    videos = [MAX_VIDEOS_PER_RUN]
     with rt.engine.connect() as conn:
         copies = conn.execute(
             select(activity_link.c.source, activity_link.c.source_id)
@@ -344,14 +600,14 @@ def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = 
         summary["read"] += 1
         try:
             reader = made.get(source) or made.setdefault(source, _READERS[source](rt))
-            result = pull_one(rt, reader, source, source_id)
+            result = pull_one(rt, reader, source, source_id, videos)
         except RateLimited:
             summary["rate_limited"] = True
             break  # the budget is spent: the rest waits for the next run
         except Exception as exc:
             log.warning("photos of %s:%s not taken in: %s", source, source_id, exc)
             summary["failed"] += 1
-            retried = bool(check and check["raw_id"] == raw_id and check["next_at"] is not None)
+            retried = _retried(check, raw_id)
             with rt.engine.begin() as conn:
                 _save(
                     conn,
@@ -369,8 +625,17 @@ def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = 
         errors = list(result["errors"])
         if result["listed"] < photos:  # still being processed there, or a video
             errors.append(f"{result['listed']} of {photos} photos listed")
-        # One more look per stored version: what fails twice waits for a new version.
-        retried = bool(check and check["raw_id"] == raw_id and check["next_at"] is not None)
+        # One more look per stored version: what fails twice waits for a new version. What
+        # only waits (ffmpeg, the run's video budget) is looked at again without using it up.
+        retried = _retried(check, raw_id)
+        waiting = result.get("waiting") or []
+        if errors:
+            next_at, error = (None if retried else now + RETRY), "; ".join(errors)
+        elif waiting:
+            later = RETRY if any("ffmpeg" in w for w in waiting) else timedelta(0)
+            next_at, error = now + later, WAITING + "; ".join(waiting)
+        else:
+            next_at, error = None, None
         with rt.engine.begin() as conn:
             _save(
                 conn,
@@ -379,7 +644,7 @@ def run(rt, *, now: datetime | None = None, readers: dict[str, Reader] | None = 
                 raw_id=raw_id,
                 photos=photos,
                 checked_at=now,
-                next_at=now + RETRY if errors and not retried else None,
-                error="; ".join(errors)[:500] or None,
+                next_at=next_at,
+                error=error[:500] if error else None,
             )
     return summary

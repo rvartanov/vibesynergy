@@ -1,5 +1,6 @@
-"""The workout's photos (#114, phase 6): keyboard only, axe clean, NL and EN, light and dark,
-desktop and phone width. Add a photo, remove it and put it back without a mouse.
+"""The workout's photos and videos (#114, phase 6): keyboard only, axe clean, NL and EN,
+light and dark, desktop and phone width. Add a photo, remove it and put it back without a
+mouse; reach a video's player by keyboard.
 
 A throwaway portal on synthetic data; nothing leaves the test.
 """
@@ -7,6 +8,7 @@ A throwaway portal on synthetic data; nothing leaves the test.
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 
 import pytest
@@ -46,6 +48,14 @@ def test_workout_photos_by_keyboard_and_axe(runtime, tmp_path):
         ),
     )
     group = "strava:p1"
+    # A video too (#114), when ffmpeg is there to make one: it plays in the browser's own
+    # player, which the keyboard reaches like any control.
+    has_video = bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
+    if has_video:
+        from test_workout_videos import make_video
+
+        clip = make_video(tmp_path / "clip.mp4")
+        workout_media.add(runtime.engine, runtime.raw.blobs, group, clip)
     app = create_portal_app(runtime)
     port = _port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
@@ -76,6 +86,12 @@ def test_workout_photos_by_keyboard_and_axe(runtime, tmp_path):
                 card = page.locator("[data-workout-media]")
                 card.locator("[data-wm-add]").wait_for()
                 assert card.locator("#wm-where").inner_text().strip()
+                if has_video:
+                    player = card.locator(".wm-grid video")
+                    assert player.get_attribute("aria-label") and player.get_attribute("poster")
+                    assert _tab_until(
+                        page, "() => document.activeElement?.tagName === 'VIDEO'", steps=250
+                    )
                 # Add a photo with the keyboard: the button opens the file chooser.
                 assert _tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-wm-add')", steps=250

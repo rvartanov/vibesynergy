@@ -18,6 +18,13 @@ The short "What changed" the portal shows after an update is in
   so each photo is kept once and is not fetched again. Videos are left out; the result says
   how many photos were added.
 
+- **Videos of a workout** (#114): *Add photos or videos* on the workout page also takes MP4
+  and MOV (up to 500 MB), and the videos on Strava and in the Strava archive come in by
+  themselves, each video once. A video plays in the browser's own player on the workout page
+  and on share links, from a copy without the file's metadata (so without the place it was
+  filmed), with one of its frames as poster. Removing and putting back work as for photos.
+  Videos need ffmpeg (now in the container); without it photos work as before.
+
 ## 0.1.0-beta.0.17 – 25-11-2026
 
 - **New workouts get a name by themselves** (#114): Settings → Publishing and sync → *Give

@@ -18,7 +18,7 @@ RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.13-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git tini \
+ && apt-get install -y --no-install-recommends ca-certificates ffmpeg git tini \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --uid 1000 vibesynergy \
  && mkdir /data && chown vibesynergy:vibesynergy /data

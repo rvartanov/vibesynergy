@@ -1507,6 +1507,10 @@ media_item = Table(
     Column("author", String),
     Column("added_at", UTCDateTime, nullable=False),
     Column("removed_at", UTCDateTime),
+    # A video (#114): its length, and the copy a browser plays (poster: display and thumb).
+    Column("kind", String, nullable=False, server_default="photo"),
+    Column("duration_s", Float),
+    Column("stream_sha256", String),
 )
 
 # A photo taken in from Strava or Garmin, by the platform's photo id: fetched once, and never

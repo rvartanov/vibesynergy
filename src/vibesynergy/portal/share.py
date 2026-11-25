@@ -33,7 +33,7 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         "read": ("/diary",),
         "write": ("/diary/note", "/diary/checkin", "/diary/injury"),
     },
-    # The workout's photos too (#114): never a removed one, never the original file.
+    # The workout's photos and videos too (#114): never a removed one, never the original file.
     "activities": {
         "read": (
             "/activities",
@@ -41,6 +41,7 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
             "/activity-weather",
             "/activity-media",
             "/activity-media/photo/",
+            "/activity-media/video/",
         )
     },
     "metrics": {"read": ("/series", "/catalog")},

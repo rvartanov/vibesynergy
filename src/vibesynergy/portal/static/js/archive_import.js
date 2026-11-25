@@ -97,9 +97,11 @@ export async function archiveImport(el, { stale, source }) {
         // Since the photos came along, total counts files and photos; counts keeps them apart.
         const files = fill.counts?.files ?? (fill.total || fill.done);
         const photos = fill.counts?.photos || 0;
-        const added = photos === 1 ? t("1 photo added.") : t("{n} photos added.", { n: number(photos) });
-        const done = t("Done: {n} files checked. Your activities are ready.", { n: number(files) });
-        return say(photos ? `${done} ${added}` : done, null);
+        const videos = fill.counts?.videos || 0;
+        const parts = [t("Done: {n} files checked. Your activities are ready.", { n: number(files) })];
+        if (photos) parts.push(photos === 1 ? t("1 photo added.") : t("{n} photos added.", { n: number(photos) }));
+        if (videos) parts.push(videos === 1 ? t("1 video added.") : t("{n} videos added.", { n: number(videos) }));
+        return say(parts.join(" "), null);
       }
       return say(t("Done: your Garmin history is in. Anything you already had was left alone."), null);
     }

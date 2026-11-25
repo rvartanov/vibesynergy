@@ -182,8 +182,8 @@ HILL, LAKE, API_PHOTO = picture(1, (200, 160)), picture(2, (200, 160)), picture(
 
 def media_archive(tmp_path, media: dict[str, str]) -> object:
     """A small archive whose activities name media (``|``-separated), with the media folder:
-    two photos, the hill photo again under another id, a video, a file that is no photo, and
-    one named photo that is missing from the zip."""
+    two photos, the hill photo again under another id, a file that is no photo, and one named
+    photo that is missing from the zip. (Videos: test_workout_videos.py.)"""
     table = io.StringIO()
     writer = csv.writer(table)
     writer.writerow([*HEADER, "Media"])
@@ -203,7 +203,6 @@ def media_archive(tmp_path, media: dict[str, str]) -> object:
         zf.writestr("export_1/media/hill-again.jpg", HILL)
         zf.writestr("export_1/media/lake.jpg", LAKE)
         zf.writestr("export_1/media/api.jpg", API_PHOTO)
-        zf.writestr("export_1/media/clip.mp4", b"\x00\x00\x00\x18ftypmp42 not really a video")
         zf.writestr("export_1/media/broken.jpg", b"no picture in here")
     path = tmp_path / "export_1.zip"
     path.write_bytes(buf.getvalue())
@@ -211,7 +210,7 @@ def media_archive(tmp_path, media: dict[str, str]) -> object:
 
 
 MEDIA = {
-    "1001": "media/hill.jpg|media/clip.mp4|media/gone.jpg|media/hill-again.jpg",
+    "1001": "media/hill.jpg|media/gone.jpg|media/hill-again.jpg",
     "1002": "media/lake.jpg|media/hill.jpg",  # hill.jpg again: one file, one photo
     "1003": "media/broken.jpg",
 }
@@ -226,8 +225,8 @@ def test_the_archive_brings_the_photos(runtime, tmp_path) -> None:
         tmp_path, MEDIA))}  # fmt: skip
     media = results["media"]
     assert isinstance(media, imports.MediaResult)
-    assert media.listed == 6 and media.new_versions == 2
-    assert (media.videos, media.missing, media.unreadable, media.failed) == (1, 1, 1, 0)
+    assert media.listed == 5 and media.new_versions == 2
+    assert (media.videos, media.missing, media.unreadable, media.failed) == (0, 1, 1, 0)
     assert media.skipped == 1  # hill-again.jpg is the hill photo: kept once
     ride = _photos(runtime, "strava_export:1001")
     assert [p["caption"] for p in ride] == ["Top of the dyke"]
@@ -239,7 +238,7 @@ def test_the_archive_brings_the_photos(runtime, tmp_path) -> None:
         origins = {r.photo_id: r for r in conn.execute(select(media_origin))}
     assert set(origins) == {"hill", "hill-again", "lake", "broken"}
     assert origins["broken"].media_id == ""  # not a photo: remembered, not tried again
-    assert "clip" not in origins and "gone" not in origins
+    assert "gone" not in origins
 
     again = {r.dataset: r for r in imports.import_strava_export(runtime, media_archive(
         tmp_path, MEDIA))}["media"]  # fmt: skip
@@ -313,6 +312,6 @@ def test_the_import_result_counts_files_and_photos_apart(runtime, tmp_path) -> N
     assert history.resume_archives(runtime) == 1
     fill = settle(runtime, fill_id)
     assert fill["status"] == "done"
-    assert fill["counts"] == {"files": 3, "photos": 2}  # 1001, 1002, 1004 have a file
-    assert fill["done"] == fill["total"] == 3 + 6
-    assert "2 photos added" in fill["message"] and "1 video left out" in fill["message"]
+    assert fill["counts"] == {"files": 3, "photos": 2, "videos": 0}  # 1001, 1002, 1004
+    assert fill["done"] == fill["total"] == 3 + 5
+    assert "2 photos added" in fill["message"]
