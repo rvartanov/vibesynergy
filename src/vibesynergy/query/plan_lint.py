@@ -7,6 +7,9 @@ it do not. Found on 17-11-2026:
 * ``strength_warmup`` (STR-4): heavy barbell work after one warm-up exercise. The session
   was written to come after the run test; the test moved and the warm-up stayed.
 * ``stale_reference``: the text says "na de looptest" while that day has no run test.
+* ``incomplete_reference`` (#192): the text says "zelfde drills als vorige week": a session
+  is complete on its own (query.self_contained). With nameless steps the write is refused;
+  a finding on the plan is then "error", else "warning".
 * ``review_context``: after a session moves, is skipped or is added, the sessions around it
   whose text mentions it are to be looked at again.
 
@@ -200,6 +203,27 @@ def check_references(row: dict[str, Any], by_day: dict[date, list[dict[str, Any]
     return out
 
 
+def check_self_contained(row: dict[str, Any]) -> list[dict]:
+    """A text that refers to another session for its content (#192)."""
+    from vibesynergy.query import self_contained
+
+    workout = row.get("workout") or {}
+    found = self_contained.finding(
+        row.get("description") or "", workout.get("steps") or [], workout.get("garmin_block") or ""
+    )
+    if found is None:
+        return []
+    item = _finding(
+        "incomplete_reference",
+        row,
+        f"the text refers to another session ({found['phrase']!r}): write the drills and "
+        "steps out by name with their cues",
+        phrase=found["phrase"],
+    )
+    item["level"] = found["level"]
+    return [item]
+
+
 def _rows(engine: Engine, plan_id: str, start: date, end: date) -> list[dict[str, Any]]:
     with engine.connect() as conn:
         return [
@@ -227,6 +251,7 @@ def _check(rows: list[dict[str, Any]], only: set[str] | None = None) -> list[dic
         out += check_name_duration(row)
         out += check_strength_warmup(row)
         out += check_references(row, by_day)
+        out += check_self_contained(row)
     return out
 
 

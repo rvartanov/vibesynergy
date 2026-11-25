@@ -258,6 +258,12 @@ def _plan_check_text(item: dict[str, Any], tr: Translator) -> str | None:
             name=name,
             session=params.get("session"),
         )
+    if item["code"] == "incomplete_reference":
+        return tr(
+            "{day}, {name}: the text refers to another session; write the drills out in full.",
+            day=day,
+            name=name,
+        )
     return None
 
 

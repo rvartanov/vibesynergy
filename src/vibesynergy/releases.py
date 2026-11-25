@@ -339,6 +339,21 @@ ITEMS: tuple[Item, ...] = (
         'gear, it puts one line "Materiaal: …" at the top of the description; '
         "VibeSynergy adds it from the steps when it is missing.",
     ),
+    Item(
+        "192-complete",
+        "you",
+        "Every planned workout is now complete on its own: the AI coach writes every "
+        'drill and step out by name, never "same drills as last week", so you have '
+        "everything on the watch and the gear line sees what you need.",
+    ),
+    Item(
+        "192-ai-complete",
+        "ai",
+        "Harness rules v11: every session the AI coach writes is complete on its own, "
+        "with each drill and step named with its cue and no reference to another "
+        "session for its content; a reference with nameless steps is refused "
+        "(incomplete_reference), a reference with named steps is a warning.",
+    ),
 )
 
 VERSION = RELEASES[0].version

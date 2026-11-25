@@ -231,6 +231,13 @@ Details: [SOURCES.md](SOURCES.md).
   (harness rules v10); and VibeSynergy adds it from the step text (pull buoy, paddles, fins,
   snorkel, kickboard, band, wetsuit; trainer for a ride, trail shoes for a run) when it is
   missing. Never twice.
+- **Every workout complete on its own** (#192): a planned session never refers to another
+  for its content ("zelfde drills als vorige week", "zoals in week 4", "same as last week").
+  The AI coach writes each drill and step by name with its cue (harness rules v11). Writing a
+  session (`vibesynergy_plan_session_set`) refuses such a reference when the work steps name
+  nothing beyond an intensity or zone, and returns it as an `incomplete_reference` warning in
+  `checks` when the steps are written out; the start page lists it with the other plan
+  checks. The plan builder writes every drill out, also in a recovery week.
 - **Strength and Pilates library** with Garmin exercise mapping.
 - **Gear**: shoes, bikes and the rest with distance against lifetime, last use, your own
   status, limits and service reminders; default gear per sport. Gear of your own (#114):
