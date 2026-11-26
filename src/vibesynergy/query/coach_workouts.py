@@ -136,7 +136,13 @@ def coach_entry_freshness(
     rt,
     *,
     subject_id: int = 1,
+    captures: dict | None = None,
+    evidence_from: date | None = None,
 ) -> str:
+    """``captures`` memoises the day state per (day, kind) for one read of many entries.
+    ``evidence_from``: an advice for an earlier day is not checked against today's data
+    (it cannot be refreshed, and rebuilding each past day's state made the coach feed take
+    20+ seconds)."""
     if entry_freshness(_parse_valid_until(entry)) == "stale":
         return "stale"
     meta = entry.get("meta") or {}
@@ -163,7 +169,16 @@ def coach_entry_freshness(
     if stored_evidence and day and kind in ("morning", "evening"):
         from vibesynergy.query import daily_coach
 
-        current = daily_coach.capture(rt, date.fromisoformat(day), kind)["input_version"]
+        when = date.fromisoformat(day)
+        if evidence_from is not None and when < evidence_from:
+            return "current"
+        key = (when, kind)
+        if captures is not None and key in captures:
+            current = captures[key]
+        else:
+            current = daily_coach.capture(rt, when, kind)["input_version"]
+            if captures is not None:
+                captures[key] = current
         if stored_evidence != current:
             return "needs_revision"
     return "current"
@@ -176,6 +191,8 @@ def enrich_coach_entry(
     *,
     subject_id: int = 1,
     safety_by_day: dict[str, dict] | None = None,
+    captures: dict | None = None,
+    evidence_from: date | None = None,
 ) -> dict:
     from vibesynergy.query import daily_coach
 
@@ -212,7 +229,14 @@ def enrich_coach_entry(
         elif safety["level"] == "flag":
             safety_line = daily_coach.fixed_safety_summary(rt, safety_kind, "flag")
             advice_mode = "advice_with_safety"
-    freshness = coach_entry_freshness(entry, coach_snap, rt, subject_id=subject_id)
+    freshness = coach_entry_freshness(
+        entry,
+        coach_snap,
+        rt,
+        subject_id=subject_id,
+        captures=captures,
+        evidence_from=evidence_from,
+    )
     return {
         **entry,
         "meta": meta,
@@ -444,6 +468,12 @@ def coach_feed(rt, *, subject_id: int = 1, limit: int = 80) -> list[dict[str, An
             ).mappings()
         ]
     safety_by_day: dict[str, dict] = {}
+    # Today's state is built once per (day, kind), and only for yesterday and today: the
+    # advice of earlier days is not re-checked against today's data.
+    from vibesynergy.core.timeutil import today_in
+
+    captures: dict = {}
+    since = today_in(rt.settings.timezone) - timedelta(days=1)
     return [
         enrich_coach_entry(
             rt,
@@ -451,6 +481,8 @@ def coach_feed(rt, *, subject_id: int = 1, limit: int = 80) -> list[dict[str, An
             coach_snap,
             subject_id=subject_id,
             safety_by_day=safety_by_day,
+            captures=captures,
+            evidence_from=since,
         )
         for row in rows
     ]

@@ -165,11 +165,12 @@ const SUBPAGES = {
 // from one. When either cannot be read, the page shows its usual sections.
 async function coachMissing() {
   try {
-    const [setup, feed] = await Promise.all([
-      get("setup", {}, { timeoutMs: COACH_TIMEOUT_MS }),
-      get("coach/feed", {}, { timeoutMs: COACH_TIMEOUT_MS }),
-    ]);
-    return setup.data?.steps?.coach === false && !(feed.data?.entries || []).length;
+    // The setup answers at once; the feed is read only when no coach is set up, so the page
+    // never waits for the whole feed before it shows anything.
+    const setup = await get("setup", {}, { timeoutMs: COACH_TIMEOUT_MS });
+    if (setup.data?.steps?.coach !== false) return false;
+    const feed = await get("coach/feed", {}, { timeoutMs: COACH_TIMEOUT_MS });
+    return !(feed.data?.entries || []).length;
   } catch {
     return false;
   }
