@@ -237,7 +237,7 @@ def test_portal_grant_and_refresh(strava) -> None:
         source.authenticate()
     source.client.exchange_code(oauth.load_app(store, "strava"), "xyz", "read,activity:write")
     assert fake.token_requests[-1]["code"] == "xyz"
-    assert store.get("athlete") == {"id": 77}
+    assert store.get("athlete") == {"id": "77"}  # a string (#87)
     assert store.get(oauth.TOKENS)["scope"] == "read,activity:write"
 
     tokens = store.get(oauth.TOKENS)

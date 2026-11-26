@@ -37,6 +37,7 @@ from vibesynergy.core.secrets import SecretStore
 from vibesynergy.core.timeutil import Window, today_in, utc_now
 from vibesynergy.runtime import Runtime
 from vibesynergy.sources import oauth as source_oauth
+from vibesynergy.sources.strava.ids import same_id, strava_id
 from vibesynergy.store.schema import audit_log
 
 log = logging.getLogger(__name__)
@@ -372,14 +373,15 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
             event.get("subscription_id") != hook["subscription_id"]
         ):
             raise HTTPException(403)
-        if athlete and event.get("owner_id") != athlete:
+        # Ids are compared as strings (#87): Strava's 64-bit ids, a string form if Strava
+        # adds one (``owner_id_str``), and an athlete id stored earlier as a number.
+        if athlete and not same_id(strava_id(event, "owner_id"), athlete):
             raise HTTPException(403)
-        raw_object_id = event.get("object_id")
         # It becomes part of an API path: only a plain positive number is used.
-        if type(raw_object_id) is not int or not 0 < raw_object_id < 2**63:
+        object_id = strava_id(event, "object_id")
+        if object_id is None:
             raise HTTPException(400)
         kind, aspect = event.get("object_type"), event.get("aspect_type")
-        object_id = str(raw_object_id)
         event_time = event.get("event_time")
         event_time = event_time if type(event_time) is int and 0 <= event_time < 2**63 else None
         received_at = utc_now().isoformat()
@@ -421,7 +423,7 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
                 {"source": "strava", "dataset": "activities", "key": object_id},
                 priority=PRIORITY,
             )
-        fields = ("object_type", "object_id", "aspect_type")
+        fields = ("object_type", "aspect_type")
         updates = event.get("updates")
         audit(
             "strava.event",
@@ -430,6 +432,7 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
                     k: v if isinstance(v := event.get(k), int | str) and len(str(v)) <= 64 else None
                     for k in fields
                 },
+                "object_id": object_id,  # a string, like every Strava id here (#87)
                 # Strava sends a few short fields here; anything bigger is not kept.
                 "updates": updates
                 if isinstance(updates, dict) and len(json.dumps(updates, default=str)) <= 2000
