@@ -182,8 +182,8 @@ provider or model, and the server enforces them for every write tool
   rules in use (`ICU-1..4` while ICU-6 exists), a rule that does not exist, or a tool the MCP
   server does not register (`SendUserMessage`; checked against the real tool list,
   `mcp.server.tool_names`), and on an instruction, working-method or plan article (or one of
-  its rules, or a COACH rule) that writes a threshold as a number (`265 W`, `LTHR 162`,
-  `5:10/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
+  its rules, or a COACH rule) that writes a threshold as a number (`300 W`, `LTHR 170`,
+  `5:00/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
   or rejects it on the portal (Coach → Knowledge, and Coach → Methods & rules for the texts

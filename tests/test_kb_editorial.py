@@ -106,19 +106,19 @@ def test_no_mechanical_fix_for_what_needs_a_decision() -> None:
 
 def test_a_threshold_is_replaced_only_on_a_plain_instruction_line() -> None:
     text = (
-        "Rijd de blokken op FTP 265 W.\n"
-        "Tot de test op 19-11 geldt LTHR 162.\n"
-        "Voorbeeld: Z2 122-133.\n"
-        "Fiets: FTP 265 W, LTHR 150.\n"
-        "| FTP | 265 W |\n"
-        "## Drempels (31-10-2026)\n"
-        "Loop op 5:10/km."
+        "Rijd de blokken op FTP 300 W.\n"
+        "Tot de test op 5-3 geldt LTHR 170.\n"
+        "Voorbeeld: Z2 120-130.\n"
+        "Fiets: FTP 300 W, LTHR 140.\n"
+        "| FTP | 300 W |\n"
+        "## Drempels (1-3-2026)\n"
+        "Loop op 5:00/km."
     )
     found = _slots(text, thresholds=True)
-    assert [s.found for s in found] == ["FTP 265 W"]
+    assert [s.found for s in found] == ["FTP 300 W"]
     fixed, _ = kb_fix.autofix(text, found)
     assert fixed.startswith("Rijd de blokken op FTP (lees live met vibesynergy_thresholds).\n")
-    assert _slots("Ride at FTP 265 W for the blocks.", thresholds=True)[0].options[0] == (
+    assert _slots("Ride at FTP 300 W for the blocks.", thresholds=True)[0].options[0] == (
         "FTP (read live with vibesynergy_thresholds)"
     )
     assert _slots(text, thresholds=False) == []

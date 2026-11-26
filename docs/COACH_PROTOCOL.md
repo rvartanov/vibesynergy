@@ -133,7 +133,7 @@ changes:
 - a rule range from 1 gets the real end (`ICU-1..4` → `ICU-1..6`);
 - on a plain instruction line (no table, heading, code, date or example, one value), a fixed
   threshold becomes "read live with vibesynergy_thresholds" ("lees live met
-  vibesynergy_thresholds"), keeping its label: `FTP 265 W` → `FTP (read live with
+  vibesynergy_thresholds"), keeping its label: `FTP 300 W` → `FTP (read live with
   vibesynergy_thresholds)`.
 
 Anything else waits for him: other wording, a removed sentence, another number, date, day,

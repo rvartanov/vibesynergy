@@ -102,16 +102,16 @@ def test_tool_names_come_from_the_real_registry() -> None:
 
 def test_fixed_thresholds_with_units_are_found_and_relative_targets_are_not() -> None:
     text = (
-        "Tot de test geldt FTP 265 W (Robert 31-10), fiets LTHR 150, drempeltempo lopen "
-        "5:10/km, CSS 2:15/100 m; fiets Z2 ook op HR (Friel Z2 122\u2013133). Zwift 250 W."
+        "Tot de test geldt FTP 300 W (sinds 1-3), fiets LTHR 140, drempeltempo lopen "
+        "5:00/km, CSS 2:00/100 m; fiets Z2 ook op HR (Friel Z2 120\u2013130). Zwift 200 W."
     )
     assert kb_lint.fixed_thresholds(text) == [
-        "FTP 265 W",
-        "LTHR 150",
-        "5:10/km",
-        "2:15/100 m",
-        "Z2 122\u2013133",
-        "250 W",
+        "FTP 300 W",
+        "LTHR 140",
+        "5:00/km",
+        "2:00/100 m",
+        "Z2 120\u2013130",
+        "200 W",
     ]
     relative = (
         "Fiets in %FTP (75-85%, 88-94% sweet spot), loop in %LTHR of HR-zone. FTP 20' test "
@@ -134,7 +134,7 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
     _loop(
         runtime,
         "Regels TRI-1..8 en ICU-1..4 zijn leidend. Terug: `vitality plan source intervals`. "
-        "Tot de test: FTP 265 W, loop LTHR 162, drempeltempo 5:10/km.",
+        "Tot de test: FTP 300 W, loop LTHR 170, drempeltempo 5:00/km.",
     )
     knowledge.upsert_article(
         engine,
@@ -146,7 +146,7 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
     assert [(w["check"], w["kind"], w["ref"], w["names"]) for w in found] == [
         ("retired_name", "article", "ai-coach-loop", ["Vitality", "plan source"]),
         ("rule_range", "article", "ai-coach-loop", ["ICU-1..4"]),
-        ("fixed_threshold", "article", "ai-coach-loop", ["FTP 265 W", "LTHR 162", "5:10/km"]),
+        ("fixed_threshold", "article", "ai-coach-loop", ["FTP 300 W", "LTHR 170", "5:00/km"]),
         ("rule_range", "article", "coach-prompt-weekly", ["TRI-1..5"]),
         ("unknown_tool", "article", "coach-prompt-weekly", ["SendUserMessage"]),
     ]
@@ -162,7 +162,7 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
 
 def test_fixed_thresholds_only_in_instructions_method_and_plan(runtime) -> None:
     engine = runtime.engine
-    _plan(runtime, "Drempels tot de test: FTP **265 W**.")
+    _plan(runtime, "Drempels tot de test: FTP **300 W**.")
     knowledge.upsert_article(
         engine,
         slug="evidence-pacing",
@@ -176,11 +176,11 @@ def test_fixed_thresholds_only_in_instructions_method_and_plan(runtime) -> None:
         engine,
         slug="example-plan",
         author="user",
-        rules=[{"id": "TRI-8", "text": "Fiets Z2 onder LTHR 150.", "grade": "C"}],
+        rules=[{"id": "TRI-8", "text": "Fiets Z2 onder LTHR 140.", "grade": "C"}],
     )
     assert _checks(engine, "fixed_threshold") == [
-        ("example-plan", ["FTP 265 W"]),
-        ("TRI-8", ["LTHR 150"]),
+        ("example-plan", ["FTP 300 W"]),
+        ("TRI-8", ["LTHR 140"]),
     ]
     rule = next(w for w in knowledge.lint(engine) if w["ref"] == "TRI-8")
     assert rule["kind"] == "rule" and rule["article"] == "example-plan"
@@ -237,7 +237,7 @@ def test_a_proposal_gets_the_new_warnings_before_it_is_approved(runtime) -> None
     stale = propose(
         kind="article",
         target="ai-coach-loop",
-        body_md="ICU-1..4 leidend; FTP 265 W; vitality plan source intervals.",
+        body_md="ICU-1..4 leidend; FTP 300 W; vitality plan source intervals.",
     )
     assert len(stale) == 3
     assert propose(kind="article", target="ai-coach-loop", body_md="ICU-1..6 leidend.") == []
@@ -245,7 +245,7 @@ def test_a_proposal_gets_the_new_warnings_before_it_is_approved(runtime) -> None
         kind="article", target="coach-prompt-weekly", body_md="Stuur met SendUserMessage."
     )
     assert len(weekly) == 1 and "SendUserMessage" in weekly[0]
-    assert len(propose(kind="rule", target="TRI-3", new_text="Planregel 3, FTP 265 W.")) == 1
+    assert len(propose(kind="rule", target="TRI-3", new_text="Planregel 3, FTP 300 W.")) == 1
 
 
 def test_methods_and_rules_shows_the_warnings(runtime) -> None:

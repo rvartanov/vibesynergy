@@ -282,7 +282,7 @@ The first version with a number also brings everything since 0.0.1a1:
   app name, the removed plan-source command, an old article name), refers to a range of
   rules that does not match the rules in use ("ICU-1..4" while ICU-6 exists), names a rule
   or a tool that does not exist ("SendUserMessage"), or writes a threshold as a fixed number
-  ("FTP 265 W", "5:10/km") in a routine instruction, the working method or the plan, where it
+  ("FTP 300 W", "5:00/km") in a routine instruction, the working method or the plan, where it
   goes stale after the next test. Every AI coach gets the same warnings in the handbook, and
   a proposed change gets them before you approve it. A warning only: you decide about the
   text.
