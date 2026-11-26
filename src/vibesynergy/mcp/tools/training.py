@@ -37,6 +37,31 @@ def register(kit: ToolKit) -> None:
     window = kit.window
     envelope = kit.envelope
 
+    def _group_trainings(span: Window) -> list[dict[str, Any]]:
+        """RunSynergy proposals in the plan view, with their day (#113)."""
+        from vibesynergy.core.timeutil import local_now
+        from vibesynergy.query import group_training
+
+        found = group_training.proposals(
+            engine, span.start, span.end, now=local_now(settings.timezone)
+        )
+        return [
+            {
+                "session_id": p["session_id"],
+                "date": p["date"],
+                "start": p["start"],
+                "when": group_training.when(p),
+                "state": p["state"],
+                "past": p["past"],
+                "same_day": p["same_day"],
+                "club": p["club"],
+                "title": p["title"],
+                "minutes": p["minutes"],
+                "workout": p["workout"],
+            }
+            for p in sorted(found.values(), key=lambda p: (p["date"], p["start"] or ""))
+        ]
+
     # Training ---------------------------------------------------------------------------
 
     @tool(READ, "read")
@@ -353,8 +378,13 @@ def register(kit: ToolKit) -> None:
         targets per sport, with time done), and upcoming races with days to go. Races are
         VibeSynergy's own (source vibesynergy, race_id) with their A/B/C priority
         (priority_origin saved or unset); the primary race is the next A race; extra.garmin
-        names a Garmin copy and intervals_id the intervals.icu copy. this_week and week are
-        Monday to Sunday. Default: the last 7 days and the next 28."""
+        names a Garmin copy and intervals_id the intervals.icu copy. group_trainings: the
+        RunSynergy group trainings matched to a "Training geven" session, each with its
+        date, start (local HH:MM or null), when (e.g. "Thu 20 Nov, 19:30"), state
+        (proposed: a workout waiting for the athlete's yes in the portal; adopted;
+        cancelled), past (its moment has gone by), same_day (the plan's other sessions that
+        day) and the workout text. this_week and week are Monday to Sunday. Default: the
+        last 7 days and the next 28."""
         named = (period or "").strip().lower()
         if named in {"this_week", "week"} and not start and not end:
             span = plan_q.calendar_week_window(today())
@@ -364,6 +394,7 @@ def register(kit: ToolKit) -> None:
             now = today()
             span = Window(now - timedelta(days=7), now + timedelta(days=28))
         data = plan_q.plan(engine, span, today())
+        data["group_trainings"] = _group_trainings(span)
         data["calendar_mirror"] = {
             **data["calendar_mirror"],
             "enabled": calendar_mirror.mirror_active(rt.settings),

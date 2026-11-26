@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -365,3 +365,150 @@ def test_portal_saves_the_link_without_showing_it_and_adopts(env, monkeypatch) -
         assert off.status_code == 200 and feed.link(settings.secrets_dir) is None
     finally:
         runtime.close()
+
+
+# -- the day of a proposal (#113) -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("lang", "start", "expected"),
+    [
+        ("nl", "19:00", "di 17 nov, 19:00"),
+        ("en", "19:00", "Tue 17 Nov, 19:00"),
+        ("nl", None, "di 17 nov"),
+        ("en", None, "Tue 17 Nov"),
+    ],
+)
+def test_a_proposal_says_its_day_and_time(lang, start, expected) -> None:
+    assert group_training.when({"date": "2026-11-17", "start": start}, lang) == expected
+
+
+def test_past_is_the_day_before_today_or_today_after_the_start() -> None:
+    day = date(2026, 11, 17)
+    assert group_training.is_past(day, "19:00", datetime(2026, 11, 18, 8, 0))
+    assert not group_training.is_past(day, "19:00", datetime(2026, 11, 17, 18, 59))
+    assert group_training.is_past(day, "19:00", datetime(2026, 11, 17, 19, 0))
+    assert not group_training.is_past(day, None, datetime(2026, 11, 17, 23, 0))
+    assert not group_training.is_past(day, "19:00", datetime(2026, 11, 16, 20, 0))
+    assert not group_training.is_past(day, "19:00", None)
+
+
+def _strength_same_day(runtime) -> str:
+    out = plan_model.set_session(
+        runtime.engine,
+        session_id=None,
+        day=date(2026, 11, 17),
+        name="Kracht 30'",
+        sport="WeightTraining",
+        description="Kracht\n\nMain set\n- 30m Z1 HR",
+        reason="r",
+        author="athlete",
+        slot="morning",
+    )
+    return out["session_id"]
+
+
+def test_a_proposal_is_marked_past_and_names_the_days_other_sessions(runtime) -> None:
+    session_id = _plan_with_coached_session(runtime)
+    other = _strength_same_day(runtime)
+    _put(runtime, _calendar(_event("u@x", "20261117T190000", TUESDAY)))
+    span = (date(2026, 11, 16), date(2026, 11, 22))
+    ahead = group_training.proposals(runtime.engine, *span, now=datetime(2026, 11, 16, 9, 0))
+    proposal = ahead[session_id]
+    assert (proposal["date"], proposal["start"], proposal["past"]) == ("2026-11-17", "19:00", False)
+    assert proposal["same_day"] == [
+        {"session_id": other, "name": "Kracht 30'", "sport": "WeightTraining"}
+    ]
+    late = group_training.proposals(runtime.engine, *span, now=datetime(2026, 11, 18, 9, 0))
+    assert late[session_id]["past"] is True
+    # Waiting for you keeps it two days after its day, marked; then it leaves the list.
+    waiting = group_training.waiting(runtime.engine, date(2026, 11, 18), datetime(2026, 11, 18, 9))
+    assert [(p["session_id"], p["past"]) for p in waiting] == [(session_id, True)]
+    assert "current" not in waiting[0]
+    assert group_training.waiting(runtime.engine, date(2026, 11, 20)) == []
+
+
+def test_waiting_for_you_lists_the_proposal_with_its_day(runtime) -> None:
+    from vibesynergy.query import inbox
+
+    session_id = _plan_with_coached_session(runtime)
+    _strength_same_day(runtime)
+    _put(runtime, _calendar(_event("u@x", "20261117T190000", TUESDAY)))
+    rows = inbox._group_trainings(runtime.engine, date(2026, 11, 16), datetime(2026, 11, 16, 9))
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["kind"] == "group_training" and row["session_id"] == session_id
+    assert (row["date"], row["start"], row["past"]) == ("2026-11-17", "19:00", False)
+    assert [s["name"] for s in row["same_day"]] == ["Kracht 30'"]
+    assert inbox.count(runtime.engine, date(2026, 11, 16)) == 1
+    group_training.adopt(runtime.engine, session_id)
+    assert inbox._group_trainings(runtime.engine, date(2026, 11, 16)) == []
+
+
+def test_the_notice_says_the_day_in_dutch_and_english(runtime) -> None:
+    from vibesynergy import alerts
+    from vibesynergy.i18n import Translator
+
+    proposal = {
+        "date": "2026-11-17",
+        "start": "19:00",
+        "same_day": [{"session_id": "s1", "name": "Kracht 30'", "sport": "WeightTraining"}],
+    }
+    nl = alerts.group_training_text(proposal, Translator("nl"))
+    assert nl.startswith("Groepstraining uit RunSynergy op di 17 nov, 19:00:")
+    assert "Kracht 30'" in nl
+    en = alerts.group_training_text({**proposal, "start": None, "same_day": []}, Translator("en"))
+    assert en == (
+        "Group training from RunSynergy on Tue 17 Nov: a workout for your Training geven "
+        "session is ready to adopt."
+    )
+
+
+def test_the_notice_is_open_while_the_proposal_waits(runtime, monkeypatch) -> None:
+    from vibesynergy import alerts
+
+    session_id = _plan_with_coached_session(runtime)
+    _put(runtime, _calendar(_event("u@x", "20261117T190000", TUESDAY)))
+    monkeypatch.setattr(
+        "vibesynergy.core.timeutil.local_now", lambda tz: datetime(2026, 11, 16, 9, 0)
+    )
+    found = alerts._group_trainings(runtime, date(2026, 11, 16))
+    assert [(a.kind, a.link) for a in found] == [("group_training", "#/inbox")]
+    assert "17 Nov, 19:00" in found[0].text
+    # Its identity ignores digits; the session id keeps its own.
+    assert not any(ch.isdigit() for ch in found[0].key)
+    assert alerts._identity(found[0].key) == found[0].key
+    group_training.adopt(runtime.engine, session_id)
+    assert alerts._group_trainings(runtime, date(2026, 11, 16)) == []
+    assert "group_training" in alerts.QUIET_END
+
+
+def _mcp(rt, tool: str, **args) -> dict:
+    import anyio
+    from mcp import Client
+
+    from vibesynergy.mcp.server import build_server
+
+    async def go():
+        async with Client(build_server(rt)) as client:
+            return await client.call_tool(tool, args)
+
+    result = anyio.run(go)
+    text = result.content[0].text if result.content else ""
+    assert not result.is_error, text
+    return result.structured_content or json.loads(text)
+
+
+def test_the_mcp_plan_view_has_the_proposal_with_its_date(runtime) -> None:
+    session_id = _plan_with_coached_session(runtime)
+    _put(runtime, _calendar(_event("u@x", "20261117T190000", TUESDAY)))
+    out = _mcp(runtime, "vibesynergy_plan", start="2026-11-16", end="2026-11-22")
+    data = out.get("data", out)
+    [found] = data["group_trainings"]
+    assert found["session_id"] == session_id
+    assert (found["date"], found["start"], found["when"]) == (
+        "2026-11-17",
+        "19:00",
+        "Tue 17 Nov, 19:00",
+    )
+    assert found["state"] == "proposed" and "past" in found and found["same_day"] == []

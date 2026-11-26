@@ -1,7 +1,8 @@
 """One place for what waits on the athlete: decisions first, then notices.
 
 Decisions are proposals only the athlete can take or leave: plan changes from an AI coach
-(approved or rejected in the list itself, #118), knowledge-base changes from
+(approved or rejected in the list itself, #118), a RunSynergy group training to adopt as the
+workout of its "Training geven" session (with its day, #113), knowledge-base changes from
 the coach (Coach → Change log) and new threshold values (Training → Zones & thresholds).
 Notices need no decision but are worth a look: another app that keeps overwriting the plan
 in a mirror (#110, confirmed here once it is stopped), a coach routine that did not run,
@@ -117,6 +118,29 @@ def _plan_proposals(engine: Engine) -> list[dict[str, Any]]:
     ]
 
 
+def _group_trainings(engine: Engine, today: date, now: Any = None) -> list[dict[str, Any]]:
+    """RunSynergy workouts to adopt for a "Training geven" session (#113): which day, whether
+    it has passed and what else the plan has that day. Adopted in the list itself."""
+    from vibesynergy.query import group_training
+
+    return [
+        {
+            "kind": "group_training",
+            "session_id": p["session_id"],
+            "date": p["date"],
+            "start": p["start"],
+            "club": p["club"],
+            "title": p["title"],
+            "minutes": p["minutes"],
+            "past": p["past"],
+            "same_day": p["same_day"],
+            "link": "#/planning",
+        }
+        for p in group_training.waiting(engine, today, now)
+        if p["state"] == "proposed"
+    ]
+
+
 def _disagreements(rt: Any, today: date) -> list[dict[str, Any]]:
     """A second opinion that differs from the primary AI coach's advice for today or
     tomorrow in safety level or a session decision (#118)."""
@@ -212,7 +236,10 @@ def _notices(rt: Any, today: date) -> list[dict[str, Any]]:
 
 
 def inbox(rt: Any, today: date) -> dict[str, Any]:
-    decisions = _plan_proposals(rt.engine) + _kb(rt.engine) + _thresholds(rt.engine)
+    from vibesynergy.core.timeutil import local_now
+
+    groups = _group_trainings(rt.engine, today, local_now(rt.settings.timezone))
+    decisions = _plan_proposals(rt.engine) + groups + _kb(rt.engine) + _thresholds(rt.engine)
     from vibesynergy.query import release_news
 
     return {
@@ -224,6 +251,7 @@ def inbox(rt: Any, today: date) -> dict[str, Any]:
     }
 
 
-def count(engine: Engine) -> int:
+def count(engine: Engine, today: date | None = None) -> int:
     """The number next to the bell: decisions only, cheap enough for every page."""
-    return len(_plan_proposals(engine)) + len(_kb(engine)) + len(_thresholds(engine))
+    groups = _group_trainings(engine, today or date.today())
+    return len(_plan_proposals(engine)) + len(groups) + len(_kb(engine)) + len(_thresholds(engine))

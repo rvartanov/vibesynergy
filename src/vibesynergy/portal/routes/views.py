@@ -111,7 +111,9 @@ def register(kit: PortalKit) -> None:
         last = _date(end) if end else first + timedelta(days=14)
         if last < first or (last - first).days > 62:
             raise ValueError("choose a period of at most two months")
-        found = group_training.proposals(engine, first, last)
+        from vibesynergy.core.timeutil import local_now
+
+        found = group_training.proposals(engine, first, last, now=local_now(settings.timezone))
         return envelope({"proposals": sorted(found.values(), key=lambda p: p["date"])})
 
     @router.post("/plan/session/group-training")
@@ -170,6 +172,13 @@ def register(kit: PortalKit) -> None:
         from vibesynergy.query import plan_model
 
         data["plan_source"] = plan_model.source(engine)  # always vibesynergy (#111)
+        # RunSynergy workouts that wait for a yes, with their day (#113).
+        from vibesynergy.core.timeutil import local_now
+        from vibesynergy.query import group_training
+
+        data["group_trainings"] = group_training.waiting(
+            engine, today(), local_now(settings.timezone)
+        )
         return envelope(data)
 
     @router.get("/race-predictions")

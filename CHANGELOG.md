@@ -13,6 +13,12 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **A RunSynergy group training shows its day** (#113): the workout to adopt for your
+  "Training geven" session now says which day it is for and its start time ("do 20 nov,
+  19:30") on Today, under Waiting for you → Your decision (where you can adopt it), on
+  Planning, in a notice and push, and for your AI apps in the plan view. It is marked when
+  that day has passed or already has another session in your plan.
+
 ## 0.1.0-beta.0.23 – 26-11-2026
 
 - The Coach page opens quickly again. The message list rebuilt the full day state for every past advice to check whether it was still current, which took over 20 seconds; it now checks only yesterday and today, once per day and kind, and the page no longer waits for the list before it shows.

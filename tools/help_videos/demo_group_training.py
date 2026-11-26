@@ -90,11 +90,12 @@ def clear(rt: Runtime) -> None:
 
 def seed(rt: Runtime) -> None:
     clear(rt)
-    day = today_in(rt.settings.timezone)
+    today = today_in(rt.settings.timezone)
+    day = today + timedelta(days=2)  # ahead, so it is never marked as past while recording
     plan_model.create_plan(
         rt.engine,
         name=PLAN,
-        start=day - timedelta(days=day.weekday()),
+        start=today - timedelta(days=today.weekday()),
         end=day + timedelta(days=60),
         reason="help video",
         author="demo",
@@ -111,6 +112,18 @@ def seed(rt: Runtime) -> None:
         reason="help video",
         author="demo",
         slot="evening",
+    )
+    # Another session that day: the proposal says so (#113).
+    plan_model.set_session(
+        rt.engine,
+        session_id=None,
+        day=day,
+        name="Kracht 30'",
+        sport="WeightTraining",
+        description="Kracht\n\nMain set\n- 30m Z1 HR",
+        reason="help video",
+        author="demo",
+        slot="morning",
     )
     window = f"{day - timedelta(days=14)}..{day + timedelta(days=366)}"
     stored = rt.raw.put(

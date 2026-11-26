@@ -867,6 +867,14 @@ def group_training(r: Rec):
             "Today shows the group schedule as a proposal for your Training geven session.",
             2.8,
         )
+        r.point(block.locator("time").first)
+        r.check(", 19:00" in r.text(".dash-group-trainings"), "the proposal shows its day and time")
+        r.check("Zelfde dag" in r.text(".dash-group-trainings"), "the same-day session is marked")
+        r.say(
+            "Je ziet voor welke dag en hoe laat hij is, en wat er die dag al in je schema staat.",
+            "You see which day and time it is for, and what your plan already has that day.",
+            3.0,
+        )
         r.click(block.locator("summary", has_text="Bekijk de workout"))
         r.say(
             "Inlopen en uitlopen tot je op Lap drukt, de kern op tijd om te fluiten, jij in Z1.",
@@ -874,8 +882,18 @@ def group_training(r: Rec):
             "you in Z1.",
             3.2,
         )
-        r.click(block.get_by_role("button", name="Overnemen"))
-        r.check("Overgenomen" in r.text(".dash-group-trainings"), "adopting says so")
+        r.click(r.pg.locator("header a[href='#/inbox']"))
+        item = r.pg.locator("li[data-group-training]").first
+        item.wait_for(timeout=15000)
+        r.check(item.count() == 1, "the proposal waits under Your decision (#113)")
+        r.point(item)
+        r.say(
+            "Hij staat ook onder Wacht op jou → Jouw besluit, met dezelfde dag; ook op Planning.",
+            "It is also under Waiting for you → Your decision, with the same day; and on Planning.",
+            3.0,
+        )
+        r.click(item.get_by_role("button", name="Overnemen"))
+        r.check("Overgenomen" in r.text("li[data-group-training]"), "adopting says so")
         r.say(
             "Overnemen zet hem in je plan en op je horloge; hij telt als gepland.",
             "Adopt puts it in your plan and on your watch; it counts as planned.",
