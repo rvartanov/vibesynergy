@@ -35,18 +35,18 @@ def _icu_settings(**bike) -> list[dict]:
     ride = {
         "id": 11,
         "types": ["Ride", "VirtualRide"],
-        "ftp": 265,
-        "lthr": 150,
-        "max_hr": 179,
-        "hr_zones": [121, 133, 139, 148, 153, 159, 179],
+        "ftp": 300,
+        "lthr": 140,
+        "max_hr": 190,
+        "hr_zones": [113, 124, 130, 138, 142, 148, 190],
         "hr_zone_names": ["a", "b", "c", "d", "e", "f", "g"],
-        "updated": "2026-10-31T07:40:00Z",
+        "updated": "2026-03-01T07:40:00Z",
     }
     ride.update(bike)
     return [
         ride,
-        {"id": 12, "types": ["Run"], "lthr": 162, "max_hr": 179, "threshold_pace": 3.0, "ftp": 459},
-        {"id": 13, "types": ["Swim"], "lthr": 148, "max_hr": 179, "threshold_pace": 0.6667},
+        {"id": 12, "types": ["Run"], "lthr": 170, "max_hr": 190, "threshold_pace": 3.0, "ftp": 400},
+        {"id": 13, "types": ["Swim"], "lthr": 150, "max_hr": 190, "threshold_pace": 0.6667},
     ]
 
 
@@ -90,20 +90,20 @@ def _garmin_zone(runtime, kind: str, sport: str, boundaries, threshold, max_valu
 
 
 def test_friel_heart_rate_zones_match_the_agreed_plan() -> None:
-    bike = thresholds.hr_zones("bike", 150, 179)
-    run = thresholds.hr_zones("run", 162, 179)
-    assert thresholds.hr_upper_bounds(bike) == [121, 133, 139, 148, 153, 159, 179]
-    assert thresholds.hr_upper_bounds(run) == [137, 144, 152, 160, 165, 171, 179]
+    bike = thresholds.hr_zones("bike", 140, 190)
+    run = thresholds.hr_zones("run", 170, 190)
+    assert thresholds.hr_upper_bounds(bike) == [113, 124, 130, 138, 142, 148, 190]
+    assert thresholds.hr_upper_bounds(run) == [144, 151, 159, 168, 173, 180, 190]
     assert [z["label"] for z in bike] == ["1", "2", "3", "4", "5a", "5b", "5c"]
-    assert bike[1] == {"zone": 2, "label": "2", "low": 122, "high": 133}
+    assert bike[1] == {"zone": 2, "label": "2", "low": 114, "high": 124}
     # Garmin has five zones: Friel 5a-5c become its zone 5, starting just above Z4.
-    assert thresholds.garmin_hr_floors(bike) == [122, 134, 140, 149]
+    assert thresholds.garmin_hr_floors(bike) == [114, 125, 131, 139]
 
 
 def test_power_and_pace_zones() -> None:
-    power = thresholds.power_zones(265)
-    assert [z["high"] for z in power] == [146, 199, 238, 278, 318, 398, None]
-    assert thresholds.garmin_power_floors(265) == [0, 146, 199, 238, 278, 318, 398]
+    power = thresholds.power_zones(300)
+    assert [z["high"] for z in power] == [165, 225, 270, 315, 360, 450, None]
+    assert thresholds.garmin_power_floors(300) == [0, 165, 225, 270, 315, 360, 450]
     swim = thresholds.pace_zones("swim", 150)
     assert swim[3]["fast"] == 150  # zone 4 ends at CSS
     run = thresholds.pace_zones("run", 330)
@@ -125,26 +125,26 @@ def test_values_in_other_units_are_converted() -> None:
 
 
 def test_overview_shows_plan_platforms_and_mismatches(runtime) -> None:
-    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="bike", metric="lthr", value=150, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="bike", metric="max_hr", value=179, today=TODAY)
-    _garmin_zone(runtime, "hr", "cycling", [98, 119, 134, 143, 151, 178], 151, 178)
-    _garmin_zone(runtime, "power", "cycling", [0, 155, 212, 252, 295, 335, 422], 281)
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=300, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="lthr", value=140, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="max_hr", value=190, today=TODAY)
+    _garmin_zone(runtime, "hr", "cycling", [100, 120, 130, 140, 150, 188], 145, 188)
+    _garmin_zone(runtime, "power", "cycling", [0, 160, 220, 260, 300, 350, 440], 290)
     data = thresholds.overview(
         runtime.engine, today=TODAY, icu_settings=lambda: _icu_settings(lthr=155)
     )
     bike = next(s for s in data["sports"] if s["sport"] == "bike")
     ftp = next(m for m in bike["metrics"] if m["metric"] == "ftp")
-    assert ftp["plan"]["value"] == 265 and ftp["plan"]["method"] == "manual"
-    assert ftp["garmin"] == 281 and ftp["intervals"] == 265
+    assert ftp["plan"]["value"] == 300 and ftp["plan"]["method"] == "manual"
+    assert ftp["garmin"] == 290 and ftp["intervals"] == 300
     found = {(m["platform"], m["metric"]): m for m in bike["mismatches"]}
-    assert found[("garmin", "ftp")]["platform_value"] == 281
-    assert found[("garmin", "lthr")]["plan_value"] == 150
+    assert found[("garmin", "ftp")]["platform_value"] == 290
+    assert found[("garmin", "lthr")]["plan_value"] == 140
     assert found[("intervals", "lthr")]["platform_value"] == 155
     assert ("intervals", "hr_zones") not in found  # same zones as the plan
     assert ("garmin", "hr_zones") in found
     assert bike["zones"]["hr"]["model"] == "friel"
-    assert data["zwift"]["ftp"] == 265
+    assert data["zwift"]["ftp"] == 300
     assert data["intervals"]["ok"] is True
 
 
@@ -203,26 +203,26 @@ def test_edit_saves_at_once_and_keeps_history(runtime) -> None:
     client = _client(runtime)
     first = client.post(
         "/api/thresholds/set",
-        json={"sport": "bike", "metric": "ftp", "value": 265, "date_set": "2026-10-31"},
+        json={"sport": "bike", "metric": "ftp", "value": 300, "date_set": "2026-03-01"},
         headers=WRITE,
     )
     assert first.status_code == 200
     reply = client.post(
         "/api/thresholds/set",
-        json={"sport": "bike", "metric": "ftp", "value": 272, "method": "test"},
+        json={"sport": "bike", "metric": "ftp", "value": 310, "method": "test"},
         headers=WRITE,
     )
     assert reply.status_code == 200
     bike = reply.json()["data"]["sports"][0]
     ftp = bike["metrics"][0]
-    assert ftp["plan"]["value"] == 272 and ftp["plan"]["method"] == "test"
+    assert ftp["plan"]["value"] == 310 and ftp["plan"]["method"] == "test"
     assert [(h["value"], h["previous"], h["status"]) for h in ftp["history"]][:2] == [
-        (272, 265, "current"),
-        (265, None, "superseded"),
+        (310, 300, "current"),
+        (300, None, "superseded"),
     ]
     assert reply.json()["data"]["push_results"] == []
     assert (
-        coach_workouts.workout_generation_thresholds(runtime.engine)["bike"]["ftp"]["value"] == 272
+        coach_workouts.workout_generation_thresholds(runtime.engine)["bike"]["ftp"]["value"] == 310
     )
     wrong = client.post(
         "/api/thresholds/set", json={"sport": "bike", "metric": "ftp", "value": 5}, headers=WRITE
@@ -235,13 +235,13 @@ def test_coach_proposal_with_activity_then_take_over(runtime) -> None:
         runtime.engine,
         sport="bike",
         metric="ftp",
-        value=270,
+        value=305,
         unit="W",
-        summary="FTP-test 19-11: 20 min op 284 W.",
+        summary="FTP-test: 20 min op 320 W.",
         idempotency_key="ftp-test-1",
         method="test",
         activity_id="group-ftp-test",
-        date_set=date(2026, 11, 19),
+        date_set=date(2026, 3, 5),
     )
     assert row["meta"]["activity_id"] == "group-ftp-test"
     assert coach_workouts.workout_generation_thresholds(runtime.engine) == {}
@@ -250,12 +250,12 @@ def test_coach_proposal_with_activity_then_take_over(runtime) -> None:
     proposal = data["proposals"][0]
     assert proposal["activity_id"] == "group-ftp-test"
     assert proposal["summary"].startswith("FTP-test")
-    assert proposal["date_set"] == "2026-11-19"
+    assert proposal["date_set"] == "2026-03-05"
     taken = client.post(f"/api/thresholds/{proposal['id']}/accept", json={}, headers=WRITE)
     assert taken.status_code == 200
     assert taken.json()["data"]["proposals"] == []
     current = coach_workouts.workout_generation_thresholds(runtime.engine)["bike"]["ftp"]
-    assert current["value"] == 270 and current["method"] == "test"
+    assert current["value"] == 305 and current["method"] == "test"
     feed = coach_workouts.pending_workout_regeneration(runtime.engine)["pending_regeneration"]
     assert feed and feed[0]["metric"] == "ftp"
     history = taken.json()["data"]["sports"][0]["metrics"][0]["history"]
@@ -267,7 +267,7 @@ def test_dismissed_proposal_stays_out_of_the_plan(runtime) -> None:
         runtime.engine,
         sport="run",
         metric="lthr",
-        value=166,
+        value=175,
         unit="bpm",
         summary="Race suggests a higher LTHR.",
         idempotency_key="lthr-race-1",
@@ -351,7 +351,7 @@ class FakeIcu:
 
 
 def _bike_plan(runtime) -> None:
-    for metric, value in (("ftp", 265), ("lthr", 150), ("max_hr", 179)):
+    for metric, value in (("ftp", 300), ("lthr", 140), ("max_hr", 190)):
         thresholds.set_value(runtime.engine, sport="bike", metric=metric, value=value, today=TODAY)
 
 
@@ -376,17 +376,17 @@ def test_push_to_intervals_sends_the_plan_and_reads_back(runtime) -> None:
         (
             11,
             {
-                "lthr": 150,
-                "max_hr": 179,
-                "hr_zones": [121, 133, 139, 148, 153, 159, 179],
-                "ftp": 265,
+                "lthr": 140,
+                "max_hr": 190,
+                "hr_zones": [113, 124, 130, 138, 142, 148, 190],
+                "ftp": 300,
             },
         )
     ]
     assert result["before"]["ftp"] == 250
     audit = _audit(runtime)
     assert audit[-1]["action"] == "threshold.push.intervals" and audit[-1]["outcome"] == "ok"
-    assert audit[-1]["detail"]["sent"]["ftp"] == 265
+    assert audit[-1]["detail"]["sent"]["ftp"] == 300
 
 
 def test_push_to_intervals_reports_a_value_it_did_not_take(runtime) -> None:
@@ -431,22 +431,22 @@ class FakeGarminHttp:
 class FakeGarmin:
     def __init__(self, keep_ftp=False):
         self.hr = [
-            {"sport": "DEFAULT", "lactateThresholdHeartRateUsed": 158, "maxHeartRateUsed": 178},
+            {"sport": "DEFAULT", "lactateThresholdHeartRateUsed": 165, "maxHeartRateUsed": 188},
             {
                 "sport": "CYCLING",
-                "lactateThresholdHeartRateUsed": 151,
-                "maxHeartRateUsed": 178,
-                "zone1Floor": 98,
-                "zone2Floor": 119,
-                "zone3Floor": 134,
-                "zone4Floor": 143,
-                "zone5Floor": 151,
+                "lactateThresholdHeartRateUsed": 145,
+                "maxHeartRateUsed": 188,
+                "zone1Floor": 100,
+                "zone2Floor": 120,
+                "zone3Floor": 130,
+                "zone4Floor": 140,
+                "zone5Floor": 150,
                 "changeState": "UNCHANGED",
             },
         ]
         self.power = [
-            {"sport": "CYCLING", "functionalThresholdPower": 281.0, "zone1Floor": 0.0},
-            {"sport": "RUNNING", "functionalThresholdPower": 451.0, "zone1Floor": 300.0},
+            {"sport": "CYCLING", "functionalThresholdPower": 290.0, "zone1Floor": 0.0},
+            {"sport": "RUNNING", "functionalThresholdPower": 400.0, "zone1Floor": 250.0},
         ]
         self.client = FakeGarminHttp(self, keep_ftp)
 
@@ -463,14 +463,14 @@ def test_push_to_garmin_sets_hr_profile_and_ftp(runtime) -> None:
     result = threshold_push.push_garmin(runtime, "bike", api_factory=lambda: fake)
     assert result["ok"] is True, result
     hr_put = dict(fake.client.puts[0][1][1])
-    assert hr_put["lactateThresholdHeartRateUsed"] == 150
-    assert hr_put["maxHeartRateUsed"] == 179
-    assert [hr_put[f"zone{n}Floor"] for n in (2, 3, 4, 5)] == [122, 134, 140, 149]
-    assert fake.client.puts[0][1][0]["lactateThresholdHeartRateUsed"] == 158  # DEFAULT kept
+    assert hr_put["lactateThresholdHeartRateUsed"] == 140
+    assert hr_put["maxHeartRateUsed"] == 190
+    assert [hr_put[f"zone{n}Floor"] for n in (2, 3, 4, 5)] == [114, 125, 131, 139]
+    assert fake.client.puts[0][1][0]["lactateThresholdHeartRateUsed"] == 165  # DEFAULT kept
     power_put = fake.client.puts[1]
     assert power_put[0].endswith("powerZones/all")
     assert [row["sport"] for row in power_put[1]] == ["CYCLING"]  # only the one sport
-    assert power_put[1][0]["functionalThresholdPower"] == 265
+    assert power_put[1][0]["functionalThresholdPower"] == 300
     assert "userLocalTime" not in power_put[1][0]
     assert _audit(runtime)[-1]["action"] == "threshold.push.garmin"
 
@@ -612,13 +612,13 @@ def test_portal_pushes_only_what_is_ticked(runtime, monkeypatch) -> None:
     client = _client(runtime)
     client.post(
         "/api/thresholds/set",
-        json={"sport": "run", "metric": "lthr", "value": 162},
+        json={"sport": "run", "metric": "lthr", "value": 170},
         headers=WRITE,
     )
     assert calls == []
     reply = client.post(
         "/api/thresholds/set",
-        json={"sport": "run", "metric": "max_hr", "value": 179, "push": {"intervals": True}},
+        json={"sport": "run", "metric": "max_hr", "value": 190, "push": {"intervals": True}},
         headers=WRITE,
     )
     assert calls == [("intervals", "run")]
@@ -628,7 +628,7 @@ def test_portal_pushes_only_what_is_ticked(runtime, monkeypatch) -> None:
         runtime.engine,
         sport="run",
         metric="lthr",
-        value=164,
+        value=172,
         unit="bpm",
         summary="x",
         idempotency_key="no-push",
@@ -645,13 +645,13 @@ def test_intervals_client_writes_only_sport_settings_fields() -> None:
         return 200, {}, b"{}"
 
     client = IntervalsIcuClient("key", "i123", exchange=exchange, write_interval=0, interval=0)
-    client.update_sport_settings(11, {"ftp": 265})
+    client.update_sport_settings(11, {"ftp": 300})
     assert seen == [
         (
             "PUT",
             "https://intervals.icu/api/v1/athlete/i123/sport-settings/11",
             {"recalcHrZones": "false"},
-            {"ftp": 265},
+            {"ftp": 300},
         )
     ]
     with pytest.raises(IntervalsIcuError):
@@ -665,30 +665,30 @@ class FakeRunGarmin:
         self.hr = [
             {
                 "sport": "DEFAULT",
-                "lactateThresholdHeartRateUsed": 158,
-                "maxHeartRateUsed": 178,
+                "lactateThresholdHeartRateUsed": 165,
+                "maxHeartRateUsed": 188,
                 "trainingMethod": "LACTATE_THRESHOLD",
                 "zone1Floor": 110,
-                "zone2Floor": 123,
-                "zone3Floor": 137,
-                "zone4Floor": 151,
-                "zone5Floor": 164,
+                "zone2Floor": 125,
+                "zone3Floor": 140,
+                "zone4Floor": 155,
+                "zone5Floor": 170,
             },
             {
                 "sport": "RUNNING",
-                "lactateThresholdHeartRateUsed": 159,
-                "maxHeartRateUsed": 179,
+                "lactateThresholdHeartRateUsed": 168,
+                "maxHeartRateUsed": 190,
                 "trainingMethod": "LACTATE_THRESHOLD",
-                "zone1Floor": 102,
-                "zone2Floor": 135,
-                "zone3Floor": 142,
-                "zone4Floor": 150,
-                "zone5Floor": 158,
+                "zone1Floor": 105,
+                "zone2Floor": 140,
+                "zone3Floor": 150,
+                "zone4Floor": 160,
+                "zone5Floor": 168,
             },
         ]
         self.user = {
-            "lactateThresholdHeartRate": 157,
-            "lactateThresholdSpeed": 0.319,
+            "lactateThresholdHeartRate": 167,
+            "lactateThresholdSpeed": 0.305,
             "thresholdHeartRateAutoDetected": auto,
             "ftpAutoDetected": auto,
         }
@@ -716,10 +716,10 @@ class FakeRunGarmin:
 
 def test_run_push_writes_running_default_and_the_profile_lactate_threshold(runtime) -> None:
     """DEFAULT = RUNNING, the profile LT (HR and pace) and auto-detection off."""
-    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="run", metric="max_hr", value=179, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=170, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="max_hr", value=190, today=TODAY)
     thresholds.set_value(
-        runtime.engine, sport="run", metric="threshold_pace", value=310, today=TODAY
+        runtime.engine, sport="run", metric="threshold_pace", value=300, today=TODAY
     )
     fake = FakeRunGarmin()
     result = threshold_push.push_garmin(runtime, "run", api_factory=lambda: fake)
@@ -729,20 +729,20 @@ def test_run_push_writes_running_default_and_the_profile_lactate_threshold(runti
     keys = ["lactateThresholdHeartRateUsed", "maxHeartRateUsed"] + [
         f"zone{n}Floor" for n in range(1, 6)
     ]
-    assert run["lactateThresholdHeartRateUsed"] == 162
+    assert run["lactateThresholdHeartRateUsed"] == 170
     assert {k: default[k] for k in keys} == {k: run[k] for k in keys}
-    assert fake.user["lactateThresholdHeartRate"] == 162
-    assert fake.user["lactateThresholdSpeed"] == 0.31
+    assert fake.user["lactateThresholdHeartRate"] == 170
+    assert fake.user["lactateThresholdSpeed"] == 0.3
     assert fake.user["thresholdHeartRateAutoDetected"] is False
-    assert result["after"]["lactate"] == {"lthr": 162, "pace_s_per_km": 310.0, "auto_detect": False}
+    assert result["after"]["lactate"] == {"lthr": 170, "pace_s_per_km": 300.0, "auto_detect": False}
 
 
 def test_garmin_general_profile_unlike_running_is_a_mismatch(runtime) -> None:
     """Garmin's DEFAULT heart-rate profile must equal RUNNING."""
-    _garmin_zone(runtime, "hr", "running", [102, 138, 145, 153, 161, 179], 162, 179)
-    _garmin_zone(runtime, "hr", "default", [110, 123, 137, 151, 164, 178], 158, 178)
+    _garmin_zone(runtime, "hr", "running", [105, 140, 150, 160, 170, 190], 170, 190)
+    _garmin_zone(runtime, "hr", "default", [110, 125, 140, 155, 170, 188], 165, 188)
     run = thresholds.garmin_values(runtime.engine)["run"]
-    assert run["default_hr"] == {"lthr": 158, "max_hr": 178, "hr_floors": [123, 137, 151, 164]}
+    assert run["default_hr"] == {"lthr": 165, "max_hr": 188, "hr_floors": [125, 140, 155, 170]}
     found = thresholds.mismatches("run", {}, {}, {"garmin": run})
     assert [m["metric"] for m in found] == ["hr_default"]
 
@@ -759,8 +759,8 @@ def test_garmin_profile_lactate_threshold_and_auto_detect_are_compared(runtime) 
             {
                 "user_profile": {
                     "userData": {
-                        "lactateThresholdHeartRate": 157,
-                        "lactateThresholdSpeed": 0.319,
+                        "lactateThresholdHeartRate": 167,
+                        "lactateThresholdSpeed": 0.305,
                         "thresholdHeartRateAutoDetected": True,
                     }
                 }
@@ -770,10 +770,10 @@ def test_garmin_profile_lactate_threshold_and_auto_detect_are_compared(runtime) 
     )
     raw = runtime.raw.load(stored.id)
     (zone,) = list(mappers.map_profile_threshold(raw, "Europe/Amsterdam"))
-    assert (zone.kind, zone.sport, zone.threshold) == ("lt", "running", 157)
-    assert zone.extra["pace_s_per_km"] == 319.0 and zone.extra["auto_detect"] is True
-    garmin = {"profile_lt": {"lthr": 157, "pace_s_per_km": 319.0, "auto_detect": True}}
+    assert (zone.kind, zone.sport, zone.threshold) == ("lt", "running", 167)
+    assert zone.extra["pace_s_per_km"] == 305.0 and zone.extra["auto_detect"] is True
+    garmin = {"profile_lt": {"lthr": 167, "pace_s_per_km": 305.0, "auto_detect": True}}
     found = thresholds.mismatches(
-        "run", {"lthr": 162, "threshold_pace": 310}, {}, {"garmin": garmin}
+        "run", {"lthr": 170, "threshold_pace": 300}, {}, {"garmin": garmin}
     )
     assert [m["metric"] for m in found] == ["profile_lthr", "profile_pace", "auto_detect"]

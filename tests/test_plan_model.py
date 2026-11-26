@@ -403,7 +403,7 @@ def test_plan_export_carries_what_you_need_without_a_coach(runtime) -> None:
         runtime.engine,
         sport="run",
         metric="threshold_pace",
-        value=310,
+        value=300,
         unit="s/km",
         method="manual",
     )
@@ -418,7 +418,7 @@ def test_plan_export_carries_what_you_need_without_a_coach(runtime) -> None:
         rules=[{"id": "TST-1", "text": "Maximaal 2 harde dagen per week."}],
     )
     sections = {s["key"]: s for s in plan_export.extras(runtime.engine, date(2026, 11, 10))}
-    assert ["run", "threshold_pace", "5:10/km", ""] in sections["thresholds"]["rows"]
+    assert ["run", "threshold_pace", "5:00/km", ""] in sections["thresholds"]["rows"]
     assert any("pace zone" in r[1] for r in sections["thresholds"]["rows"])
     assert sections["rules"]["rows"] == [["TST-1", "Maximaal 2 harde dagen per week.", "", ""]]
     book = zipfile.ZipFile(io.BytesIO(plan_export.xlsx([], "nl", list(sections.values()))))

@@ -28,7 +28,7 @@ def test_every_template_renders_to_text_that_parses_back_and_reaches_garmin(temp
         assert not parsed.unparsed and parsed.steps, (template, lang)
         assert set(_targets(parsed.steps)) <= RELATIVE  # ICU-6: never absolute watts or bpm
         assert out["seconds"] > 0 and "{" not in out["name"]
-    values = {"ftp": 265, "lthr": 162, "max_hr": 179, "css": 135}
+    values = {"ftp": 300, "lthr": 170, "max_hr": 190, "css": 120}
     build = {"run": ge.build_run, "ride": ge.build_ride}.get(out["sport"])
     workout = build("x", parsed, values) if build else ge.build_swim("x", parsed, values["css"])
     assert workout["workoutSegments"][0]["workoutSteps"]

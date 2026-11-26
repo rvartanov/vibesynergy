@@ -24,13 +24,13 @@ def test_render_has_every_part_and_escapes() -> None:
                     "text": "Rust.\n\nTest.",
                 }
             ],
-            "thresholds": {"run": {"threshold_pace": {"value": 310.0, "unit": "s/km"}}},
+            "thresholds": {"run": {"threshold_pace": {"value": 300.0, "unit": "s/km"}}},
             "rules": [{"id": "PLAN-1", "text": "Max 2 harde dagen."}],
         },
         "nl",
     )
     assert "<title>Coachboekje: Test &lt;plan&gt;</title>" in page
-    assert "Example triathlon (A)" in page and "Drempeltempo 5:10 /km" in page
+    assert "Example triathlon (A)" in page and "Drempeltempo 5:00 /km" in page
     assert "<b>PLAN-1</b> Max 2 harde dagen." in page and "<p>Test.</p>" in page
     assert "<plan>" not in page
 

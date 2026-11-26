@@ -6,15 +6,15 @@ import { predictionsHtml } from "../src/vibesynergy/portal/static/js/race_predic
 test("a table per distance, with certainty, change and Garmin", () => {
   const html = predictionsHtml({
     predictions: [
-      { key: "10k", seconds: 3072, pace_s_per_km: 307.2, certainty: "high", change_s: -40, garmin: { seconds: 3039 }, from: { kind: "threshold", distance_m: 11613, date: "2026-11-03" } },
-      { key: "50k", seconds: 17213, pace_s_per_km: 344.3, certainty: "medium", change_s: null, garmin: null, from: { kind: "threshold", distance_m: 11613, date: "2026-11-03" } },
+      { key: "10k", seconds: 3000, pace_s_per_km: 300, certainty: "high", change_s: -40, garmin: { seconds: 2970 }, from: { kind: "threshold", distance_m: 12000, date: "2026-03-01" } },
+      { key: "50k", seconds: 16800, pace_s_per_km: 336, certainty: "medium", change_s: null, garmin: null, from: { kind: "threshold", distance_m: 12000, date: "2026-03-01" } },
     ],
   });
-  assert.match(html, /51:12/);
+  assert.match(html, /50:00/);
   assert.match(html, /0:40 faster/);
-  assert.match(html, /50:39/);
+  assert.match(html, /49:30/);
   assert.match(html, /data-certainty="medium"/);
-  assert.match(html, /threshold pace \(5:10 per km/);
+  assert.match(html, /threshold pace \(5:00 per km/);
 });
 
 test("without evidence it says what to do", () => {

@@ -30,7 +30,7 @@ TODAY = date(2026, 11, 5)
 
 
 def test_swim_steps_become_garmin_steps_with_pace_targets_from_the_css() -> None:
-    workout = ge.build_swim("🏊 Zwemmen", parse_intervals(SWIM), 135)
+    workout = ge.build_swim("🏊 Zwemmen", parse_intervals(SWIM), 120)
     assert workout["sportType"]["sportTypeKey"] == "swimming" and workout["poolLength"] == 25.0
     steps = workout["workoutSegments"][0]["workoutSteps"]
     warm, repeat, cool = steps
@@ -39,9 +39,9 @@ def test_swim_steps_become_garmin_steps_with_pace_targets_from_the_css() -> None
         "distance",
         300.0,
     )
-    # Z1 for CSS 2:15: slower than 2:54/100 m (174 s) -> up to 0.5747 m/s
+    # Z1 for CSS 2:00: slower than 2:35/100 m (155 s) -> up to 0.6452 m/s
     assert warm["targetType"]["workoutTargetTypeKey"] == "pace.zone"
-    assert warm["targetValueTwo"] == round(100 / 174, 4)
+    assert warm["targetValueTwo"] == round(100 / 155, 4)
     work, rest = repeat["workoutSteps"]
     assert repeat["numberOfIterations"] == 3 and work["stepType"]["stepTypeKey"] == "interval"
     assert rest["stepType"]["stepTypeKey"] == "rest" and rest["endConditionValue"] == 30.0
@@ -77,7 +77,7 @@ def _swim_event(runtime) -> None:
 
 
 def test_swim_is_delivered_only_when_switched_on(runtime) -> None:
-    thresholds.set_value(runtime.engine, sport="swim", metric="css", value=135, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="swim", metric="css", value=120, today=TODAY)
     _swim_event(runtime)
     assert ge.desired(runtime.engine, TODAY, (), 21) == {}
     found = ge.desired(runtime.engine, TODAY, ("swim",), 21)
@@ -108,17 +108,17 @@ def test_run_steps_get_heart_rate_targets_from_lthr_zones() -> None:
         "Rustig.\n\nWarmup\n- 5m Z1 HR\n\nMain set\n- 30m Z2 HR\n\n3x\n- 4m 95-100% LTHR\n"
         "- 2m Z1 HR intensity=recovery\n\nCooldown\n- 5m Z1 HR"
     )
-    workout = ge.build_run("🏃 Duurloop", run, {"lthr": 162, "max_hr": 179})
+    workout = ge.build_run("🏃 Duurloop", run, {"lthr": 170, "max_hr": 190})
     assert workout["sportType"]["sportTypeKey"] == "running"
     warm, main, repeat, cool = workout["workoutSegments"][0]["workoutSteps"]
     assert (main["targetType"]["workoutTargetTypeKey"], main["targetValueOne"]) == (
         "heart.rate.zone",
-        138.0,
+        145.0,
     )
-    assert main["targetValueTwo"] == 144.0 and main["stepType"]["stepTypeKey"] == "interval"
+    assert main["targetValueTwo"] == 151.0 and main["stepType"]["stepTypeKey"] == "interval"
     work, easy = repeat["workoutSteps"]
-    assert (work["targetValueOne"], work["targetValueTwo"]) == (154.0, 162.0)
-    assert easy["stepType"]["stepTypeKey"] == "recovery" and easy["targetValueTwo"] == 137.0
+    assert (work["targetValueOne"], work["targetValueTwo"]) == (162.0, 170.0)
+    assert easy["stepType"]["stepTypeKey"] == "recovery" and easy["targetValueTwo"] == 144.0
     assert (
         warm["stepType"]["stepTypeKey"] == "warmup"
         and cool["stepType"]["stepTypeKey"] == "cooldown"
@@ -129,19 +129,19 @@ def test_ride_steps_get_power_from_ftp_and_mtb_heart_rate() -> None:
     ride = parse_intervals(
         "Warmup\n- 15m 50-65% 90rpm\n\nMain set\n4x\n- 6m 75-85% 50-60rpm\n- 3m 55% 90rpm"
     )
-    workout = ge.build_ride("🚴 Kracht op de fiets", ride, {"ftp": 265})
+    workout = ge.build_ride("🚴 Kracht op de fiets", ride, {"ftp": 300})
     assert workout["sportType"]["sportTypeKey"] == "cycling"
     warm, repeat = workout["workoutSegments"][0]["workoutSteps"]
-    assert (warm["targetValueOne"], warm["targetValueTwo"]) == (132.0, 172.0)
+    assert (warm["targetValueOne"], warm["targetValueTwo"]) == (150.0, 195.0)
     assert warm["targetType"]["workoutTargetTypeKey"] == "power.zone"
     work, easy = repeat["workoutSteps"]
-    assert (work["targetValueOne"], work["targetValueTwo"]) == (199.0, 225.0)
+    assert (work["targetValueOne"], work["targetValueTwo"]) == (225.0, 255.0)
     assert work["description"] == "50-60 rpm"
-    assert (easy["targetValueOne"], easy["targetValueTwo"]) == (139.0, 153.0)  # 55% ±5%
-    mtb = ge.build_ride("🚴 MTB", parse_intervals("- 55m Z1-Z2 HR"), {"lthr": 150, "max_hr": 179})
+    assert (easy["targetValueOne"], easy["targetValueTwo"]) == (157.0, 173.0)  # 55% ±5%
+    mtb = ge.build_ride("🚴 MTB", parse_intervals("- 55m Z1-Z2 HR"), {"lthr": 140, "max_hr": 190})
     (step,) = mtb["workoutSegments"][0]["workoutSteps"]
     assert step["targetType"]["workoutTargetTypeKey"] == "heart.rate.zone"
-    assert step["targetValueTwo"] == 133.0
+    assert step["targetValueTwo"] == 124.0
 
 
 def _events(runtime, events) -> None:
@@ -163,8 +163,8 @@ def _events(runtime, events) -> None:
 
 
 def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> None:
-    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=300, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=170, today=TODAY)
     base = {"category": "WORKOUT", "start_date_local": "2026-11-08T00:00:00"}
     _events(
         runtime,
@@ -234,8 +234,8 @@ def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
 
 def test_a_triathlon_linked_by_slot_becomes_one_multisport_workout(runtime) -> None:
     """#74: ms1-swim, ms2-ride, ms3-run on one day are one workout in that order."""
-    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=300, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=170, today=TODAY)
     base = {"category": "WORKOUT", "start_date_local": "2026-11-08T00:00:00"}
     _events(
         runtime,
