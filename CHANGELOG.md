@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- The Coach page opens quickly again. The message list rebuilt the full day state for every past advice to check whether it was still current, which took over 20 seconds; it now checks only yesterday and today, once per day and kind, and the page no longer waits for the list before it shows.
+
 ## 0.1.0-beta.0.22 – 25-11-2026
 
 - **Every planned workout is complete on its own** (#192): a workout never says "zelfde drills

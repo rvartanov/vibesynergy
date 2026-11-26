@@ -355,6 +355,12 @@ ITEMS: tuple[Item, ...] = (
         "session for its content; a reference with nameless steps is refused "
         "(incomplete_reference), a reference with named steps is a warning.",
     ),
+    Item(
+        "coach-page-speed",
+        "you",
+        "The Coach page opens quickly again: it no longer waits for the whole message "
+        "list, and that list is about ten times faster.",
+    ),
 )
 
 VERSION = RELEASES[0].version
