@@ -8,11 +8,13 @@ distance, laps and the sport. Distance is computed from the positions when a fil
 from __future__ import annotations
 
 import math
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # types only; parsing goes through defusedxml
 from datetime import datetime
 from itertools import pairwise
 from typing import Any
 from zoneinfo import ZoneInfo
+
+from defusedxml import ElementTree as SafeET
 
 from vibesynergy.model import Activity, Record, Stream
 
@@ -78,8 +80,9 @@ class NoTimedPoints(ValueError):
 
 def map_track(data: bytes, source_id: str, *, timezone: str) -> list[Record]:
     # Strava's TCX files start with spaces before the XML declaration, which the parser
-    # refuses; a byte order mark is left out the same way.
-    root = ET.fromstring(data.lstrip().removeprefix(b"\xef\xbb\xbf").lstrip())
+    # refuses; a byte order mark is left out the same way. Files come from anywhere (uploads,
+    # the drop folder, archives): defusedxml refuses entities and DTD tricks.
+    root = SafeET.fromstring(data.lstrip().removeprefix(b"\xef\xbb\xbf").lstrip())
     if _local(root.tag) == "gpx":
         points, sport, name = _gpx(root)
     else:
