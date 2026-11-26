@@ -230,7 +230,7 @@ def test_an_outside_writer_on_a_race_copy_is_put_back_then_held(rt, monkeypatch)
     today = _today(rt)
     added = race_events.add(
         rt.engine,
-        {"name": "Kustmarathon", "date": today + timedelta(days=30), "sport": "run"},
+        {"name": "Autumn marathon", "date": today + timedelta(days=30), "sport": "run"},
         reason="Doel",
         author="test",
     )
@@ -253,7 +253,7 @@ def test_an_outside_writer_on_a_race_copy_is_put_back_then_held(rt, monkeypatch)
         clock.later(hours=1)
     assert plan_conflict.held(rt.engine, "intervals")
     (fight,) = plan_conflict.status(rt.engine)
-    assert fight["names"] == ["Kustmarathon"] and fight["writer"] == "icu-app:99"
+    assert fight["names"] == ["Autumn marathon"] and fight["writer"] == "icu-app:99"
     hacked()
     out = race_mirror.mirror(rt.engine, client, today=today)
     assert out["held"] == [ident] and out["updated"] == []

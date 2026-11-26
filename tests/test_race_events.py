@@ -112,7 +112,7 @@ class FakeIcu:
 def test_validate_checks_and_cleans_every_field() -> None:
     row = race_events.validate(
         {
-            "name": "  Rotterdam Marathon ",
+            "name": "  City marathon ",
             "date": "2027-04-11",
             "sport": "run",
             "distance_km": "42,195",
@@ -122,7 +122,7 @@ def test_validate_checks_and_cleans_every_field() -> None:
             "url": "https://example.test/race",
         }
     )
-    assert row["name"] == "Rotterdam Marathon" and row["date"] == date(2027, 4, 11)
+    assert row["name"] == "City marathon" and row["date"] == date(2027, 4, 11)
     assert row["distance_m"] == 42195.0 and row["priority"] == "A"
     assert row["start_time"] == "09:30" and row["goal_time"] == "3:30:00"
     assert row["kind"] == "race" and row["end_date"] is None
@@ -149,7 +149,7 @@ def test_validate_checks_and_cleans_every_field() -> None:
     assert camp["sport"] is None and camp["end_date"] == date(2027, 3, 7)
     changed = race_events.validate({"location": "", "priority": "B"}, {**row, "location": "R"})
     assert changed["location"] is None and changed["priority"] == "B"
-    assert changed["name"] == "Rotterdam Marathon"
+    assert changed["name"] == "City marathon"
 
 
 def test_the_portal_and_the_mcp_refuse_the_same_input_the_same_way(rt) -> None:
@@ -335,7 +335,7 @@ def test_the_mirror_copies_changes_and_removes_and_intervals_edits_never_come_ba
     added = race_events.add(
         rt.engine,
         {
-            "name": "Kustmarathon",
+            "name": "Autumn marathon",
             "date": day,
             "sport": "run",
             "priority": "A",
@@ -356,7 +356,7 @@ def test_the_mirror_copies_changes_and_removes_and_intervals_edits_never_come_ba
     assert out["created"] == [ident] and out["errors"] == []
     assert past["race"]["id"] not in out["created"]  # over: never copied
     (copy,) = client.events.values()
-    assert copy["category"] == "RACE_A" and copy["name"] == "Kustmarathon"
+    assert copy["category"] == "RACE_A" and copy["name"] == "Autumn marathon"
     assert copy["external_id"] == f"vs-race:{ident}" and copy["type"] == "Run"
     assert "Distance: 42.195 km" in copy["description"]
     assert "Goal time: 3:45:00" in copy["description"]
@@ -367,12 +367,16 @@ def test_the_mirror_copies_changes_and_removes_and_intervals_edits_never_come_ba
     assert client.calls == []
     # A change in VibeSynergy reaches the copy.
     race_events.change(
-        rt.engine, ident, {"priority": "", "name": "Kustmarathon Zeeland"}, reason="x", author="t"
+        rt.engine,
+        ident,
+        {"priority": "", "name": "Autumn marathon by the sea"},
+        reason="x",
+        author="t",
     )
     out = race_mirror.mirror(rt.engine, client, today=today)
     assert out["updated"] == [ident]
     assert client.events[copy["id"]]["category"] == "NOTE"  # a race without a priority
-    assert client.events[copy["id"]]["name"] == "Kustmarathon Zeeland"
+    assert client.events[copy["id"]]["name"] == "Autumn marathon by the sea"
     # A change made in intervals.icu (another app, a hand edit) never changes VibeSynergy;
     # the next run puts the copy back.
     with rt.engine.begin() as conn:
@@ -382,10 +386,10 @@ def test_the_mirror_copies_changes_and_removes_and_intervals_edits_never_come_ba
             .values(name="Hacked", category="RACE_C", date=day + timedelta(days=1))
         )
     before = _row(rt, ident)
-    assert call(rt, "vibesynergy_races")["data"]["items"][0]["name"] == "Kustmarathon Zeeland"
+    assert call(rt, "vibesynergy_races")["data"]["items"][0]["name"] == "Autumn marathon by the sea"
     out = race_mirror.mirror(rt.engine, client, today=today)
     assert out["updated"] == [ident]
-    assert client.events[copy["id"]]["name"] == "Kustmarathon Zeeland"
+    assert client.events[copy["id"]]["name"] == "Autumn marathon by the sea"
     assert client.events[copy["id"]]["start_date_local"].startswith(day.isoformat())
     after = _row(rt, ident)
     assert {k: after[k] for k in race_events.FIELDS} == {k: before[k] for k in race_events.FIELDS}

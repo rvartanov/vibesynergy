@@ -34,7 +34,7 @@ def test_validate_takes_every_sport_distance_and_type() -> None:
                 assert plan_builder.validate({"sport": sport, "distance": distance, "type": kind})
     value = plan_builder.validate(
         {
-            "goal": {"new": {"name": " Kustmarathon ", "date": "2027-10-02", "priority": "B"}},
+            "goal": {"new": {"name": " Autumn marathon ", "date": "2027-10-02", "priority": "B"}},
             "distance": "custom",
             "sport": "run",
             "custom": {"run_km": "42.2", "bike_km": 0},
@@ -42,7 +42,9 @@ def test_validate_takes_every_sport_distance_and_type() -> None:
             "taper_weeks": "3",
         }
     )
-    assert value["goal"] == {"new": {"name": "Kustmarathon", "date": "2027-10-02", "priority": "B"}}
+    assert value["goal"] == {
+        "new": {"name": "Autumn marathon", "date": "2027-10-02", "priority": "B"}
+    }
     assert value["custom"] == {"run_km": 42.2}
     assert value["hours_min"] == 5.0 and value["taper_weeks"] == 3
 
