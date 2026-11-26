@@ -17,6 +17,11 @@ def today_in(timezone: str) -> date:
     return datetime.now(ZoneInfo(timezone)).date()
 
 
+def local_now(timezone: str) -> datetime:
+    """The wall clock in the user's zone, without tzinfo: compares with local ``HH:MM``."""
+    return datetime.now(ZoneInfo(timezone)).replace(tzinfo=None)
+
+
 def add_months(day: date, months: int) -> date:
     """The same calendar day ``months`` ahead, clipped to the end of a shorter month."""
     if months < 0:

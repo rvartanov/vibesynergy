@@ -16,6 +16,7 @@ import { formLinkHtml } from "../form_block.js";
 import { sportIcon, sportKey } from "../symbols.js";
 import { weekProgressHtml } from "../week_progress.js";
 import { mountRaceEvents } from "../race_events.js";
+import { bindGroupTrainings, groupTrainingHtml } from "../group_training.js";
 
 const TABS = [
   ["", N("Plan and progress")],
@@ -65,6 +66,7 @@ export async function render(view, ctx) {
     <div class="plan-layout">
       <div class="plan-main">
         ${weekCardHtml(progress, weeks, d.today)}
+        ${ctx.meta?.data?.share ? "" : groupCardHtml(d.group_trainings)}
         ${garminHtml(d.horizon)}
         ${trendHtml(d.trend)}
         ${formLinkHtml(d.fitness)}
@@ -82,10 +84,18 @@ export async function render(view, ctx) {
     location.hash = `#/planning${params.toString() ? `?${params}` : ""}`;
   };
   view.querySelector("#plan-week-picker")?.addEventListener("change", (event) => go({ week: event.target.value }));
+  bindGroupTrainings(view);
   const trendEl = view.querySelector(".planning-trend");
   if (trendEl) trendChart(trendEl, d.trend.weeks);
   const raceCard = view.querySelector("[data-race-events]");
   if (raceCard) await mountRaceEvents(raceCard, { projection: d.projection, stale, readOnly: Boolean(ctx.meta?.data?.share) });
+}
+
+// RunSynergy workouts that wait for a yes, each with its day (#113).
+function groupCardHtml(list) {
+  if (!Array.isArray(list) || !list.length) return "";
+  return `<section class="card" aria-labelledby="plan-group-title"><h2 id="plan-group-title">${esc(t("Group training from RunSynergy"))}</h2>
+    ${list.map(groupTrainingHtml).join("")}</section>`;
 }
 
 // Build a plan: the settings a new plan is built from.

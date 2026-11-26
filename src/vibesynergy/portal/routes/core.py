@@ -389,7 +389,7 @@ def register(kit: PortalKit) -> None:
     def inbox_count_route() -> dict[str, Any]:
         from vibesynergy.query import inbox
 
-        return envelope({"count": inbox.count(engine)})
+        return envelope({"count": inbox.count(engine, today())})
 
     @router.get("/gear")
     def gear_route() -> dict[str, Any]:

@@ -362,6 +362,19 @@ ITEMS: tuple[Item, ...] = (
         "The Coach page opens quickly again: it no longer waits for the whole message "
         "list, and that list is about ten times faster.",
     ),
+    Item(
+        "113-date",
+        "you",
+        "A group training from RunSynergy to adopt now shows which day it is for, with "
+        "its start time, under Waiting for you, on Planning and as a notice. It says "
+        "when that day has passed or already has another session, so you can decide.",
+    ),
+    Item(
+        "113-ai-date",
+        "ai",
+        "vibesynergy_plan lists group_trainings: the RunSynergy workouts matched to a "
+        '"Training geven" session, with date, start, when, state, past and same_day.',
+    ),
 )
 
 VERSION = RELEASES[0].version

@@ -1,9 +1,11 @@
 // Today → "Group training from RunSynergy": a "Training geven" session whose workout can be
 // the group schedule from RunSynergy (warm-up and cool-down until lap, the core on time so
 // you can blow the whistle, Z1 for yourself). Nothing changes until "Adopt" is chosen; then
-// the plan's normal delivery puts it on the watch.
+// the plan's normal delivery puts it on the watch. The same proposal shows under Waiting
+// for you and on Planning, always with its day, a mark when that has passed and the plan's
+// other sessions that day (#113).
 import { post } from "./api.js";
-import { esc, longDate } from "./format.js";
+import { esc, shortDay } from "./format.js";
 import { N, t } from "./i18n.js";
 
 const PARTS = { warmup: N("Warm-up"), work: N("Core"), cooldown: N("Cool-down") };
@@ -27,10 +29,23 @@ function stepsHtml(steps) {
   return `<ol class="workout-steps">${rows.join("")}</ol>`;
 }
 
-function oneHtml(p) {
-  const when = [longDate(p.date), p.start].filter(Boolean).join(", ");
+/** The day it is for, with the start time when there is one: "do 20 nov, 19:30". */
+export function groupWhen(p) {
+  return [shortDay(p.date), p.start].filter(Boolean).join(", ");
+}
+
+/** What to weigh before adopting: the day has passed, or the plan already has a session. */
+export function groupMarksHtml(p) {
+  const marks = [];
+  if (p.past) marks.push(`<p class="sub"><span class="chip warning">${esc(t("Passed"))}</span> ${esc(t("This day has passed."))}</p>`);
+  const others = (p.same_day || []).map((s) => s.name).filter(Boolean);
+  if (others.length) marks.push(`<p class="sub"><span class="chip info">${esc(t("Same day"))}</span> ${esc(t("That day your plan also has {names}.", { names: others.join(", ") }))}</p>`);
+  return marks.join("");
+}
+
+export function groupTrainingHtml(p) {
   const name = [p.club, p.title].filter(Boolean).join(": ");
-  const head = `<p><strong>${esc(name || t("Group training"))}</strong> · ${esc(when)}</p>`;
+  const head = `<p><strong>${esc(name || t("Group training"))}</strong> · <time datetime="${esc(p.date)}">${esc(groupWhen(p))}</time></p>${groupMarksHtml(p)}`;
   if (p.state === "cancelled") {
     return `<div class="notice" data-group-training="${esc(p.session_id)}">${head}
       <p>${esc(t("RunSynergy cancelled this group training. The session stays in your plan until you change it."))}</p>
@@ -52,7 +67,7 @@ export function groupTrainingsHtml(list) {
   if (!Array.isArray(list) || !list.length) return "";
   return `<div class="dash-group-trainings" aria-labelledby="dash-group-title">
     <h3 id="dash-group-title">${esc(t("Group training from RunSynergy"))}</h3>
-    ${list.map(oneHtml).join("")}
+    ${list.map(groupTrainingHtml).join("")}
   </div>`;
 }
 

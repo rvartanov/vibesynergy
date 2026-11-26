@@ -76,7 +76,11 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     "token": ("A coach token is about to expire", ["portal", "email"]),
     # Another app keeps overwriting the plan in intervals.icu, Garmin or the calendar (#110).
     "plan_conflict": ("Another app keeps overwriting your plan", ALL),
+    # A RunSynergy group training to adopt as a workout, with its day (#113).
+    "group_training": ("A group training from RunSynergy to adopt", ["portal", "push"]),
 }
+# Kinds whose end is no news: the athlete handled it himself.
+QUIET_END = frozenset({"group_training"})
 RECENT_KEPT = 20  # one-off events kept for the portal's list
 
 
@@ -411,7 +415,55 @@ def collect(rt: Any, today: date, since: datetime | None = None) -> list[Alert]:
     out += _daily(rt, contact.coach_since(rt, since), today)
     out += _expiring_tokens(rt)
     out += _plan_conflicts(rt)
+    out += _group_trainings(rt, today)
     return Collected(out, frozenset(hold))
+
+
+# An alert's identity ignores digits (``_identity``); a session id keeps its own this way.
+_LETTERS = str.maketrans("0123456789", "ghijklmnop")
+
+
+def group_training_text(proposal: dict[str, Any], tr: Any) -> str:
+    """The notice for one RunSynergy workout to adopt: its day first, then what else the
+    plan has that day (#113)."""
+    from vibesynergy.query import group_training
+
+    text = tr(
+        "Group training from RunSynergy on {when}: a workout for your Training geven session "
+        "is ready to adopt.",
+        when=group_training.when(proposal, tr.lang),
+    )
+    others = [str(s.get("name") or "") for s in proposal.get("same_day") or []]
+    if others:
+        text += " " + tr("That day your plan also has {names}.", names=", ".join(others))
+    return text
+
+
+def _group_trainings(rt: Any, today: date) -> list[Alert]:
+    """One open notice per RunSynergy workout that waits to be adopted, until its day has
+    passed. Adopting it ends the notice without another message."""
+    from vibesynergy.core.timeutil import local_now
+    from vibesynergy.query import group_training
+
+    try:
+        found = group_training.proposals(
+            rt.engine, today, today + timedelta(days=7), now=local_now(rt.settings.timezone)
+        )
+    except Exception:  # an alert check never breaks the others
+        log.warning("reading the RunSynergy proposals failed", exc_info=True)
+        return []
+    tr = i18n.for_settings(rt.settings)
+    return [
+        Alert(
+            f"group_training:{str(p['session_id']).translate(_LETTERS)}",
+            "info",
+            group_training_text(p, tr),
+            "#/inbox",
+            kind="group_training",
+        )
+        for p in sorted(found.values(), key=lambda p: p["date"])
+        if p["state"] == "proposed" and not p["past"]
+    ]
 
 
 def _plan_conflicts(rt: Any) -> list[Alert]:
@@ -733,7 +785,7 @@ def _check_locked(rt: Any, store: SecretStore, send: Any) -> dict[str, list[str]
         previous = state[key]
         kind = previous.get("kind", "health")
         fill = _fill_id(key)
-        if kind in ADVICE_KINDS or (fill and fill in finished_runs):
+        if kind in ADVICE_KINDS or kind in QUIET_END or (fill and fill in finished_runs):
             continue  # ending advice, or a run that already has its own finished note
         for channel in ready:
             if channel in chosen.get(kind, ALL):

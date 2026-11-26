@@ -185,7 +185,7 @@ def dashboard(
         lambda: _week_progress(engine, today, plan, getattr(rt, "raw", None), include_calendar)
     )
     trends = _block(lambda: _trends(engine, today, tr))
-    group_trainings = _block(lambda: _group_trainings(engine, today))
+    group_trainings = _block(lambda: _group_trainings(engine, today, timezone))
     open_injuries = _block(lambda: _open_injuries(injuries))
     result = {
         "date": str(today),
@@ -221,12 +221,15 @@ def dashboard(
     return result
 
 
-def _group_trainings(engine: Engine, today: date) -> list[dict[str, Any]]:
+def _group_trainings(engine: Engine, today: date, timezone: str) -> list[dict[str, Any]]:
     """RunSynergy group trainings this week and next that wait for a decision: a workout
     to adopt for a "Training geven" session, or a cancelled training."""
+    from vibesynergy.core.timeutil import local_now
     from vibesynergy.query import group_training
 
-    found = group_training.proposals(engine, today, today + timedelta(days=7))
+    found = group_training.proposals(
+        engine, today, today + timedelta(days=7), now=local_now(timezone)
+    )
     return [
         {k: v for k, v in p.items() if k != "current"}
         for p in sorted(found.values(), key=lambda p: p["date"])

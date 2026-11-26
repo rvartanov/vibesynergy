@@ -80,8 +80,11 @@ Details: [SOURCES.md](SOURCES.md).
 - **RunSynergy** (the running-group app): the group trainings you give, read from your personal
   calendar link (Settings → Sources → RunSynergy). Each becomes a workout proposal for the
   plan's "Training geven" session that day: warm-up and cool-down until lap, the core on time
-  so you can blow the whistle, Z1 for yourself. Adopt it on Today and it reaches the watch and
-  counts as planned. Read only; the link is kept encrypted.
+  so you can blow the whistle, Z1 for yourself. Adopt it on Today, under Waiting for you or on
+  Planning, and it reaches the watch and counts as planned. Each proposal shows its day and
+  start time ("do 20 nov, 19:30"), says when that day has passed or already has another
+  session in the plan, comes as a notice (portal and push), and is in the MCP plan view
+  (#113). Read only; the link is kept encrypted.
 - **CalDAV calendars** (e.g. iCloud): events on the calendar; optionally a copy of Garmin
   workouts in a chosen calendar.
 - **Files**: FIT, GPX and TCX, by upload, by a drop folder or by import

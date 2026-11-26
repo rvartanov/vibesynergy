@@ -16,16 +16,21 @@ lets him adopt it, after which the normal plan delivery puts it on the watch.
   the core text.
 * **Proposal:** shown while the session's workout differs from the one built here, so a
   change in RunSynergy makes a new one. Nothing is written until he adopts it.
+* **Its day (#113):** each proposal says which day it is for (``when``: "do 20 nov, 19:30"),
+  whether that moment has passed (``past``) and which other sessions the plan already has
+  that day (``same_day``), so he can decide. It shows on Today, under Waiting for you, on
+  Planning, as a notice (``alerts``) and in the MCP plan view.
 """
 
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import Engine, select
 
+from vibesynergy.core.user_datetime import format_user_short_day
 from vibesynergy.query import coaching, workout_model
 from vibesynergy.store.schema import plan_session, planned_item
 
@@ -231,10 +236,13 @@ def trainings(engine: Engine, start: date, end: date) -> list[dict[str, Any]]:
 
 
 RUN_SPORTS = {"run", "running", "trailrun", "trail_running"}
+# Waiting for you and Planning keep a proposal this many days after its day, marked as past.
+PAST_DAYS = 2
+AHEAD_DAYS = 14
 
 
-def _sessions(engine: Engine, start: date, end: date) -> list[dict[str, Any]]:
-    """Planned coached run sessions of the current plan in the window."""
+def _planned(engine: Engine, start: date, end: date) -> list[dict[str, Any]]:
+    """Every planned session of the current plan in the window."""
     from vibesynergy.query import plan_model
 
     plan_id = plan_model.current_plan_id(engine)
@@ -248,12 +256,30 @@ def _sessions(engine: Engine, start: date, end: date) -> list[dict[str, Any]]:
                 plan_session.c.status == "planned",
             )
         ).mappings()
-        return [
-            dict(r)
-            for r in rows
-            if (r["sport"] or "").casefold() in RUN_SPORTS
-            and coaching.is_coached_title(r["name"], "running")
-        ]
+        return [dict(r) for r in rows]
+
+
+def _coached(session: dict[str, Any]) -> bool:
+    """A coached run session ("Training geven"): the one a group training can fill."""
+    return (session["sport"] or "").casefold() in RUN_SPORTS and coaching.is_coached_title(
+        session["name"], "running"
+    )
+
+
+def is_past(day: date, start: str | None, now: datetime | None) -> bool:
+    """Has the training's moment passed? The day before today; today once its start time
+    (local ``HH:MM``) is reached. Unknown without ``now``."""
+    if now is None:
+        return False
+    if day != now.date():
+        return day < now.date()
+    return bool(start) and str(start) <= now.strftime("%H:%M")
+
+
+def when(proposal: dict[str, Any], language: str = "en") -> str:
+    """The day it is for, with the start time when there is one: "do 20 nov, 19:30"."""
+    day = format_user_short_day(date.fromisoformat(proposal["date"]), language)
+    return f"{day}, {proposal['start']}" if proposal.get("start") else day
 
 
 def _current_text(session: dict[str, Any]) -> str:
@@ -267,19 +293,24 @@ def _current_text(session: dict[str, Any]) -> str:
     )
 
 
-def proposals(engine: Engine, start: date, end: date) -> dict[str, dict[str, Any]]:
+def proposals(
+    engine: Engine, start: date, end: date, *, now: datetime | None = None
+) -> dict[str, dict[str, Any]]:
     """Per plan session id: the RunSynergy training it matches and the workout built from it.
 
     ``state`` is ``proposed`` (the session differs), ``adopted`` (it already is this
-    workout) or ``cancelled`` (RunSynergy cancelled the training)."""
+    workout) or ``cancelled`` (RunSynergy cancelled the training). ``past`` says whether
+    its moment has passed by ``now`` (local, naive); ``same_day`` lists the plan's other
+    planned sessions that day (#113)."""
     found = trainings(engine, start, end)
     if not found:
         return {}
     by_day: dict[date, list[dict[str, Any]]] = {}
     for item in found:
         by_day.setdefault(item["date"], []).append(item)
+    planned = _planned(engine, start, end)
     out: dict[str, dict[str, Any]] = {}
-    for session in _sessions(engine, start, end):
+    for session in (s for s in planned if _coached(s)):
         training = _pick(session["name"] or "", by_day.get(session["date"], []))
         if training is None:
             continue
@@ -306,8 +337,27 @@ def proposals(engine: Engine, start: date, end: date) -> dict[str, dict[str, Any
             "steps": steps,
             "current": current,
             "minutes": round(workout_model.total_seconds(steps) / 60),
+            "past": is_past(session["date"], extra.get("start"), now),
+            "same_day": [
+                {"session_id": other["id"], "name": other["name"], "sport": other["sport"]}
+                for other in planned
+                if other["date"] == session["date"] and other["id"] != session["id"]
+            ],
         }
     return out
+
+
+def waiting(engine: Engine, today: date, now: datetime | None = None) -> list[dict[str, Any]]:
+    """The proposals that wait for the athlete (not adopted), from ``PAST_DAYS`` back to
+    ``AHEAD_DAYS`` ahead, by date: Waiting for you and Planning."""
+    found = proposals(
+        engine, today - timedelta(days=PAST_DAYS), today + timedelta(days=AHEAD_DAYS), now=now
+    )
+    return [
+        {k: v for k, v in p.items() if k != "current"}
+        for p in sorted(found.values(), key=lambda p: (p["date"], p.get("start") or ""))
+        if p["state"] != "adopted"
+    ]
 
 
 def proposal_for(engine: Engine, session_id: str, around: date) -> dict[str, Any] | None:

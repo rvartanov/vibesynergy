@@ -5,6 +5,7 @@ import { get, post } from "../api.js";
 import { esc, longDate, number, userDateTime } from "../format.js";
 import { N, t } from "../i18n.js";
 import { linesHtml } from "../kb_diff.js";
+import { bindGroupTrainings, groupMarksHtml, groupWhen } from "../group_training.js";
 import { historyHtml } from "../release_news.js";
 import { fixKinds } from "../kb_lint.js";
 import { screenAlerts } from "../screen_alerts.js";
@@ -82,8 +83,20 @@ function disagreementText(item) {
   return t("Second opinion for {day}: {name} decides differently on a session than your AI coach.", { day, name });
 }
 
+// A RunSynergy group training to adopt as the workout of its session, with its day (#113).
+function groupHtml(item) {
+  const name = [item.club, item.title].filter(Boolean).join(": ") || t("Group training");
+  return `<li data-group-training="${esc(item.session_id)}"><span class="chip planned">RunSynergy</span>
+    <span>${esc(t("{name} on {when}: adopt the workout from the group schedule for your Training geven session ({minutes} min).", { name, when: groupWhen(item), minutes: item.minutes }))}</span>
+    ${groupMarksHtml(item)}
+    <p class="actions"><button class="btn primary" type="button" data-adopt-group="${esc(item.session_id)}">${esc(t("Adopt"))}</button>
+      <a href="${esc(item.link)}">${esc(t("Open your plan"))}</a>
+      <span class="sub" role="status" data-group-status></span></p></li>`;
+}
+
 function decisionHtml(item) {
   if (item.kind === "plan_proposal") return proposalHtml(item);
+  if (item.kind === "group_training") return groupHtml(item);
   if (item.kind === "kb_proposal") {
     const what = t(KB_KINDS[item.what] || item.what || "");
     // What changes, not the whole article (#137).
@@ -166,7 +179,8 @@ export async function render(view, { stale }) {
   if (stale()) return;
   const decisions = data.decisions || [];
   // A plan conflict has its own line with the confirmation (#110): not twice.
-  const notices = [...(data.notices || []), ...screenAlerts(alerts?.data).filter((a) => a.alertKind !== "plan_conflict")];
+  // A plan conflict and a group training have their own line here: not twice.
+  const notices = [...(data.notices || []), ...screenAlerts(alerts?.data).filter((a) => !["plan_conflict", "group_training"].includes(a.alertKind))];
   view.innerHTML = `<div class="page-head"><div><h1>${esc(t("Waiting for you"))}</h1>
       <p class="sub">${esc(t("Proposals only you can take or leave, then notices about what went wrong or needs attention. Each one opens where you handle it."))}</p></div></div>
     <section class="card" aria-labelledby="inbox-decisions"><h2 id="inbox-decisions">${esc(t("Your decision ({n})", { n: decisions.length }))}</h2>
@@ -193,6 +207,7 @@ export async function render(view, { stale }) {
   };
   view.querySelectorAll("[data-proposal-approve]").forEach((b) => decide(b, "approve"));
   view.querySelectorAll("[data-proposal-reject]").forEach((b) => decide(b, "reject"));
+  bindGroupTrainings(view);
   // The other app is stopped: the mirror puts the plan back again (#110).
   view.querySelectorAll("[data-conflict-resume]").forEach((button) => {
     button.addEventListener("click", async () => {
