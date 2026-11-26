@@ -112,7 +112,7 @@ def plan_import(
 
 @plan_app.command("create")
 def plan_create(
-    name: Annotated[str, typer.Argument(help="plan name, such as 'Lakeside 2027'")],
+    name: Annotated[str, typer.Argument(help="plan name, such as 'Spring race 2027'")],
     start: Annotated[str, typer.Option(help="first day (YYYY-MM-DD)")],
     end: Annotated[str, typer.Option(help="last day (YYYY-MM-DD)")],
     method: Annotated[str | None, typer.Option(help="training method, such as friel")] = None,

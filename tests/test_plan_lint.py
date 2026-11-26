@@ -57,7 +57,7 @@ def test_name_minutes(name: str, minutes: int | None) -> None:
 def _plan(runtime) -> None:
     plan_model.create_plan(
         runtime.engine,
-        name="Fry 27",
+        name="Tri 27",
         start=date(2026, 11, 2),
         end=date(2027, 7, 3),
         reason="r",

@@ -462,7 +462,7 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   private, so the workout page says when only you can see it on Strava. A multisport
   (#114, phase 7b) gets its text once on Garmin, on the multisport activity; every part on
   Strava gets the same public text under a short part line (*Deel 2/3: fietsen*) and the
-  workout's name with the part (*Frysman sim – zwemmen*), in the publication language. A text
+  workout's name with the part (*Example sim – zwemmen*), in the publication language. A text
   changed on one part becomes the workout's text and reaches Garmin and the other parts; a
   name changed on one part stays on that part only. Each part keeps its own gear. Zwift's
   copies (on Strava, on Garmin and the watch's) are one workout: the texts go to one Strava

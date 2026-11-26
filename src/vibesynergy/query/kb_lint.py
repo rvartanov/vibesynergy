@@ -7,7 +7,7 @@ a warning. A warning only: the athlete decides about the text, through a proposa
 - ``retired_names``: names that are gone (the old app name, the plan-source command, old
   article slugs). VibeSynergy is the app and the only plan source (#111).
 - ``rule_ranges`` and ``unknown_rules``: a reference such as ``ICU-1..4`` while ICU-6 is in
-  use, or ``FRY-9`` that does not exist.
+  use, or ``TRI-9`` that does not exist.
 - ``unknown_tools``: a ``vibesynergy_*`` tool the MCP server does not register, or a tool of
   another app (``SendUserMessage``).
 - ``fixed_thresholds``: a threshold written down as a number (265 W, LTHR 162, 5:10/km).
@@ -70,7 +70,7 @@ def retired_names(text: str, retired: Iterable[Retired]) -> list[tuple[str, str]
 # --- rule references -----------------------------------------------------------------------
 
 _RULE_ID = re.compile(r"^([A-Z][A-Z0-9]*)-(\d+)$")
-# FRY-1..8, ICU-1 to 6 (also with a dash), HRV-1 t/m 5, or one rule (FRY-9).
+# TRI-1..8, ICU-1 to 6 (also with a dash), HRV-1 t/m 5, or one rule (TRI-9).
 # Not ``HRV-*`` (a whole family).
 _RULE_REF = re.compile(
     r"(?<![A-Za-z0-9_-])([A-Z][A-Z0-9]{1,9})-(\d{1,3})"
@@ -117,7 +117,7 @@ def rule_ranges(text: str, families: Mapping[str, set[int]]) -> list[tuple[str, 
 
 
 def unknown_rules(text: str, families: Mapping[str, set[int]]) -> list[str]:
-    """Single rule ids of a family in use whose number is not in use (``FRY-9``)."""
+    """Single rule ids of a family in use whose number is not in use (``TRI-9``)."""
     out: list[str] = []
     for match in _RULE_REF.finditer(text):
         prefix, number, end = match.group(1), int(match.group(2)), match.group(3)

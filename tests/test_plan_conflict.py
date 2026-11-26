@@ -30,7 +30,7 @@ from vibesynergy.store.schema import dataset_state, icu_event, mirror_putback
 
 HEADERS = {"x-vibesynergy": "portal"}
 START = datetime(2026, 11, 18, 19, 46, tzinfo=UTC)
-SESSION = "lake27:2026-11-17:run-test"
+SESSION = "race27:2026-11-17:run-test"
 NL = i18n.Translator("nl")
 
 
@@ -63,7 +63,7 @@ def leading(runtime, monkeypatch):
     from vibesynergy.query import icu_plan
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     writes: list[str] = []
 
     def put_back(engine, client, **k):

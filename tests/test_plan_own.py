@@ -184,11 +184,11 @@ def test_a_session_with_a_copy_carries_the_intervals_event_id(runtime) -> None:
     # Before the one-time import intervals.icu's events are no plan at all (#111).
     before = plan.plan(runtime.engine, Window(day, day), day)
     assert _sessions(before) == [] and before["plan_source"] == "garmin"
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     after = plan.plan(runtime.engine, Window(day, day), day)
     (new,) = _sessions(after)
     assert (new["source"], after["plan_source"]) == ("vibesynergy", "vibesynergy")
-    assert new["session_id"] == "lake27:2026-11-17:run-test"
+    assert new["session_id"] == "race27:2026-11-17:run-test"
     assert new["extra"]["icu_id"] == "3"
     assert (new["title"], new["sport"]) == ("Looptest 30'", "running")
     assert new["extra"]["duration_s"] == 2520
@@ -288,10 +288,10 @@ def test_a_plan_change_dates_from_the_session_not_from_the_intervals_copy(runtim
     from vibesynergy.store.schema import plan_version
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     moved = plan_model.move_session(
         runtime.engine,
-        session_id="lake27:2026-11-17:run-test",
+        session_id="race27:2026-11-17:run-test",
         day=date(2026, 11, 18),
         reason="druk",
         author="Claude",

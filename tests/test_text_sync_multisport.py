@@ -180,7 +180,7 @@ def brick(runtime, monkeypatch):
     """A Garmin multisport (10) with its parts on Strava as activities of their own: swim (21),
     ride (22) and run (23)."""
     holder = replace(
-        garmin_activity(sport="multi_sport", name="Frysman sim", fit_id=None),
+        garmin_activity(sport="multi_sport", name="Example sim", fit_id=None),
         source_id="10", elapsed_s=3 * 3600, moving_s=3 * 3600,
     )  # fmt: skip
     put(runtime, "garmin", holder)
@@ -202,7 +202,7 @@ def brick(runtime, monkeypatch):
         ],
     )
     block = publication_format.wrap_owned("-Garmin stats: x", {})
-    garmin = Fake("garmin", "10", "Frysman sim", block)
+    garmin = Fake("garmin", "10", "Example sim", block)
     parts = [Fake("strava", sid, name, "") for sid, _, _, name in legs]
     _providers(monkeypatch, Router(*parts), Router(garmin))
     _settings(runtime)
@@ -227,12 +227,12 @@ def test_every_strava_part_gets_the_text_and_the_name_with_its_part(runtime, bri
     garmin, (swim, ride, run), block = brick
     summary = text_sync.run(runtime, now=_later(6))
     assert summary["checked"] == 4 and summary["review"] == summary["failed"] == 0
-    assert swim.name == "Frysman sim \u2013 zwemmen" and swim.text == (
+    assert swim.name == "Example sim \u2013 zwemmen" and swim.text == (
         "Deel 1/3: zwemmen\n\nMooie generale."
     )
-    assert ride.name == "Frysman sim \u2013 fietsen"
+    assert ride.name == "Example sim \u2013 fietsen"
     assert ride.text == "Deel 2/3: fietsen\n\nMooie generale."
-    assert run.name == "Frysman sim \u2013 lopen"
+    assert run.name == "Example sim \u2013 lopen"
     assert run.text == "Deel 3/3: lopen\n\nMooie generale."
     # Garmin gets the text once, on the multisport activity, above VibeSynergy's block.
     assert garmin.text == f"Mooie generale.\n\n{block}" and garmin.titles == []
@@ -247,7 +247,7 @@ def test_the_part_words_follow_the_publication_language(runtime, brick):
     _garmin, (swim, ride, _run), _ = brick
     _settings(runtime, language="en")
     text_sync.run(runtime, now=_later(6))
-    assert swim.name == "Frysman sim \u2013 swimming"
+    assert swim.name == "Example sim \u2013 swimming"
     assert ride.text == "Part 2/3: cycling\n\nMooie generale."
 
 
@@ -260,10 +260,10 @@ def test_a_name_changed_on_one_part_locks_that_part_only(runtime, brick):
     assert workout_texts.texts(runtime.engine, run_group)["name"]["lock"]["source"] == "strava"
     assert workout_texts.texts(runtime.engine, "garmin:10")["name"]["lock"] is None
     # The workout is renamed: the other parts and Garmin follow, the locked part keeps its name.
-    workout_texts.set_texts(runtime.engine, "garmin:10", name="Frysman")
+    workout_texts.set_texts(runtime.engine, "garmin:10", name="Example")
     text_sync.run(runtime, now=_later(4 * 60))
-    assert garmin.name == "Frysman"
-    assert swim.name == "Frysman \u2013 zwemmen" and ride.name == "Frysman \u2013 fietsen"
+    assert garmin.name == "Example"
+    assert swim.name == "Example \u2013 zwemmen" and ride.name == "Example \u2013 fietsen"
     assert run.name == "Laatste loopje"
     assert workout_texts.texts(runtime.engine, _group(runtime, "strava:21"))["name"]["lock"] is None
 

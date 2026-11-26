@@ -217,7 +217,7 @@ def test_the_plan_marks_the_other_swim_changed_end_to_end(runtime):
         end=date(2026, 12, 31),
         reason="test",
         author="test",
-        plan_id="fry27",
+        plan_id="tri27",
     )
     plan_model.set_session(
         runtime.engine,

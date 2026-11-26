@@ -20,7 +20,7 @@ EVENTS = [
         "start_date_local": "2026-11-16T00:00:00",
         "name": "Wk 3 · Base 1 · laadweek · ~8u",
         "description": "Tests: looptest 30'.",
-        "external_id": "lake27:week:03",
+        "external_id": "race27:week:03",
         "for_week": True,
         "updated": "2026-11-03T08:00:00Z",
     },
@@ -30,7 +30,7 @@ EVENTS = [
         "type": "Run",
         "start_date_local": "2026-11-16T00:00:00",
         "name": "Loop 4u30",
-        "external_id": "lake27:target:03:run",
+        "external_id": "race27:target:03:run",
         "for_week": True,
         "time_target": 16200,
         "updated": "2026-11-03T08:00:00Z",
@@ -42,7 +42,7 @@ EVENTS = [
         "start_date_local": "2026-11-17T00:00:00",
         "name": "Looptest 30'",
         "description": "Test.\n\nWarmup\n- 12m Z1-Z2 HR\n\nMain set\n- 30m Z4-Z5 HR",
-        "external_id": "lake27:2026-11-17:run-test",
+        "external_id": "race27:2026-11-17:run-test",
         "moving_time": 2520,
         "updated": "2026-11-03T08:55:00Z",
     },
@@ -68,7 +68,7 @@ def _put(runtime, events) -> None:
 
 def test_import_builds_weeks_targets_and_sessions_and_versions_only_on_change(runtime) -> None:
     _put(runtime, EVENTS)
-    first = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    first = plan_model.import_from_intervals(runtime.engine, prefix="race27")
     assert (first["weeks"], first["targets"], first["sessions"], first["version"]) == (1, 1, 1, 1)
     assert first["unparsed"] == {}
     held = plan_model.summary(runtime.engine)
@@ -77,7 +77,7 @@ def test_import_builds_weeks_targets_and_sessions_and_versions_only_on_change(ru
     changed = [dict(e) for e in EVENTS]
     changed[2]["description"] = changed[2]["description"].replace("30m", "35m")
     _put(runtime, changed)
-    again = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    again = plan_model.import_from_intervals(runtime.engine, prefix="race27")
     assert again["leading"] is True and again["version"] == 1  # intervals.icu changes nothing
     (session,) = plan_model.view(runtime.engine, date(2026, 11, 17), date(2026, 11, 17))["sessions"]
     assert "30m Z4-Z5 HR" in session["description"]
@@ -85,7 +85,7 @@ def test_import_builds_weeks_targets_and_sessions_and_versions_only_on_change(ru
 
 def test_dry_run_writes_nothing(runtime) -> None:
     _put(runtime, EVENTS)
-    out = plan_model.import_from_intervals(runtime.engine, prefix="lake27", dry_run=True)
+    out = plan_model.import_from_intervals(runtime.engine, prefix="race27", dry_run=True)
     assert out["changed"] is True and plan_model.summary(runtime.engine) is None
 
 
@@ -101,7 +101,7 @@ def test_other_workouts_in_the_plan_period_join_and_a_sync_never_imports(runtime
     }
     _put(runtime, [*EVENTS, group])
     assert plan_model.shadow_refresh(runtime.engine) is None  # no plan yet: nothing at all
-    out = plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    out = plan_model.import_from_intervals(runtime.engine, prefix="race27")
     assert out["sessions"] == 2 and out["version"] == 1
     # After a sync the plan is only copied to intervals.icu; a workout added there later
     # never joins it (#111).
@@ -120,7 +120,7 @@ def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
     from vibesynergy.query import icu_plan
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     assert plan_model.source(runtime.engine) == "vibesynergy"
     calls: list[tuple] = []
     monkeypatch.setattr(
@@ -143,7 +143,7 @@ def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
     # The coach changes the test in VibeSynergy and adds a session: one update, one create.
     plan_model.set_session(
         runtime.engine,
-        session_id="lake27:2026-11-17:run-test",
+        session_id="race27:2026-11-17:run-test",
         day=date(2026, 11, 17),
         name="Looptest 30'",
         sport="Run",
@@ -164,21 +164,21 @@ def test_vibesynergy_leads_mirror_writes_changes_one_way_and_puts_drift_back(
     )
     out = plan_model.mirror(runtime.engine, None)
     assert [c[0] for c in calls] == ["update", "create"]
-    assert "15m Z1-Z2 HR" in calls[0][2] and calls[1][1] == "lake27:2026-11-18:run"
+    assert "15m Z1-Z2 HR" in calls[0][2] and calls[1][1] == "race27:2026-11-18:run"
     assert out["errors"] == []
     # While VibeSynergy leads, an import from intervals.icu never overwrites the model.
-    assert plan_model.import_from_intervals(runtime.engine, prefix="lake27").get("leading") is True
+    assert plan_model.import_from_intervals(runtime.engine, prefix="race27").get("leading") is True
 
 
 def test_a_change_made_in_intervals_is_drift(runtime) -> None:
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     assert plan_model.drift(runtime.engine) == []
     edited = [dict(e) for e in EVENTS]
     edited[2]["description"] = edited[2]["description"].replace("30m", "25m")
     _put(runtime, edited)
     assert [d["session_id"] for d in plan_model.drift(runtime.engine)] == [
-        "lake27:2026-11-17:run-test"
+        "race27:2026-11-17:run-test"
     ]
 
 
@@ -187,10 +187,10 @@ def test_no_hardcoded_plan(runtime: Any) -> None:
     _put(runtime, EVENTS)
     assert plan_model.current_plan_id(runtime.engine) is None
     assert plan_model.leading_plan(runtime.engine) is None
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
-    assert plan_model.current_plan_id(runtime.engine) == "lake27"
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
+    assert plan_model.current_plan_id(runtime.engine) == "race27"
     held = plan_model.summary(runtime.engine)
-    assert held is not None and held["name"] == "lake27"
+    assert held is not None and held["name"] == "race27"
 
 
 def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monkeypatch) -> None:
@@ -198,7 +198,7 @@ def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monke
     from vibesynergy.query import icu_plan
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     calls: list[tuple] = []
     monkeypatch.setattr(
         icu_plan,
@@ -232,7 +232,7 @@ def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monke
         "2": {"time_target": 12_600},
     }
     created = [c[1] for c in calls if c[0] == "create"]
-    assert len(created) == 1 and created[0]["external_id"] == "lake27:target:03:swim"
+    assert len(created) == 1 and created[0]["external_id"] == "race27:target:03:swim"
     assert created[0]["category"] == "TARGET" and created[0]["sport"] == "Swim"
     assert created[0]["targets"] == {"time_target": 3_600} and created[0]["for_week"] is True
     # No values removes the target.
@@ -243,7 +243,7 @@ def test_week_note_and_target_change_with_the_sessions_and_mirror(runtime, monke
 def test_export_lists_week_notes_and_sessions_in_date_order(runtime) -> None:
     # the plan as a table, readable without VibeSynergy.
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     rows = plan_model.export_rows(runtime.engine)
     assert rows[0]["sport"] == ""  # the week note first, on its Monday
     assert rows[0]["date"] == "2026-11-16" and rows[0]["workout"] == "Tests: looptest 30'."
@@ -260,7 +260,7 @@ def test_portal_plan_export_is_a_csv_download(runtime) -> None:
     from vibesynergy.portal.app import create_portal_app
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     reply = client.get("/api/plan/export.csv")
     assert reply.status_code == 200 and reply.headers["content-type"].startswith("text/csv")
@@ -273,7 +273,7 @@ def test_move_and_skip_a_session_reach_intervals(runtime, monkeypatch) -> None:
     from vibesynergy.query import icu_plan
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     calls: list[tuple] = []
     monkeypatch.setattr(
         icu_plan,
@@ -292,7 +292,7 @@ def test_move_and_skip_a_session_reach_intervals(runtime, monkeypatch) -> None:
     sid = session["session_id"] if "session_id" in session else session["id"]
     with pytest.raises(ValueError, match="no session"):
         plan_model.move_session(
-            runtime.engine, session_id="lake27:nope", day=date(2026, 11, 18), reason="r", author="C"
+            runtime.engine, session_id="race27:nope", day=date(2026, 11, 18), reason="r", author="C"
         )
     plan_model.move_session(
         runtime.engine, session_id=sid, day=date(2026, 11, 18), reason="ziek", author="Claude"
@@ -317,7 +317,7 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
     from vibesynergy.mcp.server import build_server
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
 
     async def go(name, args):
         async with Client(build_server(runtime)) as client:
@@ -341,7 +341,7 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
         "vibesynergy.sources.intervals_icu.client.IntervalsIcuClient.from_env",
         staticmethod(lambda: None),
     )
-    assert plan_model.run_mirror(runtime.engine) == {"drift": []} and ran == ["lake27"]
+    assert plan_model.run_mirror(runtime.engine) == {"drift": []} and ran == ["race27"]
     # There is no switch back to intervals.icu (#111).
     assert not hasattr(plan_model, "set_source")
 
@@ -349,7 +349,7 @@ def test_a_coach_change_is_mirrored_soon_not_at_the_next_sync(runtime, monkeypat
 def test_view_has_the_weeks_with_note_and_targets(runtime) -> None:
     # the coach sees what it can change: sessions, week notes and weekly targets.
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     out = plan_model.view(runtime.engine, date(2026, 11, 18), date(2026, 11, 20))
     assert [w["week"] for w in out["weeks"]] == [3]
     assert out["weeks"][0]["note"] == "Tests: looptest 30'."
@@ -370,7 +370,7 @@ def test_portal_plan_export_as_excel_and_pdf(runtime) -> None:
     from vibesynergy.portal.app import create_portal_app
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     reply = client.get("/api/plan/export.xlsx?lang=nl")
     assert reply.status_code == 200 and "spreadsheetml" in reply.headers["content-type"]
@@ -431,21 +431,21 @@ def test_a_plan_starts_in_vibesynergy_without_intervals(runtime) -> None:
         plan_model.set_week(runtime.engine, week=1, note="x", reason="r", author="Claude")
     made = plan_model.create_plan(
         runtime.engine,
-        name="Lakeside 2027",
+        name="Spring race 2027",
         start=date(2026, 11, 4),  # a Wednesday: week 1 is the week it falls in
         end=date(2027, 6, 13),
         method="friel",
         reason="new season",
         author="athlete",
     )
-    assert made == {"plan_id": "lakeside-2027", "version": 1}
+    assert made == {"plan_id": "spring-race-2027", "version": 1}
     held = plan_model.summary(runtime.engine)
     assert held and (held["status"], held["method"], held["weeks"]) == ("leading", "friel", 0)
     assert plan_model.source(runtime.engine) == "vibesynergy"
     with pytest.raises(ValueError, match="already exists"):
         plan_model.create_plan(
             runtime.engine,
-            name="Lakeside 2027",
+            name="Spring race 2027",
             start=date(2026, 11, 4),
             end=date(2027, 6, 13),
             reason="again",

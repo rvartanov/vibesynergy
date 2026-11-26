@@ -37,8 +37,8 @@ def test_render_has_every_part_and_escapes() -> None:
 
 def test_portal_booklet_from_the_plan(runtime) -> None:
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     reply = api.get("/api/plan/booklet", params={"lang": "en"})
     assert reply.status_code == 200 and reply.headers["content-type"].startswith("text/html")
-    assert "Coach booklet: lake27" in reply.text and "Tests: looptest 30&#x27;." in reply.text
+    assert "Coach booklet: race27" in reply.text and "Tests: looptest 30&#x27;." in reply.text

@@ -40,7 +40,7 @@ EVENTS = [
         "WORKOUT",
         "Duurrit Z2 60'",
         type="Ride",
-        external_id="lake27:2026-10-31:ride",
+        external_id="race27:2026-10-31:ride",
         moving_time=3600,
     ),
     _event(
@@ -49,7 +49,7 @@ EVENTS = [
         "WORKOUT",
         "Duurloop Z2 60'",
         type="Run",
-        external_id="lake27:2026-11-01:run",
+        external_id="race27:2026-11-01:run",
         moving_time=3600,
     ),
     _event(
@@ -58,7 +58,7 @@ EVENTS = [
         "WORKOUT",
         "Lange rit Z2 1u45",
         type="Ride",
-        external_id="lake27:2026-11-02:ride",
+        external_id="race27:2026-11-02:ride",
         moving_time=6300,
     ),
     _event(
@@ -67,7 +67,7 @@ EVENTS = [
         "WORKOUT",
         "Brickloop Z2 10'",
         type="Run",
-        external_id="lake27:2026-11-02:brick-run",
+        external_id="race27:2026-11-02:brick-run",
         moving_time=600,
     ),
     _event(
@@ -75,7 +75,7 @@ EVENTS = [
         "2026-11-02",
         "NOTE",
         "Wk 1 · Instap",
-        external_id="lake27:week:01",
+        external_id="race27:week:01",
         for_week=True,
         description="Rustig instappen.",
     ),
@@ -85,7 +85,7 @@ EVENTS = [
         "TARGET",
         "Fiets 3u15",
         type="Ride",
-        external_id="lake27:target:01:ride",
+        external_id="race27:target:01:ride",
         for_week=True,
         time_target=11700,
     ),
@@ -95,7 +95,7 @@ EVENTS = [
         "TARGET",
         "Loop 2u45",
         type="Run",
-        external_id="lake27:target:01:run",
+        external_id="race27:target:01:run",
         for_week=True,
         time_target=9900,
     ),
@@ -148,7 +148,7 @@ def _seed(runtime) -> None:
                     "workout:brick",
                     MONDAY,
                     "workout",
-                    "Brick 2026-11-02 105+10 (lake27)",
+                    "Brick 2026-11-02 105+10 (race27)",
                     sport="multi_sport",
                 ),
                 # VibeSynergy's own brick: "ride + run", no plan tag in the name.
@@ -196,8 +196,8 @@ def _sessions(out: dict) -> list[dict]:
     return [i for i in out["items"] if i["kind"] in plan.TRAINING_KINDS]
 
 
-RIDE_SAT, RUN_SUN = "lake27:2026-10-31:ride", "lake27:2026-11-01:run"
-RIDE_MON, BRICK_MON = "lake27:2026-11-02:ride", "lake27:2026-11-02:brick-run"
+RIDE_SAT, RUN_SUN = "race27:2026-10-31:ride", "race27:2026-11-01:run"
+RIDE_MON, BRICK_MON = "race27:2026-11-02:ride", "race27:2026-11-02:brick-run"
 
 
 def test_pushed_copy_is_one_plan_item_and_foreign_is_not_shown(runtime) -> None:

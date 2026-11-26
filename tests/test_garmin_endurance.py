@@ -174,7 +174,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
                 "id": 1,
                 "type": "Ride",
                 "name": "Lange rit Z2 1u45",
-                "external_id": "lake27:2026-11-07:ride",
+                "external_id": "race27:2026-11-07:ride",
                 "description": "Gelijkmatig.\n\nWarmup\n- 15m 50-65%\n\nMain set\n- 80m 62-72%",
             },
             {**base, "id": 2, "type": "Ride", "name": "Koffierit", "description": "- 30m 55%"},
@@ -183,7 +183,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
                 "id": 3,
                 "type": "Run",
                 "name": "Brickloop Z2 20'",
-                "external_id": "lake27:2026-11-07:brick-run",
+                "external_id": "race27:2026-11-07:brick-run",
                 "description": "- 20m Z2 HR",
             },
         ],
@@ -241,11 +241,11 @@ def test_a_triathlon_linked_by_slot_becomes_one_multisport_workout(runtime) -> N
         runtime,
         [
             {**base, "id": 13, "type": "Run", "name": "Loop 20'",
-             "external_id": "fry27:2026-11-08:ms3-run", "description": "- 20m Z2 HR"},
+             "external_id": "tri27:2026-11-08:ms3-run", "description": "- 20m Z2 HR"},
             {**base, "id": 11, "type": "Swim", "name": "Zwem 1500",
-             "external_id": "fry27:2026-11-08:ms1-swim", "description": "- 1500mtr Z2 Pace"},
+             "external_id": "tri27:2026-11-08:ms1-swim", "description": "- 1500mtr Z2 Pace"},
             {**base, "id": 12, "type": "Ride", "name": "Fiets 1u",
-             "external_id": "fry27:2026-11-08:ms2-ride", "description": "- 60m 70%"},
+             "external_id": "tri27:2026-11-08:ms2-ride", "description": "- 60m 70%"},
             {**base, "id": 14, "type": "Ride", "name": "Koffierit", "description": "- 30m 55%"},
         ],
     )  # fmt: skip
@@ -273,11 +273,11 @@ def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
         runtime,
         [
             {**base, "id": 21, "type": "Run", "name": "Run 1",
-             "external_id": "fry27:2026-11-09:ms1-run", "description": "- 10m Z3 HR"},
+             "external_id": "tri27:2026-11-09:ms1-run", "description": "- 10m Z3 HR"},
             {**base, "id": 22, "type": "Ride", "name": "Ride",
-             "external_id": "fry27:2026-11-09:ms2-ride", "description": "- 40m 75%"},
+             "external_id": "tri27:2026-11-09:ms2-ride", "description": "- 40m 75%"},
             {**base, "id": 23, "type": "Run", "name": "Run 2",
-             "external_id": "fry27:2026-11-09:ms3-run", "description": "- 5m Z3 HR"},
+             "external_id": "tri27:2026-11-09:ms3-run", "description": "- 5m Z3 HR"},
         ],
     )  # fmt: skip
     found = ge.desired(runtime.engine, TODAY, ("ride", "run"), 21)
@@ -289,20 +289,20 @@ def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
 def test_a_long_multisport_name_fits_garmins_80_characters(runtime) -> None:
     """#76: the shared prefix once, the mark included, every part still there."""
     base = {"category": "WORKOUT", "start_date_local": "2026-11-10T00:00:00"}
-    sim = "Frysman-simulatie: "
+    sim = "Example-simulatie: "
     _events(
         runtime,
         [
             {**base, "id": 31, "type": "Swim", "name": sim + "zwemmen openwater 1900 m",
-             "external_id": "fry27:2026-11-10:ms1-swim", "description": "- 1900mtr Z2 Pace"},
+             "external_id": "tri27:2026-11-10:ms1-swim", "description": "- 1900mtr Z2 Pace"},
             {**base, "id": 32, "type": "Ride", "name": sim + "fietsen 2u30 op racetempo",
-             "external_id": "fry27:2026-11-10:ms2-ride", "description": "- 150m 75%"},
+             "external_id": "tri27:2026-11-10:ms2-ride", "description": "- 150m 75%"},
             {**base, "id": 33, "type": "Run", "name": sim + "lopen 45' na de rit",
-             "external_id": "fry27:2026-11-10:ms3-run", "description": "- 45m Z3 HR"},
+             "external_id": "tri27:2026-11-10:ms3-run", "description": "- 45m Z3 HR"},
         ],
     )  # fmt: skip
     found = ge.desired(runtime.engine, TODAY, ("swim", "ride", "run"), 21)
     name = found["brick:31+32+33"]["name"]
-    assert len(name) <= 80 and name.startswith("⚡ Frysman-simulatie: zwemmen")
-    assert name.count(" + ") == 2 and name.count("Frysman") == 1
+    assert len(name) <= 80 and name.startswith("⚡ Example-simulatie: zwemmen")
+    assert name.count(" + ") == 2 and name.count("Example") == 1
     assert found["brick:31+32+33"]["workout"]["workoutName"] == name

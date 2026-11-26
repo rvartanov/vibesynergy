@@ -984,14 +984,14 @@ Planned vs completed training.
   - a Garmin scheduled workout that is a copy of a plan session is not a second item. It
     is listed on the session as `garmin_copies` (`source_id`, `title`, `sport`, `match`:
     `name` for the same day, sport family and name, `brick` for a part of a brick title,
-    `plan_tag` for a title carrying the plan's id such as `(lake27)` on a day with plan
+    `plan_tag` for a title carrying the plan's id such as `(race27)` on a day with plan
     sessions, and its calendar `mirrors`). Garmin has no id that links the two;
   - any other Garmin workout (Garmin Coach's "Basis", "Drempel", one added by hand in
     Garmin) is not VibeSynergy's and is not shown (#153): it is in no list of this tool or
     of `vibesynergy_today`, `vibesynergy_week`, the horizon guard or the AI coach's context,
     and never counted. Its synced row stays in the database;
   - `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
-    are the plan's keys such as `lake27:week:03`; a target has no `title`).
+    are the plan's keys such as `race27:week:03`; a target has no `title`).
   Days before `plan_start`, and an install without a plan, keep the Garmin calendar as the
   plan, with `plan_source` `garmin` on each training item.
 - `adherence` also has `changed` and `missed`. `planned` and `done` are unchanged in

@@ -35,7 +35,7 @@ The short "What changed" the portal shows after an update is in
 
 - **Multisport and Zwift in published workouts** (#114): every Strava part of a brick or
   triathlon now gets the workout's public text under a short part line ("Deel 2/3: fietsen")
-  and the workout's name with the part ("Frysman sim – zwemmen"); Garmin gets the text once,
+  and the workout's name with the part ("Example sim – zwemmen"); Garmin gets the text once,
   on the multisport activity. A text you change on one part reaches Garmin and the other
   parts; a name you change on one part stays on that part. With Zwift's copies and the
   watch's, the texts go to one Strava and one Garmin copy, and a new Garmin copy no longer
@@ -455,7 +455,7 @@ The first version with a number also brings everything since 0.0.1a1:
   transitions and the swim as open water, and show as one entry on the calendar and Today.
   Bricks planned the old way keep working. (#74)
 - **Multisport names fit on Garmin**: a prefix the parts share is said once
-  (`Frysman-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'`), and a name
+  (`Example-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'`), and a name
   still longer than Garmin's 80 characters shortens its longest parts, so every part shows.
   (#76)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
@@ -721,7 +721,7 @@ The first version with a number also brings everything since 0.0.1a1:
   within the two days of the automatic publication is picked up by itself.
 - **No more empty "Plan change" messages from copies to intervals.icu** (#141): after every
   sync VibeSynergy copies your plan to intervals.icu, and each copy showed on the Coach page
-  as a "Plan change" that only read "plan mirror: fry27:week:23", up to 17 an hour while
+  as a "Plan change" that only read "plan mirror: tri27:week:23", up to 17 an hour while
   another app kept overwriting intervals.icu. A copy is not a change to your plan: it is now
   kept in the audit log only, and the 362 old copy messages are no longer shown on the Coach
   page, in search or to the AI coach (they stay in the log, unchanged). Settings → Connections →

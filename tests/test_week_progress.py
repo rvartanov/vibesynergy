@@ -34,7 +34,7 @@ def _more(runtime) -> None:
             "start_date_local": "2026-11-04T00:00:00",
             "name": "Groepstraining geven, zelf Z1 60'",
             "type": "Run",
-            "external_id": "lake27:2026-11-04:run",
+            "external_id": "race27:2026-11-04:run",
             "moving_time": 3600,
             "updated": "2026-10-30T20:08:13.000Z",
         },
@@ -121,7 +121,7 @@ def test_per_sport_target_done_and_still_planned(runtime) -> None:
     assert out["start"] == "2026-11-02" and out["end"] == "2026-11-08"
     assert out["days_left"] == 4
     # The season is VibeSynergy's plan, not intervals.icu's SEASON_START (#111).
-    assert out["season"]["name"] == "lake27"
+    assert out["season"]["name"] == "race27"
     assert out["note"]["title"] == "Wk 1 · Instap"
     assert out["note"]["focus"] == "Rustig instappen."
     sports = {s["family"]: s for s in out["sports"]}

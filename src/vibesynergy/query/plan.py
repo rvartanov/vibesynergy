@@ -7,7 +7,7 @@ intervals.icu holds a one-way copy and is never read as the plan. Its events (wo
 notes, targets, races) are not planned sessions, and a change made there changes nothing
 here. From the first plan workout on, a Garmin scheduled workout that is a copy of a plan
 workout (same day, sport family and name, or a title carrying the plan's tag such as
-``(lake27)``) is folded into that workout as ``garmin_copies``. Any other Garmin workout
+``(race27)``) is folded into that workout as ``garmin_copies``. Any other Garmin workout
 from that day on (Garmin Coach's "Basis", "Drempel", one added by hand in Garmin) is not
 VibeSynergy's and is not shown (#153): it is in no list of this result, not counted, and
 not passed on to the pages or the AI coach. Its synced row stays in the database. Earlier
@@ -589,7 +589,7 @@ def _model_item(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _plan_tags(rows: list[dict[str, Any]]) -> list[re.Pattern]:
-    """External-id prefixes such as ``lake27`` (from ``lake27:2026-11-07:ride``)."""
+    """External-id prefixes such as ``race27`` (from ``race27:2026-11-07:ride``)."""
     heads = set()
     for row in rows:
         head, sep, _rest = (row.get("external_id") or "").partition(":")

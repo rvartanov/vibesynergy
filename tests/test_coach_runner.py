@@ -1158,8 +1158,8 @@ def test_test_evaluation_after_a_planned_test_is_done(rt, monkeypatch):
 
     enable(rt)
     sessions = [
-        {"session_id": "lake27:2026-11-01:run-test", "name": "Looptest 30'", "sport": "Run"},
-        {"session_id": "lake27:2026-11-01:swim", "name": "Techniek zwemmen", "sport": "Swim"},
+        {"session_id": "race27:2026-11-01:run-test", "name": "Looptest 30'", "sport": "Run"},
+        {"session_id": "race27:2026-11-01:swim", "name": "Techniek zwemmen", "sport": "Swim"},
     ]
     monkeypatch.setattr(plan_model, "view", lambda engine, start, end: {"sessions": sessions})
     cfg = runner_settings.load(rt)
@@ -1181,10 +1181,10 @@ def test_test_evaluation_after_a_planned_test_is_done(rt, monkeypatch):
                 kind="training",
             )
         )
-    assert schedule.tests_done(rt, cfg, DAY) == [("lake27:2026-11-01:run-test", ["garmin:1"])]
+    assert schedule.tests_done(rt, cfg, DAY) == [("race27:2026-11-01:run-test", ["garmin:1"])]
     (item,) = [r for r in schedule.due_runs(rt, local(12, 0)) if r["job"] == "test"]
     assert item["payload"]["activity_ids"] == ["garmin:1"]
-    assert "Geplande sessie: lake27:2026-11-01:run-test" in runner.start_message(
+    assert "Geplande sessie: race27:2026-11-01:run-test" in runner.start_message(
         rt, "test", DAY, payload=item["payload"]
     )
     runner_settings.save(rt, {"tasks": {"test": {"on": False}}})

@@ -272,13 +272,13 @@ def test_init_demo_and_database_backups(env, tmp_path) -> None:
 
 def test_plan_create_starts_a_plan_that_vibesynergy_leads(env) -> None:
     run("init")
-    out = run("plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13")
-    assert '"plan_id": "lakeside-2027"' in out
+    out = run("plan", "create", "Spring race 2027", "--start", "2026-11-02", "--end", "2027-06-13")
+    assert '"plan_id": "spring-race-2027"' in out
     # There is no plan source switch any more: VibeSynergy is the only source (#111).
     gone = runner.invoke(app, ["plan", "source"])
     assert gone.exit_code != 0
     assert '"added": []' in run("plan", "import-races", "--dry-run")
     again = runner.invoke(
-        app, ["plan", "create", "Lakeside 2027", "--start", "2026-11-02", "--end", "2027-06-13"]
+        app, ["plan", "create", "Spring race 2027", "--start", "2026-11-02", "--end", "2027-06-13"]
     )
     assert again.exit_code != 0 and "already exists" in again.output

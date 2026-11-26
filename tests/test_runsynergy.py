@@ -114,7 +114,7 @@ def _put(runtime, ics: str, today: date = date(2026, 11, 16)) -> None:
 def _plan_with_coached_session(runtime, name="Training geven Loopgroep Stad 1u15"):
     plan_model.create_plan(
         runtime.engine,
-        name="Fry 27",
+        name="Tri 27",
         start=date(2026, 11, 2),
         end=date(2027, 7, 3),
         reason="r",

@@ -102,10 +102,10 @@ def _change_intervals(runtime) -> None:
         added = [
             # Garmin Coach style workouts added in intervals.icu, with and without the plan's tag.
             {"id": "90", "name": "Basis 45'", "external_id": None, "date": MONDAY},
-            {"id": "91", "name": "Drempel", "external_id": "lake27:2026-11-03:run"},
+            {"id": "91", "name": "Drempel", "external_id": "race27:2026-11-03:run"},
             {"id": "92", "category": "RACE_A", "name": "Other race", "date": date(2026, 12, 6)},
             {"id": "93", "category": "SEASON_START", "name": "Other season"},
-            {"id": "94", "category": "NOTE", "name": "Wk 2", "external_id": "lake27:week:02"},
+            {"id": "94", "category": "NOTE", "name": "Wk 2", "external_id": "race27:week:02"},
         ]
         for row in added:
             conn.execute(

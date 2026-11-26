@@ -65,26 +65,26 @@ def _slots(text: str, *, thresholds: bool = False) -> list[kb_fix.Slot]:
     return kb_fix.slots(
         text,
         slug_aliases=knowledge.SLUG_ALIASES,
-        families={"ICU": set(range(1, 7)), "FRY": set(range(1, 9))},
+        families={"ICU": set(range(1, 7)), "TRI": set(range(1, 9))},
         tools=tool_names(),
         thresholds=thresholds,
     )
 
 
 def test_only_the_lint_substitution_is_explained() -> None:
-    old = "Regels ICU-1..4 en FRY-1 t/m 5. Zie claude-coach-loop."
+    old = "Regels ICU-1..4 en TRI-1 t/m 5. Zie claude-coach-loop."
     found = _slots(old)
     assert [(s.check, s.found) for s in found] == [
         ("rule_range", "ICU-1..4"),
-        ("rule_range", "FRY-1..5"),
+        ("rule_range", "TRI-1..5"),
         ("retired_name", "claude-coach-loop"),
     ]
     fixed, fixes = kb_fix.autofix(old, found)
-    assert fixed == "Regels ICU-1..6 en FRY-1 t/m 8. Zie ai-coach-loop."
-    assert [f.fixed for f in fixes] == ["ICU-1..6", "FRY-1 t/m 8", "ai-coach-loop"]
+    assert fixed == "Regels ICU-1..6 en TRI-1 t/m 8. Zie ai-coach-loop."
+    assert [f.fixed for f in fixes] == ["ICU-1..6", "TRI-1 t/m 8", "ai-coach-loop"]
     assert kb_fix.explain(old, fixed, found) == fixes
     # Fixing only one of them is fine, and so is the canonical form of a range.
-    assert len(kb_fix.explain(old, old.replace("FRY-1 t/m 5", "FRY-1..8"), found) or []) == 1
+    assert len(kb_fix.explain(old, old.replace("TRI-1 t/m 5", "TRI-1..8"), found) or []) == 1
     # One other word anywhere, and it is a content change.
     assert kb_fix.explain(old, fixed.replace("Zie", "Lees"), found) is None
     assert kb_fix.explain(old, fixed.replace("ICU-1..6", "ICU-1..5"), found) is None
@@ -94,7 +94,7 @@ def test_only_the_lint_substitution_is_explained() -> None:
 def test_no_mechanical_fix_for_what_needs_a_decision() -> None:
     text = (
         "Gebruik `vitality plan source intervals`. Sherpa is weg. Stuur met SendUserMessage. "
-        "Zie FRY-9 en ICU-2..7."
+        "Zie TRI-9 en ICU-2..7."
     )
     assert _slots(text) == []
     # The old app name and its tools have one replacement.

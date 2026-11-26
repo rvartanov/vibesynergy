@@ -177,15 +177,15 @@ def test_calendar_moves_and_skips_a_session_once_vibesynergy_leads(runtime) -> N
     from vibesynergy.query import plan_model
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
     span = {"start": "2026-11-16", "end": "2026-11-22"}
-    body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
+    body = {"session_id": "race27:2026-11-17:run-test", "date": "2026-11-19"}
     # The import is a one-time copy: VibeSynergy leads at once (#111).
     data = api.get("/api/schedule", params=span).json()["data"]
     planned = [p for d in data["days"] for p in d["planned"]]
-    assert data["editable"] is True and planned[0]["session_id"] == "lake27:2026-11-17:run-test"
+    assert data["editable"] is True and planned[0]["session_id"] == "race27:2026-11-17:run-test"
     moved = api.post("/api/plan/session/move", json=body, headers=write)
     assert moved.status_code == 200 and moved.json()["data"]["date"] == "2026-11-19"
     assert runtime.jobs.recent()[0]["kind"] == plan_model.MIRROR_JOB
@@ -271,7 +271,7 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
 def test_changing_a_session_without_a_plan_says_there_is_no_plan(runtime) -> None:
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
-    body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
+    body = {"session_id": "race27:2026-11-17:run-test", "date": "2026-11-19"}
     for path in ("/api/plan/session/move", "/api/plan/session/skip"):
         refused = api.post(path, json=body, headers=write)
         assert refused.status_code == 400 and "There is no plan yet." in refused.text

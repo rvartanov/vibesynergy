@@ -69,7 +69,7 @@ def test_the_old_mirror_rows_stay_in_the_log_but_are_not_shown(runtime) -> None:
     at = datetime(2026, 11, 19, 17, 16, tzinfo=UTC)
     rows = [
         # The mirror before #141, in both of its texts, and a check that has no text.
-        ("VibeSynergy", "plan mirror: fry27:week:23", {"action": "icu.update"}),
+        ("VibeSynergy", "plan mirror: tri27:week:23", {"action": "icu.update"}),
         ("VibeSynergy", "plan mirror (#197): Lange rit Z2 1u45", {"action": "icu.create"}),
         ("VibeSynergy", "plan mirror: Lange rit", {}),
         ("Claude", "   ", {"action": "icu.update"}),
