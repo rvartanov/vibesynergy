@@ -309,13 +309,21 @@ recognised stays in the raw archive; after a fix, `vibesynergy normalise strava_
 | Provider | Endpoint | What happens |
 |---|---|---|
 | Withings | `/vibesynergy/withings/notify/<random token>` | The notified category (weight, BP, activity, sleep, ECG) and dates are re-synced immediately. |
-| Strava | `/vibesynergy/strava/webhook` | Activity created: the activity and its streams are fetched. Updated: the activity is fetched again. Deleted: the activity is removed from the canonical tables, and its raw history is kept. |
+| Strava | `/vibesynergy/strava/webhook/<random token>` | Activity created: the activity and its streams are fetched. Updated: the activity is fetched again. Deleted: the activity is removed from the canonical tables, and its raw history is kept. |
 
 Handlers only queue a job (priority above scheduled syncs) and reply at once. Strava
 activity fetches run on their own worker lane, so a sync that has already started does
 not hold a new upload. Every
-notification is written to `audit_log`. Withings does not sign notifications, so the URL
-carries a random token. Strava events must match the stored subscription id and athlete.
+notification is written to `audit_log`. Withings and Strava do not sign notifications, so each URL
+carries a random token; a wrong token gets a 404. Strava events must also match the stored
+subscription id and athlete, `object_id` must be a number, and a fetched activity of
+another athlete is dropped.
+
+**Strava subscribed before the token (one-time step).** An install that subscribed before
+the token existed still receives events on the old `/vibesynergy/strava/webhook`, but only
+until it subscribes again. Run `vibesynergy webhooks subscribe strava` once (with
+`vibesynergy serve` running and reachable): it deletes the old subscription (Strava allows
+one per app), creates one with the tokenised URL and closes the old path.
 Scheduled syncs (`[schedule]`) remain the safety net if a notification is missed.
 
 ## Combining sources (dedup and best source)

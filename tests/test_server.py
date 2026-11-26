@@ -23,6 +23,7 @@ from vibesynergy.store.schema import activity, audit_log, body_measurement
 from vibesynergy.sync.scheduler import Scheduler
 
 PUBLIC = "https://server.example.ts.net"
+HOOK = "/vibesynergy/strava/webhook/stok"
 
 
 @pytest.fixture
@@ -47,7 +48,7 @@ def service(runtime):
     sstore.set(oauth.APP, {"client_id": "12345", "client_secret": "ss"})
     oauth.save_tokens(sstore, {"access_token": "a", "refresh_token": "r", "expires_in": 3600})
     sstore.set("athlete", {"id": 77})
-    sstore.set(WEBHOOK, {"verify_token": "vt", "subscription_id": 5})
+    sstore.set(WEBHOOK, {"verify_token": "vt", "token": "stok", "subscription_id": 5})
     strava._client = StravaClient(sstore, http=sfake, sleep=lambda s: None)
 
     yield rt, TestClient(create_app(rt)), wfake, sfake
@@ -110,16 +111,85 @@ def test_withings_notification_for_a_dataset_that_is_off(service) -> None:
 
 def test_strava_validation(service) -> None:
     _, client, _, _ = service
-    ok = client.get(
-        "/vibesynergy/strava/webhook",
-        params={"hub.mode": "subscribe", "hub.verify_token": "vt", "hub.challenge": "c123"},
-    )
-    assert ok.json() == {"hub.challenge": "c123"}
-    bad = client.get(
-        "/vibesynergy/strava/webhook",
-        params={"hub.mode": "subscribe", "hub.verify_token": "nope", "hub.challenge": "c"},
-    )
+    params = {"hub.mode": "subscribe", "hub.verify_token": "vt", "hub.challenge": "c123"}
+    assert client.get(HOOK, params=params).json() == {"hub.challenge": "c123"}
+    bad = client.get(HOOK, params={**params, "hub.verify_token": "nope"})
     assert bad.status_code == 403
+    # The wrong token, or the old path once a tokenised subscription exists: not found.
+    assert client.get("/vibesynergy/strava/webhook/wrong", params=params).status_code == 404
+    assert client.get("/vibesynergy/strava/webhook", params=params).status_code == 404
+
+
+def test_strava_old_path_only_until_a_tokenised_subscription(service) -> None:
+    """An install that subscribed before the token keeps working on the old path; once
+    `webhooks subscribe strava` stored a token, the old path is closed."""
+    rt, client, _, _ = service
+    store = rt.registry.get("strava").ctx.secrets
+    store.set(WEBHOOK, {"verify_token": "vt", "subscription_id": 5})
+    event = {
+        "object_type": "activity",
+        "object_id": 9001,
+        "aspect_type": "update",
+        "owner_id": 77,
+        "subscription_id": 5,
+    }
+    params = {"hub.mode": "subscribe", "hub.verify_token": "vt", "hub.challenge": "c"}
+    assert client.get("/vibesynergy/strava/webhook", params=params).status_code == 200
+    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 200
+    assert client.post("/vibesynergy/strava/webhook/any", json=event).status_code == 404
+    store.set(WEBHOOK, {"verify_token": "vt", "token": "stok", "subscription_id": 5})
+    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 404
+    assert client.get("/vibesynergy/strava/webhook", params=params).status_code == 404
+    assert client.post(HOOK, json=event).status_code == 200
+
+
+def test_strava_forged_event_without_the_token_is_not_believed(service) -> None:
+    """subscription_id and owner_id are guessable: without the URL's secret, nothing."""
+    rt, client, _, _ = service
+    event = {
+        "object_type": "activity",
+        "object_id": 9001,
+        "aspect_type": "create",
+        "owner_id": 77,
+        "subscription_id": 5,
+    }
+    for path in ("/vibesynergy/strava/webhook", "/strava/webhook/guess", HOOK + "x"):
+        assert client.post(path, json=event).status_code == 404
+    assert rt.jobs.recent() == []
+
+
+def test_strava_object_id_must_be_a_number(service) -> None:
+    rt, client, _, _ = service
+    event = {
+        "object_type": "activity",
+        "aspect_type": "create",
+        "owner_id": 77,
+        "subscription_id": 5,
+    }
+    for object_id in ("9001/../../athlete", "9001?x=1", 1.5, True, -1, None):
+        assert client.post(HOOK, json={**event, "object_id": object_id}).status_code == 400
+    assert rt.jobs.recent() == []
+    with pytest.raises(ValueError):
+        list(rt.registry.get("strava").fetch_one("activities", "9001/laps"))
+
+
+def test_strava_activity_of_another_athlete_is_dropped(service) -> None:
+    rt, client, _, sfake = service
+    sfake.detail["9001"] = {"athlete": {"id": 999, "resource_state": 1}}
+    event = {
+        "object_type": "activity",
+        "object_id": 9001,
+        "aspect_type": "create",
+        "owner_id": 77,
+        "subscription_id": 5,
+    }
+    assert client.post(HOOK, json=event).status_code == 200
+    _drain(rt)
+    assert not _rows(rt, activity, activity.c.source_id == "9001")
+    sfake.detail["9001"] = {"athlete": {"id": 77, "resource_state": 1}}
+    client.post(HOOK, json={**event, "aspect_type": "update"})
+    _drain(rt)
+    assert _rows(rt, activity, activity.c.source_id == "9001")
 
 
 def test_strava_create_then_delete(service) -> None:
@@ -133,7 +203,7 @@ def test_strava_create_then_delete(service) -> None:
         "event_time": 1789900000,
         "updates": {},
     }
-    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 200
+    assert client.post(HOOK, json=event).status_code == 200
     queued = rt.jobs.recent()
     evidence = _rows(rt, audit_log, audit_log.c.action == "strava.event")[-1]["detail"]
     assert evidence["event_time"] == event["event_time"]
@@ -155,11 +225,11 @@ def test_strava_create_then_delete(service) -> None:
     assert delivery["dashboard_at"] is None
 
     # the same event again while queued is not duplicated
-    client.post("/vibesynergy/strava/webhook", json={**event, "aspect_type": "update"})
-    client.post("/vibesynergy/strava/webhook", json={**event, "aspect_type": "update"})
+    client.post(HOOK, json={**event, "aspect_type": "update"})
+    client.post(HOOK, json={**event, "aspect_type": "update"})
     assert _drain(rt) == 1
 
-    client.post("/vibesynergy/strava/webhook", json={**event, "aspect_type": "delete"})
+    client.post(HOOK, json={**event, "aspect_type": "delete"})
     _drain(rt)
     assert not _rows(rt, activity, activity.c.source_id == "9001")
     versions = list(rt.raw.all_ids("strava", "activities"))
@@ -185,13 +255,13 @@ def test_strava_made_public_emits_activity_published(service) -> None:
         "subscription_id": 5,
         "updates": {},
     }
-    client.post("/vibesynergy/strava/webhook", json=event)
+    client.post(HOOK, json=event)
     _drain(rt)
     later = start + timedelta(hours=2)
     assert agent_events.run(rt, now=later)["published"] is None  # still private
     sfake.detail["9001"] = {"private": False}
     update = {**event, "aspect_type": "update", "updates": {"private": "false"}}
-    assert client.post("/vibesynergy/strava/webhook", json=update).status_code == 200
+    assert client.post(HOOK, json=update).status_code == 200
     _drain(rt)
     audit = _rows(rt, audit_log, audit_log.c.action == "strava.event")[-1]["detail"]
     assert audit["updates"] == {"private": "false"}
@@ -214,12 +284,9 @@ def test_strava_rejects_foreign_events(service) -> None:
         "owner_id": 999,
         "subscription_id": 5,
     }
-    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 403
+    assert client.post(HOOK, json=event).status_code == 403
     assert (
-        client.post(
-            "/vibesynergy/strava/webhook", json={**event, "owner_id": 77, "subscription_id": 6}
-        ).status_code
-        == 403
+        client.post(HOOK, json={**event, "owner_id": 77, "subscription_id": 6}).status_code == 403
     )
     assert rt.jobs.recent() == []
 
@@ -235,12 +302,16 @@ def test_subscribe_commands(service) -> None:
 
     strava = rt.registry.get("strava")
     store = strava.ctx.secrets
-    store.set(WEBHOOK, {})
+    store.set(WEBHOOK, {"verify_token": "old", "subscription_id": 5})  # before the token
     sub = strava_hooks.subscribe(strava.client, rt.settings, store)
-    assert sub["id"] == 5 and store.get(WEBHOOK)["subscription_id"] == 5
-    method, _, params = sfake.push_calls[-1]
-    assert method == "POST" and params["callback_url"] == f"{PUBLIC}/vibesynergy/strava/webhook"
-    assert params["verify_token"] == store.get(WEBHOOK)["verify_token"]
+    hook = store.get(WEBHOOK)
+    assert sub["id"] == 5 and hook["subscription_id"] == 5
+    assert len(hook["token"]) >= 32 and hook["verify_token"] != "old"
+    # Strava allows one subscription per app: the existing one is deleted, then replaced.
+    assert [c[0] for c in sfake.push_calls] == ["GET", "DELETE", "POST"]
+    _, _, params = sfake.push_calls[-1]
+    assert params["callback_url"] == f"{PUBLIC}/vibesynergy/strava/webhook/{hook['token']}"
+    assert params["verify_token"] == hook["verify_token"]
     assert strava_hooks.unsubscribe(strava.client, store) == [5]
 
 
@@ -307,13 +378,13 @@ def test_strava_event_needs_our_subscription_and_a_json_object(service) -> None:
         "subscription_id": 5,
     }
     for body in ([1, 2], "text", None):
-        assert client.post("/vibesynergy/strava/webhook", json=body).status_code == 400
-    assert client.post("/vibesynergy/strava/webhook", content=b"{not json").status_code == 400
+        assert client.post(HOOK, json=body).status_code == 400
+    assert client.post(HOOK, content=b"{not json").status_code == 400
     # No subscription stored (not connected yet): nothing is believed, whatever id it carries.
-    rt.registry.get("strava").ctx.secrets.set(WEBHOOK, {"verify_token": "vt"})
-    assert client.post("/vibesynergy/strava/webhook", json=event).status_code == 403
+    rt.registry.get("strava").ctx.secrets.set(WEBHOOK, {"verify_token": "vt", "token": "stok"})
+    assert client.post(HOOK, json=event).status_code == 403
     without_id = {k: v for k, v in event.items() if k != "subscription_id"}
-    assert client.post("/vibesynergy/strava/webhook", json=without_id).status_code == 403
+    assert client.post(HOOK, json=without_id).status_code == 403
     assert rt.jobs.counts() == {}
 
 

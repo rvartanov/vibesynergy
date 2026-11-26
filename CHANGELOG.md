@@ -16,6 +16,11 @@ The short "What changed" the portal shows after an update is in
 ## 0.1.0-beta.0.23 – 26-11-2026
 
 - The Coach page opens quickly again. The message list rebuilt the full day state for every past advice to check whether it was still current, which took over 20 seconds; it now checks only yesterday and today, once per day and kind, and the page no longer waits for the list before it shows.
+- **Strava webhook with a secret address** (#196): the address Strava sends new activities
+  to now carries a random secret, like the Withings one, so nobody else can make VibeSynergy
+  fetch or remove an activity. **Once after this update**, run `vibesynergy webhooks
+  subscribe strava` (with `vibesynergy serve` running): it replaces the old subscription.
+  Until then the old address keeps working. An activity of another athlete is never kept.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 

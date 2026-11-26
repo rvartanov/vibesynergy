@@ -145,14 +145,27 @@ class StravaSource(Source):
         The context stays active while the caller reads the yielded item, so laps, zones
         and streams from that item use the same reserve.
         """
+        if not key.isascii() or not key.isdigit():  # it goes into the URL path
+            raise ValueError("a Strava activity id is a number")
         with self.client.priority_budget():
-            detail = self.client.get(f"/activities/{key}", include_all_efforts="true")
+            detail = self.client.get(f"/activities/{int(key)}", include_all_efforts="true")
+            if not self._ours(detail):
+                return
             if dataset == "activities":
                 yield self._activity_item(detail, detail=detail)
             elif dataset == "activity_streams" and not detail.get("manual"):
                 yield self._streams_item(detail)
 
     # Helpers ----------------------------------------------------------------------------
+
+    def _ours(self, detail: Any) -> bool:
+        """False for an activity of another athlete than the connected one (when both are
+        known): a webhook event never makes someone else's activity ours."""
+        if not isinstance(detail, dict):
+            return False
+        owner = (detail.get("athlete") or {}).get("id")
+        connected = (self.ctx.secrets.get("athlete") or {}).get("id")
+        return owner is None or connected is None or str(owner) == str(connected)
 
     def _list(self, window: Window) -> list[dict]:
         # Shared by the datasets of one sync (activities, streams), but not by later syncs:
