@@ -80,15 +80,77 @@ def test_password_login_and_the_same_answer_for_unknown_addresses(runtime, porta
     }
 
 
-def test_too_many_wrong_passwords_lock_the_login(runtime, portal):
+def _age_attempts(runtime, seconds: float) -> None:
+    """Move every recorded attempt this far into the past."""
+    from datetime import timedelta
+
+    from vibesynergy.store.schema import auth_attempt
+
+    with runtime.engine.begin() as conn:
+        for row in conn.execute(auth_attempt.select()).mappings().all():
+            conn.execute(
+                auth_attempt.update()
+                .where(auth_attempt.c.id == row["id"])
+                .values(at=row["at"] - timedelta(seconds=seconds))
+            )
+
+
+def test_wrong_passwords_for_the_email_slow_down_but_do_not_lock_out(runtime, portal):
+    """Past the limit the email waits a little longer per failure; once that wait has
+    passed, the right password works again (a stranger cannot keep the owner out)."""
     acc = auth.create_account(runtime.engine, EMAIL)
     auth.set_password(runtime.engine, acc["id"], GOOD)
     for _ in range(auth.MAX_FAILURES_EMAIL):
         portal.post(
             "/auth/login", json={"email": EMAIL, "password": "wrong-wrong-wrong"}, headers=WRITE
         )
-    locked = portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}, headers=WRITE)
-    assert locked.status_code == 429
+    waiting = portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}, headers=WRITE)
+    assert waiting.status_code == 429 and "Wait a minute" in waiting.json()["error"]
+    _age_attempts(runtime, auth.EMAIL_DELAY.total_seconds() + 1)
+    ok = portal.post("/auth/login", json={"email": EMAIL, "password": GOOD}, headers=WRITE)
+    assert ok.status_code == 200, ok.text
+
+
+def test_the_email_wait_grows_up_to_a_minute(runtime):
+    from datetime import timedelta
+
+    for _ in range(auth.MAX_FAILURES_EMAIL - 1):
+        auth.note_attempt(runtime.engine, EMAIL, "198.51.100.1", False)
+    assert auth.email_wait(runtime.engine, EMAIL) == timedelta(0)
+    waits = []
+    for n in range(12):
+        auth.note_attempt(runtime.engine, EMAIL, f"198.51.100.{n + 2}", False)
+        waits.append(auth.email_wait(runtime.engine, EMAIL))
+    assert waits[0] <= auth.EMAIL_DELAY < waits[1] < waits[2] < waits[3]  # doubling
+    assert all(w <= auth.EMAIL_DELAY_MAX for w in waits) and waits[-1] > timedelta(seconds=30)
+
+
+def test_a_client_address_is_still_locked_hard(runtime):
+    client = "198.51.100.7"
+    for n in range(auth.MAX_FAILURES_CLIENT):
+        auth.note_attempt(runtime.engine, f"other{n}@example.com", client, False)
+    assert auth.lock_reason(runtime.engine, EMAIL, client) == "client"
+    _age_attempts(runtime, 120)  # the email waits are long over; the lock is not
+    assert auth.lock_reason(runtime.engine, EMAIL, client) == "client"
+    assert auth.lock_reason(runtime.engine, EMAIL, "198.51.100.8") is None
+
+
+def test_an_address_that_logged_in_before_is_not_slowed_by_strangers(runtime):
+    home = "198.51.100.20"
+    auth.note_attempt(runtime.engine, EMAIL, home, True)
+    for n in range(auth.MAX_FAILURES_EMAIL + 6):
+        auth.note_attempt(runtime.engine, EMAIL, f"203.0.113.{n}", False)
+    assert auth.lock_reason(runtime.engine, EMAIL, "198.51.100.99") == "email"
+    assert auth.lock_reason(runtime.engine, EMAIL, home) is None
+
+
+def test_strangers_cannot_use_up_the_mail_quota_of_a_known_address(runtime):
+    home = "198.51.100.30"
+    auth.note_attempt(runtime.engine, EMAIL, home, True)
+    for n in range(auth.MAX_MAILS_ALL):
+        auth.mail_allowed(runtime.engine, "link", f"203.0.113.{n}")
+    assert not auth.mail_allowed(runtime.engine, "link", "203.0.113.200")  # the total is used
+    assert auth.mail_allowed(runtime.engine, "link", home)  # its own count still has room
 
 
 def test_link_by_mail_and_password_reset(runtime, portal, mail):

@@ -25,6 +25,7 @@ KEY = "q8Zk3vN0pX2wY7rT5uB1cD4eF6gH9jKmLnOaSbVc"
     [
         (f"/vibesynergy/withings/notify/{KEY}", "/vibesynergy/withings/notify/[redacted]"),
         (f"/vibesynergy/{KEY}/mcp", "/vibesynergy/[redacted]/mcp"),
+        (f"/vibesynergy/strava/webhook/{KEY}", "/vibesynergy/strava/webhook/[redacted]"),
         (
             "/vibesynergy/strava/webhook?hub.verify_token=abc&hub.challenge=x",
             "/vibesynergy/strava/webhook?[redacted]",

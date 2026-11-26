@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_oauth import HOST, PASSPHRASE, REDIRECT_HTTPS, _pkce, _register
+from test_oauth import HOST, PASSPHRASE, REDIRECT_HTTPS, _pkce, _register, mark_approved
 
 from vibesynergy.api import oauth
 from vibesynergy.api.app import create_app
@@ -86,6 +86,9 @@ def test_new_grant_cannot_ask_for_the_old_scope(server) -> None:
             .where(oauth_client.c.client_id == client_id)
             .values(info={**info, "scope": f"{info['scope']} vibesynergy"})
         )
+    reply = _authorize(client, client_id, "vibesynergy")
+    assert reply.status_code == 400  # never approved: no redirect to the app's URI
+    mark_approved(rt.engine, client_id)
     reply = _authorize(client, client_id, "vibesynergy")
     assert reply.status_code == 302
     query = parse_qs(urlparse(reply.headers["location"]).query)

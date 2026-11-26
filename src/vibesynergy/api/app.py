@@ -9,8 +9,10 @@ within seconds; the worker does the fetching.
     GET  /vibesynergy/health
     GET  /vibesynergy/{source}/callback           OAuth landing page (paste-back login)
     HEAD|GET|POST /vibesynergy/withings/notify/{token}
-    GET  /vibesynergy/strava/webhook              subscription validation (hub.challenge)
-    POST /vibesynergy/strava/webhook              activity and athlete events
+    GET  /vibesynergy/strava/webhook/{token}      subscription validation (hub.challenge)
+    POST /vibesynergy/strava/webhook/{token}      activity and athlete events
+         (/vibesynergy/strava/webhook without a token: only while no tokenised
+          subscription is stored, for an install that subscribed before the token)
     *    /vibesynergy/mcp                         MCP (streamable HTTP; OAuth 2.1 or a PAT)
 """
 
@@ -314,10 +316,24 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
     # Strava -----------------------------------------------------------------------------
 
-    @router.get("/strava/webhook")
-    def strava_validate(request: Request) -> JSONResponse:
+    def check_strava_token(token: str | None) -> dict[str, Any]:
+        """The stored webhook record when the path's token is the one we subscribed with.
+
+        ``token=None`` is the old URL without a token: still accepted for an install that
+        subscribed before the token existed, never once a tokenised subscription is stored."""
+        hook = secrets("strava").get(WEBHOOK) or {}
+        stored = hook.get("token")
+        if token is None:
+            if stored:
+                raise HTTPException(404)
+        elif not stored or not _digest_ok(stored, token):
+            raise HTTPException(404)
+        return hook
+
+    def strava_validate(request: Request, token: str | None) -> JSONResponse:
+        hook = check_strava_token(token)
         params = request.query_params
-        expected = (secrets("strava").get(WEBHOOK) or {}).get("verify_token")
+        expected = hook.get("verify_token")
         given = params.get("hub.verify_token", "")
         if params.get("hub.mode") != "subscribe" or not expected:
             raise HTTPException(403)
@@ -325,15 +341,30 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
             raise HTTPException(403)
         return JSONResponse({"hub.challenge": params.get("hub.challenge", "")})
 
+    @router.get("/strava/webhook/{token}")
+    def strava_validate_tokenised(token: str, request: Request) -> JSONResponse:
+        return strava_validate(request, token)
+
+    @router.get("/strava/webhook")
+    def strava_validate_legacy(request: Request) -> JSONResponse:
+        return strava_validate(request, None)
+
+    @router.post("/strava/webhook/{token}")
+    async def strava_event_tokenised(token: str, request: Request) -> Response:
+        return await strava_event(request, token)
+
     @router.post("/strava/webhook")
-    async def strava_event(request: Request) -> Response:
+    async def strava_event_legacy(request: Request) -> Response:
+        return await strava_event(request, None)
+
+    async def strava_event(request: Request, token: str | None) -> Response:
+        hook = check_strava_token(token)
         try:
             event = await request.json()
         except ValueError:
             event = None
         if not isinstance(event, dict):  # scanner noise: not an outage, so no traceback
             raise HTTPException(400)
-        hook = secrets("strava").get(WEBHOOK) or {}
         athlete = (secrets("strava").get("athlete") or {}).get("id")
         # Without a subscription of our own nothing Strava sends is expected: an event is only
         # believed when it carries the id Strava gave this install.
@@ -343,8 +374,12 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
             raise HTTPException(403)
         if athlete and event.get("owner_id") != athlete:
             raise HTTPException(403)
+        raw_object_id = event.get("object_id")
+        # It becomes part of an API path: only a plain positive number is used.
+        if type(raw_object_id) is not int or not 0 < raw_object_id < 2**63:
+            raise HTTPException(400)
         kind, aspect = event.get("object_type"), event.get("aspect_type")
-        object_id = str(event.get("object_id"))
+        object_id = str(raw_object_id)
         event_time = event.get("event_time")
         event_time = event_time if type(event_time) is int and 0 <= event_time < 2**63 else None
         received_at = utc_now().isoformat()
@@ -419,7 +454,25 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
         gate = ShareGate(rt, create_portal_app(rt, share_mode=True))
         app.router.routes[0:0] = [Mount("/vibesynergy/share", app=gate), Mount("/share", app=gate)]
-    return _gzip_api(app)
+    return _limit_bodies(_gzip_api(app))
+
+
+# Bigger bodies than the 64 KiB default, each for a route that needs them: MCP tool calls
+# (after the token check) and the file upload a share link may allow (streamed to disk).
+MCP_BODY_LIMIT = 16 * 1024 * 1024
+
+
+def _limit_bodies(app):
+    from vibesynergy import uploads
+    from vibesynergy.api.body_limit import BodyLimit
+
+    return BodyLimit(
+        app,
+        larger=[
+            (r"(/vibesynergy)?/mcp", MCP_BODY_LIMIT),
+            (r"(/vibesynergy)?/share/[^/]+/api/files/upload", uploads.MAX_BYTES),
+        ],
+    )
 
 
 class _GzipApi:

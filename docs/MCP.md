@@ -448,8 +448,19 @@ the former external coach keep their stored author and read as `ai_coach` (shown
 Transports are stdio (`vibesynergy mcp`) and streamable HTTP inside `vibesynergy serve` at
 `<public_url>/vibesynergy/mcp`, protected by OAuth 2.1 (`src/vibesynergy/api/oauth.py`):
 dynamic client registration, PKCE (S256), approval by passphrase on a VibeSynergy page,
-access tokens for 1 hour, and refresh tokens for 90 days that are replaced on every use.
+access tokens for 1 hour, and refresh tokens for 90 days that are replaced on every use. A
+refresh token used a second time, and revoking any token (`/vibesynergy/revoke`), ends every
+live token of that app (audit `oauth.grants_revoked`).
 Tokens are stored as hashes. Every app can be revoked on its own (`vibesynergy mcp revoke`).
+Request bodies on the public routes (registration, token, approval, webhooks) are limited to
+64 KiB, MCP calls to 16 MiB; a bigger body, also one sent without `Content-Length`, gets
+413. Registration free text (`client_name`, software id and version) is cut to 100
+characters, and `oauth.register` and `oauth.denied` audit rows are kept for 90 days, at
+most the newest 1,000 of each.
+`/authorize` sends a browser back to an app's `redirect_uri` with an error only when the
+owner approved that app before; an app nobody approved yet gets an error page on
+VibeSynergy instead (its first request still reaches the consent page). When the list of
+waiting approvals is full, requests of apps nobody approved are dropped first.
 Discovery works under `/vibesynergy`: the 401 carries `resource_metadata`, and the issuer
 `<public_url>/vibesynergy` serves RFC 8414 metadata at `/.well-known/oauth-authorization-server`
 below it. The RFC 8414 path-inserted URL at the host root requires a Funnel route to this
@@ -511,8 +522,10 @@ is ignored with a warning at startup. Coaches use OAuth or a personal access tok
 
 Differences from the spec below, for now:
 - Values are SI in every response (no unit conversion); the guide tells the AI to convert.
-- `vibesynergy_sql` is SQLite over the documented tables (Power tools, below). Streams are
-  available through `vibesynergy_activity_streams`.
+- `vibesynergy_sql` is SQLite over the documented tables (Power tools, below), read-only,
+  at most 5,000 rows, 10 s, 1 MB per value and about 20 MB for the whole result (beyond it
+  the rows stop and `truncated` is true). Streams are available through
+  `vibesynergy_activity_streams`.
 - Lists use `offset` instead of opaque cursors. Result sets are not built: `rs_…` handles,
   `input: rs_…`, `result_set`, `save_as_result_set`, `cursor` and `format` in the sections
   below are the design only.

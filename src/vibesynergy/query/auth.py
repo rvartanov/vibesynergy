@@ -9,8 +9,10 @@
   one-time backup codes. The TOTP secret is kept in the encrypted secret store.
 - Sessions: a random cookie value, stored only hashed, with an idle and an absolute
   lifetime. A new session at every login; "log out everywhere" ends them all.
-- Failed attempts are counted per email and per client address; past the limit, logins are
-  refused for a while. Answers never say whether an address exists.
+- Failed attempts are counted per client address (past the limit, that address is refused
+  for a while) and per email (past the limit, each further attempt from an address that
+  never logged in waits a little longer, up to a minute; it never locks the right password
+  out for long). Answers never say whether an address exists.
 """
 
 from __future__ import annotations
@@ -39,11 +41,17 @@ SESSION_IDLE = timedelta(days=14)
 SESSION_MAX = timedelta(days=60)
 PENDING_TTL = timedelta(minutes=10)  # a session waiting for its second factor
 
-# Brute-force brake: failures in WINDOW before LOCK applies.
+# Brute-force brake: failures in WINDOW before LOCK applies to a client address. For the
+# email, past MAX_FAILURES_EMAIL each attempt waits EMAIL_DELAY, doubling per failure, up to
+# EMAIL_DELAY_MAX after the last one: a stranger guessing cannot keep the owner out.
 WINDOW = timedelta(minutes=15)
 MAX_FAILURES_EMAIL = 5
 MAX_FAILURES_CLIENT = 20
 LOCK = timedelta(minutes=15)
+EMAIL_DELAY = timedelta(seconds=2)
+EMAIL_DELAY_MAX = timedelta(minutes=1)
+# An address that logged in before is known this long (its successful attempts are kept).
+KNOWN_CLIENT = timedelta(days=60)
 
 MIN_PASSWORD = 12
 SCRYPT = {"n": 2**15, "r": 8, "p": 1, "dklen": 32}
@@ -290,29 +298,86 @@ def _record(engine: Engine, key: str, ok: bool) -> None:
     now = utc_now()
     with engine.begin() as conn:
         conn.execute(insert(auth_attempt).values(key=key, at=now, ok=ok))
-        conn.execute(delete(auth_attempt).where(auth_attempt.c.at < now - timedelta(days=2)))
+        # Two days of history; a client's successful logins longer, so it stays known.
+        conn.execute(
+            delete(auth_attempt).where(
+                auth_attempt.c.at < now - timedelta(days=2),
+                ~(
+                    auth_attempt.c.ok.is_(True)
+                    & auth_attempt.c.key.like("client:%")
+                    & (auth_attempt.c.at >= now - KNOWN_CLIENT)
+                ),
+            )
+        )
+
+
+def known_client(engine: Engine, client: str) -> bool:
+    """This address logged in successfully before (within ``KNOWN_CLIENT``)."""
+    if not client:
+        return False
+    with engine.connect() as conn:
+        return (
+            conn.execute(
+                select(auth_attempt.c.id)
+                .where(
+                    auth_attempt.c.key == f"client:{client}",
+                    auth_attempt.c.ok.is_(True),
+                    auth_attempt.c.at >= utc_now() - KNOWN_CLIENT,
+                )
+                .limit(1)
+            ).first()
+            is not None
+        )
+
+
+def email_wait(engine: Engine, email: str, *, now: datetime | None = None) -> timedelta:
+    """How long the next attempt for this email must still wait: nothing for the first
+    ``MAX_FAILURES_EMAIL`` failures in ``WINDOW``, then ``EMAIL_DELAY`` doubling per failure
+    (at most ``EMAIL_DELAY_MAX``), counted from the last failure."""
+    now = now or utc_now()
+    with engine.connect() as conn:
+        times = (
+            conn.execute(
+                select(auth_attempt.c.at).where(
+                    auth_attempt.c.key == f"email:{_norm(email)}",
+                    auth_attempt.c.ok.is_(False),
+                    auth_attempt.c.at >= now - WINDOW,
+                )
+            )
+            .scalars()
+            .all()
+        )
+    extra = len(times) - MAX_FAILURES_EMAIL
+    if extra < 0:
+        return timedelta(0)
+    delay = min(EMAIL_DELAY_MAX, EMAIL_DELAY * 2 ** min(extra, 16))
+    return max(timedelta(0), max(times) + delay - now)
+
+
+def lock_reason(engine: Engine, email: str, client: str) -> str | None:
+    """``"client"``: too many recent failures from this address (a hard lock, ``LOCK``).
+    ``"email"``: this email's growing delay has not passed yet (not for an address that
+    logged in before). None: the attempt may go ahead."""
+    since = utc_now() - max(WINDOW, LOCK)
+    with engine.connect() as conn:
+        client_failures = conn.execute(
+            select(func.count())
+            .select_from(auth_attempt)
+            .where(
+                auth_attempt.c.key == f"client:{client}",
+                auth_attempt.c.ok.is_(False),
+                auth_attempt.c.at >= since,
+            )
+        ).scalar_one()
+    if client_failures >= MAX_FAILURES_CLIENT:
+        return "client"
+    if email_wait(engine, email) > timedelta(0) and not known_client(engine, client):
+        return "email"
+    return None
 
 
 def locked(engine: Engine, email: str, client: str) -> bool:
-    """Too many recent failures for this address or this client."""
-    since = utc_now() - max(WINDOW, LOCK)
-    with engine.connect() as conn:
-
-        def failures(key: str) -> int:
-            return conn.execute(
-                select(func.count())
-                .select_from(auth_attempt)
-                .where(
-                    auth_attempt.c.key == key,
-                    auth_attempt.c.ok.is_(False),
-                    auth_attempt.c.at >= since,
-                )
-            ).scalar_one()
-
-        return (
-            failures(f"email:{_norm(email)}") >= MAX_FAILURES_EMAIL
-            or failures(f"client:{client}") >= MAX_FAILURES_CLIENT
-        )
+    return lock_reason(engine, email, client) is not None
 
 
 def clear_lockout(engine: Engine, email: str) -> int:
@@ -338,12 +403,16 @@ def mail_allowed(engine: Engine, purpose: str, client: str) -> bool:
 
     A few per quarter of an hour, per visitor and in total, so nobody can fill the mailbox.
     Deliberately apart from the wrong-password brake: someone guessing passwords must not
-    be able to close the one way back in.
+    be able to close the one way back in. For the same reason an address that logged in
+    before is held to its own count only: strangers using up the total cannot stop it.
     """
     since = utc_now() - WINDOW
     keys = {f"mail:{purpose}:{client}": MAX_MAILS_CLIENT, f"mail:{purpose}": MAX_MAILS_ALL}
+    limits = dict(keys)
+    if known_client(engine, client):
+        del limits[f"mail:{purpose}"]
     with engine.connect() as conn:
-        for key, most in keys.items():
+        for key, most in limits.items():
             sent = conn.execute(
                 select(func.count())
                 .select_from(auth_attempt)

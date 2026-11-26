@@ -106,6 +106,9 @@ _OAUTH_INTRO_DENIED = "{title} — {client} was not allowed to use your account.
 _OAUTH_ACCESS_INTRO = "wants access to your VibeSynergy account. Choose what it may do:"
 _OAUTH_SCOPE_LEGEND = "What it may do"
 _OAUTH_INTRO_RETURN = "{title} — return to {client}."
+_OAUTH_UNAPPROVED_ERROR = (
+    "This app could not start the connection. Start again from the app, or ask its maker."
+)
 UI_STRINGS = (
     "Access denied",
     "Allow",
@@ -140,6 +143,7 @@ UI_STRINGS = (
     *SCOPE_LABELS.values(),
     _OAUTH_INTRO_RETURN,
     _OAUTH_INTRO_DENIED,
+    _OAUTH_UNAPPROVED_ERROR,
 )
 
 # A request or stored grant without any scope keeps meaning what it always did: every
@@ -315,6 +319,16 @@ class DenyOutcome:
 
 
 PORTAL_KEY = "portal"
+# Free text an unregistered caller sends is cut to this before it is stored or audited.
+MAX_CLIENT_TEXT = 100
+MAX_REDIRECT_URIS = 10
+MAX_URI_CHARS = 2000
+# Anyone can register or fail the passphrase, so their audit rows are pruned: older than
+# this, and beyond the newest MAX_ANON_AUDIT_ROWS of each action.
+ANON_AUDIT_ACTIONS = ("oauth.register", "oauth.denied")
+ANON_AUDIT_KEEP = timedelta(days=90)
+MAX_ANON_AUDIT_ROWS = 1000
+ANON_AUDIT_PRUNE_EVERY = 600.0  # seconds
 # Registration is open (RFC 7591). Apps nobody approved are kept this long and this many.
 UNAPPROVED_CLIENT_TTL = timedelta(hours=24)
 MAX_UNAPPROVED_CLIENTS = 50
@@ -392,6 +406,7 @@ class VibeSynergyOAuthProvider:
         self._pending: dict[str, tuple[float, str, AuthorizationParams]] = {}
         self._approved: dict[str, _ApprovedRequest] = {}
         self.limiter = PassphraseLimiter()
+        self._last_audit_prune = float("-inf")
         try:
             expand_legacy_scope_grants(engine)
         except Exception:  # never block startup on the one-time rewrite
@@ -435,7 +450,10 @@ class VibeSynergyOAuthProvider:
             )
         self._audit(
             "oauth.register",
-            {"client_id": client_info.client_id, "client_name": client_info.client_name},
+            {
+                "client_id": client_info.client_id,
+                "client_name": (client_info.client_name or "")[:MAX_CLIENT_TEXT] or None,
+            },
         )
 
     # Authorization --------------------------------------------------------------------------
@@ -458,10 +476,33 @@ class VibeSynergyOAuthProvider:
             )
         self._expire_pending()
         while len(self._pending) >= MAX_PENDING_REQUESTS:
-            self._pending.pop(next(iter(self._pending)))  # the oldest; dicts keep order
+            self._pending.pop(self._evictable())
         request_id = secrets.token_urlsafe(24)
         self._pending[request_id] = (time.monotonic(), client.client_id or "", params)
         return f"{self.issuer}/approve?request={request_id}"
+
+    def _evictable(self) -> str:
+        """The pending request to drop when the list is full: the oldest of an app nobody
+        approved yet, so anonymous requests cannot push out the owner's own approval."""
+        approved = self.approved_clients({client for _, client, _ in self._pending.values()})
+        for request_id, (_, client_id, _) in self._pending.items():  # oldest first
+            if client_id not in approved:
+                return request_id
+        return next(iter(self._pending))
+
+    def approved_clients(self, client_ids: set[str]) -> set[str]:
+        """Which of these apps the owner has approved at least once."""
+        if not client_ids:
+            return set()
+        with self.engine.connect() as conn:
+            return set(
+                conn.execute(
+                    select(oauth_client.c.client_id).where(
+                        oauth_client.c.client_id.in_(client_ids),
+                        oauth_client.c.approved_at.is_not(None),
+                    )
+                ).scalars()
+            )
 
     def pending(self, request_id: str) -> tuple[str, AuthorizationParams] | None:
         self._expire_pending()
@@ -603,6 +644,7 @@ class VibeSynergyOAuthProvider:
     ) -> RefreshToken | None:
         grant = self._load_grant(refresh_token, "refresh", client.client_id)
         if grant is None:
+            self._detect_refresh_reuse(refresh_token, client.client_id)
             return None
         return RefreshToken(
             token=refresh_token,
@@ -616,6 +658,8 @@ class VibeSynergyOAuthProvider:
         self, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str]
     ) -> OAuthToken:
         if not self._use_once(refresh_token.token, "refresh"):
+            # Two uses of one refresh token: one of them is not the app. End them all.
+            self.revoke_client_grants(client.client_id or "", reason="refresh_reused")
             raise TokenError("invalid_grant", "refresh token already used")
         # The request's own `resource` was validated in token_route. A legacy grant may carry a
         # foreign stored resource; new tokens are always bound to this MCP resource.
@@ -666,12 +710,46 @@ class VibeSynergyOAuthProvider:
         )
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
+        """Revoking one token ends every live grant of that app: the access token and the
+        refresh token it came with, and any issued from them."""
         with self.engine.begin() as conn:
             conn.execute(
                 update(oauth_grant)
                 .where(oauth_grant.c.token_hash == _hash(token.token))
                 .values(used_at=utc_now())
             )
+        if token.client_id and not token.client_id.startswith("pat:"):
+            self.revoke_client_grants(token.client_id, reason="revoked")
+
+    def revoke_client_grants(self, client_id: str, *, reason: str) -> int:
+        """Mark every unused code, access and refresh token of this app used."""
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                update(oauth_grant)
+                .where(oauth_grant.c.client_id == client_id, oauth_grant.c.used_at.is_(None))
+                .values(used_at=utc_now())
+            )
+        self._audit(
+            "oauth.grants_revoked",
+            {"client_id": client_id, "reason": reason, "grants": result.rowcount},
+        )
+        return result.rowcount
+
+    def _detect_refresh_reuse(self, refresh_token: str, client_id: str | None) -> None:
+        """A refresh token that was already exchanged comes back: it was copied, so every
+        token issued from it (all of this app's live grants) ends too (OAuth 2.1 §4.3.1)."""
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                select(oauth_grant.c.client_id, oauth_grant.c.used_at).where(
+                    oauth_grant.c.token_hash == _hash(refresh_token),
+                    oauth_grant.c.kind == "refresh",
+                )
+            ).first()
+        if row is None or row.used_at is None:
+            return
+        if client_id is not None and row.client_id != client_id:
+            return
+        self.revoke_client_grants(row.client_id, reason="refresh_reused")
 
     # Helpers --------------------------------------------------------------------------------
 
@@ -774,10 +852,55 @@ class VibeSynergyOAuthProvider:
         return "" if name == "the app" else name
 
     def _audit(self, action: str, detail: dict[str, Any]) -> None:
+        now = utc_now()
         with self.engine.begin() as conn:
             conn.execute(
-                audit_log.insert().values(at=utc_now(), actor="oauth", action=action, detail=detail)
+                audit_log.insert().values(at=now, actor="oauth", action=action, detail=detail)
             )
+            if action in ANON_AUDIT_ACTIONS and (
+                time.monotonic() - self._last_audit_prune > ANON_AUDIT_PRUNE_EVERY
+            ):
+                self._last_audit_prune = time.monotonic()
+                prune_anonymous_audit(conn, now)
+
+
+def prune_anonymous_audit(conn, now) -> None:
+    """Drop old and surplus audit rows of what anonymous callers can cause (registrations,
+    wrong passphrases), like the MCP read rows; approvals and revocations stay."""
+    for action in ANON_AUDIT_ACTIONS:
+        conn.execute(
+            audit_log.delete().where(
+                audit_log.c.action == action, audit_log.c.at < now - ANON_AUDIT_KEEP
+            )
+        )
+        newest = (
+            select(audit_log.c.id)
+            .where(audit_log.c.action == action)
+            .order_by(audit_log.c.id.desc())
+            .limit(MAX_ANON_AUDIT_ROWS)
+        )
+        conn.execute(
+            audit_log.delete().where(audit_log.c.action == action, audit_log.c.id.not_in(newest))
+        )
+
+
+def _trim_registration(data: dict[str, Any]) -> str | None:
+    """Cut free text in a registration to size; an error message when something cannot be
+    cut (a URI) and is too big."""
+    uris = data["redirect_uris"]
+    if len(uris) > MAX_REDIRECT_URIS or any(len(uri) > MAX_URI_CHARS for uri in uris):
+        return f"at most {MAX_REDIRECT_URIS} redirect_uris of {MAX_URI_CHARS} characters"
+    for key in ("client_uri", "logo_uri", "tos_uri", "policy_uri", "jwks_uri"):
+        if isinstance(data.get(key), str) and len(data[key]) > MAX_URI_CHARS:
+            data.pop(key)
+    for key in ("client_name", "software_id", "software_version"):
+        if isinstance(data.get(key), str):
+            data[key] = data[key][:MAX_CLIENT_TEXT]
+    if isinstance(data.get("scope"), str) and len(data["scope"]) > MAX_URI_CHARS:
+        return "scope is too long"
+    if isinstance(data.get("contacts"), list):
+        data["contacts"] = [str(c)[:MAX_CLIENT_TEXT] for c in data["contacts"][:5]]
+    return None
 
 
 def expand_legacy_scope_grants(engine: Engine) -> dict[str, int]:
@@ -1200,7 +1323,9 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
     async def authorization_error(params, error: str, description: str) -> Response:
         client_id = params.get("client_id")
         client = await provider.get_client(client_id) if isinstance(client_id, str) else None
-        if client:
+        # Error redirects go only to an app the owner approved before: anyone can register
+        # one with any redirect_uri, and this server must not send browsers there unasked.
+        if client and isinstance(client_id, str) and provider.approved_clients({client_id}):
             try:
                 raw = params.get("redirect_uri")
                 redirect = client.validate_redirect_uri(
@@ -1256,7 +1381,13 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
             response = await authorization_error(params_for_error, *error)
             await response(scope, receive, send)
             return
-        await endpoints["/authorize"].endpoint(scope, replay_body(body) if body else receive, send)
+        client_id = params_for_error.get("client_id")
+        approved = isinstance(client_id, str) and bool(provider.approved_clients({client_id}))
+        await endpoints["/authorize"].endpoint(
+            scope,
+            replay_body(body) if body else receive,
+            send if approved else _no_foreign_redirect(scope, send, provider.issuer),
+        )
 
     async def token_route(scope, receive, send) -> None:
         if scope["method"] == "OPTIONS":
@@ -1318,6 +1449,10 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
             error = ("invalid_client_metadata", "unsupported grant_types")
         elif data.get("response_types", ["code"]) != ["code"]:
             error = ("invalid_client_metadata", "response_types must be ['code']")
+        elif problem := _trim_registration(data):
+            error = ("invalid_client_metadata", problem)
+        else:
+            body = json.dumps(data).encode()
         if error:
             response = JSONResponse(
                 {"error": error[0], "error_description": error[1]},
@@ -1394,6 +1529,40 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
         Route("/.well-known/openid-configuration/vibesynergy", path_prefix_discovery),
     ]
     return route_list
+
+
+def _no_foreign_redirect(scope, send, issuer: str):
+    """``send`` for an app never approved: a redirect anywhere but this server's approve
+    page (the SDK's error redirect to the app's redirect_uri) becomes an error page, so
+    open registration cannot turn /authorize into an open redirector. The normal first
+    request still reaches the approve page, where the owner decides."""
+    own = f"{issuer}/approve?"
+    replaced = False
+
+    async def guarded(message) -> None:
+        nonlocal replaced
+        if replaced:
+            return
+        if message["type"] == "http.response.start" and 300 <= message["status"] < 400:
+            location = next(
+                (v.decode("latin-1") for k, v in message.get("headers", []) if k == b"location"),
+                "",
+            )
+            if not location.startswith(own):
+                replaced = True
+                tr = translator(request_language(Request(scope)))
+                page = _page(tr, _OAUTH_UNAPPROVED_ERROR, "")
+                page.status_code = 400
+                page.headers["Cache-Control"] = "no-store"
+                await page(scope, _no_body, send)
+                return
+        await send(message)
+
+    return guarded
+
+
+async def _no_body():
+    return {"type": "http.request", "body": b"", "more_body": False}
 
 
 def _respond_approve(

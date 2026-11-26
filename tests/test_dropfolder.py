@@ -54,6 +54,34 @@ def test_gpx_and_tcx_become_activity_and_stream() -> None:
         map_track(gpx(points=1), "gpx-2", timezone="UTC")
 
 
+def test_a_track_file_with_entities_is_refused() -> None:
+    """A GPX with a DTD that expands entities (billion laughs, external files) is not
+    parsed: track files come from uploads and archives anyone could make."""
+    from defusedxml import EntitiesForbidden
+
+    bomb = (
+        gpx()
+        .replace(
+            b'<?xml version="1.0"?>',
+            b'<?xml version="1.0"?><!DOCTYPE gpx [<!ENTITY a "aaaaaaaaaa">'
+            b'<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]>',
+        )
+        .replace(b"<name>Test run</name>", b"<name>&b;</name>")
+    )
+    with pytest.raises(EntitiesForbidden):
+        map_track(bomb, "gpx-3", timezone="UTC")
+    external = (
+        gpx()
+        .replace(
+            b'<?xml version="1.0"?>',
+            b'<?xml version="1.0"?><!DOCTYPE gpx [<!ENTITY x SYSTEM "file:///etc/hostname">]>',
+        )
+        .replace(b"<name>Test run</name>", b"<name>&x;</name>")
+    )
+    with pytest.raises(EntitiesForbidden):
+        map_track(external, "gpx-4", timezone="UTC")
+
+
 def test_drop_folder_imports_moves_and_reports(runtime) -> None:
     base = dropfolder.folder(runtime.settings)
     (base / "run.gpx").write_bytes(gpx())

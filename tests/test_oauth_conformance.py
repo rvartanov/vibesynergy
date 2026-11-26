@@ -17,6 +17,7 @@ from sqlalchemy import select, update
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
+from test_oauth import mark_approved
 
 from vibesynergy.api import oauth
 from vibesynergy.api.app import create_app
@@ -441,8 +442,17 @@ def test_advertised_client_secret_methods_work(app_client, method):
 
 
 def test_pkce_and_resource_errors(app_client):
-    _, client = app_client
+    rt, client = app_client
     client_id = register(client).json()["client_id"]
+    # Never approved: errors are an error page on this server, never a redirect to the app.
+    for overrides in (
+        {"code_challenge_method": "plain"},
+        {"code_challenge": "short"},
+        {"resource": "https://other.example/mcp"},
+    ):
+        reply = authorize(client, client_id, **overrides)
+        assert reply.status_code == 400 and "location" not in reply.headers
+    mark_approved(rt.engine, client_id)
     for overrides in (
         {"code_challenge_method": "plain"},
         {"code_challenge_method": None},
@@ -610,8 +620,9 @@ def test_authorize_post_form_branch(app_client):
 
 
 def test_duplicate_resource_is_rejected(app_client):
-    _, client = app_client
+    rt, client = app_client
     client_id = register(client).json()["client_id"]
+    mark_approved(rt.engine, client_id)  # so the error is redirected back to the app
     _, challenge = pkce()
     query = (
         f"response_type=code&client_id={client_id}&redirect_uri={REDIRECT}"

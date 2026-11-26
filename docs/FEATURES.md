@@ -20,7 +20,9 @@ Status: beta (version 0.1.0-beta.0.N, see Versions below). The portal is in Dutc
   access is the proof), not in the portal or the AI apps.
 - **Login**: password, or a one-time link by mail; "Forgot your password?" by mail.
   Optional second step: a code by mail, or an authenticator app (TOTP) with 10 backup codes.
-  Brute-force brake, sessions per device (log out one or all), a mail on a new login.
+  Brute-force brake (an address with too many wrong attempts waits 15 minutes; wrong
+  passwords for your email from elsewhere only slow new places down, up to a minute, and
+  never your own devices), sessions per device (log out one or all), a mail on a new login.
 - **Settings → Account**: change the password and the second step (asks the password again),
   see and end your sessions.
 - **Updates**: Settings → System → About this version shows waiting updates with what they

@@ -88,6 +88,16 @@ def setup(runtime):
     rt.close()
 
 
+def mark_approved(engine, client_id: str) -> None:
+    """The owner approved this app before (error redirects go only to such apps)."""
+    with engine.begin() as conn:
+        conn.execute(
+            oauth_client.update()
+            .where(oauth_client.c.client_id == client_id)
+            .values(approved_at=utc_now())
+        )
+
+
 def _pkce() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(48)
     digest = hashlib.sha256(verifier.encode()).digest()
@@ -303,6 +313,41 @@ def test_refresh_rotates(setup) -> None:
     first = client.post("/vibesynergy/token", data=refresh)
     assert first.status_code == 200 and first.json()["access_token"] != tokens["access_token"]
     assert client.post("/vibesynergy/token", data=refresh).status_code == 400  # old one is spent
+
+
+def test_a_replayed_refresh_token_ends_what_was_issued_from_it(setup) -> None:
+    """Reuse means a copy exists: the tokens issued from it stop working too."""
+    _, client = setup
+    tokens = _login(client)
+    refresh = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens["refresh_token"],
+        "client_id": tokens["client_id"],
+    }
+    renewed = client.post("/vibesynergy/token", data=refresh).json()
+    auth = {**MCP_HEADERS, "authorization": f"Bearer {renewed['access_token']}"}
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 200
+    replay = client.post("/vibesynergy/token", data=refresh)
+    assert replay.status_code == 400 and replay.json()["error"] == "invalid_grant"
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 401
+    again = {**refresh, "refresh_token": renewed["refresh_token"]}
+    assert client.post("/vibesynergy/token", data=again).status_code == 400
+
+
+def test_revoking_one_token_ends_all_of_that_app(setup) -> None:
+    _, client = setup
+    tokens = _login(client)
+    refresh = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens["refresh_token"],
+        "client_id": tokens["client_id"],
+    }
+    revoke = {"token": tokens["access_token"], "client_id": tokens["client_id"]}
+    reply = client.post("/vibesynergy/revoke", data={**revoke, "client_secret": ""})
+    assert reply.status_code == 200, reply.text
+    auth = {**MCP_HEADERS, "authorization": f"Bearer {tokens['access_token']}"}
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 401
+    assert client.post("/vibesynergy/token", data=refresh).status_code == 400
 
 
 def test_wrong_passphrase_and_lockout(setup) -> None:
@@ -627,6 +672,20 @@ def test_no_passphrase_means_no_approval(runtime) -> None:
     with TestClient(create_app(rt), base_url=HOST, follow_redirects=False) as client:
         client_id = _register(client)
         _, challenge = _pkce()
+        # An app never approved gets an error page here, not a redirect to its own URI.
+        reply = client.get(
+            "/vibesynergy/authorize",
+            params={
+                "response_type": "code",
+                "client_id": client_id,
+                "redirect_uri": REDIRECT_HTTPS,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": "st-1",
+            },
+        )
+        assert reply.status_code == 400 and "location" not in reply.headers
+        mark_approved(rt.engine, client_id)
         location = _authorize(client, client_id, challenge)
         assert "error=temporarily_unavailable" in location and location.startswith(REDIRECT_HTTPS)
     rt.close()
@@ -777,3 +836,52 @@ def test_apps_nobody_approved_do_not_pile_up(setup, monkeypatch) -> None:
         kept = set(conn.execute(select(oauth_client.c.client_id)).scalars())
         assert conn.execute(select(func.count()).select_from(oauth_client)).scalar() == 3
     assert ids[-1] in kept and ids[0] not in kept
+
+
+def test_an_app_never_approved_is_not_an_open_redirector(setup) -> None:
+    """Anyone can register an app with any redirect_uri. Without the owner's consent
+    /authorize must not send a browser there; a new app still reaches the consent page."""
+    rt, client = setup
+    evil = "https://attacker.example/landing"
+    client_id = _register(client, "Stranger", evil)
+    base = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": evil,
+        "state": "s",
+    }
+    _, challenge = _pkce()
+    for params in (
+        {**base, "code_challenge": challenge, "code_challenge_method": "plain"},
+        {**base, "code_challenge": "short", "code_challenge_method": "S256"},
+        {**base, "code_challenge": challenge, "code_challenge_method": "S256", "scope": "nope"},
+    ):
+        # The first is refused before the SDK (JSON), the others by the SDK (error page).
+        reply = client.get("/vibesynergy/authorize", params=params)
+        assert reply.status_code == 400, params
+        assert "location" not in reply.headers and "attacker.example" not in reply.text
+        if reply.headers["content-type"].startswith("text/html"):  # the SDK's own errors
+            assert "could not start the connection" in reply.text
+    # The normal first request of a new app still goes to the consent page.
+    location = _authorize(client, client_id, challenge, evil)
+    assert location.startswith(f"{HOST}/vibesynergy/approve?request=")
+    # Once approved, errors go back to the app as OAuth says.
+    mark_approved(rt.engine, client_id)
+    params = {**base, "code_challenge": challenge, "code_challenge_method": "plain"}
+    reply = client.get("/vibesynergy/authorize", params=params)
+    assert reply.status_code == 302 and reply.headers["location"].startswith(evil)
+
+
+def test_anonymous_requests_cannot_push_out_the_owners_pending_approval(setup, monkeypatch):
+    rt, client = setup
+    monkeypatch.setattr(oauth, "MAX_PENDING_REQUESTS", 5)
+    own = _register(client, "Own app")
+    mark_approved(rt.engine, own)
+    _, challenge = _pkce()
+    request_id = _request_id(_authorize(client, own, challenge))
+    stranger = _register(client, "Stranger")
+    for _ in range(20):
+        _authorize(client, stranger, challenge)
+    provider = client.app.state.oauth
+    assert provider.pending(request_id) is not None
+    assert len(provider._pending) == 5

@@ -310,7 +310,12 @@ def create_portal_app(rt: Runtime, *, share_mode: bool = False, caldav_http=None
         content_security_policy(tile_origins(rt)),
         None if share_mode else (lambda host: redirect_target(settings, host)),
     )
-    return ShareGuard(guarded) if share_mode else guarded
+    if share_mode:
+        return ShareGuard(guarded)
+    from vibesynergy.api.body_limit import BodyLimit
+
+    # Login, links and resets are reached before anyone is known: small bodies only.
+    return BodyLimit(guarded, prefixes=("/auth/",))
 
 
 class ShareGuard:

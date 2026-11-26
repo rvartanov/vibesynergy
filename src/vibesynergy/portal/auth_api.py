@@ -62,6 +62,13 @@ class SessionId(_Body):
     id: str
 
 
+# What a refused attempt says: this address is locked, or the email asks for a short wait.
+_LOCKED = {
+    "client": "Too many attempts. Try again in 15 minutes.",
+    "email": "Too many attempts. Wait a minute and try again.",
+}
+
+
 def _client(request: Request) -> str:
     # Behind the local reverse proxy the real address is in X-Forwarded-For.
     peer = request.client.host if request.client else ""
@@ -228,9 +235,9 @@ def build_auth_router(rt) -> APIRouter:
     @router.post("/auth/login")
     def login(body: Login, request: Request) -> JSONResponse:
         client = _client(request)
-        if auth.locked(engine, body.email, client):
+        if reason := auth.lock_reason(engine, body.email, client):
             audit("auth.login", request, "locked")
-            return JSONResponse({"error": "Too many attempts. Try again in 15 minutes."}, 429)
+            return JSONResponse({"error": _LOCKED[reason]}, 429)
         acc = auth.account(engine)
         ok = bool(
             acc
@@ -254,8 +261,8 @@ def build_auth_router(rt) -> APIRouter:
         if current is None or current.mfa_ok or acc is None:
             return JSONResponse({"error": "The login has expired. Start again."}, 401)
         client = _client(request)
-        if auth.locked(engine, acc["email"], client):
-            return JSONResponse({"error": "Too many attempts. Try again in 15 minutes."}, 429)
+        if reason := auth.lock_reason(engine, acc["email"], client):
+            return JSONResponse({"error": _LOCKED[reason]}, 429)
         ok = auth.check_second_factor(engine, rt.settings, acc["id"], body.code)
         auth.note_attempt(engine, acc["email"], client, ok)
         if not ok:
@@ -348,10 +355,8 @@ def build_auth_router(rt) -> APIRouter:
         if not acc["password_hash"]:
             return
         client = _client(request)
-        if auth.locked(engine, acc["email"], client):
-            raise HTTPException(
-                status_code=429, detail="Too many attempts. Try again in 15 minutes."
-            )
+        if reason := auth.lock_reason(engine, acc["email"], client):
+            raise HTTPException(status_code=429, detail=_LOCKED[reason])
         ok = auth.verify_password(password or "", acc["password_hash"])
         auth.note_attempt(engine, acc["email"], client, ok)
         if not ok:

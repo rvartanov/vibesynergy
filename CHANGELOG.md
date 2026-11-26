@@ -16,6 +16,24 @@ The short "What changed" the portal shows after an update is in
 ## 0.1.0-beta.0.23 – 26-11-2026
 
 - The Coach page opens quickly again. The message list rebuilt the full day state for every past advice to check whether it was still current, which took over 20 seconds; it now checks only yesterday and today, once per day and kind, and the page no longer waits for the list before it shows.
+- **Strava webhook with a secret address** (#196): the address Strava sends new activities
+  to now carries a random secret, like the Withings one, so nobody else can make VibeSynergy
+  fetch or remove an activity. **Once after this update**, run `vibesynergy webhooks
+  subscribe strava` (with `vibesynergy serve` running): it replaces the old subscription.
+  Until then the old address keeps working. An activity of another athlete is never kept.
+- **Size limit on what anyone can send** (#196): the login, app-connection and webhook
+  addresses refuse oversized requests, so nobody can fill the server's memory or its log
+  through them.
+- **Connecting an AI app is safer** (#196): an app you never approved can no longer use
+  VibeSynergy's address to send someone to a site of its choice, and strangers can no longer
+  push your own waiting approval out.
+- **A copied app login stops working** (#196): when an AI app's login is used twice, or
+  the app signs out, every login of that app ends, so a copy is useless; the app simply
+  connects again.
+- **Strangers can no longer lock you out of the portal** (#196): wrong passwords typed for
+  your email elsewhere now only make the next try wait a little (up to a minute) instead of
+  locking your right password out for 15 minutes, and a place you logged in from before is
+  not slowed down at all. Strangers can no longer use up the login-link mails either.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 

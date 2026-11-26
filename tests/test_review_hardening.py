@@ -77,6 +77,22 @@ def test_sql_tool_bounds_rows_and_value_size(tmp_path: Path) -> None:
     assert len(out["rows"]) == 1 and out["truncated"] is True
     with pytest.raises(ValueError):
         sql.run(db, f"select hex(zeroblob({sql.MAX_VALUE_BYTES}))")
+    assert sql.MAX_VALUE_BYTES <= 1_000_000
+
+
+def test_sql_tool_bounds_the_whole_result(tmp_path: Path) -> None:
+    """Values just under the per-value limit, many rows: the result stops near 20 MB."""
+    db = tmp_path / "t.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("create table daily_metric (n integer)")
+        conn.executemany("insert into daily_metric values (?)", [(n,) for n in range(60)])
+    big = sql.MAX_VALUE_BYTES // 2 - 10  # hex() doubles it
+    out = sql.run(db, f"select hex(zeroblob({big})) from daily_metric", limit=5000)
+    assert out["truncated"] is True
+    assert 0 < len(out["rows"]) < 60
+    assert sum(len(r[0]) for r in out["rows"]) <= sql.MAX_RESULT_BYTES
+    small = sql.run(db, "select n from daily_metric", limit=5000)
+    assert len(small["rows"]) == 60 and small["truncated"] is False
 
 
 def test_a_descending_zone_range_is_the_same_range() -> None:
