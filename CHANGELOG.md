@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.24 – 26-11-2026
+
 - **A RunSynergy group training shows its day** (#113): the workout to adopt for your
   "Training geven" session now says which day it is for and its start time ("do 20 nov,
   19:30") on Today, under Waiting for you → Your decision (where you can adopt it), on
