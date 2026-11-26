@@ -111,6 +111,8 @@ TEMPLATE_FIELDS = {
     "phases": _strings,
     "load": lambda v: v in LOADS,
     "params": lambda v: isinstance(v, dict) and all(_number(x) for x in v.values()),
+    # How a test is evaluated (#84): numbers only, e.g. ``{ ftp_pct = 95 }``.
+    "evaluation": lambda v: isinstance(v, dict) and all(_number(x) for x in v.values()),
     "easier": lambda v: isinstance(v, str),
     "kb_rules": _strings,
     # steps and exercises are checked per item
