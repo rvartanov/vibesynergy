@@ -523,7 +523,7 @@ def _advice_entry(rt, day, entry_type, task, text, safety):
 
 
 def test_an_evening_advice_is_named_after_tomorrow_everywhere(rt, sent):
-    """Robert, 20-11 (#138): a check-in advice for today and the evening run's advice for
+    """The owner, 20-11 (#138): a check-in advice for today and the evening run's advice for
     tomorrow. Every place names each advice after the day it is for, with the same colour."""
     from vibesynergy.core.user_datetime import format_user_short_day
 

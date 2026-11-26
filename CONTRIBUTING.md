@@ -92,7 +92,7 @@ says what changed, per version. Both are part of the change itself, in the same 
 
 **Versions** (#140, the model of RunSynergy): `0.1.0-beta.0.1`, `0.1.0-beta.0.2`, … Every
 deploy that brings merged pull requests is a release, and every release adds one to the last
-number. A next minor (`0.2.0-beta.0.1`) only when Robert says so; out of beta it becomes
+number. A next minor (`0.2.0-beta.0.1`) only when the owner says so; out of beta it becomes
 `1.0.0`. The numbers live in `src/vibesynergy/releases.py`; `pyproject.toml` keeps a PEP 440
 version for the line (`0.1.0b0`), because `0.1.0-beta.0.1` is not one. Never write a version
 number or a release by hand.

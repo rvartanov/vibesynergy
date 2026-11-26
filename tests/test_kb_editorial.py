@@ -25,7 +25,7 @@ LOOP = (
     "# Werkwijze\n\n"
     "Lees eerst claude-coach-loop.\n"
     "Regels ICU-1..4 zijn leidend.\n"
-    "Daarna de dag plannen met Robert."
+    "Daarna de dag plannen met Sam."
 )
 ADVISORY = "client:second-opinion"
 HEADERS = {"x-vibesynergy": "portal"}
@@ -142,7 +142,7 @@ def test_a_lint_only_proposal_is_applied_as_an_editorial_version(runtime) -> Non
 
 def test_a_lint_fix_mixed_with_a_content_change_waits(runtime) -> None:
     _loop(runtime)
-    proposal = _propose(runtime, _fixed().replace("met Robert", "met Robert, pilates ma en vr"))
+    proposal = _propose(runtime, _fixed().replace("met Sam", "met Sam, stretchen op zondag"))
     assert proposal["status"] == "pending"
     assert proposal["editorial"] == {
         "applied": False,
@@ -156,7 +156,7 @@ def test_a_lint_fix_mixed_with_a_content_change_waits(runtime) -> None:
     assert [c["field"] for c in texts] == ["body_md"]
     ops = [(line["op"], line["text"]) for line in texts[0]["lines"]]
     assert ("del", "Lees eerst claude-coach-loop.") in ops
-    assert ("add", "Daarna de dag plannen met Robert, pilates ma en vr.") in ops
+    assert ("add", "Daarna de dag plannen met Sam, stretchen op zondag.") in ops
 
 
 def test_another_field_or_a_new_rule_is_never_editorial(runtime) -> None:
@@ -306,13 +306,13 @@ def test_methods_and_rules_and_the_notices_show_the_fixes(runtime) -> None:
 
 def test_waiting_proposals_on_methods_and_in_the_inbox_carry_a_diff(runtime) -> None:
     _loop(runtime)
-    _propose(runtime, LOOP.replace("met Robert", "met Robert en de AI-coach"), author=ADVISORY)
+    _propose(runtime, LOOP.replace("met Sam", "met Sam en de AI-coach"), author=ADVISORY)
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     [waiting] = client.get("/api/knowledge/methods").json()["data"]["proposals"]
     lines = waiting["diff"][0]["lines"]
     assert [(line["op"], line["text"]) for line in lines[-2:]] == [
-        ("del", "Daarna de dag plannen met Robert."),
-        ("add", "Daarna de dag plannen met Robert en de AI-coach."),
+        ("del", "Daarna de dag plannen met Sam."),
+        ("add", "Daarna de dag plannen met Sam en de AI-coach."),
     ]
     [decision] = inbox.inbox(runtime, knowledge.utc_now().date())["decisions"]
     assert decision["diff"] == waiting["diff"]

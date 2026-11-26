@@ -81,7 +81,7 @@ _METRIC_PREFIXES = {
 }
 # What does not count: these states drop the metric out of the floor and the baselines.
 NOT_COUNTED = frozenset({"incomplete", "bad"})
-# Robert's "yes, incomplete" on a night the check found nothing on: as #53.
+# The athlete's "yes, incomplete" on a night the check found nothing on: as #53.
 OVERRIDE_DEFAULT = ("sleep", "readiness")
 
 THRESHOLDS: dict[str, float] = {

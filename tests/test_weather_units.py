@@ -1,4 +1,4 @@
-"""Weather units: °C or °F, and wind in km/h, m/s, knots or Beaufort (Robert 11-11)."""
+"""Weather units: °C or °F, and wind in km/h, m/s, knots or Beaufort (the owner, 11-11)."""
 
 from __future__ import annotations
 

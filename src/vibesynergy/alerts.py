@@ -71,7 +71,7 @@ KINDS: dict[str, tuple[str, list[str]]] = {
     "daily_coach": ("Messages from your AI coach", ["portal", "push"]),
     # A new or changed daily advice from the AI coach (#90): a new day's advice, or another
     # colour, a stricter safety level or a session decision (#147, advice_view.notable).
-    # No mail by default (Robert, 18-11-2026).
+    # No mail by default (the owner, 18-11-2026).
     "advice": ("A new or changed daily advice from your AI coach", ["portal", "push"]),
     "token": ("A coach token is about to expire", ["portal", "email"]),
     # Another app keeps overwriting the plan in intervals.icu, Garmin or the calendar (#110).

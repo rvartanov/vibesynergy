@@ -174,7 +174,7 @@ def test_mcp_adds_changes_deletes_and_reverts_a_race(rt) -> None:
     added = call(
         rt,
         "vibesynergy_race_add",
-        reason="Robert schrijft zich in",
+        reason="De atleet schrijft zich in",
         name="Zevenheuvelenloop",
         date=day.isoformat(),
         sport="run",
@@ -477,7 +477,7 @@ def test_own_agent_writes_at_once_and_the_coach_runner_proposes(rt) -> None:
             OWN_AGENT,
             FULL,
             "vibesynergy_race_add",
-            reason="Robert vraagt het",
+            reason="De atleet vraagt het",
             name="Ronde van Ede",
             date=day,
             sport="ride",

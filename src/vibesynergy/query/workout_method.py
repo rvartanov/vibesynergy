@@ -1,6 +1,6 @@
 """The workout method: every coaching value of the workout library, from the knowledge base.
 
-Robert, 21-11-2026: "Dit soort dingen moeten überhaupt niet in de code vastzitten, maar uit
+The owner, 21-11-2026: "Dit soort dingen moeten überhaupt niet in de code vastzitten, maar uit
 een methode/instructie komen" (#142). The library's code knows the structure of a workout
 (which steps, repeats, how it is rendered for intervals.icu, Zwift and Garmin); the values
 (cadence bands, cues, % FTP, zones, warm-up and cool-down minutes, distances, rests,

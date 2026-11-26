@@ -89,7 +89,7 @@ def test_tool_names_come_from_the_real_registry() -> None:
     assert {"vibesynergy_coach_write", "vibesynergy_thresholds", "vibesynergy_kb_get"} <= known
     text = (
         "Lees vibesynergy_today.horizon, schrijf met vibesynergy_plan_* en "
-        "de vibesynergy_icu_*-tools. Stuur Robert met SendUserMessage via vibesynergy_send. "
+        "de vibesynergy_icu_*-tools. Stuur Sam met SendUserMessage via vibesynergy_send. "
         "Gebruik ToolSearch."
     )
     assert kb_lint.unknown_tools(text, known) == [
@@ -140,7 +140,7 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
         engine,
         slug="coach-prompt-weekly",
         author="user",
-        body_md="Lees example (regels TRI-1..5). Stuur Robert met SendUserMessage.",
+        body_md="Lees example (regels TRI-1..5). Stuur Sam met SendUserMessage.",
     )
     found = knowledge.lint(engine)
     assert [(w["check"], w["kind"], w["ref"], w["names"]) for w in found] == [

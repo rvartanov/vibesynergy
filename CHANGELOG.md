@@ -535,7 +535,7 @@ The first version with a number also brings everything since 0.0.1a1:
   Meldingen, the start page, the Coach page, the report page and the AI apps now show every
   daily advice in the same words, made from the stored advice when you read it. So an old
   notice no longer shows an old wording ("Bijgewerkt: Coach ochtend – za 21 nov: Oranje: …"
-  cut off mid-word): it reads "Advies voor vandaag bijgewerkt om 12:48, na je training: Robert,
+  cut off mid-word): it reads "Advies voor vandaag bijgewerkt om 12:48, na je training: Sam,
   de rit van vandaag is gedaan zoals bedoeld; verder niets meer vandaag. · Bekijk". A version
   says when and why it came in plain words ("Bijgewerkt 12:48, na je training", "na je
   check-in", "nacht binnen", "plan gewijzigd", "avondvooruitblik") instead of the runner's

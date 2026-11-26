@@ -1,7 +1,7 @@
 """Versions and "What changed" (#140, the model of RunSynergy's releases.py).
 
 - The version starts at ``0.1.0-beta.0.1``; every release adds one to the last number. A next
-  minor (``0.2.0-beta.0.1``) only when Robert says so; out of beta it becomes ``1.0.0``.
+  minor (``0.2.0-beta.0.1``) only when the owner says so; out of beta it becomes ``1.0.0``.
 - Every deploy that ships merged pull requests is a release. ``vibesynergy update`` makes it
   (``vibesynergy.cut_release``): it adds the next ``Release`` at the top of ``RELEASES`` with
   the deploy date and the items nobody released yet, renames ``## Unreleased`` in

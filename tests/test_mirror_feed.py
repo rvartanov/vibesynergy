@@ -74,7 +74,7 @@ def test_the_old_mirror_rows_stay_in_the_log_but_are_not_shown(runtime) -> None:
         ("VibeSynergy", "plan mirror: Lange rit", {}),
         ("Claude", "   ", {"action": "icu.update"}),
         # A real write by the AI coach stays.
-        ("Claude", "Zwemrust als herstel, akkoord Robert", {"action": "icu.update"}),
+        ("Claude", "Zwemrust als herstel, akkoord Sam", {"action": "icu.update"}),
     ]
     with runtime.engine.begin() as conn:
         for author, text, meta in rows:
@@ -91,7 +91,7 @@ def test_the_old_mirror_rows_stay_in_the_log_but_are_not_shown(runtime) -> None:
                 )
             )
     shown = _plan_changes(runtime)
-    assert [e["text"] for e in shown] == ["Zwemrust als herstel, akkoord Robert"]
+    assert [e["text"] for e in shown] == ["Zwemrust als herstel, akkoord Sam"]
     # Nothing was changed or deleted: the rows are only filtered when read.
     assert len(_log(runtime)) == len(rows)
     hits = {g["kind"]: g["hits"] for g in search.search(runtime, "mirror")["groups"]}
