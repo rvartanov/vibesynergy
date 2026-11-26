@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- A notice at the top of the portal is hidden once you click its link, as with its close button (remembered on this device for a day).
+
 ## 0.1.0-beta.0.26 – 26-11-2026
 
 - **Mark a workout as a race or a test** (#84): choose *Test* (new) or *Race* as the

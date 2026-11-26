@@ -384,6 +384,19 @@ function jobChipLabel(alert) {
   return t("Sync problem · Fix");
 }
 
+// A click on × or on the notice's own link hides that notice (once a notice is clicked it may
+// go away by itself). The link still opens its page.
+function onAlertClick(event) {
+  const target = event.target.closest("[data-dismiss], a[href]");
+  if (!target) return;
+  const item = target.closest(".header-sync-chip, .alert-item");
+  const key = target.dataset.dismiss || item?.querySelector("[data-dismiss]")?.dataset.dismiss;
+  if (!key) return;
+  rememberDismiss(key);
+  if (target.dataset.dismiss) alertBanner();
+  else setTimeout(alertBanner, 0); // let the link navigate first
+}
+
 async function alertBanner() {
   if (sharedPages) return;
   let data;
@@ -413,12 +426,7 @@ async function alertBanner() {
       chips.setAttribute("role", "status");
       chips.setAttribute("aria-live", "polite");
       header.querySelector(".brand")?.after(chips);
-      chips.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-dismiss]");
-        if (!button) return;
-        rememberDismiss(button.dataset.dismiss);
-        alertBanner();
-      });
+      chips.addEventListener("click", onAlertClick);
     }
     chips.innerHTML = jobItems
       .slice(0, 2)
@@ -439,12 +447,7 @@ async function alertBanner() {
       notices.setAttribute("role", "status");
       notices.setAttribute("aria-live", "polite");
       (chips || header.querySelector(".brand"))?.after(notices);
-      notices.addEventListener("click", (event) => {
-        const button = event.target.closest("[data-dismiss]");
-        if (!button) return;
-        rememberDismiss(button.dataset.dismiss);
-        alertBanner();
-      });
+      notices.addEventListener("click", onAlertClick);
     }
     notices.innerHTML = warnNotices
       .slice(0, 2)
@@ -470,12 +473,7 @@ async function alertBanner() {
     banner.className = "alert-banner";
     banner.setAttribute("role", "alert");
     header.after(banner);
-    banner.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-dismiss]");
-      if (!button) return;
-      rememberDismiss(button.dataset.dismiss);
-      alertBanner();
-    });
+    banner.addEventListener("click", onAlertClick);
   }
   banner.innerHTML = bannerItems
     .slice(0, 3)

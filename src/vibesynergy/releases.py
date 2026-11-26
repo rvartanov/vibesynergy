@@ -392,6 +392,12 @@ ITEMS: tuple[Item, ...] = (
         "HR from a marked test or race as proposals; vibesynergy_threshold_test shows how. "
         "The test evaluation explains them and does not compute again.",
     ),
+    Item(
+        "notice-click",
+        "you",
+        "A notice at the top of the page now goes away once you click it, not only with its "
+        "close button.",
+    ),
 )
 
 VERSION = RELEASES[0].version
