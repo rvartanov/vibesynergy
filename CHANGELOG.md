@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.26 – 26-11-2026
+
 - **Mark a workout as a race or a test** (#84): choose *Test* (new) or *Race* as the
   purpose of a workout. A workout on the day of a planned test or race of the same sport is
   marked by itself, and you can undo that; it then stays undone. From a marked test
