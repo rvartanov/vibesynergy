@@ -1562,6 +1562,7 @@
  "It will return to {redirect}.": "It will return to {redirect}.",
  "Only paste this into an app you started yourself.": "Only paste this into an app you started yourself.",
  "Passphrase": "Passphrase",
+ "This app could not start the connection. Start again from the app, or ask its maker.": "This app could not start the connection. Start again from the app, or ask its maker.",
  "Request expired.": "Request expired.",
  "Return to {client}": "Return to {client}",
  "Select the link above to go back to your app. If that does not work, for example because you approved on another device, copy this URL and open it on the machine running the app, or paste the code into the app.": "Select the link above to go back to your app. If that does not work, for example because you approved on another device, copy this URL and open it on the machine running the app, or paste the code into the app.",

@@ -24,6 +24,9 @@ The short "What changed" the portal shows after an update is in
 - **Size limit on what anyone can send** (#196): the login, app-connection and webhook
   addresses refuse oversized requests, so nobody can fill the server's memory or its log
   through them.
+- **Connecting an AI app is safer** (#196): an app you never approved can no longer use
+  VibeSynergy's address to send someone to a site of its choice, and strangers can no longer
+  push your own waiting approval out.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 

@@ -106,6 +106,9 @@ _OAUTH_INTRO_DENIED = "{title} — {client} was not allowed to use your account.
 _OAUTH_ACCESS_INTRO = "wants access to your VibeSynergy account. Choose what it may do:"
 _OAUTH_SCOPE_LEGEND = "What it may do"
 _OAUTH_INTRO_RETURN = "{title} — return to {client}."
+_OAUTH_UNAPPROVED_ERROR = (
+    "This app could not start the connection. Start again from the app, or ask its maker."
+)
 UI_STRINGS = (
     "Access denied",
     "Allow",
@@ -140,6 +143,7 @@ UI_STRINGS = (
     *SCOPE_LABELS.values(),
     _OAUTH_INTRO_RETURN,
     _OAUTH_INTRO_DENIED,
+    _OAUTH_UNAPPROVED_ERROR,
 )
 
 # A request or stored grant without any scope keeps meaning what it always did: every
@@ -472,10 +476,33 @@ class VibeSynergyOAuthProvider:
             )
         self._expire_pending()
         while len(self._pending) >= MAX_PENDING_REQUESTS:
-            self._pending.pop(next(iter(self._pending)))  # the oldest; dicts keep order
+            self._pending.pop(self._evictable())
         request_id = secrets.token_urlsafe(24)
         self._pending[request_id] = (time.monotonic(), client.client_id or "", params)
         return f"{self.issuer}/approve?request={request_id}"
+
+    def _evictable(self) -> str:
+        """The pending request to drop when the list is full: the oldest of an app nobody
+        approved yet, so anonymous requests cannot push out the owner's own approval."""
+        approved = self.approved_clients({client for _, client, _ in self._pending.values()})
+        for request_id, (_, client_id, _) in self._pending.items():  # oldest first
+            if client_id not in approved:
+                return request_id
+        return next(iter(self._pending))
+
+    def approved_clients(self, client_ids: set[str]) -> set[str]:
+        """Which of these apps the owner has approved at least once."""
+        if not client_ids:
+            return set()
+        with self.engine.connect() as conn:
+            return set(
+                conn.execute(
+                    select(oauth_client.c.client_id).where(
+                        oauth_client.c.client_id.in_(client_ids),
+                        oauth_client.c.approved_at.is_not(None),
+                    )
+                ).scalars()
+            )
 
     def pending(self, request_id: str) -> tuple[str, AuthorizationParams] | None:
         self._expire_pending()
@@ -1259,7 +1286,9 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
     async def authorization_error(params, error: str, description: str) -> Response:
         client_id = params.get("client_id")
         client = await provider.get_client(client_id) if isinstance(client_id, str) else None
-        if client:
+        # Error redirects go only to an app the owner approved before: anyone can register
+        # one with any redirect_uri, and this server must not send browsers there unasked.
+        if client and isinstance(client_id, str) and provider.approved_clients({client_id}):
             try:
                 raw = params.get("redirect_uri")
                 redirect = client.validate_redirect_uri(
@@ -1315,7 +1344,13 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
             response = await authorization_error(params_for_error, *error)
             await response(scope, receive, send)
             return
-        await endpoints["/authorize"].endpoint(scope, replay_body(body) if body else receive, send)
+        client_id = params_for_error.get("client_id")
+        approved = isinstance(client_id, str) and bool(provider.approved_clients({client_id}))
+        await endpoints["/authorize"].endpoint(
+            scope,
+            replay_body(body) if body else receive,
+            send if approved else _no_foreign_redirect(scope, send, provider.issuer),
+        )
 
     async def token_route(scope, receive, send) -> None:
         if scope["method"] == "OPTIONS":
@@ -1457,6 +1492,40 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
         Route("/.well-known/openid-configuration/vibesynergy", path_prefix_discovery),
     ]
     return route_list
+
+
+def _no_foreign_redirect(scope, send, issuer: str):
+    """``send`` for an app never approved: a redirect anywhere but this server's approve
+    page (the SDK's error redirect to the app's redirect_uri) becomes an error page, so
+    open registration cannot turn /authorize into an open redirector. The normal first
+    request still reaches the approve page, where the owner decides."""
+    own = f"{issuer}/approve?"
+    replaced = False
+
+    async def guarded(message) -> None:
+        nonlocal replaced
+        if replaced:
+            return
+        if message["type"] == "http.response.start" and 300 <= message["status"] < 400:
+            location = next(
+                (v.decode("latin-1") for k, v in message.get("headers", []) if k == b"location"),
+                "",
+            )
+            if not location.startswith(own):
+                replaced = True
+                tr = translator(request_language(Request(scope)))
+                page = _page(tr, _OAUTH_UNAPPROVED_ERROR, "")
+                page.status_code = 400
+                page.headers["Cache-Control"] = "no-store"
+                await page(scope, _no_body, send)
+                return
+        await send(message)
+
+    return guarded
+
+
+async def _no_body():
+    return {"type": "http.request", "body": b"", "more_body": False}
 
 
 def _respond_approve(

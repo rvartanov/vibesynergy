@@ -455,6 +455,10 @@ Request bodies on the public routes (registration, token, approval, webhooks) ar
 413. Registration free text (`client_name`, software id and version) is cut to 100
 characters, and `oauth.register` and `oauth.denied` audit rows are kept for 90 days, at
 most the newest 1,000 of each.
+`/authorize` sends a browser back to an app's `redirect_uri` with an error only when the
+owner approved that app before; an app nobody approved yet gets an error page on
+VibeSynergy instead (its first request still reaches the consent page). When the list of
+waiting approvals is full, requests of apps nobody approved are dropped first.
 Discovery works under `/vibesynergy`: the 401 carries `resource_metadata`, and the issuer
 `<public_url>/vibesynergy` serves RFC 8414 metadata at `/.well-known/oauth-authorization-server`
 below it. The RFC 8414 path-inserted URL at the host root requires a Funnel route to this
