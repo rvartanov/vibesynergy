@@ -6,6 +6,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
+# Read-only token by default; a job that needs more says so itself.
+permissions:
+  contents: read
+
 jobs:
   changelog:
     runs-on: ubuntu-latest
