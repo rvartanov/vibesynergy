@@ -154,7 +154,7 @@ function pushBoxes(prefix, sport) {
 
 // One sport ---------------------------------------------------------------------------------
 
-// One line for the collapsed tile: the values your plan uses, e.g. "FTP 265 W · LTHR 150".
+// One line for the collapsed tile: the values your plan uses, e.g. "FTP 300 W · LTHR 140".
 export function summaryLine(sport) {
   const parts = (sport.metrics || [])
     .filter((m) => m.plan && m.plan.value != null)

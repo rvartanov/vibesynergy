@@ -111,7 +111,7 @@ def test_forecast_from_open_meteo_at_the_last_outdoor_start(runtime, monkeypatch
     from vibesynergy.query import activity_weather
 
     monkeypatch.setattr(activity_weather, "_FORECAST", {"at": 0.0, "value": None, "point": None})
-    monkeypatch.setattr(activity_weather, "_last_outdoor_point", lambda _rt: (53.2012, 5.7999))
+    monkeypatch.setattr(activity_weather, "_last_outdoor_point", lambda _rt: (52.0907, 5.1214))
     seen = {}
 
     def http(url, params, timeout):
@@ -133,7 +133,7 @@ def test_forecast_from_open_meteo_at_the_last_outdoor_start(runtime, monkeypatch
 
     out = activity_weather.forecast(runtime, http=http, now=100.0)
     assert seen["url"].startswith("https://api.open-meteo.com/")
-    assert (seen["latitude"], seen["longitude"]) == (53.2, 5.8)  # about a kilometre, not more
+    assert (seen["latitude"], seen["longitude"]) == (52.09, 5.12)  # about a kilometre, not more
     assert out["days"][0]["flags"] == ["rain", "gusts", "cold"]
     assert out["days"][1]["flags"] == [] and out["days"][1]["temp_max_c"] == 9.0
     assert activity_weather.forecast(runtime, http=None, now=200.0) is out  # cached
@@ -177,15 +177,15 @@ def test_calendar_moves_and_skips_a_session_once_vibesynergy_leads(runtime) -> N
     from vibesynergy.query import plan_model
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
     span = {"start": "2026-11-16", "end": "2026-11-22"}
-    body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
+    body = {"session_id": "race27:2026-11-17:run-test", "date": "2026-11-19"}
     # The import is a one-time copy: VibeSynergy leads at once (#111).
     data = api.get("/api/schedule", params=span).json()["data"]
     planned = [p for d in data["days"] for p in d["planned"]]
-    assert data["editable"] is True and planned[0]["session_id"] == "lake27:2026-11-17:run-test"
+    assert data["editable"] is True and planned[0]["session_id"] == "race27:2026-11-17:run-test"
     moved = api.post("/api/plan/session/move", json=body, headers=write)
     assert moved.status_code == 200 and moved.json()["data"]["date"] == "2026-11-19"
     assert runtime.jobs.recent()[0]["kind"] == plan_model.MIRROR_JOB
@@ -211,10 +211,10 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
                     "results": [
                         {
                             "name": "Stad",
-                            "admin1": "Friesland",
+                            "admin1": "Utrecht",
                             "country": "Nederland",
-                            "latitude": 53.2012,
-                            "longitude": 5.7999,
+                            "latitude": 52.0907,
+                            "longitude": 5.1214,
                         },
                         {"name": "broken"},
                     ]
@@ -235,18 +235,18 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
     assert found == [
         {
             "name": "Stad",
-            "where": "Friesland, Nederland",
-            "latitude": 53.2012,
-            "longitude": 5.7999,
+            "where": "Utrecht, Nederland",
+            "latitude": 52.0907,
+            "longitude": 5.1214,
         }
     ]
     assert activity_weather.places("L", http=http) == []  # too short: nothing sent
 
-    place = {"name": "Stad, Friesland", "latitude": 53.2012, "longitude": 5.7999}
+    place = {"name": "Stad, Utrecht", "latitude": 52.0907, "longitude": 5.1214}
     prefs.save(runtime.settings.data_dir, {"weather_location": place})
     out = activity_weather.forecast(runtime, http=http, now=100.0)
     assert out["location"]["kind"] == "chosen" and out["days"][0]["date"] == "2026-11-08"
-    assert asked[-1][1]["latitude"] == 53.2 and asked[-1][1]["longitude"] == 5.8
+    assert asked[-1][1]["latitude"] == 52.09 and asked[-1][1]["longitude"] == 5.12
     calls = len(asked)
     activity_weather.forecast(runtime, http=http, now=200.0)
     assert len(asked) == calls  # cached for the same place
@@ -254,7 +254,7 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
     # The portal route names the place, never its coordinates (the calendar can be shared).
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     data = api.get("/api/weather").json()["data"]
-    assert data["location"] == {"kind": "chosen", "name": "Stad, Friesland"}
+    assert data["location"] == {"kind": "chosen", "name": "Stad, Utrecht"}
 
     prefs.save(runtime.settings.data_dir, {"weather_location": None})
     assert activity_weather.location(runtime) == {"kind": "none"}  # no outdoor session here
@@ -271,7 +271,7 @@ def test_weather_follows_the_chosen_place(runtime, monkeypatch) -> None:
 def test_changing_a_session_without_a_plan_says_there_is_no_plan(runtime) -> None:
     api = TestClient(create_portal_app(runtime), base_url="http://localhost")
     write = {"x-vibesynergy": "portal", "origin": "http://localhost"}
-    body = {"session_id": "lake27:2026-11-17:run-test", "date": "2026-11-19"}
+    body = {"session_id": "race27:2026-11-17:run-test", "date": "2026-11-19"}
     for path in ("/api/plan/session/move", "/api/plan/session/skip"):
         refused = api.post(path, json=body, headers=write)
         assert refused.status_code == 400 and "There is no plan yet." in refused.text

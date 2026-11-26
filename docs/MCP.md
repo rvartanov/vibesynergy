@@ -182,8 +182,8 @@ provider or model, and the server enforces them for every write tool
   rules in use (`ICU-1..4` while ICU-6 exists), a rule that does not exist, or a tool the MCP
   server does not register (`SendUserMessage`; checked against the real tool list,
   `mcp.server.tool_names`), and on an instruction, working-method or plan article (or one of
-  its rules, or a COACH rule) that writes a threshold as a number (`265 W`, `LTHR 162`,
-  `5:10/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
+  its rules, or a COACH rule) that writes a threshold as a number (`300 W`, `LTHR 170`,
+  `5:00/km`) instead of reading it with `vibesynergy_thresholds`. `vibesynergy_kb_upsert` (`coach.write`) writes a new version
   and keeps every older one; `revert_to` copies an older article version forward.
   `vibesynergy_kb_propose_change` (`plan.propose`) stores a suggestion. The athlete approves
   or rejects it on the portal (Coach → Knowledge, and Coach → Methods & rules for the texts
@@ -984,14 +984,14 @@ Planned vs completed training.
   - a Garmin scheduled workout that is a copy of a plan session is not a second item. It
     is listed on the session as `garmin_copies` (`source_id`, `title`, `sport`, `match`:
     `name` for the same day, sport family and name, `brick` for a part of a brick title,
-    `plan_tag` for a title carrying the plan's id such as `(lake27)` on a day with plan
+    `plan_tag` for a title carrying the plan's id such as `(race27)` on a day with plan
     sessions, and its calendar `mirrors`). Garmin has no id that links the two;
   - any other Garmin workout (Garmin Coach's "Basis", "Drempel", one added by hand in
     Garmin) is not VibeSynergy's and is not shown (#153): it is in no list of this tool or
     of `vibesynergy_today`, `vibesynergy_week`, the horizon guard or the AI coach's context,
     and never counted. Its synced row stays in the database;
   - `weeks` come from the plan's own week notes and targets (`note.id` and a target's `id`
-    are the plan's keys such as `lake27:week:03`; a target has no `title`).
+    are the plan's keys such as `race27:week:03`; a target has no `title`).
   Days before `plan_start`, and an install without a plan, keep the Garmin calendar as the
   plan, with `plan_source` `garmin` on each training item.
 - `adherence` also has `changed` and `missed`. `planned` and `done` are unchanged in

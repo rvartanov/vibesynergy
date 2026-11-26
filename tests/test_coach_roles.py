@@ -253,7 +253,7 @@ def test_two_clients_with_different_roles_write_the_plan_differently(rt) -> None
             OWN_AGENT,
             FULL,
             "vibesynergy_plan_session_move",
-            reason="Robert vroeg het",
+            reason="de atleet vroeg het",
             session_id=session,
             date=target,
         )
@@ -266,7 +266,7 @@ def test_two_clients_with_different_roles_write_the_plan_differently(rt) -> None
         OWN_AGENT,
         SUGGEST,
         "vibesynergy_plan_session_skip",
-        reason="Robert vroeg het",
+        reason="de atleet vroeg het",
         session_id=session,
     )
     assert denied.is_error and "isn't allowed" in _text(denied)

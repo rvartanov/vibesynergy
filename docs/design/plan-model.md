@@ -12,8 +12,8 @@ Non-goals for this phase: the planner, delivery to Garmin for endurance sports, 
 
 | What | Where | Note |
 |---|---|---|
-| Sessions, week notes, TARGETs | intervals.icu, cached in `icu_event` (raw JSON, `external_id` `lake27:<date>:<slot>`, `lake27:week:NN`, `lake27:target:NN:<sport>`) | The plan's source of truth. The coach writes it through `query/icu_plan.py` (version tokens, reason, audit). |
-| Plan text, rules | KB `lakeside-2027-plan` (phases, week structure, strength, tests) | Prose. Not machine-readable. |
+| Sessions, week notes, TARGETs | intervals.icu, cached in `icu_event` (raw JSON, `external_id` `race27:<date>:<slot>`, `race27:week:NN`, `race27:target:NN:<sport>`) | The plan's source of truth. The coach writes it through `query/icu_plan.py` (version tokens, reason, audit). |
+| Plan text, rules | KB `spring-race-2027-plan` (phases, week structure, strength, tests) | Prose. Not machine-readable. |
 | Garmin calendar | `planned_item` (source garmin) | Copies of the intervals.icu pushes plus VibeSynergy's strength workouts (`garmin_strength_delivery`). |
 | Readers | `plan.py` (`_merge_intervals`), `training_plan.py`, `week_progress`, `daily_coach`, `coach_brief` | All read `icu_event`. |
 
@@ -21,12 +21,12 @@ Non-goals for this phase: the planner, delivery to Garmin for endurance sports, 
 
 New tables (one migration; `store/schema.py` and the revision pin in `tests/test_cli.py` move with it):
 
-- `plan` — id, subject_id, name ("Lakeside 2027"), method (e.g. `friel`), start, end, status (`draft`/`active`/`archived`), `current_version`.
+- `plan` — id, subject_id, name ("Spring race 2027"), method (e.g. `friel`), start, end, status (`draft`/`active`/`archived`), `current_version`.
 - `plan_version` — id, plan_id, n, created_at, author, reason, summary. Every write creates a version row; rows below point at the version that last changed them.
 - `plan_phase` — plan_id, name (Instap, Base 1…), first_week, last_week.
 - `plan_week` — plan_id, n, monday, phase, kind (`load`/`recovery`/`race`/`taper`), hours_total, note (the week note text), hard_days (list of weekdays).
 - `plan_target` — week_id, sport (`ride`/`run`/`swim`/`strength`), time_s, distance_m, load.
-- `plan_session` — id, plan_id, date, slot (`ride`, `run`, `strength`, `brick-ride`…), sport, name, purpose (`easy`/`quality`/`long`/`test`/`brick`/`class`/`coached`), intensity, duration_s, distance_m, `workout` (JSON, below), description (the cue text for the athlete), external_key (`lake27:<date>:<slot>`), status (`planned`/`moved`/`skipped`/`done`), version.
+- `plan_session` — id, plan_id, date, slot (`ride`, `run`, `strength`, `brick-ride`…), sport, name, purpose (`easy`/`quality`/`long`/`test`/`brick`/`class`/`coached`), intensity, duration_s, distance_m, `workout` (JSON, below), description (the cue text for the athlete), external_key (`race27:<date>:<slot>`), status (`planned`/`moved`/`skipped`/`done`), version.
 - `plan_link` — session_id, target (`intervals`/`garmin`), remote_id, remote_version, fingerprint, synced_at, last_error. One place for the mirror and delivery state (`garmin_strength_delivery` moves here in).
 
 ### Workout JSON

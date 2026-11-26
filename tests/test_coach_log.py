@@ -346,4 +346,4 @@ def test_an_installs_own_seed_wins_over_the_generic_one(runtime, tmp_path) -> No
 def test_the_repo_seeds_name_no_one() -> None:
     for job in coach_prompts.JOBS:
         text = coach_prompts.seed_text(job) or ""
-        assert not any(w in text for w in ("Alex", "Lakeside", "Stad", "PLAN-")), job
+        assert not any(w in text for w in ("Alex", "Spring race", "Stad", "PLAN-")), job

@@ -468,7 +468,7 @@ def populate(rt: Runtime) -> dict:
     # Zones & thresholds: a plan for cycling and one open proposal.
     from vibesynergy.query import athlete_threshold, thresholds
 
-    for metric, value in (("ftp", 265), ("lthr", 150), ("max_hr", 179)):
+    for metric, value in (("ftp", 300), ("lthr", 140), ("max_hr", 190)):
         thresholds.set_value(rt.engine, sport="bike", metric=metric, value=value, today=today)
     athlete_threshold.propose_threshold(
         rt.engine, sport="swim", metric="css", value=150, unit="s/100m", method="estimate"

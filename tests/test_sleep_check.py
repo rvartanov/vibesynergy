@@ -386,7 +386,7 @@ def test_the_check_is_stored_and_recomputed_when_garmin_updates_the_night(runtim
     assert sq.night(rt.engine, None, DAY, TZ)["state"] == "bad"
 
 
-def test_robert_decides_last_and_can_undo(runtime):
+def test_the_athlete_decides_last_and_can_undo(runtime):
     rt = runtime
     _seed_17_11(rt)
     sq.set_override(rt.engine, DAY, "ok")

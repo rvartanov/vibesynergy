@@ -98,7 +98,7 @@ there, a week note, a target, a race) is advice input. There is no switch back. 
 `expected_version`) from the last `vibesynergy_icu_events` read.
 
 The KB articles that drive the loop today (the tool lists the current set):
-`ai-coach-loop` (the loop and COACH rules), `lakeside-2027-plan` (phases, weekly structure, FRY rules), `intervals-icu-workout-authoring`
+`ai-coach-loop` (the loop and COACH rules), `spring-race-2027-plan` (phases, weekly structure, TRI rules), `intervals-icu-workout-authoring`
 (workout syntax, ICU rules), `activity-insight-rules` (INS rules), `swim-data-quality`, and
 the `evidence-*` articles (HRV, LOAD, TID, ULTRA, SWIM, HEAT …).
 
@@ -133,7 +133,7 @@ changes:
 - a rule range from 1 gets the real end (`ICU-1..4` → `ICU-1..6`);
 - on a plain instruction line (no table, heading, code, date or example, one value), a fixed
   threshold becomes "read live with vibesynergy_thresholds" ("lees live met
-  vibesynergy_thresholds"), keeping its label: `FTP 265 W` → `FTP (read live with
+  vibesynergy_thresholds"), keeping its label: `FTP 300 W` → `FTP (read live with
   vibesynergy_thresholds)`.
 
 Anything else waits for him: other wording, a removed sentence, another number, date, day,
@@ -259,8 +259,8 @@ key (`morning-YYYY-MM-DD`).
 
 Plan writes have no idempotency key: they carry a `reason` and are protected by
 `expected_version`. Before creating, read the plan and look for the `external_id` you are
-about to use (the plan article sets the scheme, now `lake27:<date>:<slot>` and week notes
-`lake27:week:NN`, tag `lake27`). Found it: update instead of creating.
+about to use (the plan article sets the scheme, now `race27:<date>:<slot>` and week notes
+`race27:week:NN`, tag `race27`). Found it: update instead of creating.
 
 **Multisport.** A brick, duathlon or triathlon is one session per sport on the same day,
 linked by `slot` in order: `ms1-swim`, `ms2-ride`, `ms3-run` (a duathlon `ms1-run`,

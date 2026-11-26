@@ -147,7 +147,7 @@ def _range_slots(text: str, families: Mapping[str, set[int]]) -> list[Slot]:
     return out
 
 
-# A threshold named by a label keeps the label: "FTP 265 W" -> "FTP (read live with ...)".
+# A threshold named by a label keeps the label: "FTP 300 W" -> "FTP (read live with ...)".
 _LABEL = re.compile(
     r"^(?:FTP|LTHR|CSS|HRmax|drempeltempo|threshold pace|Z\d)\b[^\d]*?(?=\d)", re.IGNORECASE
 )

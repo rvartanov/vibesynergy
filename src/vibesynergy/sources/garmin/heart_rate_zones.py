@@ -159,7 +159,7 @@ def set_lactate_threshold(
 ) -> dict[str, Any]:
     """The profile's lactate threshold (Performance stats), and auto-detection off.
 
-    Garmin keeps the threshold speed as seconds per metre (5:10/km = 0.31)."""
+    Garmin keeps the threshold speed as seconds per metre (5:00/km = 0.30)."""
     data: dict[str, Any] = {"thresholdHeartRateAutoDetected": False, "ftpAutoDetected": False}
     if lthr is not None:
         data["lactateThresholdHeartRate"] = round(lthr)

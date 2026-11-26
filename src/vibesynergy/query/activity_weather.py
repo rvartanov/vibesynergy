@@ -51,7 +51,7 @@ _PLACE = re.compile(r"[^\W\d_][\w .,'()/-]{0,59}")
 
 
 def place(rt, group_id: str) -> str | None:
-    """Where the session was: Garmin's place name for it (e.g. 'Leeuwarden'), if it has one."""
+    """Where the session was: Garmin's place name for it (e.g. 'Utrecht'), if it has one."""
     with rt.engine.connect() as conn:
         sources = conn.scalar(
             select(activity_unified.c.sources).where(activity_unified.c.group_id == group_id)

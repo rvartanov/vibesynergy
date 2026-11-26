@@ -3,7 +3,7 @@
 Set up in Settings → Sources → RunSynergy by pasting the personal calendar link RunSynergy
 gives under *Mijn gegevens*. Read only: nothing goes back to RunSynergy. Each event with
 contract-1 data becomes a ``group_training`` planned item. Those are never counted as
-planned training themselves; ``query.group_training`` turns the ones Robert coaches into a
+planned training themselves; ``query.group_training`` turns the ones the athlete coaches into a
 workout proposal for the plan's "Training geven" session that day.
 """
 

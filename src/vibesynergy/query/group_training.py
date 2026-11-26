@@ -1,6 +1,6 @@
 """Group trainings from RunSynergy as the workout for a "Training geven" session.
 
-Robert gives group trainings and runs along easy (Z1) the whole time. The plan holds a
+The athlete gives group trainings and runs along easy (Z1) the whole time. The plan holds a
 "Training geven" session for each, with a generic Z1 workout. RunSynergy's group schedule has
 the real content: warm-up and technique, the core on time (so he can blow the whistle) and
 the cool-down. This module builds a workout from that schedule for the matching session and
@@ -210,7 +210,7 @@ def _pick(session_title: str, candidates: list[dict[str, Any]]) -> dict[str, Any
 
 
 def trainings(engine: Engine, start: date, end: date) -> list[dict[str, Any]]:
-    """RunSynergy group trainings Robert coaches in the window."""
+    """RunSynergy group trainings the athlete coaches in the window."""
     with engine.connect() as conn:
         rows = conn.execute(
             select(planned_item).where(

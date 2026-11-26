@@ -34,7 +34,7 @@ from vibesynergy.store.schema import media_check, media_item, media_origin
 needs_ffmpeg = pytest.mark.skipif(
     not (shutil.which("ffmpeg") and shutil.which("ffprobe")), reason="ffmpeg is not installed"
 )
-PLACE = "+53.2012+005.7999/"
+PLACE = "+52.0907+005.1214/"
 
 
 def make_video(path: Path, seconds: float = 2, colour: str = "testsrc") -> bytes:

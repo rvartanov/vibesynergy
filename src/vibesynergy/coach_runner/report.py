@@ -222,7 +222,7 @@ def send(
     title = view["heading"] if view else subject(rt.settings, job, day)
     if advice_job and not by_mail:
         # A daily advice goes where Settings → Alerts sends the kind "advice": by default
-        # a push and a notice in the portal, no mail (Robert, 18-11-2026).
+        # a push and a notice in the portal, no mail (the owner, 18-11-2026).
         # One notice and one push per target day (#108): a new version replaces the old
         # ones. The notice stores which entry it is about (#115); its text is made from
         # that entry when it is read (#147), so it never shows an old wording.

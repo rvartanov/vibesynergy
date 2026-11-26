@@ -1,7 +1,7 @@
 """Versions and "What changed" (#140, the model of RunSynergy's releases.py).
 
 - The version starts at ``0.1.0-beta.0.1``; every release adds one to the last number. A next
-  minor (``0.2.0-beta.0.1``) only when Robert says so; out of beta it becomes ``1.0.0``.
+  minor (``0.2.0-beta.0.1``) only when the owner says so; out of beta it becomes ``1.0.0``.
 - Every deploy that ships merged pull requests is a release. ``vibesynergy update`` makes it
   (``vibesynergy.cut_release``): it adds the next ``Release`` at the top of ``RELEASES`` with
   the deploy date and the items nobody released yet, renames ``## Unreleased`` in
@@ -290,7 +290,7 @@ ITEMS: tuple[Item, ...] = (
         "114-auto-names",
         "you",
         "New workouts get a name by themselves: the title of their plan session, or else "
-        'sport, part of the day and place, such as "Morning run Leeuwarden". A name you change '
+        'sport, part of the day and place, such as "Morning run Utrecht". A name you change '
         "yourself stays. Switch it off under Settings → Publishing and sync.",
     ),
     Item(

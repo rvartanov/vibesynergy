@@ -25,7 +25,7 @@ LOOP = (
     "# Werkwijze\n\n"
     "Lees eerst claude-coach-loop.\n"
     "Regels ICU-1..4 zijn leidend.\n"
-    "Daarna de dag plannen met Robert."
+    "Daarna de dag plannen met Sam."
 )
 ADVISORY = "client:second-opinion"
 HEADERS = {"x-vibesynergy": "portal"}
@@ -65,26 +65,26 @@ def _slots(text: str, *, thresholds: bool = False) -> list[kb_fix.Slot]:
     return kb_fix.slots(
         text,
         slug_aliases=knowledge.SLUG_ALIASES,
-        families={"ICU": set(range(1, 7)), "FRY": set(range(1, 9))},
+        families={"ICU": set(range(1, 7)), "TRI": set(range(1, 9))},
         tools=tool_names(),
         thresholds=thresholds,
     )
 
 
 def test_only_the_lint_substitution_is_explained() -> None:
-    old = "Regels ICU-1..4 en FRY-1 t/m 5. Zie claude-coach-loop."
+    old = "Regels ICU-1..4 en TRI-1 t/m 5. Zie claude-coach-loop."
     found = _slots(old)
     assert [(s.check, s.found) for s in found] == [
         ("rule_range", "ICU-1..4"),
-        ("rule_range", "FRY-1..5"),
+        ("rule_range", "TRI-1..5"),
         ("retired_name", "claude-coach-loop"),
     ]
     fixed, fixes = kb_fix.autofix(old, found)
-    assert fixed == "Regels ICU-1..6 en FRY-1 t/m 8. Zie ai-coach-loop."
-    assert [f.fixed for f in fixes] == ["ICU-1..6", "FRY-1 t/m 8", "ai-coach-loop"]
+    assert fixed == "Regels ICU-1..6 en TRI-1 t/m 8. Zie ai-coach-loop."
+    assert [f.fixed for f in fixes] == ["ICU-1..6", "TRI-1 t/m 8", "ai-coach-loop"]
     assert kb_fix.explain(old, fixed, found) == fixes
     # Fixing only one of them is fine, and so is the canonical form of a range.
-    assert len(kb_fix.explain(old, old.replace("FRY-1 t/m 5", "FRY-1..8"), found) or []) == 1
+    assert len(kb_fix.explain(old, old.replace("TRI-1 t/m 5", "TRI-1..8"), found) or []) == 1
     # One other word anywhere, and it is a content change.
     assert kb_fix.explain(old, fixed.replace("Zie", "Lees"), found) is None
     assert kb_fix.explain(old, fixed.replace("ICU-1..6", "ICU-1..5"), found) is None
@@ -94,7 +94,7 @@ def test_only_the_lint_substitution_is_explained() -> None:
 def test_no_mechanical_fix_for_what_needs_a_decision() -> None:
     text = (
         "Gebruik `vitality plan source intervals`. Sherpa is weg. Stuur met SendUserMessage. "
-        "Zie FRY-9 en ICU-2..7."
+        "Zie TRI-9 en ICU-2..7."
     )
     assert _slots(text) == []
     # The old app name and its tools have one replacement.
@@ -106,19 +106,19 @@ def test_no_mechanical_fix_for_what_needs_a_decision() -> None:
 
 def test_a_threshold_is_replaced_only_on_a_plain_instruction_line() -> None:
     text = (
-        "Rijd de blokken op FTP 265 W.\n"
-        "Tot de test op 19-11 geldt LTHR 162.\n"
-        "Voorbeeld: Z2 122-133.\n"
-        "Fiets: FTP 265 W, LTHR 150.\n"
-        "| FTP | 265 W |\n"
-        "## Drempels (31-10-2026)\n"
-        "Loop op 5:10/km."
+        "Rijd de blokken op FTP 300 W.\n"
+        "Tot de test op 5-3 geldt LTHR 170.\n"
+        "Voorbeeld: Z2 120-130.\n"
+        "Fiets: FTP 300 W, LTHR 140.\n"
+        "| FTP | 300 W |\n"
+        "## Drempels (1-3-2026)\n"
+        "Loop op 5:00/km."
     )
     found = _slots(text, thresholds=True)
-    assert [s.found for s in found] == ["FTP 265 W"]
+    assert [s.found for s in found] == ["FTP 300 W"]
     fixed, _ = kb_fix.autofix(text, found)
     assert fixed.startswith("Rijd de blokken op FTP (lees live met vibesynergy_thresholds).\n")
-    assert _slots("Ride at FTP 265 W for the blocks.", thresholds=True)[0].options[0] == (
+    assert _slots("Ride at FTP 300 W for the blocks.", thresholds=True)[0].options[0] == (
         "FTP (read live with vibesynergy_thresholds)"
     )
     assert _slots(text, thresholds=False) == []
@@ -142,7 +142,7 @@ def test_a_lint_only_proposal_is_applied_as_an_editorial_version(runtime) -> Non
 
 def test_a_lint_fix_mixed_with_a_content_change_waits(runtime) -> None:
     _loop(runtime)
-    proposal = _propose(runtime, _fixed().replace("met Robert", "met Robert, pilates ma en vr"))
+    proposal = _propose(runtime, _fixed().replace("met Sam", "met Sam, stretchen op zondag"))
     assert proposal["status"] == "pending"
     assert proposal["editorial"] == {
         "applied": False,
@@ -156,7 +156,7 @@ def test_a_lint_fix_mixed_with_a_content_change_waits(runtime) -> None:
     assert [c["field"] for c in texts] == ["body_md"]
     ops = [(line["op"], line["text"]) for line in texts[0]["lines"]]
     assert ("del", "Lees eerst claude-coach-loop.") in ops
-    assert ("add", "Daarna de dag plannen met Robert, pilates ma en vr.") in ops
+    assert ("add", "Daarna de dag plannen met Sam, stretchen op zondag.") in ops
 
 
 def test_another_field_or_a_new_rule_is_never_editorial(runtime) -> None:
@@ -306,13 +306,13 @@ def test_methods_and_rules_and_the_notices_show_the_fixes(runtime) -> None:
 
 def test_waiting_proposals_on_methods_and_in_the_inbox_carry_a_diff(runtime) -> None:
     _loop(runtime)
-    _propose(runtime, LOOP.replace("met Robert", "met Robert en de AI-coach"), author=ADVISORY)
+    _propose(runtime, LOOP.replace("met Sam", "met Sam en de AI-coach"), author=ADVISORY)
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     [waiting] = client.get("/api/knowledge/methods").json()["data"]["proposals"]
     lines = waiting["diff"][0]["lines"]
     assert [(line["op"], line["text"]) for line in lines[-2:]] == [
-        ("del", "Daarna de dag plannen met Robert."),
-        ("add", "Daarna de dag plannen met Robert en de AI-coach."),
+        ("del", "Daarna de dag plannen met Sam."),
+        ("add", "Daarna de dag plannen met Sam en de AI-coach."),
     ]
     [decision] = inbox.inbox(runtime, knowledge.utc_now().date())["decisions"]
     assert decision["diff"] == waiting["diff"]

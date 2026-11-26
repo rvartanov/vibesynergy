@@ -69,7 +69,7 @@ part):
 - *public text*: the holder's public text under a short part line in the publication
   language (``Deel 2/3: fietsen``). An outside change on a part (the line taken off) goes
   into the holder's text, and from there to Garmin and the other parts;
-- *name*: the holder's name with the part (``Frysman sim - zwemmen``). A name changed on a
+- *name*: the holder's name with the part (``Example sim - zwemmen``). A name changed on a
   part (on Strava, or in VibeSynergy on that part) locks that part's name only: it then
   keeps its own name and syncs like any workout's;
 - *gear*: each part has its own gear (bike gear on the ride, shoes on the run) and syncs it

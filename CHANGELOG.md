@@ -37,7 +37,7 @@ The short "What changed" the portal shows after an update is in
 
 - **Multisport and Zwift in published workouts** (#114): every Strava part of a brick or
   triathlon now gets the workout's public text under a short part line ("Deel 2/3: fietsen")
-  and the workout's name with the part ("Frysman sim – zwemmen"); Garmin gets the text once,
+  and the workout's name with the part ("Example sim – zwemmen"); Garmin gets the text once,
   on the multisport activity. A text you change on one part reaches Garmin and the other
   parts; a name you change on one part stays on that part. With Zwift's copies and the
   watch's, the texts go to one Strava and one Garmin copy, and a new Garmin copy no longer
@@ -71,7 +71,7 @@ The short "What changed" the portal shows after an update is in
 - **New workouts get a name by themselves** (#114): Settings → Publishing and sync → *Give
   workouts a name automatically* (on by default). A new workout is named after the plan
   session it matched, or else its sport, part of the day and place, such as "Ochtendloop
-  Leeuwarden" ("Morning run Leeuwarden" in English), in the language of the published text.
+  Utrecht" ("Morning run Utrecht" in English), in the language of the published text.
   The name follows the normal text sync to Strava and Garmin for a published workout. A name
   you change yourself, in VibeSynergy or on Strava or Garmin, is locked: VibeSynergy never
   renames that workout again, also not when it is analysed again; the workout page says so
@@ -284,7 +284,7 @@ The first version with a number also brings everything since 0.0.1a1:
   app name, the removed plan-source command, an old article name), refers to a range of
   rules that does not match the rules in use ("ICU-1..4" while ICU-6 exists), names a rule
   or a tool that does not exist ("SendUserMessage"), or writes a threshold as a fixed number
-  ("FTP 265 W", "5:10/km") in a routine instruction, the working method or the plan, where it
+  ("FTP 300 W", "5:00/km") in a routine instruction, the working method or the plan, where it
   goes stale after the next test. Every AI coach gets the same warnings in the handbook, and
   a proposed change gets them before you approve it. A warning only: you decide about the
   text.
@@ -374,7 +374,7 @@ The first version with a number also brings everything since 0.0.1a1:
   swim laps (a length miscounted) do not change the verdict. When the laps are too thin to
   judge (one lap, auto laps for an interval plan), the workout says "done, not checked". On
   the start page, the day view and in This week each done or changed workout shows two
-  lines, "Planned: Zwemmen duur 40' — 3x300 Middel" and "Done: Swimming 2525 m, 68' — 5x50 +
+  lines, "Planned: Zwemmen duur 40' — 3x300 Middel" and "Done: Swimming 2500 m, 68' — 5x50 +
   3x100 + 4x(200+50) + 7x50 · RPE 3", with the reason on top when changed. The AI coach gets
   the same planned and done per session (`today`, `plan_match`), so a report does not call a
   different session done as prescribed.
@@ -457,7 +457,7 @@ The first version with a number also brings everything since 0.0.1a1:
   transitions and the swim as open water, and show as one entry on the calendar and Today.
   Bricks planned the old way keep working. (#74)
 - **Multisport names fit on Garmin**: a prefix the parts share is said once
-  (`Frysman-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'`), and a name
+  (`Example-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'`), and a name
   still longer than Garmin's 80 characters shortens its longest parts, so every part shows.
   (#76)
 - **Plan checks** (consistency, layer 1). Every plan write, move and skip now returns
@@ -537,7 +537,7 @@ The first version with a number also brings everything since 0.0.1a1:
   Meldingen, the start page, the Coach page, the report page and the AI apps now show every
   daily advice in the same words, made from the stored advice when you read it. So an old
   notice no longer shows an old wording ("Bijgewerkt: Coach ochtend – za 21 nov: Oranje: …"
-  cut off mid-word): it reads "Advies voor vandaag bijgewerkt om 12:48, na je training: Robert,
+  cut off mid-word): it reads "Advies voor vandaag bijgewerkt om 12:48, na je training: Sam,
   de rit van vandaag is gedaan zoals bedoeld; verder niets meer vandaag. · Bekijk". A version
   says when and why it came in plain words ("Bijgewerkt 12:48, na je training", "na je
   check-in", "nacht binnen", "plan gewijzigd", "avondvooruitblik") instead of the runner's
@@ -723,7 +723,7 @@ The first version with a number also brings everything since 0.0.1a1:
   within the two days of the automatic publication is picked up by itself.
 - **No more empty "Plan change" messages from copies to intervals.icu** (#141): after every
   sync VibeSynergy copies your plan to intervals.icu, and each copy showed on the Coach page
-  as a "Plan change" that only read "plan mirror: fry27:week:23", up to 17 an hour while
+  as a "Plan change" that only read "plan mirror: tri27:week:23", up to 17 an hour while
   another app kept overwriting intervals.icu. A copy is not a change to your plan: it is now
   kept in the audit log only, and the 362 old copy messages are no longer shown on the Coach
   page, in search or to the AI coach (they stay in the log, unchanged). Settings → Connections →

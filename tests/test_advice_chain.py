@@ -1,6 +1,6 @@
 """#147: one day of advice through the whole chain, every surface in the same words.
 
-Robert, 21-11-2026: "De AI-meldingen en adviezen zijn nog altijd onduidelijk en niet
+The owner, 21-11-2026: "De AI-meldingen en adviezen zijn nog altijd onduidelijk en niet
 eenduidig." The day of 21-11 in short: the evening preview for Saturday, the morning update,
 the check-in, the ride done ("verder niets meer vandaag") and the evening preview for
 Sunday. Every surface (banner, push, mail, Meldingen, start page, Coach feed, report page,
@@ -161,7 +161,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
         yesterday,
         "evening",
         "evening",
-        "Robert, morgen de rustige rit van 1u15, strikt rustig.",
+        "Sam, morgen de rustige rit van 1u15, strikt rustig.",
         AMBER,
         trigger="schedule",
         sessions=[(RIDE, "keep"), (SUNDAY, "adjust")],
@@ -173,7 +173,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
         today,
         "morning",
         "morning",
-        "Robert, vandaag de rustige rit van 1u15, strikt rustig.",
+        "Sam, vandaag de rustige rit van 1u15, strikt rustig.",
         AMBER,
         trigger="schedule",
         sessions=[(RIDE, "keep")],
@@ -202,7 +202,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
         today,
         "morning",
         "morning",
-        "Robert, de rit van vandaag is gedaan zoals bedoeld; verder niets meer vandaag.\n"
+        "Sam, de rit van vandaag is gedaan zoals bedoeld; verder niets meer vandaag.\n"
         "Vandaag: 1u18 rustig en gelijkmatig.",
         GREEN,
         trigger="event",
@@ -217,7 +217,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
         today,
         "evening",
         "evening",
-        "Robert, morgen de korte zondagloop, 1u15 rustig met de groep.",
+        "Sam, morgen de korte zondagloop, 1u15 rustig met de groep.",
         EASE,
         trigger="schedule",
         sessions=[(SUNDAY, "adjust")],
@@ -233,7 +233,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
     assert view["why"] == "na je training"
     assert view["stamp"] == f"Bijgewerkt {view['time']}, na je training"
     assert view["notice"].startswith(
-        f"Advies voor vandaag bijgewerkt om {view['time']}, na je training: Robert, de rit"
+        f"Advies voor vandaag bijgewerkt om {view['time']}, na je training: Sam, de rit"
     )
     assert (view["version"], view["of"], view["status"]) == (4, 4, "current")
     words = " ".join(str(v) for v in view.values()) + str(view["push"])
@@ -257,7 +257,7 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
     assert banner["text"] == view["notice"] and banner["state"] == "done"
     assert banner["version"] == str(checkin)  # quiet: a closed notice stays closed
     assert notices[f"advice:{tomorrow.isoformat()}"]["text"].startswith(
-        f"Advies voor morgen \N{EN DASH} {format_user_short_day(tomorrow, 'nl')}: Robert"
+        f"Advies voor morgen \N{EN DASH} {format_user_short_day(tomorrow, 'nl')}: Sam"
     )
     # Push and mail: the check-in's, in the same words as its own view.
     checkin_view = advice_view.for_entry_id(rt, checkin, NL)
@@ -311,7 +311,7 @@ def test_the_check_flags_a_colour_that_does_not_fit_the_day(rt, sent, plan):
         today,
         "morning",
         "morning",
-        "Robert, vandaag de rustige rit van 1u15.",
+        "Sam, vandaag de rustige rit van 1u15.",
         AMBER,
         trigger="schedule",
         sessions=[(RIDE, "keep")],

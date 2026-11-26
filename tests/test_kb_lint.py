@@ -15,7 +15,7 @@ from vibesynergy.mcp.server import tool_names
 from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query import coach_handbook, coach_prompts, kb_lint, knowledge
 
-FAMILIES = {"FRY": set(range(1, 9)), "ICU": set(range(1, 7)), "HRV": set(range(1, 6))}
+FAMILIES = {"TRI": set(range(1, 9)), "ICU": set(range(1, 7)), "HRV": set(range(1, 6))}
 
 
 def _plan(runtime, body: str = "Weekstructuur: ma zwemmen.", rules=None) -> None:
@@ -27,7 +27,7 @@ def _plan(runtime, body: str = "Weekstructuur: ma zwemmen.", rules=None) -> None
         body_md=body,
         topic="example",
         rules=rules
-        or [{"id": f"FRY-{n}", "text": f"Planregel {n}.", "grade": "C"} for n in range(1, 9)],
+        or [{"id": f"TRI-{n}", "text": f"Planregel {n}.", "grade": "C"} for n in range(1, 9)],
     )
 
 
@@ -67,10 +67,10 @@ def test_retired_names_are_found_once_in_order() -> None:
 
 
 def test_a_range_from_one_must_end_at_the_last_rule_in_use() -> None:
-    text = "FRY-1..8 en ICU-1..4 zijn leidend, niet alleen FRY-1..5; HRV-1 t/m 5; ICU-1\u20136."
+    text = "TRI-1..8 en ICU-1..4 zijn leidend, niet alleen TRI-1..5; HRV-1 t/m 5; ICU-1\u20136."
     assert kb_lint.rule_ranges(text, FAMILIES) == [
         ("ICU-1..4", "ICU-1..6"),
-        ("FRY-1..5", "FRY-1..8"),
+        ("TRI-1..5", "TRI-1..8"),
     ]
     # A part of a family is fine while every rule in it exists.
     assert kb_lint.rule_ranges("HRV-4..5 en ICU-2..3", FAMILIES) == []
@@ -80,8 +80,8 @@ def test_a_range_from_one_must_end_at_the_last_rule_in_use() -> None:
 
 
 def test_a_single_rule_that_is_not_in_use_is_found() -> None:
-    text = "Volg FRY-9 en ICU-2 v3, HRV-* en FRY-9 nog eens; ABC-4 bestaat niet als familie."
-    assert kb_lint.unknown_rules(text, FAMILIES) == ["FRY-9"]
+    text = "Volg TRI-9 en ICU-2 v3, HRV-* en TRI-9 nog eens; ABC-4 bestaat niet als familie."
+    assert kb_lint.unknown_rules(text, FAMILIES) == ["TRI-9"]
 
 
 def test_tool_names_come_from_the_real_registry() -> None:
@@ -89,7 +89,7 @@ def test_tool_names_come_from_the_real_registry() -> None:
     assert {"vibesynergy_coach_write", "vibesynergy_thresholds", "vibesynergy_kb_get"} <= known
     text = (
         "Lees vibesynergy_today.horizon, schrijf met vibesynergy_plan_* en "
-        "de vibesynergy_icu_*-tools. Stuur Robert met SendUserMessage via vibesynergy_send. "
+        "de vibesynergy_icu_*-tools. Stuur Sam met SendUserMessage via vibesynergy_send. "
         "Gebruik ToolSearch."
     )
     assert kb_lint.unknown_tools(text, known) == [
@@ -102,16 +102,16 @@ def test_tool_names_come_from_the_real_registry() -> None:
 
 def test_fixed_thresholds_with_units_are_found_and_relative_targets_are_not() -> None:
     text = (
-        "Tot de test geldt FTP 265 W (Robert 31-10), fiets LTHR 150, drempeltempo lopen "
-        "5:10/km, CSS 2:15/100 m; fiets Z2 ook op HR (Friel Z2 122\u2013133). Zwift 250 W."
+        "Tot de test geldt FTP 300 W (sinds 1-3), fiets LTHR 140, drempeltempo lopen "
+        "5:00/km, CSS 2:00/100 m; fiets Z2 ook op HR (Friel Z2 120\u2013130). Zwift 200 W."
     )
     assert kb_lint.fixed_thresholds(text) == [
-        "FTP 265 W",
-        "LTHR 150",
-        "5:10/km",
-        "2:15/100 m",
-        "Z2 122\u2013133",
-        "250 W",
+        "FTP 300 W",
+        "LTHR 140",
+        "5:00/km",
+        "2:00/100 m",
+        "Z2 120\u2013130",
+        "200 W",
     ]
     relative = (
         "Fiets in %FTP (75-85%, 88-94% sweet spot), loop in %LTHR of HR-zone. FTP 20' test "
@@ -128,30 +128,30 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
     engine = runtime.engine
     coach_prompts.seed(engine)
     _plan(runtime)
-    _loop(runtime, "Regels FRY-1..8 en ICU-1..6 zijn leidend. Lees vibesynergy_thresholds.")
+    _loop(runtime, "Regels TRI-1..8 en ICU-1..6 zijn leidend. Lees vibesynergy_thresholds.")
     assert knowledge.lint(engine) == []  # the seeds and a correct method are clean
 
     _loop(
         runtime,
-        "Regels FRY-1..8 en ICU-1..4 zijn leidend. Terug: `vitality plan source intervals`. "
-        "Tot de test: FTP 265 W, loop LTHR 162, drempeltempo 5:10/km.",
+        "Regels TRI-1..8 en ICU-1..4 zijn leidend. Terug: `vitality plan source intervals`. "
+        "Tot de test: FTP 300 W, loop LTHR 170, drempeltempo 5:00/km.",
     )
     knowledge.upsert_article(
         engine,
         slug="coach-prompt-weekly",
         author="user",
-        body_md="Lees frysman (regels FRY-1..5). Stuur Robert met SendUserMessage.",
+        body_md="Lees example (regels TRI-1..5). Stuur Sam met SendUserMessage.",
     )
     found = knowledge.lint(engine)
     assert [(w["check"], w["kind"], w["ref"], w["names"]) for w in found] == [
         ("retired_name", "article", "ai-coach-loop", ["Vitality", "plan source"]),
         ("rule_range", "article", "ai-coach-loop", ["ICU-1..4"]),
-        ("fixed_threshold", "article", "ai-coach-loop", ["FTP 265 W", "LTHR 162", "5:10/km"]),
-        ("rule_range", "article", "coach-prompt-weekly", ["FRY-1..5"]),
+        ("fixed_threshold", "article", "ai-coach-loop", ["FTP 300 W", "LTHR 170", "5:00/km"]),
+        ("rule_range", "article", "coach-prompt-weekly", ["TRI-1..5"]),
         ("unknown_tool", "article", "coach-prompt-weekly", ["SendUserMessage"]),
     ]
     ranges = [w for w in found if w["check"] == "rule_range"]
-    assert [w["expected"] for w in ranges] == [["ICU-1..6"], ["FRY-1..8"]]
+    assert [w["expected"] for w in ranges] == [["ICU-1..6"], ["TRI-1..8"]]
     assert all(w["article"] == w["ref"] for w in found)
     assert "ICU-1..6" in ranges[0]["message"] and "vibesynergy_thresholds" in found[2]["message"]
 
@@ -162,7 +162,7 @@ def test_lint_reads_every_article_and_rule_in_use(runtime) -> None:
 
 def test_fixed_thresholds_only_in_instructions_method_and_plan(runtime) -> None:
     engine = runtime.engine
-    _plan(runtime, "Drempels tot de test: FTP **265 W**.")
+    _plan(runtime, "Drempels tot de test: FTP **300 W**.")
     knowledge.upsert_article(
         engine,
         slug="evidence-pacing",
@@ -176,13 +176,13 @@ def test_fixed_thresholds_only_in_instructions_method_and_plan(runtime) -> None:
         engine,
         slug="example-plan",
         author="user",
-        rules=[{"id": "FRY-8", "text": "Fiets Z2 onder LTHR 150.", "grade": "C"}],
+        rules=[{"id": "TRI-8", "text": "Fiets Z2 onder LTHR 140.", "grade": "C"}],
     )
     assert _checks(engine, "fixed_threshold") == [
-        ("example-plan", ["FTP 265 W"]),
-        ("FRY-8", ["LTHR 150"]),
+        ("example-plan", ["FTP 300 W"]),
+        ("TRI-8", ["LTHR 140"]),
     ]
-    rule = next(w for w in knowledge.lint(engine) if w["ref"] == "FRY-8")
+    rule = next(w for w in knowledge.lint(engine) if w["ref"] == "TRI-8")
     assert rule["kind"] == "rule" and rule["article"] == "example-plan"
 
 
@@ -203,7 +203,7 @@ def test_rules_of_an_archived_article_and_inactive_rules_are_left_out(runtime) -
         engine,
         slug="example-plan",
         author="user",
-        rules=[{"id": "FRY-7", "text": "Zie FRY-12.", "grade": "C", "active": False}],
+        rules=[{"id": "TRI-7", "text": "Zie TRI-12.", "grade": "C", "active": False}],
     )
     assert knowledge.lint(engine) == []
 
@@ -213,12 +213,12 @@ def test_unknown_rules_and_tools_in_a_rule(runtime) -> None:
     _plan(
         runtime,
         rules=[
-            *({"id": f"FRY-{n}", "text": f"Planregel {n}.", "grade": "C"} for n in range(1, 8)),
-            {"id": "FRY-8", "text": "Zie FRY-9; schrijf met vibesynergy_plan_write.", "grade": "C"},
+            *({"id": f"TRI-{n}", "text": f"Planregel {n}.", "grade": "C"} for n in range(1, 8)),
+            {"id": "TRI-8", "text": "Zie TRI-9; schrijf met vibesynergy_plan_write.", "grade": "C"},
         ],
     )
-    assert _checks(engine, "unknown_rule") == [("FRY-8", ["FRY-9"])]
-    assert _checks(engine, "unknown_tool") == [("FRY-8", ["vibesynergy_plan_write"])]
+    assert _checks(engine, "unknown_rule") == [("TRI-8", ["TRI-9"])]
+    assert _checks(engine, "unknown_tool") == [("TRI-8", ["vibesynergy_plan_write"])]
 
 
 def test_a_proposal_gets_the_new_warnings_before_it_is_approved(runtime) -> None:
@@ -237,7 +237,7 @@ def test_a_proposal_gets_the_new_warnings_before_it_is_approved(runtime) -> None
     stale = propose(
         kind="article",
         target="ai-coach-loop",
-        body_md="ICU-1..4 leidend; FTP 265 W; vitality plan source intervals.",
+        body_md="ICU-1..4 leidend; FTP 300 W; vitality plan source intervals.",
     )
     assert len(stale) == 3
     assert propose(kind="article", target="ai-coach-loop", body_md="ICU-1..6 leidend.") == []
@@ -245,7 +245,7 @@ def test_a_proposal_gets_the_new_warnings_before_it_is_approved(runtime) -> None
         kind="article", target="coach-prompt-weekly", body_md="Stuur met SendUserMessage."
     )
     assert len(weekly) == 1 and "SendUserMessage" in weekly[0]
-    assert len(propose(kind="rule", target="FRY-3", new_text="Planregel 3, FTP 265 W.")) == 1
+    assert len(propose(kind="rule", target="TRI-3", new_text="Planregel 3, FTP 300 W.")) == 1
 
 
 def test_methods_and_rules_shows_the_warnings(runtime) -> None:

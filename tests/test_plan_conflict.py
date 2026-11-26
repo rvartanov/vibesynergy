@@ -30,7 +30,7 @@ from vibesynergy.store.schema import dataset_state, icu_event, mirror_putback
 
 HEADERS = {"x-vibesynergy": "portal"}
 START = datetime(2026, 11, 18, 19, 46, tzinfo=UTC)
-SESSION = "lake27:2026-11-17:run-test"
+SESSION = "race27:2026-11-17:run-test"
 NL = i18n.Translator("nl")
 
 
@@ -63,7 +63,7 @@ def leading(runtime, monkeypatch):
     from vibesynergy.query import icu_plan
 
     _put(runtime, EVENTS)
-    plan_model.import_from_intervals(runtime.engine, prefix="lake27")
+    plan_model.import_from_intervals(runtime.engine, prefix="race27")
     writes: list[str] = []
 
     def put_back(engine, client, **k):
@@ -230,7 +230,7 @@ def test_an_outside_writer_on_a_race_copy_is_put_back_then_held(rt, monkeypatch)
     today = _today(rt)
     added = race_events.add(
         rt.engine,
-        {"name": "Kustmarathon", "date": today + timedelta(days=30), "sport": "run"},
+        {"name": "Autumn marathon", "date": today + timedelta(days=30), "sport": "run"},
         reason="Doel",
         author="test",
     )
@@ -253,7 +253,7 @@ def test_an_outside_writer_on_a_race_copy_is_put_back_then_held(rt, monkeypatch)
         clock.later(hours=1)
     assert plan_conflict.held(rt.engine, "intervals")
     (fight,) = plan_conflict.status(rt.engine)
-    assert fight["names"] == ["Kustmarathon"] and fight["writer"] == "icu-app:99"
+    assert fight["names"] == ["Autumn marathon"] and fight["writer"] == "icu-app:99"
     hacked()
     out = race_mirror.mirror(rt.engine, client, today=today)
     assert out["held"] == [ident] and out["updated"] == []

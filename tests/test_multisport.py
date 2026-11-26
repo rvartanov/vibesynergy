@@ -280,9 +280,9 @@ def test_a_slot_links_a_session_into_a_planned_multisport() -> None:
     assert multisport.slot_part("fiets") == ("", 1) and multisport.slot_part("loop") == ("", 2)
     assert multisport.slot_part("run") is None and multisport.slot_part("brick-run") is None
     assert multisport.slot_part(None) is None
-    assert multisport.event_part("fry27:2026-11-08:ms2-ride") == ("", 2)
+    assert multisport.event_part("tri27:2026-11-08:ms2-ride") == ("", 2)
     assert multisport.event_part("2026-11-08:ride", "fiets") == ("", 1)
-    assert multisport.event_part("fry27:2026-11-08:run") is None
+    assert multisport.event_part("tri27:2026-11-08:run") is None
     items = [{"multi_part": ("", 2)}, {"multi_part": None}, {"multi_part": ("", 1)},
              {"multi_part": ("b", 1)}]  # fmt: skip
     assert multisport.planned_groups(items) == [[2, 0]]  # group b has one part: none
@@ -300,11 +300,11 @@ def test_a_planned_triathlon_is_one_holder_in_the_calendar(runtime) -> None:
             "updated": "2026-11-01T10:00:00.000Z"}  # fmt: skip
     events = [
         {**base, "id": 93, "name": "Loop", "type": "Run", "moving_time": 1200,
-         "external_id": "fry27:2026-11-15:ms3-run"},
+         "external_id": "tri27:2026-11-15:ms3-run"},
         {**base, "id": 91, "name": "Zwem", "type": "Swim", "moving_time": 1800,
-         "external_id": "fry27:2026-11-15:ms1-swim"},
+         "external_id": "tri27:2026-11-15:ms1-swim"},
         {**base, "id": 92, "name": "Fiets", "type": "Ride", "moving_time": 3600,
-         "external_id": "fry27:2026-11-15:ms2-ride"},
+         "external_id": "tri27:2026-11-15:ms2-ride"},
     ]  # fmt: skip
     stored = runtime.raw.put(
         source="intervals_icu",
@@ -331,12 +331,12 @@ def test_a_planned_triathlon_is_one_holder_in_the_calendar(runtime) -> None:
 def test_a_combined_name_says_a_shared_prefix_once_and_fits() -> None:
     """#76: Garmin keeps 80 characters; every part still shows."""
     titles = [
-        "Frysman-simulatie: zwemmen openwater 1900 m",
-        "Frysman-simulatie: fietsen 2u30",
-        "Frysman-simulatie: lopen 45'",
+        "Example-simulatie: zwemmen openwater 1900 m",
+        "Example-simulatie: fietsen 2u30",
+        "Example-simulatie: lopen 45'",
     ]
     assert multisport.combined_title(titles) == (
-        "Frysman-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'"
+        "Example-simulatie: zwemmen openwater 1900 m + fietsen 2u30 + lopen 45'"
     )
     assert multisport.combined_title(["Rit", "Brickloop"]) == "Rit + Brickloop"
     assert multisport.combined_title(["A: x", "B: y"]) == "A: x + B: y"  # no shared prefix

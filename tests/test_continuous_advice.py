@@ -470,7 +470,7 @@ def test_at_the_daily_maximum_the_rules_give_the_advice_with_the_reason(rt):
 
 
 def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypatch) -> None:
-    """Robert, 18-11-2026: no 07:00 mail; a notice in the app and on the phone, and a
+    """The owner, 18-11-2026: no 07:00 mail; a notice in the app and on the phone, and a
     choice under Settings → Alerts (the kind "advice")."""
     from vibesynergy import webpush
     from vibesynergy.coach_runner import report
@@ -484,7 +484,7 @@ def test_a_changed_advice_is_a_push_and_a_portal_notice_not_a_mail(rt, monkeypat
     monkeypatch.setattr(
         alerts, "channels", lambda settings, engine=None: {"email": True, "push": True}
     )
-    text = "Robert, vandaag rustig: 30 minuten op praattempo.\n\nDetails."
+    text = "Sam, vandaag rustig: 30 minuten op praattempo.\n\nDetails."
     with rt.engine.begin() as conn:
         ident = conn.execute(
             insert(coach_decision_log).values(

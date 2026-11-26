@@ -69,7 +69,7 @@ test("a done or changed workout shows Planned and Done, the reason on top (#116)
       description: "- 300mtr Z1 Pace",
       deviation: { kind: "structure", planned: "3x300 Middel", done: "5x50 + 3x100" },
       comparison: { check: "differs", planned: "3x300 Middel", done: "5x50 + 3x100", rpe: 3 },
-      done_by: [{ id: "garmin:25129577914", sport: "lap_swimming", moving_s: 4064.9, distance_m: 2525 }],
+      done_by: [{ id: "garmin:1234567", sport: "lap_swimming", moving_s: 4080, distance_m: 2500 }],
     }],
     null,
   );
@@ -78,7 +78,7 @@ test("a done or changed workout shows Planned and Done, the reason on top (#116)
   const done = html.indexOf("Done:");
   assert.ok(why > 0 && why < planned && planned < done, html);
   assert.match(html, /Zwemmen duur 40&#39; — 3x300 Middel/);
-  assert.match(html, /Swimming 2,?525 m, 68&#39; — 5x50 \+ 3x100 · RPE 3/);
+  assert.match(html, /Swimming 2,?500 m, 68&#39; — 5x50 \+ 3x100 · RPE 3/);
   assert.match(deviationText({ kind: "structure", planned: "25' Z2", done: "4x5'" }), /Another workout than planned: 4x5' instead of 25' Z2\./);
   assert.match(deviationText({ kind: "structure", planned: "4x5' Z4", done_shape: "steady" }), /steady instead of 4x5' Z4/);
   // Done with thin laps: the word says so; an upcoming session gets no lines.

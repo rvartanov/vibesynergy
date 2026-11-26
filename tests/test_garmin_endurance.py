@@ -30,7 +30,7 @@ TODAY = date(2026, 11, 5)
 
 
 def test_swim_steps_become_garmin_steps_with_pace_targets_from_the_css() -> None:
-    workout = ge.build_swim("🏊 Zwemmen", parse_intervals(SWIM), 135)
+    workout = ge.build_swim("🏊 Zwemmen", parse_intervals(SWIM), 120)
     assert workout["sportType"]["sportTypeKey"] == "swimming" and workout["poolLength"] == 25.0
     steps = workout["workoutSegments"][0]["workoutSteps"]
     warm, repeat, cool = steps
@@ -39,9 +39,9 @@ def test_swim_steps_become_garmin_steps_with_pace_targets_from_the_css() -> None
         "distance",
         300.0,
     )
-    # Z1 for CSS 2:15: slower than 2:54/100 m (174 s) -> up to 0.5747 m/s
+    # Z1 for CSS 2:00: slower than 2:35/100 m (155 s) -> up to 0.6452 m/s
     assert warm["targetType"]["workoutTargetTypeKey"] == "pace.zone"
-    assert warm["targetValueTwo"] == round(100 / 174, 4)
+    assert warm["targetValueTwo"] == round(100 / 155, 4)
     work, rest = repeat["workoutSteps"]
     assert repeat["numberOfIterations"] == 3 and work["stepType"]["stepTypeKey"] == "interval"
     assert rest["stepType"]["stepTypeKey"] == "rest" and rest["endConditionValue"] == 30.0
@@ -77,7 +77,7 @@ def _swim_event(runtime) -> None:
 
 
 def test_swim_is_delivered_only_when_switched_on(runtime) -> None:
-    thresholds.set_value(runtime.engine, sport="swim", metric="css", value=135, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="swim", metric="css", value=120, today=TODAY)
     _swim_event(runtime)
     assert ge.desired(runtime.engine, TODAY, (), 21) == {}
     found = ge.desired(runtime.engine, TODAY, ("swim",), 21)
@@ -108,17 +108,17 @@ def test_run_steps_get_heart_rate_targets_from_lthr_zones() -> None:
         "Rustig.\n\nWarmup\n- 5m Z1 HR\n\nMain set\n- 30m Z2 HR\n\n3x\n- 4m 95-100% LTHR\n"
         "- 2m Z1 HR intensity=recovery\n\nCooldown\n- 5m Z1 HR"
     )
-    workout = ge.build_run("🏃 Duurloop", run, {"lthr": 162, "max_hr": 179})
+    workout = ge.build_run("🏃 Duurloop", run, {"lthr": 170, "max_hr": 190})
     assert workout["sportType"]["sportTypeKey"] == "running"
     warm, main, repeat, cool = workout["workoutSegments"][0]["workoutSteps"]
     assert (main["targetType"]["workoutTargetTypeKey"], main["targetValueOne"]) == (
         "heart.rate.zone",
-        138.0,
+        145.0,
     )
-    assert main["targetValueTwo"] == 144.0 and main["stepType"]["stepTypeKey"] == "interval"
+    assert main["targetValueTwo"] == 151.0 and main["stepType"]["stepTypeKey"] == "interval"
     work, easy = repeat["workoutSteps"]
-    assert (work["targetValueOne"], work["targetValueTwo"]) == (154.0, 162.0)
-    assert easy["stepType"]["stepTypeKey"] == "recovery" and easy["targetValueTwo"] == 137.0
+    assert (work["targetValueOne"], work["targetValueTwo"]) == (162.0, 170.0)
+    assert easy["stepType"]["stepTypeKey"] == "recovery" and easy["targetValueTwo"] == 144.0
     assert (
         warm["stepType"]["stepTypeKey"] == "warmup"
         and cool["stepType"]["stepTypeKey"] == "cooldown"
@@ -129,19 +129,19 @@ def test_ride_steps_get_power_from_ftp_and_mtb_heart_rate() -> None:
     ride = parse_intervals(
         "Warmup\n- 15m 50-65% 90rpm\n\nMain set\n4x\n- 6m 75-85% 50-60rpm\n- 3m 55% 90rpm"
     )
-    workout = ge.build_ride("🚴 Kracht op de fiets", ride, {"ftp": 265})
+    workout = ge.build_ride("🚴 Kracht op de fiets", ride, {"ftp": 300})
     assert workout["sportType"]["sportTypeKey"] == "cycling"
     warm, repeat = workout["workoutSegments"][0]["workoutSteps"]
-    assert (warm["targetValueOne"], warm["targetValueTwo"]) == (132.0, 172.0)
+    assert (warm["targetValueOne"], warm["targetValueTwo"]) == (150.0, 195.0)
     assert warm["targetType"]["workoutTargetTypeKey"] == "power.zone"
     work, easy = repeat["workoutSteps"]
-    assert (work["targetValueOne"], work["targetValueTwo"]) == (199.0, 225.0)
+    assert (work["targetValueOne"], work["targetValueTwo"]) == (225.0, 255.0)
     assert work["description"] == "50-60 rpm"
-    assert (easy["targetValueOne"], easy["targetValueTwo"]) == (139.0, 153.0)  # 55% ±5%
-    mtb = ge.build_ride("🚴 MTB", parse_intervals("- 55m Z1-Z2 HR"), {"lthr": 150, "max_hr": 179})
+    assert (easy["targetValueOne"], easy["targetValueTwo"]) == (157.0, 173.0)  # 55% ±5%
+    mtb = ge.build_ride("🚴 MTB", parse_intervals("- 55m Z1-Z2 HR"), {"lthr": 140, "max_hr": 190})
     (step,) = mtb["workoutSegments"][0]["workoutSteps"]
     assert step["targetType"]["workoutTargetTypeKey"] == "heart.rate.zone"
-    assert step["targetValueTwo"] == 133.0
+    assert step["targetValueTwo"] == 124.0
 
 
 def _events(runtime, events) -> None:
@@ -163,8 +163,8 @@ def _events(runtime, events) -> None:
 
 
 def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> None:
-    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=300, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=170, today=TODAY)
     base = {"category": "WORKOUT", "start_date_local": "2026-11-08T00:00:00"}
     _events(
         runtime,
@@ -174,7 +174,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
                 "id": 1,
                 "type": "Ride",
                 "name": "Lange rit Z2 1u45",
-                "external_id": "lake27:2026-11-07:ride",
+                "external_id": "race27:2026-11-07:ride",
                 "description": "Gelijkmatig.\n\nWarmup\n- 15m 50-65%\n\nMain set\n- 80m 62-72%",
             },
             {**base, "id": 2, "type": "Ride", "name": "Koffierit", "description": "- 30m 55%"},
@@ -183,7 +183,7 @@ def test_a_brick_becomes_one_multisport_workout_next_to_its_parts(runtime) -> No
                 "id": 3,
                 "type": "Run",
                 "name": "Brickloop Z2 20'",
-                "external_id": "lake27:2026-11-07:brick-run",
+                "external_id": "race27:2026-11-07:brick-run",
                 "description": "- 20m Z2 HR",
             },
         ],
@@ -234,18 +234,18 @@ def test_no_timed_recovery_right_before_lap_or_the_end() -> None:
 
 def test_a_triathlon_linked_by_slot_becomes_one_multisport_workout(runtime) -> None:
     """#74: ms1-swim, ms2-ride, ms3-run on one day are one workout in that order."""
-    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=265, today=TODAY)
-    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=162, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=300, today=TODAY)
+    thresholds.set_value(runtime.engine, sport="run", metric="lthr", value=170, today=TODAY)
     base = {"category": "WORKOUT", "start_date_local": "2026-11-08T00:00:00"}
     _events(
         runtime,
         [
             {**base, "id": 13, "type": "Run", "name": "Loop 20'",
-             "external_id": "fry27:2026-11-08:ms3-run", "description": "- 20m Z2 HR"},
+             "external_id": "tri27:2026-11-08:ms3-run", "description": "- 20m Z2 HR"},
             {**base, "id": 11, "type": "Swim", "name": "Zwem 1500",
-             "external_id": "fry27:2026-11-08:ms1-swim", "description": "- 1500mtr Z2 Pace"},
+             "external_id": "tri27:2026-11-08:ms1-swim", "description": "- 1500mtr Z2 Pace"},
             {**base, "id": 12, "type": "Ride", "name": "Fiets 1u",
-             "external_id": "fry27:2026-11-08:ms2-ride", "description": "- 60m 70%"},
+             "external_id": "tri27:2026-11-08:ms2-ride", "description": "- 60m 70%"},
             {**base, "id": 14, "type": "Ride", "name": "Koffierit", "description": "- 30m 55%"},
         ],
     )  # fmt: skip
@@ -273,11 +273,11 @@ def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
         runtime,
         [
             {**base, "id": 21, "type": "Run", "name": "Run 1",
-             "external_id": "fry27:2026-11-09:ms1-run", "description": "- 10m Z3 HR"},
+             "external_id": "tri27:2026-11-09:ms1-run", "description": "- 10m Z3 HR"},
             {**base, "id": 22, "type": "Ride", "name": "Ride",
-             "external_id": "fry27:2026-11-09:ms2-ride", "description": "- 40m 75%"},
+             "external_id": "tri27:2026-11-09:ms2-ride", "description": "- 40m 75%"},
             {**base, "id": 23, "type": "Run", "name": "Run 2",
-             "external_id": "fry27:2026-11-09:ms3-run", "description": "- 5m Z3 HR"},
+             "external_id": "tri27:2026-11-09:ms3-run", "description": "- 5m Z3 HR"},
         ],
     )  # fmt: skip
     found = ge.desired(runtime.engine, TODAY, ("ride", "run"), 21)
@@ -289,20 +289,20 @@ def test_a_duathlon_run_ride_run_keeps_its_order(runtime) -> None:
 def test_a_long_multisport_name_fits_garmins_80_characters(runtime) -> None:
     """#76: the shared prefix once, the mark included, every part still there."""
     base = {"category": "WORKOUT", "start_date_local": "2026-11-10T00:00:00"}
-    sim = "Frysman-simulatie: "
+    sim = "Example-simulatie: "
     _events(
         runtime,
         [
             {**base, "id": 31, "type": "Swim", "name": sim + "zwemmen openwater 1900 m",
-             "external_id": "fry27:2026-11-10:ms1-swim", "description": "- 1900mtr Z2 Pace"},
+             "external_id": "tri27:2026-11-10:ms1-swim", "description": "- 1900mtr Z2 Pace"},
             {**base, "id": 32, "type": "Ride", "name": sim + "fietsen 2u30 op racetempo",
-             "external_id": "fry27:2026-11-10:ms2-ride", "description": "- 150m 75%"},
+             "external_id": "tri27:2026-11-10:ms2-ride", "description": "- 150m 75%"},
             {**base, "id": 33, "type": "Run", "name": sim + "lopen 45' na de rit",
-             "external_id": "fry27:2026-11-10:ms3-run", "description": "- 45m Z3 HR"},
+             "external_id": "tri27:2026-11-10:ms3-run", "description": "- 45m Z3 HR"},
         ],
     )  # fmt: skip
     found = ge.desired(runtime.engine, TODAY, ("swim", "ride", "run"), 21)
     name = found["brick:31+32+33"]["name"]
-    assert len(name) <= 80 and name.startswith("⚡ Frysman-simulatie: zwemmen")
-    assert name.count(" + ") == 2 and name.count("Frysman") == 1
+    assert len(name) <= 80 and name.startswith("⚡ Example-simulatie: zwemmen")
+    assert name.count(" + ") == 2 and name.count("Example") == 1
     assert found["brick:31+32+33"]["workout"]["workoutName"] == name

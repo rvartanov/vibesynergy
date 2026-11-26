@@ -1,4 +1,4 @@
-"""Weather units: °C or °F, and wind in km/h, m/s, knots or Beaufort (Robert 11-11)."""
+"""Weather units: °C or °F, and wind in km/h, m/s, knots or Beaufort (the owner, 11-11)."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def test_session_weather_says_where(runtime) -> None:
     from vibesynergy.store.schema import activity, activity_unified
 
     at = datetime(2026, 11, 11, 9, tzinfo=UTC)
-    rows = [("1", "Leeuwarden"), ("2", "<script>"), ("3", None)]
+    rows = [("1", "Utrecht"), ("2", "<script>"), ("3", None)]
     stored = runtime.raw.put(
         source="garmin",
         dataset="activities",
@@ -141,7 +141,7 @@ def test_session_weather_says_where(runtime) -> None:
                     updated_at=at,
                 )
             )
-    assert activity_weather.place(runtime, "g1") == "Leeuwarden"
+    assert activity_weather.place(runtime, "g1") == "Utrecht"
     assert activity_weather.place(runtime, "g2") is None  # not a place name
     assert activity_weather.place(runtime, "g3") is None
     assert activity_weather.place(runtime, "nope") is None

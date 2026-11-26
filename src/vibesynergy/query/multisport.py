@@ -45,7 +45,7 @@ _PREFIX = re.compile("^(.+?(?::|\\s[-\u2013]))\\s+")
 
 def combined_title(titles: list[str], limit: int | None = None) -> str:
     """The parts' titles as one name (#76): ``A + B + C``, a prefix they share said once
-    (``Frysman-simulatie: zwemmen + fietsen + lopen``), and within ``limit`` characters by
+    (``Example-simulatie: zwemmen + fietsen + lopen``), and within ``limit`` characters by
     shortening the longest parts, so every part still shows (Garmin keeps 80)."""
     titles = [str(t or "").strip() for t in titles]
     found = [m for t in titles if (m := _PREFIX.match(t))]
@@ -164,7 +164,7 @@ def relatives(engine: Any, ids: list[str]) -> list[str]:
 
 # --- a multisport published (#114, phase 7b) ------------------------------------------------
 # Strava gets each part as an activity of its own; each carries the workout's public text
-# under a short part line, and the workout's name with the part ("Frysman sim - zwemmen").
+# under a short part line, and the workout's name with the part ("Example sim - zwemmen").
 # The words are in the publication language (the English text is the i18n key).
 _NAMES = {
     "swim": "{name} \u2013 swimming",

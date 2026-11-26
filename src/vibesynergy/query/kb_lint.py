@@ -7,10 +7,10 @@ a warning. A warning only: the athlete decides about the text, through a proposa
 - ``retired_names``: names that are gone (the old app name, the plan-source command, old
   article slugs). VibeSynergy is the app and the only plan source (#111).
 - ``rule_ranges`` and ``unknown_rules``: a reference such as ``ICU-1..4`` while ICU-6 is in
-  use, or ``FRY-9`` that does not exist.
+  use, or ``TRI-9`` that does not exist.
 - ``unknown_tools``: a ``vibesynergy_*`` tool the MCP server does not register, or a tool of
   another app (``SendUserMessage``).
-- ``fixed_thresholds``: a threshold written down as a number (265 W, LTHR 162, 5:10/km).
+- ``fixed_thresholds``: a threshold written down as a number (300 W, LTHR 170, 5:00/km).
   Thresholds change after every test; the AI coach reads them live with
   vibesynergy_thresholds.
 """
@@ -70,7 +70,7 @@ def retired_names(text: str, retired: Iterable[Retired]) -> list[tuple[str, str]
 # --- rule references -----------------------------------------------------------------------
 
 _RULE_ID = re.compile(r"^([A-Z][A-Z0-9]*)-(\d+)$")
-# FRY-1..8, ICU-1 to 6 (also with a dash), HRV-1 t/m 5, or one rule (FRY-9).
+# TRI-1..8, ICU-1 to 6 (also with a dash), HRV-1 t/m 5, or one rule (TRI-9).
 # Not ``HRV-*`` (a whole family).
 _RULE_REF = re.compile(
     r"(?<![A-Za-z0-9_-])([A-Z][A-Z0-9]{1,9})-(\d{1,3})"
@@ -117,7 +117,7 @@ def rule_ranges(text: str, families: Mapping[str, set[int]]) -> list[tuple[str, 
 
 
 def unknown_rules(text: str, families: Mapping[str, set[int]]) -> list[str]:
-    """Single rule ids of a family in use whose number is not in use (``FRY-9``)."""
+    """Single rule ids of a family in use whose number is not in use (``TRI-9``)."""
     out: list[str] = []
     for match in _RULE_REF.finditer(text):
         prefix, number, end = match.group(1), int(match.group(2)), match.group(3)
@@ -171,18 +171,18 @@ _DASH = r"\s?[-\u2013]\s?"
 _THRESHOLD = re.compile(
     "|".join(
         (
-            # power: 265 W, 250-270 W (not %FTP, which is relative)
+            # power: 300 W, 250-270 W (not %FTP, which is relative)
             rf"(?<![\d.,])\d{{2,3}}(?:{_DASH}\d{{2,3}})?\s?W(?![A-Za-z])",
-            # heart rate with a unit: 150 bpm, 122-133 sl/min
+            # heart rate with a unit: 140 bpm, 120-130 sl/min
             rf"(?<![\d.,])\d{{2,3}}(?:{_DASH}\d{{2,3}})?\s?(?:bpm|sl/min|slagen/min)(?![A-Za-z])",
-            # pace: 5:10/km, 2:15/100 m, 1:45 min/100m
+            # pace: 5:00/km, 2:00/100 m, 1:45 min/100m
             r"(?<![\d:])\d{1,2}:\d{2}(?:\s?min)?\s?/\s?(?:km|mi|100\s?m)(?![A-Za-z])",
-            # a threshold named with a bare value: FTP 265, LTHR lopen 162 / fiets 150,
-            # CSS 135 (three digits, so "FTP 20'" and "wk 27" are no thresholds)
+            # a threshold named with a bare value: FTP 300, LTHR lopen 170 / fiets 140,
+            # CSS 120 (three digits, so "FTP 20'" and "wk 27" are no thresholds)
             r"(?:FTP|LTHR|CSS|HRmax|drempeltempo|threshold pace)\b[^.\n;:()]{0,20}?"
             # (not "CSS-test 400/200": distances of a test, written with a slash)
             r"(?<![\d.,/])\d{3}(?:\s?W(?![A-Za-z]))?(?![\d%'\u2019/])",
-            # a heart-rate zone with bare bounds: Z2 122-133
+            # a heart-rate zone with bare bounds: Z2 120-130
             rf"(?<![A-Za-z])Z\d\s\d{{2,3}}{_DASH}\d{{2,3}}(?![\d%])",
         )
     ),

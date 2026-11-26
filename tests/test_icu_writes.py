@@ -460,5 +460,5 @@ def test_missing_session_points_to_the_read_tool(runtime) -> None:
             reason="Move",
             expected_version="x",
             start_date=DAY,
-            external_id="lake27-2026-11-07-brick",
+            external_id="race27-2026-11-07-brick",
         )

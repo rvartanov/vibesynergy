@@ -260,7 +260,7 @@ never intervals.icu:
   `plan_model.view`; `plan_horizon.guard` is the Garmin check of those sessions only.
   `plan_match` (version 2) also has, per session, what was done (#116): `match` (done,
   changed, missed), `planned` and `done` as one line each ("Zwemmen duur 40' — 3x300
-  Middel", "lap_swimming 2525 m, 68' — 5x50 + 3x100 · RPE 3"), `check` (`match`,
+  Middel", "lap_swimming 2500 m, 68' — 5x50 + 3x100 · RPE 3"), `check` (`match`,
   `differs`, `not_checked`) and the `deviation`; `today` (version 2) has the same per
   session. A `structure` deviation means another workout than planned, from the laps;
 - `today` and `week`: `vibesynergy_today` and `vibesynergy_week`, built on

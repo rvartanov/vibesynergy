@@ -23,7 +23,7 @@ import json
 from datetime import date, timedelta
 from typing import Any
 
-DEFAULT_DAYS = 9  # Robert, 23-11 (#170): a setting, this is its default
+DEFAULT_DAYS = 9  # the owner, 23-11 (#170): a setting, this is its default
 MAX_DAYS = 31
 VERBATIM_DAYS = 2  # today and yesterday always go in verbatim
 BUDGET = 9000  # characters of JSON for the whole block

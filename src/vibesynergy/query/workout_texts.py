@@ -48,7 +48,7 @@ SOURCES: tuple[str, ...] = ("vs", "strava", "garmin", "ai")
 # ``overwritten``: a version that lost to a later change in the two-way sync (phase 3): kept
 # in the history, never the current text. ``auto``: a name VibeSynergy's AI coach gave the
 # workout with its insight (``auto_names``, phase 7a, #188). ``import``: a platform's name
-# taken in on the first sync (the device's own name, such as "Leeuwarden Hardlopen"), not a
+# taken in on the first sync (the device's own name, such as "Utrecht Hardlopen"), not a
 # change of yours.
 KINDS: tuple[str, ...] = ("seed", "edit", "restore", "overwritten", "auto", "import")
 OVERWRITTEN = "overwritten"
