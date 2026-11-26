@@ -69,7 +69,7 @@ The short "What changed" the portal shows after an update is in
 - **New workouts get a name by themselves** (#114): Settings → Publishing and sync → *Give
   workouts a name automatically* (on by default). A new workout is named after the plan
   session it matched, or else its sport, part of the day and place, such as "Ochtendloop
-  Leeuwarden" ("Morning run Leeuwarden" in English), in the language of the published text.
+  Utrecht" ("Morning run Utrecht" in English), in the language of the published text.
   The name follows the normal text sync to Strava and Garmin for a published workout. A name
   you change yourself, in VibeSynergy or on Strava or Garmin, is locked: VibeSynergy never
   renames that workout again, also not when it is analysed again; the workout page says so

@@ -24,14 +24,14 @@ def _settings(rt, **publication):
     config_edit.apply_changes(rt.settings.config_path, {"publication": publication})
 
 
-def _workout(rt, *, place="Leeuwarden", sport="running", source_id="1"):
+def _workout(rt, *, place="Utrecht", sport="running", source_id="1"):
     garmin = replace(
         activity(),
         source_id=source_id,
         start_utc=START - timedelta(hours=2),
         tz_offset_s=7200,
         sport=sport,
-        name="Leeuwarden Hardlopen",
+        name="Utrecht Hardlopen",
         fit_id=None,
         extra={"locationName": place} if place else {},
     )
@@ -75,10 +75,10 @@ def _insight(rt, group, name, key="insight-1"):
 def test_the_insight_names_the_workout(runtime):
     _ready(runtime)
     group = _workout(runtime)
-    entry = _insight(runtime, group, "  Duurloop Z2 10 km\nLeeuwarden ")
-    assert entry["meta"]["workout_name"] == "Duurloop Z2 10 km Leeuwarden"
+    entry = _insight(runtime, group, "  Duurloop Z2 10 km\nUtrecht ")
+    assert entry["meta"]["workout_name"] == "Duurloop Z2 10 km Utrecht"
     name = _name(runtime, group)
-    assert name["text"] == "Duurloop Z2 10 km Leeuwarden" and name["lock"] is None
+    assert name["text"] == "Duurloop Z2 10 km Utrecht" and name["lock"] is None
     newest = workout_texts.history(runtime.engine, group, "name")[0]
     assert (newest["kind"], newest["source"], newest["author"]) == ("auto", "ai", "ai-coach")
 
@@ -115,8 +115,8 @@ def test_the_platform_name_from_the_first_sync_does_not_lock(runtime):
     workout_texts.take_over(
         runtime.engine, group, "name", "Morning Run", source="strava", kind="import"
     )
-    assert auto_names.from_insight(runtime, group, "Duurloop Leeuwarden") == "named"
-    assert _name(runtime, group)["text"] == "Duurloop Leeuwarden"
+    assert auto_names.from_insight(runtime, group, "Duurloop Utrecht") == "named"
+    assert _name(runtime, group)["text"] == "Duurloop Utrecht"
 
 
 def test_off_leaves_names_alone(runtime):
@@ -124,7 +124,7 @@ def test_off_leaves_names_alone(runtime):
     group = _workout(runtime)
     entry = _insight(runtime, group, "Duurloop")
     assert entry["meta"]["workout_name"] == "Duurloop"  # kept on the entry only
-    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert _name(runtime, group)["text"] == "Utrecht Hardlopen"
     assert workout_texts.history(runtime.engine, group, "name") == []
 
 
@@ -133,7 +133,7 @@ def test_no_name_in_the_insight_changes_nothing(runtime):
     group = _workout(runtime)
     entry = _insight(runtime, group, None)
     assert "workout_name" not in entry["meta"]
-    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert _name(runtime, group)["text"] == "Utrecht Hardlopen"
     assert workout_texts.history(runtime.engine, group, "name") == []
     assert auto_names.from_insight(runtime, group, "   ") == "kept"
 
@@ -144,7 +144,7 @@ def test_the_history_is_never_renamed(runtime):
     auto_names.after_derive(runtime)
     assert load_settings(runtime.settings.config_path).publication["auto_name_since"]
     assert auto_names.from_insight(runtime, group, "Duurloop") == "old"
-    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert _name(runtime, group)["text"] == "Utrecht Hardlopen"
 
 
 def test_a_late_insight_still_names_a_new_workout(runtime):
@@ -159,7 +159,7 @@ def test_derive_no_longer_names(runtime):
     _ready(runtime)
     group = _workout(runtime)
     runtime.derive()
-    assert _name(runtime, group)["text"] == "Leeuwarden Hardlopen"
+    assert _name(runtime, group)["text"] == "Utrecht Hardlopen"
     assert workout_texts.history(runtime.engine, group, "name") == []
     assert not hasattr(auto_names, "run")
 

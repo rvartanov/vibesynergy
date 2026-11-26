@@ -289,7 +289,7 @@ ITEMS: tuple[Item, ...] = (
         "114-auto-names",
         "you",
         "New workouts get a name by themselves: the title of their plan session, or else "
-        'sport, part of the day and place, such as "Morning run Leeuwarden". A name you change '
+        'sport, part of the day and place, such as "Morning run Utrecht". A name you change '
         "yourself stays. Switch it off under Settings → Publishing and sync.",
     ),
     Item(

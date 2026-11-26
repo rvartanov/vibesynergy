@@ -41,7 +41,7 @@ HEADER = [
     "Elevation Gain", "Average Heart Rate", "Average Watts", "Calories",
 ]  # fmt: skip
 ROWS = [
-    ["1001", "Mar 2, 2025, 9:00:00 AM", "Rondje Friesland", "Ride", "Wind!\nLegs good.",
+    ["1001", "Mar 2, 2025, 9:00:00 AM", "Rondje Utrecht", "Ride", "Wind!\nLegs good.",
      "30", "0.2", "150", "false", "Knee felt odd", "Canyon", "activities/1001.fit.gz",
      "30.0", "29.0", "210.5", "7.0", "12.0", "140", "220", "80"],
     ["1002", "3 Mar 2025, 18:30:00", "Evening run", "Trail Run", "", "300", "1.0", "160",
@@ -130,7 +130,7 @@ def test_strava_archive_import(runtime, tmp_path) -> None:
 def test_the_archive_lines_up_with_the_api_and_garmin(runtime, tmp_path) -> None:
     api_copy = Activity(
         "1001", datetime(2025, 3, 2, 9, tzinfo=UTC), date(2025, 3, 2), "Ride",
-        name="Rondje Friesland", elapsed_s=30.0, fit_id="strava-1001",
+        name="Rondje Utrecht", elapsed_s=30.0, fit_id="strava-1001",
         extra={"description": "Wind!\nLegs good."},
     )  # fmt: skip
     stored = runtime.raw.put(
@@ -250,7 +250,7 @@ def test_the_archive_brings_the_photos(runtime, tmp_path) -> None:
 def test_photos_known_from_the_api_are_not_taken_in_again(runtime, tmp_path) -> None:
     api_copy = Activity(
         "1001", datetime(2025, 3, 2, 9, tzinfo=UTC), date(2025, 3, 2), "Ride",
-        name="Rondje Friesland", elapsed_s=30.0, fit_id="strava-1001",
+        name="Rondje Utrecht", elapsed_s=30.0, fit_id="strava-1001",
     )  # fmt: skip
     stored = runtime.raw.put(
         source="strava", dataset="activities", item_key="1001", payload=b"{}",
