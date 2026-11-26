@@ -701,13 +701,13 @@ def test_17_11_longer_strength_at_rpe_4_is_not_a_deviation():
 
 def test_17_11_a_group_run_above_its_zone_is_harder_than_planned():
     """Training geven 1u15, done in 1 h 30 with 28 minutes above zone 1: not "done"."""
-    item = _item("Training geven Loopgroep Leeuwarden 1u15", 75, coached=True)
+    item = _item("Training geven Loopgroep Stad 1u15", 75, coached=True)
     assert plan.zone_ceiling(item) == 1
     run = {"moving_s": 5388, "rpe": 3, "hr_zones": {"1": 3708, "2": 1100, "3": 580}}
     assert plan.deviation(item, run) == {"kind": "harder", "above_s": 1680, "ceiling": 1}
     # 12-11: four minutes above zone 1 in 47 is the session as planned.
     calm = {"moving_s": 2803, "hr_zones": {"1": 2570, "2": 264}}
-    assert plan.deviation(_item("Training geven Rûnom Mantgum", 45, coached=True), calm) is None
+    assert plan.deviation(_item("Training geven Loopgroep Dorp", 45, coached=True), calm) is None
 
 
 def test_harder_than_planned_counts_whatever_the_length():
@@ -749,22 +749,22 @@ def test_distance_and_named_intensity_still_count():
 
 def test_17_11_the_advice_no_longer_calls_a_longer_easy_session_a_deviation():
     done = _plan(
-        _session("Training geven Loopgroep Leeuwarden 1u15", "done", coached=True),
+        _session("Training geven Loopgroep Stad 1u15", "done", coached=True),
         _session("Kracht MS-instap 50' (squat)", "done"),
     )
     advice = dashboard._advice("amber", done, completed_count=2)
-    assert advice == "Today's Training geven Loopgroep Leeuwarden 1u15 is done; recover well."
+    assert advice == "Today's Training geven Loopgroep Stad 1u15 is done; recover well."
     harder = _plan(
         _session("Kracht MS-instap 50' (squat)", "done"),
         _session(
-            "Training geven Loopgroep Leeuwarden 1u15",
+            "Training geven Loopgroep Stad 1u15",
             "changed",
             coached=True,
             deviation={"kind": "harder", "above_s": 1680, "ceiling": 1},
         ),
     )
     assert dashboard._advice("amber", harder, completed_count=2) == (
-        "Today's Training geven Loopgroep Leeuwarden 1u15 ran harder than planned: 28 minutes "
+        "Today's Training geven Loopgroep Stad 1u15 ran harder than planned: 28 minutes "
         "above the planned zone. Recover before you add more."
     )
 

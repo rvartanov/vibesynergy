@@ -34,7 +34,7 @@ def _seed(runtime):
             datetime(2026, 9, 29, 8, tzinfo=UTC),
             DAY,
             "running",
-            name="Training geven LGS",
+            name="Training geven Loopgroep Stad",
             elapsed_s=3600,
             moving_s=3600,
             avg_hr=128,
@@ -56,7 +56,7 @@ def _status(runtime):
 
 def test_kind_follows_the_purpose_and_a_choice_wins(runtime):
     # "training geven" is a training you give, by itself; the activity choice wins.
-    assert coaching.is_coached_title("Training geven LGS")
+    assert coaching.is_coached_title("Training geven Loopgroep Stad")
     assert not coaching.is_coached_title("Tempo")
     _seed(runtime)
     with runtime.engine.connect() as conn:
@@ -120,7 +120,11 @@ def test_migration_carries_the_old_outcome_into_the_purpose(runtime):
     with runtime.engine.begin() as conn:
         write_records(
             conn,
-            [Activity("group", datetime(2026, 9, 29, 18, tzinfo=UTC), DAY, "running", name="LGS")],
+            [
+                Activity(
+                    "group", datetime(2026, 9, 29, 18, tzinfo=UTC), DAY, "running", name="Run group"
+                )
+            ],
             source="garmin",
             raw_item_id=raw.id,
         )

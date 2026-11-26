@@ -41,13 +41,13 @@ RUN_TEST = "Looptest.\n\nWarmup\n- 12m Z1 HR\n\nMain set\n- 30m Z4 HR"
     ("name", "minutes"),
     [
         ("Kracht MS-instap 45' (squat)", 45),
-        ("Training geven Loopgroep Leeuwarden 1u15", 75),
+        ("Training geven Loopgroep Stad 1u15", 75),
         ("Rustige rit Z2 1u", 60),
         ("Zwemmen duur 35'", 35),
         ("Looptest 30'", None),  # the test part, not the session
         ("FTP-test 20'", None),
         ("Intervallen 6x3'", None),
-        ("Training geven Rûnom Mantgum - 19-11", None),
+        ("Training geven Loopgroep Dorp - 19-11", None),
     ],
 )
 def test_name_minutes(name: str, minutes: int | None) -> None:

@@ -68,7 +68,7 @@ def _more(runtime) -> None:
                     datetime(2026, 11, 4, 18, tzinfo=UTC),
                     WEDNESDAY,
                     "running",
-                    name="Training geven LGS",
+                    name="Training geven Loopgroep Stad",
                     moving_s=3500.0,
                 ),
                 Activity(

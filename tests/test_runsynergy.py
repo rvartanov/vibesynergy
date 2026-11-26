@@ -31,7 +31,7 @@ LINK = "https://runsynergy.example/agenda/s3cr3t-token-abcdef.ics"
 
 TUESDAY = {
     "v": 1,
-    "club": "Loopgroep Leeuwarden",
+    "club": "Loopgroep Stad",
     "club_id": 3,
     "groep": "Dinsdaggroep",
     "rol": "coach",
@@ -111,7 +111,7 @@ def _put(runtime, ics: str, today: date = date(2026, 11, 16)) -> None:
         )
 
 
-def _plan_with_coached_session(runtime, name="Training geven Loopgroep Leeuwarden 1u15"):
+def _plan_with_coached_session(runtime, name="Training geven Loopgroep Stad 1u15"):
     plan_model.create_plan(
         runtime.engine,
         name="Fry 27",
@@ -154,7 +154,7 @@ def test_feed_reads_escaped_folded_data_and_skips_other_events() -> None:
         False,
     )
     assert one.data["onderdelen"][2]["tekst"] == "7x 4' DL2 / 2' DL3, zonder stilstaan"
-    assert (one.club, one.role, one.kind) == ("Loopgroep Leeuwarden", "coach", "groep")
+    assert (one.club, one.role, one.kind) == ("Loopgroep Stad", "coach", "groep")
 
 
 def test_feed_reads_unescaped_data_and_cancellation() -> None:
@@ -243,7 +243,7 @@ def test_the_group_schedule_becomes_a_whistle_workout_in_z1() -> None:
     every = [warm, *core["steps"], cool]
     assert all(s["target"] == {"type": "hr_zone", "low": 1, "high": 1} for s in every)
     assert workout_model.total_seconds(parsed.steps) == 90 * 60
-    assert "Loopgroep Leeuwarden: Wisselduurloop DL2/DL3" in parsed.intro
+    assert "Loopgroep Stad: Wisselduurloop DL2/DL3" in parsed.intro
 
 
 def test_structured_core_wins_and_an_unreadable_core_is_one_block() -> None:
@@ -291,7 +291,7 @@ def test_a_coached_session_gets_the_proposal_and_adopting_writes_it(runtime) -> 
             .mappings()
             .one()
         )
-    assert row["name"] == "Training geven Loopgroep Leeuwarden 1u15" and row["duration_s"] == 5400
+    assert row["name"] == "Training geven Loopgroep Stad 1u15" and row["duration_s"] == 5400
     again = group_training.proposals(runtime.engine, date(2026, 11, 16), date(2026, 11, 22))
     assert again[session_id]["state"] == "adopted"
     # A change in RunSynergy makes a new proposal.
@@ -319,17 +319,17 @@ def test_runner_rows_other_days_and_cancelled_trainings(runtime) -> None:
 
 
 def test_two_clubs_on_one_day_match_by_name(runtime) -> None:
-    session_id = _plan_with_coached_session(runtime, "Training geven Rûnom Mantgum - 17-11")
-    mantgum = TUESDAY | {"club": "Rûnom Mantgum", "titel": "Heuvels"}
+    session_id = _plan_with_coached_session(runtime, "Training geven Loopgroep Dorp - 17-11")
+    dorp = TUESDAY | {"club": "Loopgroep Dorp", "titel": "Heuvels"}
     _put(
         runtime,
         _calendar(
             _event("a@x", "20261117T190000", TUESDAY),
-            _event("b@x", "20261117T200000", mantgum),
+            _event("b@x", "20261117T200000", dorp),
         ),
     )
     found = group_training.proposals(runtime.engine, date(2026, 11, 16), date(2026, 11, 22))
-    assert found[session_id]["club"] == "Rûnom Mantgum"
+    assert found[session_id]["club"] == "Loopgroep Dorp"
 
 
 # -- the portal -----------------------------------------------------------------------------

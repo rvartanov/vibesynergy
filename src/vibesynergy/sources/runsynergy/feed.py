@@ -5,7 +5,7 @@ RunSynergy (the running-group app) gives every coach and runner a private calend
 ``X-RUNSYNERGY-DATA`` line with JSON (contract version 1): the club, the role the reader has
 there, the kind (``groep``, ``test``, ``wedstrijd``), the date and start time, and the parts
 of the training (``warming_up``, ``techniek``, ``kern``, ``cooling_down`` with minutes and
-text). VibeSynergy keeps only what it needs for the group trainings Robert gives.
+text). VibeSynergy keeps only what it needs for the group trainings the athlete gives.
 
 The link is a secret (anyone with it reads the schedule), so it lives in the encrypted
 secret store and the page only ever learns whether one is set and its host.
