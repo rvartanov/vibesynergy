@@ -8,30 +8,30 @@ from datetime import UTC, date, datetime
 
 from vibesynergy.query import plan, plan_match
 
-SWIM_19_11 = [  # "Middagzwemsessie" 19-11-2026: 2525 m, 68', another workout on the watch
-    (448.1, 300, 95, 0.67), (52.2, 0, 92, 0.0), (239.4, 50, 113, 0.21), (2.2, 0, 129, 0.0),
-    (20.7, 50, 121, 2.41), (8.4, 0, 108, 0.0), (5.8, 50, 107, 8.57), (9.9, 0, 101, 0.0),
-    (85.3, 50, 115, 0.59), (3.6, 0, 130, 0.0), (96.3, 0, 120, 0.0), (68.8, 50, 118, 0.73),
-    (30.1, 0, 109, 0.0), (147.0, 100, 117, 0.68), (30.2, 0, 113, 0.0), (127.1, 100, 119, 0.79),
-    (30.1, 0, 118, 0.0), (154.8, 100, 126, 0.65), (30.1, 0, 124, 0.0), (18.4, 0, 112, 0.0),
-    (306.1, 200, 131, 0.65), (30.1, 0, 122, 0.0), (92.4, 50, 115, 0.54), (30.1, 0, 118, 0.0),
-    (294.9, 200, 132, 0.68), (30.1, 0, 125, 0.0), (102.9, 50, 119, 0.49), (30.2, 0, 112, 0.0),
-    (308.4, 200, 131, 0.65), (30.1, 0, 121, 0.0), (94.5, 75, 123, 0.79), (30.1, 0, 124, 0.0),
-    (322.6, 200, 130, 0.62), (30.1, 0, 125, 0.0), (107.7, 50, 126, 0.46), (30.1, 0, 119, 0.0),
-    (19.7, 0, 103, 0.0), (62.1, 50, 110, 0.81), (15.1, 0, 124, 0.0), (119.4, 50, 148, 0.42),
-    (30.1, 0, 131, 0.0), (61.2, 50, 124, 0.82), (15.1, 0, 122, 0.0), (123.5, 50, 134, 0.41),
-    (30.1, 0, 119, 0.0), (79.5, 50, 124, 0.63), (15.2, 0, 126, 0.0), (62.0, 50, 133, 0.81),
-    (2.4, 0, 136, 0.0), (110.2, 50, 129, 0.45), (3.1, 0, 133, 0.0), (2.3, 0, 132, 0.0),
-    (23.8, 0, 119, 0.0), (4.4, 0, 107, 0.0), (520.3, 300, 115, 0.58), (8.5, 0, 112, 0.0),
+SWIM_CHANGED = [  # a pool swim: 2500 m, 68', another workout on the watch
+    (448.1, 300, 120, 0.67), (52.2, 0, 110, 0.0), (239.4, 50, 120, 0.21), (2.2, 0, 110, 0.0),
+    (20.7, 50, 120, 2.41), (8.4, 0, 110, 0.0), (5.8, 50, 120, 8.57), (9.9, 0, 110, 0.0),
+    (85.3, 50, 120, 0.59), (3.6, 0, 110, 0.0), (96.3, 0, 110, 0.0), (68.8, 50, 120, 0.73),
+    (30.1, 0, 110, 0.0), (147.0, 100, 120, 0.68), (30.2, 0, 110, 0.0), (127.1, 100, 120, 0.79),
+    (30.1, 0, 110, 0.0), (154.8, 100, 120, 0.65), (30.1, 0, 110, 0.0), (18.4, 0, 110, 0.0),
+    (306.1, 200, 120, 0.65), (30.1, 0, 110, 0.0), (92.4, 50, 120, 0.54), (30.1, 0, 110, 0.0),
+    (294.9, 200, 120, 0.68), (30.1, 0, 110, 0.0), (102.9, 50, 120, 0.49), (30.2, 0, 110, 0.0),
+    (308.4, 200, 120, 0.65), (30.1, 0, 110, 0.0), (94.5, 75, 120, 0.79), (30.1, 0, 110, 0.0),
+    (322.6, 200, 120, 0.62), (30.1, 0, 110, 0.0), (107.7, 50, 120, 0.46), (30.1, 0, 110, 0.0),
+    (19.7, 0, 110, 0.0), (62.1, 50, 120, 0.81), (15.1, 0, 110, 0.0), (119.4, 50, 120, 0.42),
+    (30.1, 0, 110, 0.0), (61.2, 50, 120, 0.82), (15.1, 0, 110, 0.0), (123.5, 50, 120, 0.41),
+    (30.1, 0, 110, 0.0), (79.5, 50, 120, 0.63), (15.2, 0, 110, 0.0), (62.0, 50, 120, 0.81),
+    (2.4, 0, 110, 0.0), (110.2, 50, 120, 0.45), (3.1, 0, 110, 0.0), (2.3, 0, 110, 0.0),
+    (23.8, 0, 110, 0.0), (4.4, 0, 110, 0.0), (520.3, 300, 120, 0.58), (8.5, 0, 110, 0.0),
 ]  # fmt: skip
-SWIM_18_11 = [  # "rustige duur" 18-11: the planned 3x200, two laps a length off (meetfout)
-    (429.2, 300, 112, 0.7), (264.2, 200, 106, 0.76), (30.1, 0, 113, 0.0), (280.6, 200, 130, 0.71),
-    (30.1, 0, 119, 0.0), (315.1, 200, 128, 0.63), (30.1, 0, 115, 0.0), (317.8, 225, 127, 0.71),
-    (30.1, 0, 114, 0.0), (318.1, 250, 125, 0.79), (11.9, 0, 119, 0.0), (107.7, 0, 114, 0.0),
-    (1.3, 0, 110, 0.0), (5.3, 50, 106, 9.36), (28.2, 0, 100, 0.0), (34.3, 0, 109, 0.0),
-    (45.4, 50, 124, 1.1), (5.8, 0, 127, 0.0),
+SWIM_LIGHT = [  # an easy swim: the planned 3x200, two laps a length off (meetfout)
+    (429.2, 300, 120, 0.7), (264.2, 200, 120, 0.76), (30.1, 0, 110, 0.0), (280.6, 200, 120, 0.71),
+    (30.1, 0, 110, 0.0), (315.1, 200, 120, 0.63), (30.1, 0, 110, 0.0), (317.8, 225, 120, 0.71),
+    (30.1, 0, 110, 0.0), (318.1, 250, 120, 0.79), (11.9, 0, 110, 0.0), (107.7, 0, 110, 0.0),
+    (1.3, 0, 110, 0.0), (5.3, 50, 120, 9.36), (28.2, 0, 110, 0.0), (34.3, 0, 110, 0.0),
+    (45.4, 50, 120, 1.1), (5.8, 0, 110, 0.0),
 ]  # fmt: skip
-TEMPO_RUN = [  # "Tempo" 20-07-2026: 4x5' with 2' recoveries, on a day an easy run was due
+TEMPO_RUN = [  # a tempo run: 4x5' with 2' recoveries, on a day an easy run was due
     (599.0, 1632, 124, 2.72), (300.0, 965, 148, 3.22), (120.0, 305, 133, 2.54),
     (300.0, 966, 146, 3.22), (120.0, 244, 130, 2.03), (300.0, 957, 146, 3.19),
     (120.0, 265, 134, 2.2), (300.0, 914, 147, 3.05), (600.0, 1491, 135, 2.49),
@@ -105,17 +105,17 @@ def test_the_planned_main_set_reads_like_the_plan():
     assert plan_match.planned_text([], "swim") is None
 
 
-def test_19_11_another_swim_of_the_same_sport_is_changed():
-    """Robert's swim of 19-11: 3x300 Middel planned, drills, 100s and 200+50s swum."""
-    found = plan_match.compare(SWIM_PLAN, "swim", _laps(SWIM_19_11))
+def test_another_swim_of_the_same_sport_is_changed():
+    """A swim with 3x300 Middel planned, drills, 100s and 200+50s swum."""
+    found = plan_match.compare(SWIM_PLAN, "swim", _laps(SWIM_CHANGED))
     assert found["check"] == "differs"
     assert found["planned"] == "3x300 Middel"
     # Warm-up and cool-down (the first and last 300) left out; the 75 is a lap a length off.
     assert found["done"] == "5x50 + 3x100 + 4x(200+50) + 7x50"
     item = {"title": "Zwemmen duur 40'", "extra": {"duration_s": 2190.0, "distance_m": 1400.0}}
     # 68 minutes at RPE 4 is longer at a low effort: no size deviation, but another workout.
-    assert plan.deviation(item, {"moving_s": 4064.9, "distance_m": 2525.0, "rpe": 4}) is None
-    assert plan.deviation(item, {"moving_s": 4064.9, "rpe": 4}, found) == {
+    assert plan.deviation(item, {"moving_s": 4080.0, "distance_m": 2500.0, "rpe": 4}) is None
+    assert plan.deviation(item, {"moving_s": 4080.0, "rpe": 4}, found) == {
         "kind": "structure",
         "planned": "3x300 Middel",
         "done": "5x50 + 3x100 + 4x(200+50) + 7x50",
@@ -124,8 +124,8 @@ def test_19_11_another_swim_of_the_same_sport_is_changed():
 
 
 def test_a_few_bad_swim_laps_do_not_make_a_planned_swim_changed():
-    """18-11: 3x200 Licht planned; two laps counted a length long and a 50 m glitch."""
-    found = plan_match.compare(LIGHT_SWIM, "swim", _laps(SWIM_18_11))
+    """3x200 Licht planned; two laps counted a length long and a 50 m glitch."""
+    found = plan_match.compare(LIGHT_SWIM, "swim", _laps(SWIM_LIGHT))
     assert found["check"] == "match"
     assert found["planned"] == "3x200 Licht"
 
@@ -140,7 +140,7 @@ def test_thin_swim_data_is_not_checked():
 
 
 def test_a_tempo_run_in_place_of_an_easy_run_is_changed():
-    """20-07: 4x5' tempo; the plan said an easy 25' Z2."""
+    """4x5' tempo; the plan said an easy 25' Z2."""
     found = plan_match.compare(EASY_PLAN, "run", _laps(TEMPO_RUN, steps=True))
     assert found == {"check": "differs", "planned": "25' Z2", "done": "4x5'", "done_shape": None}
     item = {"title": "Korte duurloop 40'", "extra": {"duration_s": 2400.0}}
@@ -189,12 +189,12 @@ def test_the_ai_coach_gets_planned_against_done():
         "sport": "swimming",
         "status": "changed",
         "deviation": {"kind": "structure", "planned": "3x300 Middel", "done": "4x50"},
-        "done_by": [{"sport": "lap_swimming", "moving_s": 4064.9, "distance_m": 2525.0}],
+        "done_by": [{"sport": "lap_swimming", "moving_s": 4080.0, "distance_m": 2500.0}],
         "comparison": {"check": "differs", "planned": "3x300 Middel", "done": "4x50", "rpe": 4},
     }
     assert plan_match.for_coach(item) == {
         "planned": "Zwemmen duur 40' — 3x300 Middel",
-        "done": "lap_swimming 2525 m, 68' — 4x50 · RPE 4",
+        "done": "lap_swimming 2500 m, 68' — 4x50 · RPE 4",
         "check": "differs",
         "deviation": {"kind": "structure", "planned": "3x300 Middel", "done": "4x50"},
     }
@@ -203,7 +203,7 @@ def test_the_ai_coach_gets_planned_against_done():
 DAY = date(2026, 11, 19)
 
 
-def test_the_plan_marks_the_19_11_swim_changed_end_to_end(runtime):
+def test_the_plan_marks_the_other_swim_changed_end_to_end(runtime):
     """Through plan.plan and week_progress: VibeSynergy's session, the activity and its laps."""
     from vibesynergy.derive import unify
     from vibesynergy.model import Activity, ActivityLap
@@ -233,13 +233,13 @@ def test_the_plan_marks_the_19_11_swim_changed_end_to_end(runtime):
     raw = runtime.raw.put(
         source="garmin",
         dataset="activities",
-        item_key="case-19-11",
+        item_key="case-swim",
         payload=b"{}",
         content_type="application/json",
     )
     laps = [
         ActivityLap("swim1", n, elapsed_s=s, moving_s=s, distance_m=m, avg_hr=hr, avg_speed=v)
-        for n, (s, m, hr, v) in enumerate(SWIM_19_11, start=1)
+        for n, (s, m, hr, v) in enumerate(SWIM_CHANGED, start=1)
     ]
     with runtime.engine.begin() as conn:
         write_records(
@@ -250,10 +250,10 @@ def test_the_plan_marks_the_19_11_swim_changed_end_to_end(runtime):
                     datetime(2026, 11, 19, 10, tzinfo=UTC),
                     DAY,
                     "lap_swimming",
-                    name="Middagzwemsessie",
-                    moving_s=4064.9,
-                    elapsed_s=4921.1,
-                    distance_m=2525.0,
+                    name="Zwemsessie",
+                    moving_s=4080.0,
+                    elapsed_s=4920.0,
+                    distance_m=2500.0,
                     extra={"rpe": 40},  # RPE 4: longer at a low effort is no size deviation
                 ),
                 *laps,
@@ -277,7 +277,7 @@ def test_the_plan_marks_the_19_11_swim_changed_end_to_end(runtime):
 
 
 def test_a_zwift_ride_from_intervals_icu_is_not_named_hard():
-    """19-11: "Zwift - Intervals icu: Rustige rit Z2 1u" was read as intervals, so hard."""
+    """A ride named "Zwift - Intervals icu: Rustige rit Z2 1u" was read as intervals, so hard."""
     item = {"title": "Rustige rit Z2 1u", "extra": {"duration_s": 3600}}
     ride = {"name": "Zwift - Intervals icu: Rustige rit Z2 1u", "moving_s": 3600, "rpe": 4}
     assert plan.deviation(item, ride) is None

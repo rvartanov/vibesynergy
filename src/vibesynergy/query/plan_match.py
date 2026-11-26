@@ -456,7 +456,7 @@ def _compare_effort(units, laps, fam) -> dict[str, Any]:
 
 
 def done_line(item: dict[str, Any]) -> str | None:
-    """What was done for a matched planned session, as one line: ``lap_swimming 2525 m,
+    """What was done for a matched planned session, as one line: ``lap_swimming 2500 m,
     68' — 5x50 + 3x100 · RPE 4``. ``None`` without a matched activity."""
     found = (item.get("done_by") or [None])[0]
     if not found:

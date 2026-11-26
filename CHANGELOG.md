@@ -372,7 +372,7 @@ The first version with a number also brings everything since 0.0.1a1:
   swim laps (a length miscounted) do not change the verdict. When the laps are too thin to
   judge (one lap, auto laps for an interval plan), the workout says "done, not checked". On
   the start page, the day view and in This week each done or changed workout shows two
-  lines, "Planned: Zwemmen duur 40' — 3x300 Middel" and "Done: Swimming 2525 m, 68' — 5x50 +
+  lines, "Planned: Zwemmen duur 40' — 3x300 Middel" and "Done: Swimming 2500 m, 68' — 5x50 +
   3x100 + 4x(200+50) + 7x50 · RPE 3", with the reason on top when changed. The AI coach gets
   the same planned and done per session (`today`, `plan_match`), so a report does not call a
   different session done as prescribed.

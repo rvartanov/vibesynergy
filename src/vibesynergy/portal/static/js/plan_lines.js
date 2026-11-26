@@ -1,7 +1,7 @@
 // Planned against done for one session (#116): two short lines, and the reason on top when
 // it is changed (#103). Used by the start page, the day view and This week.
 //   Gepland: Zwemmen duur 40' — 3x300 Middel
-//   Gedaan:  Zwemmen 2525 m, 68' — 5x50 + 3x100 + 4x(200+50) + 7x50 · RPE 4
+//   Gedaan:  Zwemmen 2500 m, 68' — 5x50 + 3x100 + 4x(200+50) + 7x50 · RPE 4
 // The sets come from query/plan_match.py (steps and laps), already as short text.
 import { esc, hoursMinutes, isNum, km, number, sportName } from "./format.js";
 import { N, t } from "./i18n.js";
