@@ -2734,6 +2734,7 @@
  "Logging you in…": "Logging you in…",
  "Something went wrong. Try again.": "Something went wrong. Try again.",
  "Log in first.": "Log in first.",
+ "Too many attempts. Wait a minute and try again.": "Too many attempts. Wait a minute and try again.",
  "Too many attempts. Try again in 15 minutes.": "Too many attempts. Try again in 15 minutes.",
  "That email address or password is not right.": "That email address or password is not right.",
  "The login has expired. Start again.": "The login has expired. Start again.",

@@ -30,6 +30,10 @@ The short "What changed" the portal shows after an update is in
 - **A copied app login stops working** (#196): when an AI app's login is used twice, or
   the app signs out, every login of that app ends, so a copy is useless; the app simply
   connects again.
+- **Strangers can no longer lock you out of the portal** (#196): wrong passwords typed for
+  your email elsewhere now only make the next try wait a little (up to a minute) instead of
+  locking your right password out for 15 minutes, and a place you logged in from before is
+  not slowed down at all. Strangers can no longer use up the login-link mails either.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 

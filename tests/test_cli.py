@@ -223,7 +223,7 @@ def test_password_reset_clears_lockout_and_link_works_once(env, runtime) -> None
 
     run("init", "--email", "athlete@example.com")
     acc = auth.account(runtime.engine)
-    for _ in range(auth.MAX_FAILURES_EMAIL):
+    for _ in range(auth.MAX_FAILURES_CLIENT):  # the hard lock of this client address
         auth.note_attempt(runtime.engine, acc["email"], "1.2.3.4", False)
     assert auth.locked(runtime.engine, acc["email"], "1.2.3.4")
     out = run("password-reset")  # no mail set up: the link is shown

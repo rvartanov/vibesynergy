@@ -2734,6 +2734,7 @@
  "Logging you in…": "Je wordt ingelogd…",
  "Something went wrong. Try again.": "Er ging iets mis. Probeer het opnieuw.",
  "Log in first.": "Log eerst in.",
+ "Too many attempts. Wait a minute and try again.": "Te veel pogingen. Wacht een minuut en probeer het opnieuw.",
  "Too many attempts. Try again in 15 minutes.": "Te veel pogingen. Probeer het over 15 minuten opnieuw.",
  "That email address or password is not right.": "Dat e-mailadres of wachtwoord klopt niet.",
  "The login has expired. Start again.": "De login is verlopen. Begin opnieuw.",
