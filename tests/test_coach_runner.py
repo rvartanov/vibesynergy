@@ -1212,7 +1212,7 @@ def test_threshold_check_runs_once_per_signal(rt, monkeypatch):
         return [r for r in schedule.due_runs(rt, local(9, 34, monday)) if r["job"] == "thresholds"]
 
     assert check_due() == []  # nothing measured differs
-    found.append({"sport": "run", "metric": "max_hr", "current": 179.0, "measured": 185.0})
+    found.append({"sport": "run", "metric": "max_hr", "current": 190.0, "measured": 196.0})
     (due,) = check_due()
     assert due["run_key"].startswith("signals-")
     with rt.engine.begin() as conn:
@@ -1246,7 +1246,7 @@ def test_threshold_signals_from_measured_values(rt):
     from vibesynergy.store.schema import activity_unified
 
     row = athlete_threshold.propose_threshold(
-        rt.engine, sport="run", metric="max_hr", value=179, unit="bpm", method="manual"
+        rt.engine, sport="run", metric="max_hr", value=190, unit="bpm", method="manual"
     )
     athlete_threshold.confirm_threshold(rt.engine, row["id"])
 
@@ -1272,9 +1272,9 @@ def test_threshold_signals_from_measured_values(rt):
             )
         return [s for s in thresholds.signals(rt.engine, DAY) if s["metric"] == "max_hr"]
 
-    assert run(181) == []  # within the margin
-    (signal,) = run(186)
-    assert signal["current"] == 179.0 and signal["measured"] == 186.0
+    assert run(192) == []  # within the margin
+    (signal,) = run(197)
+    assert signal["current"] == 190.0 and signal["measured"] == 197.0
     assert signal["activity_id"] == "garmin:9"
 
 
