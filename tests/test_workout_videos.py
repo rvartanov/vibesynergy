@@ -333,27 +333,50 @@ def test_a_run_downloads_a_limited_number_of_videos(runtime, clip, other_clip, m
     assert workout_media.count(runtime.engine, run) == 2
 
 
-class FakeWeb:
-    """``requests.get`` for a few https addresses; records what was asked."""
+PUBLIC_IP = "93.184.216.34"
 
-    def __init__(self, pages: dict[str, bytes], types: dict[str, str] | None = None):
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    """The made-up media hosts resolve to a public address (no DNS in tests)."""
+    monkeypatch.setattr(media_pull, "_resolve", lambda host: [PUBLIC_IP])
+
+
+class FakeWeb:
+    """``requests.get`` for a few https addresses; records what was asked. ``redirects``
+    maps an address to where it sends the caller (302)."""
+
+    def __init__(
+        self,
+        pages: dict[str, bytes],
+        types: dict[str, str] | None = None,
+        redirects: dict[str, str] | None = None,
+    ):
         self.pages, self.types, self.asked = pages, types or {}, []
+        self.redirects = redirects or {}
 
     def get(self, url, **kw):
         self.asked.append(url)
         assert kw.get("verify", True) is True  # TLS is always verified
+        assert kw.get("allow_redirects") is False  # every hop is checked here
         web = self
 
         class Response:
             def __init__(self):
                 self.url = url
+                self.status_code = 302 if url in web.redirects else 200
                 self.headers = {"content-type": web.types.get(url, "application/octet-stream")}
+                if url in web.redirects:
+                    self.headers["location"] = web.redirects[url]
 
             def __enter__(self):
                 return self
 
             def __exit__(self, *exc):
                 return False
+
+            def close(self):
+                pass
 
             def raise_for_status(self):
                 if url not in web.pages:
@@ -445,6 +468,53 @@ def test_a_video_download_has_one_deadline(tmp_path, monkeypatch):
         media_pull.download_video("https://cdn.example.test/v.mp4", tmp_path / "v", 5, 0)
     with pytest.raises(ValueError):
         media_pull.download_video("http://cdn.example.test/v.mp4", tmp_path / "w", 5)
+
+
+def test_media_redirects_are_checked_on_every_hop(tmp_path, monkeypatch):
+    import requests
+
+    photo = picture()
+    start = "https://dgtzuqphqg23d.cloudfront.net/p.jpg"
+    # A hop to a host off the list, or to plain http, is refused before it is requested.
+    for target in ("https://evil.example/p.jpg", "http://cdn.strava.com/p.jpg"):
+        web = FakeWeb({}, redirects={start: target})
+        monkeypatch.setattr(requests, "get", web.get)
+        with pytest.raises(ValueError):
+            media_pull.download(start, 5)
+        assert web.asked == [start]
+    # A hop on the list is followed.
+    web = FakeWeb(
+        {"https://cdn.strava.com/p.jpg": photo},
+        redirects={start: "https://cdn.strava.com/p.jpg"},
+    )
+    monkeypatch.setattr(requests, "get", web.get)
+    assert media_pull.download(start, 5) == photo
+    # A loop ends.
+    web = FakeWeb({}, redirects={start: start})
+    monkeypatch.setattr(requests, "get", web.get)
+    with pytest.raises(ValueError, match="too many"):
+        media_pull.download(start, 5)
+    assert len(web.asked) == media_pull.MAX_REDIRECTS + 1
+    # Videos too: the check is before the request, not after it.
+    web = FakeWeb({}, redirects={"https://cdn.example.test/v.mp4": "https://evil.example/v"})
+    monkeypatch.setattr(requests, "get", web.get)
+    with pytest.raises(ValueError):
+        media_pull.download_video("https://cdn.example.test/v.mp4", tmp_path / "v", 5)
+    assert not any("evil" in u for u in web.asked)
+
+
+@pytest.mark.parametrize(
+    "address", ["127.0.0.1", "10.1.2.3", "192.168.1.10", "169.254.169.254", "::1", "fc00::1"]
+)
+def test_media_links_never_reach_a_private_address(monkeypatch, address):
+    import requests
+
+    web = FakeWeb({"https://cdn.strava.com/p.jpg": b"x"})
+    monkeypatch.setattr(requests, "get", web.get)
+    monkeypatch.setattr(media_pull, "_resolve", lambda host: [PUBLIC_IP, address])
+    with pytest.raises(ValueError, match="private"):
+        media_pull.download("https://cdn.strava.com/p.jpg", 5)
+    assert web.asked == []
 
 
 @needs_ffmpeg

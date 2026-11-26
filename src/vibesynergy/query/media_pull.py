@@ -25,11 +25,14 @@ first; Strava's rate limit ends a run and the rest waits.
 
 from __future__ import annotations
 
+import contextlib
 import io
+import ipaddress
 import logging
 import re
 import tempfile
 import time
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any, Protocol
@@ -64,6 +67,11 @@ MAX_VIDEOS_PER_RUN = 3
 VIDEO_DEADLINE_S = 300.0
 MAX_PLAYLIST_BYTES = 1024 * 1024
 HLS_HOSTS: tuple[str, ...] = ("strava.com", "cloudfront.net")
+# A photo or video link may redirect only to its own host or these (and their subdomains),
+# at most MAX_REDIRECTS times, over https, never to a private or local address.
+MEDIA_HOSTS: tuple[str, ...] = (*HLS_HOSTS, "garmin.com")
+MAX_REDIRECTS = 5
+_REDIRECTS = frozenset({301, 302, 303, 307, 308})
 # media_check.error of a copy that only waits (no ffmpeg yet, or the run's video budget):
 # that look does not use up the one retry.
 WAITING = "waiting: "
@@ -94,7 +102,7 @@ def _when(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
-def _host_allowed(url: str, playlist_host: str | None) -> bool:
+def _host_allowed(url: str, playlist_host: str | None, hosts: tuple[str, ...] = HLS_HOSTS) -> bool:
     """https, and on the playlist's own host or a Strava host or CDN (``HLS_HOSTS``)."""
     parts = urlparse(url)
     host = (parts.hostname or "").lower()
@@ -102,7 +110,60 @@ def _host_allowed(url: str, playlist_host: str | None) -> bool:
         return False
     if playlist_host and host == playlist_host.lower():
         return True
-    return any(host == h or host.endswith("." + h) for h in HLS_HOSTS)
+    return any(host == h or host.endswith("." + h) for h in hosts)
+
+
+def _resolve(host: str) -> list[str]:
+    import socket
+
+    return [str(info[4][0]) for info in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)]
+
+
+def _public_host(host: str) -> bool:
+    """Every address the name resolves to is a public one (no private, loopback,
+    link-local, multicast or reserved address), so a link cannot reach this network."""
+    try:
+        addresses = _resolve(host)
+    except (OSError, UnicodeError):
+        return False
+    for address in addresses:
+        try:
+            ip = ipaddress.ip_address(address.split("%", 1)[0])
+        except ValueError:
+            return False
+        if not ip.is_global or ip.is_multicast:
+            return False
+    return bool(addresses)
+
+
+@contextlib.contextmanager
+def _open(url: str, timeout: float, hosts: tuple[str, ...]) -> Iterator[Any]:
+    """``requests.get(url, stream=True)`` that follows redirects itself, checking every hop:
+    https only, on the link's own host or ``hosts``, and a public address."""
+    import requests
+
+    origin = urlparse(url).hostname
+    for _ in range(MAX_REDIRECTS + 1):
+        if urlparse(url).scheme != "https":
+            raise ValueError("media links must be https")
+        if not _host_allowed(url, origin, hosts):
+            raise ValueError("the link went to another place")
+        if not _public_host(urlparse(url).hostname or ""):
+            raise ValueError("the link points to a private address")
+        response = requests.get(url, stream=True, timeout=timeout, allow_redirects=False)
+        if getattr(response, "status_code", 200) in _REDIRECTS:
+            location = response.headers.get("location")
+            response.close()
+            if not location:
+                raise ValueError("a redirect without a target")
+            url = urljoin(url, location)
+            continue
+        try:
+            yield response
+        finally:
+            response.close()
+        return
+    raise ValueError("too many redirects")
 
 
 class _Fetch:
@@ -122,14 +183,11 @@ class _Fetch:
 
     def to(self, url: str, out: IO[bytes], limit: int | None = None) -> str:
         """Write ``url``'s body to ``out``; returns its content type."""
-        import requests
-
         cap = self.left if limit is None else min(limit, self.left)
         timeout = min(self.timeout, self._remaining())
-        with requests.get(url, stream=True, timeout=timeout, allow_redirects=True) as response:
+        # Every hop is checked before it is requested, not only where the request ended.
+        with _open(url, timeout, HLS_HOSTS) as response:
             response.raise_for_status()
-            if not _host_allowed(response.url, urlparse(url).hostname):
-                raise ValueError("the video link went to another place")
             if int(response.headers.get("content-length") or 0) > cap:
                 raise workout_media.TooLarge("the video is too large")
             written = 0
@@ -246,13 +304,12 @@ def fetch_hls(url: str, dest: Path, fetch: _Fetch) -> None:
 
 
 def download(url: str, timeout: float) -> bytes:
-    """A photo from the platform's own link: https only, at most ``MAX_BYTES``, no login sent."""
-    import requests
-
+    """A photo from the platform's own link: https only, at most ``MAX_BYTES``, no login sent,
+    redirects only to the link's host or ``MEDIA_HOSTS`` and never to a private address."""
     if urlparse(url).scheme != "https":
         raise ValueError("photo links must be https")
     limit = workout_media.MAX_BYTES
-    with requests.get(url, stream=True, timeout=timeout, allow_redirects=True) as response:
+    with _open(url, timeout, MEDIA_HOSTS) as response:
         response.raise_for_status()
         if int(response.headers.get("content-length") or 0) > limit:
             raise workout_media.TooLarge("the photo is too large")
