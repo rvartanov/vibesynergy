@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.25 – 26-11-2026
+
 - **Ready for Strava's longer ids** (#87): from 1 June 2027 Strava activity and athlete ids
   can be longer than a browser can hold as a number. VibeSynergy now keeps every Strava id as
   text, from fetching and new-activity notifications through to the portal and your AI apps,
