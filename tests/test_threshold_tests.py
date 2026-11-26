@@ -549,3 +549,35 @@ def test_the_test_evaluation_gets_the_calculation(runtime):
 )
 def test_the_per_second_grid(times, values, expected):
     assert threshold_tests.grid(times, values, threshold_tests.PROTOCOL.hold_s) == expected
+
+
+def test_the_method_evaluation_values_win_over_the_fallbacks(runtime):
+    # The seed holds ftp_pct = 95 and lthr_last_minutes = 20; an approved method change wins.
+    from vibesynergy.query import knowledge, workout_method
+
+    seeded = threshold_tests.protocol(runtime.engine)
+    assert seeded["ftp_factor"] == 0.95
+    assert seeded["run_lthr_last_min"] == 20.0
+    body = knowledge.get_article(runtime.engine, workout_method.SLUG)["body_md"]
+    changed = body.replace("evaluation = { ftp_pct = 95 }", "evaluation = { ftp_pct = 90 }")
+    changed = changed.replace(
+        "evaluation = { lthr_last_minutes = 20 }", "evaluation = { lthr_last_minutes = 15 }"
+    )
+    assert changed != body
+    proposal = knowledge.propose_change(
+        runtime.engine,
+        kind="article",
+        target=workout_method.SLUG,
+        rationale="made-up test values",
+        author="client:coach",
+        changes={"body_md": changed},
+    )
+    knowledge.approve_proposal(runtime.engine, proposal["id"], actor="user")
+    proto = threshold_tests.protocol(runtime.engine)
+    assert proto["ftp_factor"] == 0.9
+    assert proto["run_lthr_last_min"] == 15.0
+    power = [150.0] * 600 + [260.0] * 1200 + [150.0] * 600
+    gid = _activity(runtime, "garmin:90", "cycling", elapsed=2400, stream={"power": power})
+    _mark(runtime, gid)
+    values, _ = _by_metric(threshold_tests.evaluate(runtime.engine, runtime.parquet, gid))
+    assert values["ftp"]["value"] == round(260 * 0.9)

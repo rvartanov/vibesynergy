@@ -15,6 +15,10 @@ The short "What changed" the portal shows after an update is in
 
 - A notice at the top of the portal is hidden once you click its link, as with its close button (remembered on this device for a day).
 
+## 0.1.0-beta.0.27 – 26-11-2026
+
+- The workout method can hold how a test is evaluated (`evaluation`: `ftp_pct` for the FTP test, `lthr_last_minutes` for the run test). The threshold calculations read them, so a change in the knowledge base changes the calculation (#84).
+
 ## 0.1.0-beta.0.26 – 26-11-2026
 
 - **Mark a workout as a race or a test** (#84): choose *Test* (new) or *Race* as the
