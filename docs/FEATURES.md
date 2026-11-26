@@ -153,6 +153,17 @@ Details: [SOURCES.md](SOURCES.md).
   laps, time in zones, the copy from each source, the training load and how it was counted,
   RPE and Feel, gear, purpose, notes, your name and texts with their history, the Publish
   tick, the published description, the workout's photos.
+- **Race and test marks** (#84): the purpose *Race* or *Test* on a workout. A workout on the
+  day of a planned test (named test, FTP or CSS) or one of your races of the same sport is
+  marked by itself; *Not a test* / *Not a race* undoes it, and it is never marked again.
+  A marked test or race gives its thresholds as proposals for you to take over: FTP from a
+  ride test (a share of the mean power over the test length; the 20' step, else the best
+  20 minutes), CSS from the 400 and 200 m swims, LTHR (the last 20' of the 30' run test)
+  and threshold pace (the whole 30'), and a higher max heart rate from a run or ride. Test
+  lengths and distances come from the training method in the knowledge base. Without the
+  data (no power meter, no laps of the test) there is no proposal, and the page says why.
+  The activity page lists what the test or race gave; another purpose withdraws its open
+  proposals.
 - **Photos of a workout** (#114): *Add photos* on the workout page (JPEG, PNG, WebP or GIF),
   and the photos on its Strava and Garmin copies come in by themselves. One photo is kept
   once, also when it comes from several places or in another size. Strava and Garmin take
@@ -173,9 +184,11 @@ Details: [SOURCES.md](SOURCES.md).
 - **Fitness, fatigue and form** (Fitness → Form): 42- and 7-day weighted averages, form zones
   (transition, fresh, grey, optimal, high risk), ramp rate.
 - **Race predictions** (Fitness → Form): 5 km, 10 km, 10 miles, half marathon, marathon and
-  50 km, from one hour at your threshold pace and your fastest runs of the last 12 weeks
-  (Riegel; stricter beyond the half marathon), with how certain each is, the change against
-  six weeks ago and Garmin's prediction next to it.
+  50 km, from one hour at your threshold pace, your races (a run marked as a race, over
+  its whole distance) and your fastest runs of the last 12 weeks (Riegel; stricter beyond
+  the half marathon), with how certain each is, the change against six weeks ago and
+  Garmin's prediction next to it. Each race at one of the distances is set against the
+  prediction of the day before it.
 - **Projection to the races**: fitness and form per day if the plan is done as written, from
   each planned session's steps and intensity; the projected form on each race day.
 - **Training analysis**: the fitness chart, weekly volume per sport, time in heart-rate, power
@@ -184,8 +197,9 @@ Details: [SOURCES.md](SOURCES.md).
   race predictions), the power curve. Heart-rate TRIMP, TSS and Garmin's load remain
   available to compare.
 - **Zones & thresholds**: FTP, LTHR, max heart rate, threshold pace and CSS per sport, their
-  zones, the history of each value, what Garmin and intervals.icu hold, the AI coach's
-  proposals. A change saves at once; Garmin and intervals.icu only change when you tick them.
+  zones, the history of each value with the test or race it came from (date and link),
+  what Garmin and intervals.icu hold, the proposals from your tests and races and from the
+  AI coach. A change saves at once; Garmin and intervals.icu only change when you tick them.
 - **Calendar** (`#/schedule`): month or week grid, sessions in their sport's colour with
   their title (week: also time and distance; on a phone the week is a list of days), the day
   with recovery, weather (°C/°F, wind in km/h, m/s, knots or Beaufort, and where) and the

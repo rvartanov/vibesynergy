@@ -377,6 +377,20 @@ ITEMS: tuple[Item, ...] = (
         "vibesynergy_plan lists group_trainings: the RunSynergy workouts matched to a "
         '"Training geven" session, with date, start, when, state, past and same_day.',
     ),
+    Item(
+        "84-marks",
+        "you",
+        "Mark a workout as a race or a test. A test or race that was planned is marked by "
+        "itself, and you can undo it. A test gives your new thresholds as proposals under "
+        "Zones & thresholds.",
+    ),
+    Item(
+        "84-ai-marks",
+        "ai",
+        "The purpose test is new. VibeSynergy computes FTP, CSS, LTHR, threshold pace and max "
+        "HR from a marked test or race as proposals; vibesynergy_threshold_test shows how. "
+        "The test evaluation explains them and does not compute again.",
+    ),
 )
 
 VERSION = RELEASES[0].version

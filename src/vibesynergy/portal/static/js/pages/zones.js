@@ -130,10 +130,10 @@ function draw(view, data, results, stale, profile) {
 function proposalsCard(proposals) {
   if (!proposals.length) return "";
   return `<section class="card zones-proposals" aria-labelledby="zones-proposals-title">
-    <h2 id="zones-proposals-title">${esc(t("Your AI coach suggests new values"))}</h2>
+    <h2 id="zones-proposals-title">${esc(t("Suggested new values"))}</h2>
     <ul class="zones-proposal-list">${proposals.map((p) => `<li>
       <p><strong>${withSportIcon(p.sport, esc(sportLabel(p.sport)))} · ${esc(t(METRIC_NAMES[p.metric] || p.metric))}: ${esc(valueText(p.metric, p.value))}</strong>
-        <span class="sub">${esc(methodLine(p))}</span>${activityLink(p.activity_id)}</p>
+        <span class="sub">${esc(methodLine(p))}</span>${sourceLink(p)}</p>
       ${p.summary ? `<details><summary>${esc(t("Why"))}</summary><p>${esc(p.summary)}</p></details>` : ""}
       <div class="zones-actions">
         <button class="btn primary" type="button" data-accept="${esc(String(p.id))}" data-sport="${esc(p.sport)}">${esc(t("Take over"))}</button>
@@ -188,7 +188,7 @@ function metricRow(sport, m) {
   const plan = m.plan;
   const label = t(METRIC_NAMES[m.metric] || m.metric);
   const planCell = plan
-    ? `<strong>${esc(valueText(m.metric, plan.value))}</strong><span class="sub zones-source">${esc(methodLine(plan))}</span>${activityLink(plan.activity_id)}`
+    ? `<strong>${esc(valueText(m.metric, plan.value))}</strong><span class="sub zones-source">${esc(methodLine(plan))}</span>${sourceLink(plan)}`
     : `<span class="sub">${esc(t("Not set"))}</span>`;
   return `<tr><th scope="row">${esc(label)}</th><td data-label="${esc(t("In your plan"))}">${planCell}</td>
     ${platformCell(sport, m, "garmin")}${platformCell(sport, m, "intervals")}
@@ -293,7 +293,7 @@ function historyBlock(sport) {
   if (!rows.length) return "";
   return `<details class="collapsible zones-history"><summary>${esc(t("History"))}</summary>
     <ul>${rows.map((h) => `<li><strong>${esc(t(METRIC_NAMES[h.metric] || h.metric))}</strong>: ${esc(h.previous != null ? `${valueText(h.metric, h.previous)} → ` : "")}${esc(valueText(h.metric, h.value))}
-      <span class="sub">${esc([h.date_set ? userDate(h.date_set) : "", t(METHOD_NAMES[h.method] || h.method), statusName(h.status)].filter(Boolean).join(" · "))}</span>${activityLink(h.activity_id)}
+      <span class="sub">${esc([h.date_set ? userDate(h.date_set) : "", t(METHOD_NAMES[h.method] || h.method), statusName(h.status)].filter(Boolean).join(" · "))}</span>${sourceLink(h)}
       ${h.pushes.length ? `<span class="sub"> · ${esc(h.pushes.map((p) => `${PLATFORMS[p.platform] || p.platform} ${p.outcome === "ok" ? t("done") : t("failed")} (${userDateTime(p.at)})`).join(", "))}</span>` : ""}</li>`).join("")}</ul></details>`;
 }
 
@@ -353,6 +353,12 @@ function methodLine(row) {
   const parts = [t(METHOD_NAMES[row.method] || row.method)];
   if (row.date_set) parts.push(userDate(row.date_set));
   return parts.join(" · ");
+}
+
+// The test or race a value came from (#84), else the activity.
+function sourceLink(row) {
+  const text = row.method === "test" ? t("Open the test") : row.method === "race" ? t("Open the race") : undefined;
+  return activityLink(row.activity_id, text);
 }
 
 function activityLink(id, text) {

@@ -19,6 +19,7 @@ import {
   timeOfDay,
 } from "../format.js";
 import { N, t } from "../i18n.js";
+import { markCardHtml, purposeLabel, purposeText, thresholdOutcome } from "../purpose_mark.js";
 import { bindNoteForm, noteFormHtml } from "../quicklog.js";
 import { workoutGear } from "../workout_gear.js";
 import { workoutMedia } from "../workout_media.js";
@@ -103,6 +104,7 @@ export async function render(view, { args, meta, stale }) {
     ${meta.data.share ? "" : `<section class="card workout-texts" aria-labelledby="wt-title" data-workout-texts hidden></section>`}
     ${meta.data.share ? "" : `<section class="card workout-gear" aria-labelledby="wg-title" data-workout-gear hidden></section>`}
     <section class="card workout-media" aria-labelledby="wm-title" data-workout-media hidden></section>
+    ${meta.data.share ? "" : markCardHtml(a)}
     ${effortCardHtml(effort, !!meta.data.share)}
     <section class="card activity-notes" data-activity-notes${notes.length ? "" : " hidden"}>${notesHtml(notes)}</section>
     ${hasRoute ? `<section class="card map-card"><div class="map" role="region" aria-label="${esc(t("Route map"))}"></div></section>` : ""}
@@ -124,7 +126,9 @@ export async function render(view, { args, meta, stale }) {
         <option value="leisure">${t("Leisure")}</option>
         <option value="coached_by_me">${t("Coached by me")}</option>
         <option value="race">${t("Race")}</option>
-      </select></label><p class="sub" data-purpose-status></p></section>
+        <option value="test">${t("Test")}</option>
+      </select></label><p class="sub" data-purpose-status></p>
+      <p data-purpose-undo hidden><button type="button" class="btn" data-purpose-undo-button></button></p></section>
       <div data-annotation-preview></div>
     </details>`}`;
 
@@ -150,20 +154,30 @@ export async function render(view, { args, meta, stale }) {
   }
   const purpose = view.querySelector("[data-purpose-choice]");
   if (purpose) {
-    purpose.value = a.purpose || "auto";
+    const mark = a.purpose_mark || {};
+    // An automatic race or test mark (#84) shows as "automatic", with its own undo button.
+    purpose.value = mark.automatic ? "auto" : (a.purpose || "auto");
     const purposeStatus = view.querySelector("[data-purpose-status]");
-    purposeStatus.textContent = a.purpose
-      ? t("Saved purpose: {purpose}.", { purpose: t(purposeLabel(a.purpose)) })
-      : t("No purpose tag yet; threshold updates skip this session until you tag it.");
-    purpose.addEventListener("change", async () => {
+    const undo = view.querySelector("[data-purpose-undo]");
+    const undoButton = view.querySelector("[data-purpose-undo-button]");
+    purposeStatus.textContent = purposeText(a.purpose, mark);
+    const showUndo = (show, value) => {
+      undo.hidden = !show;
+      if (show) undoButton.textContent = value === "race" ? t("Not a race") : t("Not a test");
+    };
+    showUndo(!!mark.automatic, a.purpose);
+    const save = async (value) => {
       try {
-        const value = purpose.value === "auto" ? null : purpose.value;
-        await post("activity-purpose", { id, purpose: value });
-        purposeStatus.textContent = value
-          ? t("Saved purpose: {purpose}.", { purpose: t(purposeLabel(value)) })
-          : t("Back to automatic rules.");
+        const reply = await post("activity-purpose", { id, purpose: value });
+        purposeStatus.textContent = [
+          value ? t("Saved purpose: {purpose}.", { purpose: t(purposeLabel(value)) }) : t("Back to automatic rules."),
+          thresholdOutcome(reply.data?.thresholds),
+        ].filter(Boolean).join(" ");
+        showUndo(false);
       } catch (error) { purposeStatus.textContent = t("Not saved: {error}", { error: error.message }); }
-    });
+    };
+    purpose.addEventListener("change", () => save(purpose.value === "auto" ? null : purpose.value));
+    undoButton.addEventListener("click", () => { purpose.value = "auto"; save(null); });
   }
   // The weather of an outdoor session: Garmin's, else Open-Meteo at its start and
   // hour. Fetched after the page shows, so a slow weather service never holds it up.
@@ -561,15 +575,6 @@ function streamZoneLegend(zones, panels, sport) {
   }).filter(Boolean).join("");
 }
 
-function purposeLabel(value) {
-  return ({
-    training: "Training",
-    recovery: "Recovery",
-    leisure: "Leisure",
-    coached_by_me: "Coached by me",
-    race: "Race",
-  })[value] || value;
-}
 
 function sourcesHtml(sources, a) {
   const rows = sources

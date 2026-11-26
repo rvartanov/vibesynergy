@@ -13,6 +13,16 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- **Mark a workout as a race or a test** (#84): choose *Test* (new) or *Race* as the
+  purpose of a workout. A workout on the day of a planned test or race of the same sport is
+  marked by itself, and you can undo that; it then stays undone. From a marked test
+  VibeSynergy works out your FTP, CSS, threshold heart rate and threshold pace, and from a
+  test or race a higher max heart rate; each new value waits for you under Zones &
+  thresholds, with a link to the test it came from. A race also counts in your race
+  predictions, and you see how the prediction did against it. Your AI coach's test
+  evaluation now explains the values VibeSynergy worked out instead of working them out
+  again.
+
 ## 0.1.0-beta.0.25 – 26-11-2026
 
 - **Ready for Strava's longer ids** (#87): from 1 June 2027 Strava activity and athlete ids

@@ -31,10 +31,36 @@ function basisLine(rows) {
       date: userDate(from.date),
     });
   }
+  if (from.kind === "race") {
+    return t("From your race over {km} km ({date}): a race is the best evidence there is.", {
+      km: (from.distance_m / 1000).toFixed(1),
+      date: userDate(from.date),
+    });
+  }
   return t("From your fastest recent run over {km} km ({date}). Training runs are usually slower than racing, so these times are on the safe side.", {
     km: (from.distance_m / 1000).toFixed(1),
     date: userDate(from.date),
   });
+}
+
+function raceLink(from) {
+  if (from?.kind !== "race" || !from.activity) return "";
+  return ` <a href="#/activity/${encodeURIComponent(from.activity)}">${esc(t("Open the race"))}</a>`;
+}
+
+// How the prediction of the day before did against each race you ran (#84).
+function scoresHtml(races) {
+  if (!races?.length) return "";
+  const items = races.map((r) => {
+    const diff = r.error_s;
+    const how = Math.abs(diff) < 5
+      ? t("spot on")
+      : diff < 0
+        ? t("{time} faster than predicted", { time: clock(-diff) })
+        : t("{time} slower than predicted", { time: clock(diff) });
+    return `<li>${esc(t(NAMES[r.key] || r.key))} ${esc(userDate(r.date))}: ${esc(clock(r.actual_s))}, ${esc(how)} (${esc(clock(r.predicted_s))}) <a href="#/activity/${encodeURIComponent(r.activity)}">${esc(t("activity"))}</a></li>`;
+  }).join("");
+  return `<h3>${esc(t("Your races against the prediction"))}</h3><ul>${items}</ul>`;
 }
 
 export function predictionsHtml(data) {
@@ -51,13 +77,14 @@ export function predictionsHtml(data) {
         <td>${r.garmin ? esc(clock(r.garmin.seconds)) : "–"}</td></tr>`,
     )
     .join("");
-  return `<p class="sub">${esc(basisLine(rows))}</p>
+  return `<p class="sub">${esc(basisLine(rows))}${raceLink(rows.find((r) => r.from)?.from)}</p>
     <div class="table-wrap"><table>
       <thead><tr><th scope="col">${esc(t("Distance"))}</th><th scope="col">${esc(t("Predicted"))}</th><th scope="col">${esc(t("Pace"))}</th><th scope="col">${esc(t("Since 6 weeks ago"))}</th><th scope="col">Garmin</th></tr></thead>
       <tbody>${body}</tbody>
     </table></div>
+    ${scoresHtml(data?.races)}
     <details class="details"><summary>${esc(t("How the prediction is made"))}</summary>
-      <p class="sub">${esc(t("Each distance is predicted with Riegel's formula from one hour at your threshold pace and from your fastest runs of the last 12 weeks; the fastest prediction counts. Beyond the half marathon the formula is made a bit stricter, because the marathon is harder than it predicts for most runners. How certain it is depends on how far it reaches beyond its starting point and how old that is."))}</p>
+      <p class="sub">${esc(t("Each distance is predicted with Riegel's formula from one hour at your threshold pace, from your races and from your fastest runs of the last 12 weeks; the fastest prediction counts. Beyond the half marathon the formula is made a bit stricter, because the marathon is harder than it predicts for most runners. How certain it is depends on how far it reaches beyond its starting point and how old that is."))}</p>
     </details>`;
 }
 

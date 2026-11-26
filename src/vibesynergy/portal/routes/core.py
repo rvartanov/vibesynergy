@@ -322,14 +322,16 @@ def register(kit: PortalKit) -> None:
 
     @router.post("/activity-purpose")
     def activity_purpose(request: ActivityPurposeRequest) -> dict[str, Any]:
-        from vibesynergy.query import session_purpose
+        from vibesynergy.query import session_purpose, threshold_tests
 
         try:
-            return envelope(
-                session_purpose.set_override(
-                    engine, request.id, request.purpose, reason=request.reason
-                )
+            stats = session_purpose.set_override(
+                engine, request.id, request.purpose, reason=request.reason
             )
+            # A race or test computes its thresholds as proposals; another purpose withdraws
+            # the open ones it gave (#84).
+            calculated = threshold_tests.follow_purpose(engine, rt.parquet, request.id)
+            return envelope({**stats, "thresholds": calculated})
         except LookupError:
             return JSONResponse(status_code=404, content={"error": "activity_not_found"})
         except ValueError as exc:

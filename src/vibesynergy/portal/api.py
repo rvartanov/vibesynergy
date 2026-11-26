@@ -191,7 +191,9 @@ class ActivityPublishTick(BaseModel):
 
 class ActivityPurposeRequest(BaseModel):
     id: str
-    purpose: Literal["training", "recovery", "leisure", "coached_by_me", "race"] | None = None
+    purpose: Literal["training", "recovery", "leisure", "coached_by_me", "race", "test"] | None = (
+        None
+    )
     reason: str | None = None
 
 

@@ -372,6 +372,24 @@ def activities(r: Rec):
     )
     r.scroll(900)
     r.wait(1.0)
+    # The purpose: a test or race gives its thresholds as proposals (#84).
+    r.click(r.pg.locator("summary", has_text="Instellingen voor deze activiteit").first)
+    purpose = r.pg.locator("[data-purpose-choice]")
+    r.select(purpose, "Test")
+    status = r.pg.locator("[data-purpose-status]")
+    r.check("Doel opgeslagen: Test" in status.inner_text(), "the purpose Test should save")
+    r.say(
+        "Was het een test of wedstrijd? Kies dat als doel: VibeSynergy rekent je drempels uit.",
+        "Was it a test or a race? Choose it as the purpose: VibeSynergy works out your thresholds.",
+        3.2,
+    )
+    r.say(
+        "Stond er die dag een test of wedstrijd gepland, dan gebeurt dit vanzelf.",
+        "With a test or race planned that day, this happens by itself.",
+        2.6,
+    )
+    r.select(purpose, "Gebruik automatische regels")
+    r.wait(1.0)
 
 
 @scenario(

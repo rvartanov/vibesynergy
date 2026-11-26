@@ -31,7 +31,8 @@
     "pages/activities.js",
     "pages/activity.js",
     "effort.js",
-    "annotation_preview.js"
+    "annotation_preview.js",
+    "purpose_mark.js"
   ],
   "workout-texts": [
     "workout_page.js"
