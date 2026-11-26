@@ -448,7 +448,9 @@ the former external coach keep their stored author and read as `ai_coach` (shown
 Transports are stdio (`vibesynergy mcp`) and streamable HTTP inside `vibesynergy serve` at
 `<public_url>/vibesynergy/mcp`, protected by OAuth 2.1 (`src/vibesynergy/api/oauth.py`):
 dynamic client registration, PKCE (S256), approval by passphrase on a VibeSynergy page,
-access tokens for 1 hour, and refresh tokens for 90 days that are replaced on every use.
+access tokens for 1 hour, and refresh tokens for 90 days that are replaced on every use. A
+refresh token used a second time, and revoking any token (`/vibesynergy/revoke`), ends every
+live token of that app (audit `oauth.grants_revoked`).
 Tokens are stored as hashes. Every app can be revoked on its own (`vibesynergy mcp revoke`).
 Request bodies on the public routes (registration, token, approval, webhooks) are limited to
 64 KiB, MCP calls to 16 MiB; a bigger body, also one sent without `Content-Length`, gets

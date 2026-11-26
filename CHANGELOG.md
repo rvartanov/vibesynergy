@@ -27,6 +27,9 @@ The short "What changed" the portal shows after an update is in
 - **Connecting an AI app is safer** (#196): an app you never approved can no longer use
   VibeSynergy's address to send someone to a site of its choice, and strangers can no longer
   push your own waiting approval out.
+- **A copied app login stops working** (#196): when an AI app's login is used twice, or
+  the app signs out, every login of that app ends, so a copy is useless; the app simply
+  connects again.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 

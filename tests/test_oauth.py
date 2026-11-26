@@ -315,6 +315,41 @@ def test_refresh_rotates(setup) -> None:
     assert client.post("/vibesynergy/token", data=refresh).status_code == 400  # old one is spent
 
 
+def test_a_replayed_refresh_token_ends_what_was_issued_from_it(setup) -> None:
+    """Reuse means a copy exists: the tokens issued from it stop working too."""
+    _, client = setup
+    tokens = _login(client)
+    refresh = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens["refresh_token"],
+        "client_id": tokens["client_id"],
+    }
+    renewed = client.post("/vibesynergy/token", data=refresh).json()
+    auth = {**MCP_HEADERS, "authorization": f"Bearer {renewed['access_token']}"}
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 200
+    replay = client.post("/vibesynergy/token", data=refresh)
+    assert replay.status_code == 400 and replay.json()["error"] == "invalid_grant"
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 401
+    again = {**refresh, "refresh_token": renewed["refresh_token"]}
+    assert client.post("/vibesynergy/token", data=again).status_code == 400
+
+
+def test_revoking_one_token_ends_all_of_that_app(setup) -> None:
+    _, client = setup
+    tokens = _login(client)
+    refresh = {
+        "grant_type": "refresh_token",
+        "refresh_token": tokens["refresh_token"],
+        "client_id": tokens["client_id"],
+    }
+    revoke = {"token": tokens["access_token"], "client_id": tokens["client_id"]}
+    reply = client.post("/vibesynergy/revoke", data={**revoke, "client_secret": ""})
+    assert reply.status_code == 200, reply.text
+    auth = {**MCP_HEADERS, "authorization": f"Bearer {tokens['access_token']}"}
+    assert client.post("/vibesynergy/mcp", json=INIT, headers=auth).status_code == 401
+    assert client.post("/vibesynergy/token", data=refresh).status_code == 400
+
+
 def test_wrong_passphrase_and_lockout(setup) -> None:
     _, client = setup
     client_id = _register(client, name="<script>alert(1)</script>")

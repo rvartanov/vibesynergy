@@ -644,6 +644,7 @@ class VibeSynergyOAuthProvider:
     ) -> RefreshToken | None:
         grant = self._load_grant(refresh_token, "refresh", client.client_id)
         if grant is None:
+            self._detect_refresh_reuse(refresh_token, client.client_id)
             return None
         return RefreshToken(
             token=refresh_token,
@@ -657,6 +658,8 @@ class VibeSynergyOAuthProvider:
         self, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str]
     ) -> OAuthToken:
         if not self._use_once(refresh_token.token, "refresh"):
+            # Two uses of one refresh token: one of them is not the app. End them all.
+            self.revoke_client_grants(client.client_id or "", reason="refresh_reused")
             raise TokenError("invalid_grant", "refresh token already used")
         # The request's own `resource` was validated in token_route. A legacy grant may carry a
         # foreign stored resource; new tokens are always bound to this MCP resource.
@@ -707,12 +710,46 @@ class VibeSynergyOAuthProvider:
         )
 
     async def revoke_token(self, token: AccessToken | RefreshToken) -> None:
+        """Revoking one token ends every live grant of that app: the access token and the
+        refresh token it came with, and any issued from them."""
         with self.engine.begin() as conn:
             conn.execute(
                 update(oauth_grant)
                 .where(oauth_grant.c.token_hash == _hash(token.token))
                 .values(used_at=utc_now())
             )
+        if token.client_id and not token.client_id.startswith("pat:"):
+            self.revoke_client_grants(token.client_id, reason="revoked")
+
+    def revoke_client_grants(self, client_id: str, *, reason: str) -> int:
+        """Mark every unused code, access and refresh token of this app used."""
+        with self.engine.begin() as conn:
+            result = conn.execute(
+                update(oauth_grant)
+                .where(oauth_grant.c.client_id == client_id, oauth_grant.c.used_at.is_(None))
+                .values(used_at=utc_now())
+            )
+        self._audit(
+            "oauth.grants_revoked",
+            {"client_id": client_id, "reason": reason, "grants": result.rowcount},
+        )
+        return result.rowcount
+
+    def _detect_refresh_reuse(self, refresh_token: str, client_id: str | None) -> None:
+        """A refresh token that was already exchanged comes back: it was copied, so every
+        token issued from it (all of this app's live grants) ends too (OAuth 2.1 §4.3.1)."""
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                select(oauth_grant.c.client_id, oauth_grant.c.used_at).where(
+                    oauth_grant.c.token_hash == _hash(refresh_token),
+                    oauth_grant.c.kind == "refresh",
+                )
+            ).first()
+        if row is None or row.used_at is None:
+            return
+        if client_id is not None and row.client_id != client_id:
+            return
+        self.revoke_client_grants(row.client_id, reason="refresh_reused")
 
     # Helpers --------------------------------------------------------------------------------
 
