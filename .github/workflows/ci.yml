@@ -64,7 +64,7 @@ jobs:
       - run: uv run --with playwright pytest tests/test_language_appearance.py tests/test_portal_polish.py -q
       # Phone start page: advice first, check-in next, keyboard and axe at 390x844.
       # Its own step, like the two above, so it cannot go stale outside CI again.
-      - run: uv run --with playwright pytest tests/test_dashboard_phone.py -q
+      - run: uv run --with playwright pytest tests/test_dashboard_phone.py tests/test_alert_click_dismiss.py -q
         env:
           VIBESYNERGY_A11Y_REQUIRED: "1"
 
