@@ -1,8 +1,9 @@
 """Read-only SQL over documented tables (the MCP ``vibesynergy_sql`` escape hatch).
 
 Runs on a separate read-only SQLite connection with an authorizer that allows only SELECT
-on the tables listed in ``TABLES`` (no writes, no ATTACH, no PRAGMA), a row limit and a time
-limit. The dialect is SQLite's; Parquet streams are not reachable from here.
+on the tables listed in ``TABLES`` (no writes, no ATTACH, no PRAGMA), a row limit, a time
+limit, a size limit per value and one for the whole result. The dialect is SQLite's;
+Parquet streams are not reachable from here.
 """
 
 from __future__ import annotations
@@ -37,7 +38,9 @@ TABLES: dict[str, str] = {
     "injury_log": "Worst pain per injury and day: injury_id, date, pain (0-10), timing, "
     "affects_movement, note.",
 }
-MAX_VALUE_BYTES = 20_000_000
+MAX_VALUE_BYTES = 1_000_000  # one value (a string or blob SQLite builds)
+MAX_RESULT_BYTES = 20_000_000  # all values of the result together, roughly
+_FETCH_BATCH = 100
 _ALLOWED_FUNCTIONS_ACTIONS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_FUNCTION}
 
 
@@ -59,14 +62,32 @@ def run(db_path: Path, query: str, *, limit: int = 200, timeout_s: float = 10.0)
                 f"{exc}. Tables: {', '.join(TABLES)} (see vibesynergy_schema)"
             ) from exc
         columns = [d[0] for d in cursor.description or []]
-        rows = cursor.fetchmany(limit + 1)
+        rows, truncated = _fetch(cursor, limit)
     finally:
         conn.close()
-    return {
-        "columns": columns,
-        "rows": [list(r) for r in rows[:limit]],
-        "truncated": len(rows) > limit,
-    }
+    return {"columns": columns, "rows": rows, "truncated": truncated}
+
+
+def _fetch(cursor: sqlite3.Cursor, limit: int) -> tuple[list[list[Any]], bool]:
+    """Up to ``limit`` rows, stopping early (truncated) once the values together pass
+    ``MAX_RESULT_BYTES``: 5,000 rows of 1 MB each would not fit in the service."""
+    rows: list[list[Any]] = []
+    total = 0
+    while batch := cursor.fetchmany(_FETCH_BATCH):
+        for row in batch:
+            if len(rows) == limit:
+                return rows, True
+            total += sum(_size(value) for value in row)
+            if total > MAX_RESULT_BYTES:
+                return rows, True
+            rows.append(list(row))
+    return rows, False
+
+
+def _size(value: Any) -> int:
+    if isinstance(value, str | bytes):
+        return len(value) + 8
+    return 8
 
 
 def _authorizer(action: int, arg1: str | None, arg2: str | None, db: str | None, _: Any) -> int:

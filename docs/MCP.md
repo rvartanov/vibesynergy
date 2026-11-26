@@ -516,8 +516,10 @@ is ignored with a warning at startup. Coaches use OAuth or a personal access tok
 
 Differences from the spec below, for now:
 - Values are SI in every response (no unit conversion); the guide tells the AI to convert.
-- `vibesynergy_sql` is SQLite over the documented tables (Power tools, below). Streams are
-  available through `vibesynergy_activity_streams`.
+- `vibesynergy_sql` is SQLite over the documented tables (Power tools, below), read-only,
+  at most 5,000 rows, 10 s, 1 MB per value and about 20 MB for the whole result (beyond it
+  the rows stop and `truncated` is true). Streams are available through
+  `vibesynergy_activity_streams`.
 - Lists use `offset` instead of opaque cursors. Result sets are not built: `rs_…` handles,
   `input: rs_…`, `result_set`, `save_as_result_set`, `cursor` and `format` in the sections
   below are the design only.
