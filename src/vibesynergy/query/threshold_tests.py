@@ -43,9 +43,9 @@ from vibesynergy.store.schema import athlete_threshold as threshold_table
 
 @dataclass(frozen=True)
 class Protocol:
-    """What the knowledge base states only in words (workout-method: ``ride_ftp_test``
-    "FTP = 95% of the average power", ``run_test`` "average HR of the last 20'"). To be
-    replaced by values from the method once it holds them (see the pull request of #84)."""
+    """Fixed rules of the calculation. ``ftp_factor`` and ``run_lthr_last_min`` are only
+    fallbacks: the method's ``evaluation`` values (``ride_ftp_test.evaluation.ftp_pct``,
+    ``run_test.evaluation.lthr_last_minutes``) win when the method holds them."""
 
     ftp_factor: float = 0.95  # FTP = this share of the mean power over the test length
     run_lthr_last_min: float = 20  # LTHR: the mean heart rate over the last minutes of the test
@@ -80,8 +80,21 @@ def protocol(engine: Engine | None) -> dict[str, Any]:
         "css_long_m": _metres(swim, "long_effort"),
         "css_short_m": _metres(swim, "short_effort"),
         **asdict(PROTOCOL),
+        **_evaluation(ride, run),
         "method": {"slug": workout_method.SLUG, "version": method.version, "source": method.source},
     }
+
+
+def _evaluation(ride: dict[str, Any], run: dict[str, Any]) -> dict[str, float]:
+    """The method's evaluation values, where it holds them (else ``PROTOCOL`` stands)."""
+    out: dict[str, float] = {}
+    ftp_pct = (ride.get("evaluation") or {}).get("ftp_pct")
+    if ftp_pct and 0 < float(ftp_pct) <= 100:
+        out["ftp_factor"] = float(ftp_pct) / 100
+    last = (run.get("evaluation") or {}).get("lthr_last_minutes")
+    if last and float(last) > 0:
+        out["run_lthr_last_min"] = float(last)
+    return out
 
 
 def _metres(values: workout_method.Values, step: str) -> float | None:

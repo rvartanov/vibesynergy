@@ -30,7 +30,8 @@ Het blok hieronder is TOML, één tabel per sjabloon (de id uit de catalogus):
 - `name`, `purpose`, `cue`: tekst in `nl` en `en`; `{minutes}`, `{reps}` enz. vult de
   bibliotheek in. `cue` is de aanwijzing boven de stappen.
 - `phases`, `load` (easy, moderate, hard), `easier` (het lichtere sjabloon), `kb_rules`,
-  `params` (de standaardwaarden; welke parameters er zijn, bepaalt de opbouw).
+  `params` (de standaardwaarden; welke parameters er zijn, bepaalt de opbouw),
+  `evaluation` (bij een test: hoe VibeSynergy hem uitrekent, bijv. `ftp_pct`, `lthr_last_minutes`).
 - `steps`: per stap `minutes`, `seconds` of `metres`; een doel als `ftp_pct`, `lthr_pct`,
   `hr_zone` of `pace_zone` (`[laag, hoog]` of `[waarde]`); `cadence` (`[laag, hoog]`,
   `[]` is geen cadans); `cue` (`""` is geen cue). Een stap zonder duur krijgt die van de
@@ -114,6 +115,7 @@ cue = { nl = "Uitgerust starten, vlak parcours.", en = "Start rested, flat cours
 phases = ["test"]
 load = "hard"
 params = { minutes = 30 }
+evaluation = { lthr_last_minutes = 20 }
 
 [run_test.steps]
 warmup = { minutes = 15, hr_zone = [1, 2] }
@@ -183,6 +185,7 @@ cue = { nl = "Uitgerust, liefst op Zwift of de trainer.", en = "Rested, ideally 
 phases = ["test"]
 load = "hard"
 params = { minutes = 20 }
+evaluation = { ftp_pct = 95 }
 
 [ride_ftp_test.steps]
 warmup = { minutes = 20, ftp_pct = [50, 70], cadence = [90, 90] }
