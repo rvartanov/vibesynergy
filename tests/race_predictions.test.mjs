@@ -20,3 +20,15 @@ test("a table per distance, with certainty, change and Garmin", () => {
 test("without evidence it says what to do", () => {
   assert.match(predictionsHtml({ predictions: [{ key: "5k", seconds: null }] }), /set your threshold pace/);
 });
+
+test("a race as the basis links to it, and races are scored against the prediction", () => {
+  const html = predictionsHtml({
+    predictions: [
+      { key: "10k", seconds: 2700, pace_s_per_km: 270, certainty: "high", change_s: null, garmin: null, from: { kind: "race", distance_m: 10000, date: "2026-03-01", activity: "garmin:1" } },
+    ],
+    races: [{ key: "10k", date: "2026-03-01", activity: "garmin:1", predicted_s: 2760, actual_s: 2700, error_s: -60 }],
+  });
+  assert.match(html, /From your race over 10.0 km/);
+  assert.match(html, /href="#\/activity\/garmin%3A1"/);
+  assert.match(html, /1:00 faster than predicted/);
+});

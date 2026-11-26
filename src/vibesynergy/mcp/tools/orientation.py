@@ -1038,14 +1038,34 @@ def register(kit: ToolKit) -> None:
 
     @tool(WRITE, "diary.write")
     def vibesynergy_activity_set_purpose(id: str, purpose: str | None = None) -> dict[str, Any]:
-        """Set session purpose: training, recovery, leisure, coached_by_me, race, or null (auto)."""
-        from vibesynergy.query import session_purpose
+        """Set session purpose: training, recovery, leisure, coached_by_me, race, test, or
+        null (auto). A race or test computes its thresholds as proposals the athlete
+        approves (``thresholds``); another purpose withdraws the open ones it gave. Null on
+        an automatic race or test mark undoes it for good."""
+        from vibesynergy.query import session_purpose, threshold_tests
 
         try:
             stats = session_purpose.set_override(engine, id, purpose)
+            calculated = threshold_tests.follow_purpose(engine, rt.parquet, id)
         except (LookupError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
-        return envelope({"activity_id": id, "purpose": purpose, **stats})
+        return envelope({"activity_id": id, "purpose": purpose, **stats, "thresholds": calculated})
+
+    @tool(READ, "read")
+    def vibesynergy_threshold_test(id: str) -> dict[str, Any]:
+        """What a marked test or race gives, computed by VibeSynergy (#84): per threshold
+        the value and how it was found (``values``), or why there is none (``missing``:
+        no power, no laps of the test, same as now). FTP, CSS, LTHR and threshold pace
+        from a test; max HR from a test or race. Lengths come from the KB method
+        (workout-method). Read only; the proposals themselves are in vibesynergy_thresholds."""
+        from vibesynergy.query import threshold_tests
+
+        try:
+            found = threshold_tests.evaluate(engine, rt.parquet, id)
+        except (LookupError, ValueError) as exc:
+            raise ToolError(str(exc)) from exc
+        found["proposals"] = threshold_tests.sources_of(engine, id)
+        return envelope(found)
 
     @tool(READ, "read")
     def vibesynergy_overview() -> dict[str, Any]:

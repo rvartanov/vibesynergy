@@ -80,6 +80,11 @@ class Runtime:
 
         # The cutoff for the AI coach's names of new workouts (#114, #188).
         auto_names.after_derive(self)
+        from vibesynergy.query import race_test_marks
+
+        # A workout on the day of a planned test or race is marked, and its thresholds
+        # computed as proposals (#84).
+        race_test_marks.after_derive(self)
         from vibesynergy.query import agent_events
 
         agent_events.after_derive(self)

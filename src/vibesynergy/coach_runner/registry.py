@@ -176,11 +176,12 @@ TASKS: tuple[Task, ...] = (
         triggers=(Trigger("event", "planned test session done"), Trigger("manual", "test now")),
         contract=Contract("note", ("summary", "for_date"), max_words=100),
         prompt="test",
-        chain=("activity", "plan_match", "fitness", "replies"),
+        chain=("activity", "test_result", "plan_match", "fitness", "replies"),
         writes=("report", "threshold proposal"),
         approval=("new thresholds",),
         scopes=("plan.propose",),
-        notes="A planned session named test, FTP or CSS, with an activity of that sport that day.",
+        notes="A planned session named test, FTP or CSS, with an activity of that sport that day. "
+        "VibeSynergy computes the thresholds (test_result, #84); the task explains and judges.",
     ),
     Task(
         id="thresholds",

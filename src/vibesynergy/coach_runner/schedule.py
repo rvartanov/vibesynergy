@@ -30,7 +30,6 @@ already queued or running gets no second one (``insight_busy``).
 from __future__ import annotations
 
 import logging
-import re
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -109,37 +108,23 @@ def due_runs(rt, now: datetime | None = None) -> list[dict[str, Any]]:
     return out
 
 
-_TEST_NAME = re.compile(r"test|\bftp\b|\bcss\b", re.IGNORECASE)  # "Looptest", "FTP-test"
-
-
 def tests_done(rt, cfg, day: date) -> list[tuple[str, list[str]]]:
-    """Task 10: today's planned test sessions (named test, FTP or CSS) that have an
-    activity of the same sport today, and no evaluation yet. One run per test session."""
-    from vibesynergy.query import plan_model
-    from vibesynergy.query.plan import family
-    from vibesynergy.store.schema import activity_unified
+    """Task 10: today's planned test sessions (named test, FTP or CSS, not skipped) that have
+    an activity of the same sport today, and no evaluation yet. One run per test session.
+    The same rule marks the activity as a test (``race_test_marks``, #84)."""
+    from vibesynergy.query import race_test_marks
 
     if cfg.tasks.get("test", {}).get("on") is False:
         return []
     try:
-        sessions = plan_model.view(rt.engine, day, day).get("sessions") or []
+        found = race_test_marks.tests_done(rt.engine, day)
     except Exception:
         log.exception("reading today's plan failed")
         return []
-    tests = [s for s in sessions if _TEST_NAME.search(s.get("name") or "")]
-    if not tests:
-        return []
-    with rt.engine.connect() as conn:
-        done = conn.execute(
-            select(activity_unified.c.group_id, activity_unified.c.sport).where(
-                activity_unified.c.local_date == day
-            )
-        ).all()
     out = []
-    for session in tests:
-        ids = [g for g, sport in done if family(sport) == family(session.get("sport"))]
+    for session, ids in found:
         existing = runner.get_run(rt, "test", session["session_id"])
-        if ids and (existing is None or existing["status"] == "budget"):
+        if existing is None or existing["status"] == "budget":
             out.append((session["session_id"], ids))
     return out
 

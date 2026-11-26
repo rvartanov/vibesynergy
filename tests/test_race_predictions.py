@@ -71,3 +71,55 @@ def test_portal_and_mcp(runtime) -> None:
     client = TestClient(create_portal_app(runtime), base_url="http://localhost")
     data = client.get("/api/race-predictions").json()["data"]
     assert [r["key"] for r in data["predictions"]][-1] == "50k"
+
+
+def test_a_marked_race_counts_and_scores_the_prediction_before_it(runtime) -> None:
+    """#84: a run marked as a race is evidence over its whole distance, and a race at a
+    predicted distance scores the prediction of the day before."""
+    from datetime import UTC, datetime, timedelta
+
+    from vibesynergy.query import thresholds
+    from vibesynergy.store.schema import activity_unified
+
+    thresholds.set_value(
+        runtime.engine,
+        sport="run",
+        metric="threshold_pace",
+        value=310,
+        date_set=TODAY - timedelta(days=30),
+    )
+    race_day = TODAY - timedelta(days=5)
+    start = datetime(2026, 11, 7, 10, tzinfo=UTC)
+    with runtime.engine.begin() as conn:
+        for gid, purpose in (("garmin:race", "race"), ("garmin:easy", None)):
+            conn.execute(
+                activity_unified.insert().values(
+                    group_id=gid,
+                    subject_id=1,
+                    start_utc=start,
+                    local_date=race_day,
+                    sport="running",
+                    name="Made-up 10 km",
+                    purpose=purpose,
+                    distance_m=10000.0,
+                    elapsed_s=2700.0 if purpose else 3600.0,
+                    primary_source="garmin",
+                    sources=[gid],
+                    updated_at=start,
+                )
+            )
+    found = rp.race_predictions(runtime.engine, runtime.parquet, TODAY)
+    ten = next(r for r in found["predictions"] if r["key"] == "10k")
+    assert ten["from"]["kind"] == "race" and ten["from"]["activity"] == "garmin:race"
+    assert ten["seconds"] == 2700
+    (score,) = found["races"]
+    hour = 3600 / 310 * 1000
+    predicted = round(rp.riegel_split(3600, hour, 10000))
+    assert score == {
+        "key": "10k",
+        "date": race_day.isoformat(),
+        "activity": "garmin:race",
+        "predicted_s": predicted,
+        "actual_s": 2700,
+        "error_s": 2700 - predicted,
+    }

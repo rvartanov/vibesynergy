@@ -722,6 +722,24 @@ def _plan_match(rt, day, cache):
     return out
 
 
+def _test_result(rt, day, cache):
+    """What VibeSynergy computed from the test (#84): per threshold the value and how it was
+    found, or why there is none, and the proposals it already made. The task explains and
+    judges this; it does not compute again."""
+    from vibesynergy.query import threshold_tests
+
+    out = []
+    for activity_id in (cache.get("activity_ids") or [])[:MAX_ACTIVITIES]:
+        try:
+            found = threshold_tests.evaluate(rt.engine, rt.parquet, str(activity_id))
+        except LookupError:
+            continue
+        found.pop("protocol", None)
+        found["proposals"] = threshold_tests.sources_of(rt.engine, str(activity_id))
+        out.append(found)
+    return out or None
+
+
 REWRITE_CORRECTIONS = 3  # the newest corrections the rewrite gets
 
 
@@ -827,6 +845,17 @@ BLOCKS: dict[str, Block] = {
             cut=False,
         ),
         Block("plan_match", "Gepland en gedaan op die dag", 2500, _plan_match, version=2),
+        # #84: the thresholds VibeSynergy computed from the test. Self-describing, so the
+        # test prompt needs no change.
+        Block(
+            "test_result",
+            "Testuitslag, berekend door VibeSynergy: per drempel de waarde en hoe die gevonden "
+            "is (values), of waarom er geen is (missing), en de voorstellen die al klaarstaan "
+            "voor de atleet (proposals). Reken niet opnieuw en stel deze drempels niet opnieuw "
+            "voor: leg de uitkomst uit en beoordeel of de test geldig was",
+            2500,
+            _test_result,
+        ),
         # #114, phase 4: an insight written again after the texts changed or the athlete
         # corrected it. Self-describing, so the insight prompt needs no change.
         Block(

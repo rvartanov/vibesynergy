@@ -397,7 +397,7 @@ activity_unified = Table(
     Column("sport", String, nullable=False),
     Column("name", String),
     Column("kind", String),  # NULL: personal workout; coaching: teaching a session
-    Column("purpose", String),  # training | recovery | leisure | coached_by_me | race
+    Column("purpose", String),  # training | recovery | leisure | coached_by_me | race | test
     Column("elapsed_s", Float),
     Column("moving_s", Float),
     Column("distance_m", Float),
@@ -436,8 +436,10 @@ activity_purpose_override = Table(
     "activity_purpose_override",
     metadata,
     Column("source_ref", String, primary_key=True),
-    Column("purpose", String),
+    Column("purpose", String),  # NULL with auto_mark: an automatic mark the athlete undid
     Column("reason", String),
+    # What the automatic race/test mark once set (#84), kept after the athlete's change.
+    Column("auto_mark", String),
 )
 
 equipment_location = Table(

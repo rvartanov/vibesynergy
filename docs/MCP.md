@@ -168,6 +168,26 @@ provider or model, and the server enforces them for every write tool
   as Garmin's `css` for swim); not run threshold pace, which Garmin detects itself and has
   no setting for in the Connect API. intervals.icu takes FTP, LTHR, max HR, HR zones and threshold
   pace. Zwift has no API: the page shows a reminder.
+- Race and test marks (#84): the purpose `test` (next to `race`) says a workout was a test.
+  An activity on the day of a planned test (a session named test, FTP or CSS, not skipped)
+  or one of VibeSynergy's races of the same sport is marked by itself after a sync; the
+  athlete can undo that (`vibesynergy_activity_set_purpose` with null, or another purpose),
+  and an undone mark never comes back. A marked test or race is computed in code, not by a
+  model, and each value becomes an open proposal (`method` `test` or `race`, the activity in
+  its history) that the athlete approves as before: **FTP** = a share of the mean power over
+  the test length (the lap of that length, else the best rolling mean in the power stream);
+  **CSS** = (long − short) / (t_long − t_short) from the laps of the long and the short swim,
+  in s/100m; **LTHR** = the mean HR over the last part of the run-test lap and **threshold
+  pace** = that lap's mean pace; **max HR** = the activity's highest heart rate in a run or
+  ride, when reliable and above the current value. Test lengths and distances come from the
+  KB method (`workout-method`: `ride_ftp_test`, `run_test`, `swim_css_test`); the FTP share
+  and the part of the run test the method states only in words are fixed parameters
+  (`threshold_tests.PROTOCOL`). A value equal to the current one gives no proposal; nor does
+  missing data (no power meter, no laps of the test): the reason is in `missing`. Another
+  purpose withdraws (dismisses) the open proposals the activity gave.
+  `vibesynergy_threshold_test(id)` (`read`) returns the computation without writing; the
+  Test evaluation task gets it in its context (`test_result`) and explains and judges it
+  instead of computing again.
 - API coach runner (1 Nov 2026, off by default): VibeSynergy can run the AI coach itself on a
   model API with these tools in-process; see [COACH_RUNNER.md](COACH_RUNNER.md) and §6.
   Its entries are ordinary `vibesynergy_coach_write` rows (author `client:coach-runner`).
@@ -926,10 +946,20 @@ Find and summarise work intervals.
   faster on this loop".
 
 #### `vibesynergy_activity_set_purpose` *(scope `diary.write`)*
-- Params: `id`, `purpose` (`training`, `recovery`, `leisure`, `coached_by_me`, `race`, or
-  null for automatic).
+- Params: `id`, `purpose` (`training`, `recovery`, `leisure`, `coached_by_me`, `race`,
+  `test`, or null for automatic).
 - Sets what the session was for. A training you give (`coached_by_me`) stays out of your
-  own load. `vibesynergy_activity_set_coaching(id, is_coaching)` is the same switch for that
+  own load. A `race` or `test` computes its thresholds as proposals (`thresholds` in the
+  answer: `values`, `missing`, `proposed`); another purpose withdraws the open proposals it
+  gave. Null on an automatic race or test mark undoes it for good (#84).
+
+#### `vibesynergy_threshold_test` *(scope `read`)*
+- Params: `id` (a marked test or race).
+- Returns: what VibeSynergy computes from it, without writing: `test` (`ftp`,
+  `run_threshold`, `css`), `values` (metric, value, unit, `basis`: which lap or stream window,
+  the current value), `missing` (metric and reason: `no_power`, `no_laps`, `no_test_lap`,
+  `no_heart_rate`, `same_as_current`, `not_higher`, …), `protocol` (the lengths from the KB
+  method and the fixed rules) and `proposals` (the ledger rows the activity gave). `vibesynergy_activity_set_coaching(id, is_coaching)` is the same switch for that
   one case: true = `coached_by_me`, false = `training`, null = automatic from the title.
 
 #### `vibesynergy_bests`

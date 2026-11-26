@@ -616,10 +616,15 @@ def activity_detail(engine: Engine, parquet: ParquetStore, activity_id: str) -> 
             "channels": [c for c in table.column_names if c != "t"],
         }
     unified.pop("updated_at", None)
-    from vibesynergy.query.session_purpose import _overrides
+    from vibesynergy.query import threshold_tests
+    from vibesynergy.query.session_purpose import _overrides, mark_state
 
     with engine.connect() as conn:
         manual = _overrides(conn)
+        # The automatic race or test mark (#84): set, undone, or never there.
+        unified["purpose_mark"] = mark_state(conn, unified["sources"])
+    # The threshold proposals and values this activity gave (a marked test or race).
+    unified["threshold_values"] = threshold_tests.sources_of(engine, group)
     # A purpose chosen on the activity: coaching or not, else automatic (None).
     chosen = next((manual[key] for key in unified["sources"] if key in manual), None)
     unified["coaching_override"] = None if chosen is None else chosen == "coached_by_me"

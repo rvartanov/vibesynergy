@@ -8,6 +8,10 @@ Two kinds of evidence, each a time over a distance:
 - **Recent efforts**: your fastest time over 1 mile to the marathon in the run streams of the
   last 12 weeks (``training.pace_curve``). Mostly training, so usually slower than racing; a
   race or a test shows up here and then counts.
+- **Races** (#84): a run marked as a race (purpose ``race``, chosen or by the automatic
+  mark) in the same 12 weeks counts as a whole: its distance in its elapsed time. A race at
+  one of the predicted distances also scores the prediction made the day before it
+  (``races``: predicted, actual, error = actual - predicted).
 
 Each distance is predicted from every effort with Riegel's formula T2 = T1 · (D2 / D1)^k and
 the fastest prediction counts (a slower one is an easier run, not less fitness), using only
@@ -172,9 +176,72 @@ def _efforts(engine: Engine, parquet, window: Window) -> list[dict[str, Any]]:
     ]
 
 
+RACE_MIN_M = 1500.0  # a shorter race says little about endurance
+RACE_MATCH = 0.03  # a race scores a prediction within this share of its distance
+
+
+def _races(engine: Engine, window: Window) -> list[dict[str, Any]]:
+    """The runs marked as a race in the window, each as an effort over its whole distance."""
+    from vibesynergy.query.plan import family
+    from vibesynergy.store.schema import activity_unified as t
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(t.c.group_id, t.c.local_date, t.c.sport, t.c.name, t.c.distance_m, t.c.elapsed_s)
+            .where(t.c.purpose == "race", t.c.local_date.between(window.start, window.end))
+            .order_by(t.c.local_date)
+        ).all()
+    return [
+        {
+            "kind": "race",
+            "distance_m": float(r.distance_m),
+            "seconds": float(r.elapsed_s),
+            "date": r.local_date.isoformat(),
+            "activity": r.group_id,
+            "name": r.name,
+        }
+        for r in rows
+        if family(r.sport) == "run" and (r.distance_m or 0) >= RACE_MIN_M and (r.elapsed_s or 0) > 0
+    ]
+
+
+def race_scores(engine: Engine, parquet, today: date) -> list[dict[str, Any]]:
+    """Each marked race at a predicted distance in the window, against the prediction made
+    from the evidence up to the day before it."""
+    out = []
+    for race in _races(engine, Window(today - timedelta(days=WINDOW_DAYS - 1), today)):
+        key = next(
+            (
+                k
+                for k, metres, _g in TARGETS
+                if abs(race["distance_m"] - metres) <= RACE_MATCH * metres
+            ),
+            None,
+        )
+        if key is None:
+            continue
+        before = date.fromisoformat(race["date"]) - timedelta(days=1)
+        rows = predict(evidence(engine, parquet, before), before)["predictions"]
+        predicted = next((r["seconds"] for r in rows if r["key"] == key and r["seconds"]), None)
+        if predicted is None:
+            continue
+        actual = round(race["seconds"])
+        out.append(
+            {
+                "key": key,
+                "date": race["date"],
+                "activity": race["activity"],
+                "predicted_s": predicted,
+                "actual_s": actual,
+                "error_s": actual - predicted,
+            }
+        )
+    return out
+
+
 def evidence(engine: Engine, parquet, on: date) -> list[dict[str, Any]]:
     window = Window(on - timedelta(days=WINDOW_DAYS - 1), on)
-    found = _efforts(engine, parquet, window)
+    found = _efforts(engine, parquet, window) + _races(engine, window)
     if (threshold := _threshold(engine, on)) is not None:
         found.append(threshold)
     return found
@@ -203,6 +270,7 @@ def race_predictions(engine: Engine, parquet, today: date) -> dict[str, Any]:
         row["garmin"] = garmin.get(row["key"])
     return {
         **now,
+        "races": race_scores(engine, parquet, today),
         "window_days": WINDOW_DAYS,
         "trend_days": TREND_DAYS,
         "method": "riegel 1.06, 1.08 beyond the half marathon",
