@@ -454,7 +454,25 @@ def create_app(rt: Runtime, *, with_mcp: bool = True) -> FastAPI:
 
         gate = ShareGate(rt, create_portal_app(rt, share_mode=True))
         app.router.routes[0:0] = [Mount("/vibesynergy/share", app=gate), Mount("/share", app=gate)]
-    return _gzip_api(app)
+    return _limit_bodies(_gzip_api(app))
+
+
+# Bigger bodies than the 64 KiB default, each for a route that needs them: MCP tool calls
+# (after the token check) and the file upload a share link may allow (streamed to disk).
+MCP_BODY_LIMIT = 16 * 1024 * 1024
+
+
+def _limit_bodies(app):
+    from vibesynergy import uploads
+    from vibesynergy.api.body_limit import BodyLimit
+
+    return BodyLimit(
+        app,
+        larger=[
+            (r"(/vibesynergy)?/mcp", MCP_BODY_LIMIT),
+            (r"(/vibesynergy)?/share/[^/]+/api/files/upload", uploads.MAX_BYTES),
+        ],
+    )
 
 
 class _GzipApi:

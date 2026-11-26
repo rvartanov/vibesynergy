@@ -315,6 +315,16 @@ class DenyOutcome:
 
 
 PORTAL_KEY = "portal"
+# Free text an unregistered caller sends is cut to this before it is stored or audited.
+MAX_CLIENT_TEXT = 100
+MAX_REDIRECT_URIS = 10
+MAX_URI_CHARS = 2000
+# Anyone can register or fail the passphrase, so their audit rows are pruned: older than
+# this, and beyond the newest MAX_ANON_AUDIT_ROWS of each action.
+ANON_AUDIT_ACTIONS = ("oauth.register", "oauth.denied")
+ANON_AUDIT_KEEP = timedelta(days=90)
+MAX_ANON_AUDIT_ROWS = 1000
+ANON_AUDIT_PRUNE_EVERY = 600.0  # seconds
 # Registration is open (RFC 7591). Apps nobody approved are kept this long and this many.
 UNAPPROVED_CLIENT_TTL = timedelta(hours=24)
 MAX_UNAPPROVED_CLIENTS = 50
@@ -392,6 +402,7 @@ class VibeSynergyOAuthProvider:
         self._pending: dict[str, tuple[float, str, AuthorizationParams]] = {}
         self._approved: dict[str, _ApprovedRequest] = {}
         self.limiter = PassphraseLimiter()
+        self._last_audit_prune = float("-inf")
         try:
             expand_legacy_scope_grants(engine)
         except Exception:  # never block startup on the one-time rewrite
@@ -435,7 +446,10 @@ class VibeSynergyOAuthProvider:
             )
         self._audit(
             "oauth.register",
-            {"client_id": client_info.client_id, "client_name": client_info.client_name},
+            {
+                "client_id": client_info.client_id,
+                "client_name": (client_info.client_name or "")[:MAX_CLIENT_TEXT] or None,
+            },
         )
 
     # Authorization --------------------------------------------------------------------------
@@ -774,10 +788,55 @@ class VibeSynergyOAuthProvider:
         return "" if name == "the app" else name
 
     def _audit(self, action: str, detail: dict[str, Any]) -> None:
+        now = utc_now()
         with self.engine.begin() as conn:
             conn.execute(
-                audit_log.insert().values(at=utc_now(), actor="oauth", action=action, detail=detail)
+                audit_log.insert().values(at=now, actor="oauth", action=action, detail=detail)
             )
+            if action in ANON_AUDIT_ACTIONS and (
+                time.monotonic() - self._last_audit_prune > ANON_AUDIT_PRUNE_EVERY
+            ):
+                self._last_audit_prune = time.monotonic()
+                prune_anonymous_audit(conn, now)
+
+
+def prune_anonymous_audit(conn, now) -> None:
+    """Drop old and surplus audit rows of what anonymous callers can cause (registrations,
+    wrong passphrases), like the MCP read rows; approvals and revocations stay."""
+    for action in ANON_AUDIT_ACTIONS:
+        conn.execute(
+            audit_log.delete().where(
+                audit_log.c.action == action, audit_log.c.at < now - ANON_AUDIT_KEEP
+            )
+        )
+        newest = (
+            select(audit_log.c.id)
+            .where(audit_log.c.action == action)
+            .order_by(audit_log.c.id.desc())
+            .limit(MAX_ANON_AUDIT_ROWS)
+        )
+        conn.execute(
+            audit_log.delete().where(audit_log.c.action == action, audit_log.c.id.not_in(newest))
+        )
+
+
+def _trim_registration(data: dict[str, Any]) -> str | None:
+    """Cut free text in a registration to size; an error message when something cannot be
+    cut (a URI) and is too big."""
+    uris = data["redirect_uris"]
+    if len(uris) > MAX_REDIRECT_URIS or any(len(uri) > MAX_URI_CHARS for uri in uris):
+        return f"at most {MAX_REDIRECT_URIS} redirect_uris of {MAX_URI_CHARS} characters"
+    for key in ("client_uri", "logo_uri", "tos_uri", "policy_uri", "jwks_uri"):
+        if isinstance(data.get(key), str) and len(data[key]) > MAX_URI_CHARS:
+            data.pop(key)
+    for key in ("client_name", "software_id", "software_version"):
+        if isinstance(data.get(key), str):
+            data[key] = data[key][:MAX_CLIENT_TEXT]
+    if isinstance(data.get("scope"), str) and len(data["scope"]) > MAX_URI_CHARS:
+        return "scope is too long"
+    if isinstance(data.get("contacts"), list):
+        data["contacts"] = [str(c)[:MAX_CLIENT_TEXT] for c in data["contacts"][:5]]
+    return None
 
 
 def expand_legacy_scope_grants(engine: Engine) -> dict[str, int]:
@@ -1318,6 +1377,10 @@ def routes(provider: VibeSynergyOAuthProvider) -> list[Route]:
             error = ("invalid_client_metadata", "unsupported grant_types")
         elif data.get("response_types", ["code"]) != ["code"]:
             error = ("invalid_client_metadata", "response_types must be ['code']")
+        elif problem := _trim_registration(data):
+            error = ("invalid_client_metadata", problem)
+        else:
+            body = json.dumps(data).encode()
         if error:
             response = JSONResponse(
                 {"error": error[0], "error_description": error[1]},

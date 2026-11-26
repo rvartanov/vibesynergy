@@ -21,6 +21,9 @@ The short "What changed" the portal shows after an update is in
   fetch or remove an activity. **Once after this update**, run `vibesynergy webhooks
   subscribe strava` (with `vibesynergy serve` running): it replaces the old subscription.
   Until then the old address keeps working. An activity of another athlete is never kept.
+- **Size limit on what anyone can send** (#196): the login, app-connection and webhook
+  addresses refuse oversized requests, so nobody can fill the server's memory or its log
+  through them.
 
 ## 0.1.0-beta.0.22 – 25-11-2026
 
