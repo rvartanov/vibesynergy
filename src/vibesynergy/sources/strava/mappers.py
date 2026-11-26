@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from vibesynergy.model import Activity, ActivityLap, ActivityZoneTime, Record, Stream
+from vibesynergy.sources.strava.ids import strava_id
 from vibesynergy.store.raw import RawRecord
 
 _EXTRA = (
@@ -42,8 +43,11 @@ def map_activity(raw: RawRecord) -> Iterator[Record]:
     if start is None:
         raise ValueError(f"activity {raw.item_key} has no start_date")
     local_date = date.fromisoformat(str(a.get("start_date_local") or a["start_date"])[:10])
-    activity_id = str(a.get("id") or raw.item_key)
+    activity_id = strava_id(a) or raw.item_key
     extra = {k: a[k] for k in _EXTRA if a.get(k) is not None}
+    # A number the portal would round once it is past 2^53 (#87): kept as a string.
+    if "upload_id" in extra:
+        extra["upload_id"] = strava_id(a, "upload_id") or str(extra["upload_id"])
     if data.get("errors"):
         extra["detail_errors"] = data["errors"]
     yield Activity(

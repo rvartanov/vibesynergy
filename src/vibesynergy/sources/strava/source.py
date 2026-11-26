@@ -33,6 +33,7 @@ from vibesynergy.sources.strava.client import (
     StravaError,
     StravaRateLimited,
 )
+from vibesynergy.sources.strava.ids import same_id, strava_id
 
 STREAM_KEYS = (
     "time,latlng,distance,altitude,velocity_smooth,heartrate,cadence,watts,temp,moving,grade_smooth"
@@ -114,7 +115,7 @@ class StravaSource(Source):
                 payload = {
                     "athlete": athlete,
                     "zones": self._optional(lambda: c.get("/athlete/zones")),
-                    "stats": c.get(f"/athletes/{athlete['id']}/stats"),
+                    "stats": c.get(f"/athletes/{_athlete_id(athlete)}/stats"),
                 }
                 yield FetchedItem("current", payload)
             case "gear":
@@ -122,7 +123,7 @@ class StravaSource(Source):
                 ids = [g["id"] for g in (athlete.get("bikes") or []) + (athlete.get("shoes") or [])]
                 yield FetchedItem("current", {gid: c.get(f"/gear/{gid}") for gid in ids})
             case "routes":
-                athlete_id = c.get("/athlete")["id"]
+                athlete_id = _athlete_id(c.get("/athlete"))
                 yield FetchedItem("current", c.paged(f"/athletes/{athlete_id}/routes", 100))
             case "starred_segments":
                 yield FetchedItem("current", c.paged("/segments/starred", 100))
@@ -148,7 +149,7 @@ class StravaSource(Source):
         if not key.isascii() or not key.isdigit():  # it goes into the URL path
             raise ValueError("a Strava activity id is a number")
         with self.client.priority_budget():
-            detail = self.client.get(f"/activities/{int(key)}", include_all_efforts="true")
+            detail = self.client.get(f"/activities/{key}", include_all_efforts="true")
             if not self._ours(detail):
                 return
             if dataset == "activities":
@@ -163,9 +164,9 @@ class StravaSource(Source):
         known): a webhook event never makes someone else's activity ours."""
         if not isinstance(detail, dict):
             return False
-        owner = (detail.get("athlete") or {}).get("id")
+        owner = strava_id(detail.get("athlete"))
         connected = (self.ctx.secrets.get("athlete") or {}).get("id")
-        return owner is None or connected is None or str(owner) == str(connected)
+        return owner is None or connected is None or same_id(owner, connected)
 
     def _list(self, window: Window) -> list[dict]:
         # Shared by the datasets of one sync (activities, streams), but not by later syncs:
@@ -194,7 +195,7 @@ class StravaSource(Source):
         return self._lists[window][1]
 
     def _activity_item(self, summary: dict, detail: dict | None = None) -> FetchedItem:
-        activity_id = str(summary["id"])
+        activity_id = _activity_id(summary)
 
         def load() -> dict[str, Any]:
             payload: dict[str, Any] = {"summary": summary}
@@ -236,7 +237,7 @@ class StravaSource(Source):
         )
 
     def _streams_item(self, summary: dict) -> FetchedItem:
-        activity_id = str(summary["id"])
+        activity_id = _activity_id(summary)
 
         def load() -> dict:
             streams = self.client.get(
@@ -265,6 +266,20 @@ class StravaSource(Source):
             raise
         except StravaError as exc:
             return {"error": str(exc)}
+
+
+def _activity_id(summary: dict) -> str:
+    activity_id = strava_id(summary)
+    if activity_id is None:
+        raise ValueError(f"a Strava activity without a usable id: {summary.get('id')!r}")
+    return activity_id
+
+
+def _athlete_id(athlete: Any) -> str:
+    athlete_id = strava_id(athlete)
+    if athlete_id is None:
+        raise StravaError(200, "Strava returned an athlete without an id")
+    return athlete_id
 
 
 def _local_day(summary: dict) -> date | None:

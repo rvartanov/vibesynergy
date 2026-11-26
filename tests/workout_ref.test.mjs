@@ -16,3 +16,14 @@ test("done links to the activity, planned opens to its steps, else plain (#181)"
   assert.equal(workoutRefHtml({ title: "X", activity_id: 5 }, { linkActivities: false }), "X");
   assert.equal(workoutRefHtml({ title: "X", activity_id: null, workout: "" }), "X");
 });
+
+test("a Strava id past 2^53 reaches the link exactly, because the API sends it as a string (#87)", () => {
+  const body = '{"activity_id": "strava:9007199254740993", "rounded": 9007199254740993}';
+  const parsed = JSON.parse(body);
+  assert.equal(
+    workoutRefHtml({ title: "Ride", activity_id: parsed.activity_id }),
+    '<a href="#/activity/strava%3A9007199254740993" data-workout-activity>Ride</a>',
+  );
+  // What a number would have done: JSON.parse rounds it to another activity.
+  assert.equal(String(parsed.rounded), "9007199254740992");
+});

@@ -59,8 +59,10 @@ class StravaProvider:
             detail = self.client.get(f"/activities/{source_id}")
         except oauth.AuthError as exc:
             raise Conflict(str(exc)) from exc
+        from vibesynergy.sources.strava.ids import same_id, strava_id
+
         owner = (self.store.get("athlete") or {}).get("id")
-        if owner is None or str((detail.get("athlete") or {}).get("id")) != str(owner):
+        if owner is None or not same_id(strava_id(detail.get("athlete")), owner):
             raise Conflict("Strava activity owner could not be verified")
         return detail
 

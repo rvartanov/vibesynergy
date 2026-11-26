@@ -22,6 +22,7 @@ from vibesynergy.core.errors import RateLimited
 from vibesynergy.core.secrets import SecretStore
 from vibesynergy.sources import oauth
 from vibesynergy.sources.http_timeout import DEFAULT_HTTP_TIMEOUT_SECONDS
+from vibesynergy.sources.strava.ids import same_id, strava_id
 
 log = logging.getLogger(__name__)
 
@@ -174,7 +175,8 @@ class StravaClient:
         if expiry <= self._clock() + 120:
             raise oauth.AuthError("Strava returned an expired token; previous credentials retained")
         existing = self._store.get("athlete") or {}
-        if athlete and existing.get("id") and str(existing["id"]) != str(athlete.get("id")):
+        # Ids are strings from #87 on; an athlete stored earlier as a number still matches.
+        if athlete and existing.get("id") and not same_id(existing["id"], strava_id(athlete)):
             raise oauth.AuthError("Strava approved a different athlete; previous account retained")
         # Refresh replies may omit granted scopes; keep the verified callback grant.
         previous = self._store.get(oauth.TOKENS) or {}
@@ -182,7 +184,7 @@ class StravaClient:
             body["scope"] = previous["scope"]
         record = oauth.save_tokens(self._store, body)
         if athlete:  # returned on first login only
-            self._store.set("athlete", {"id": athlete.get("id")})
+            self._store.set("athlete", {"id": strava_id(athlete)})
         return record
 
     def _access_token(self) -> str:
