@@ -81,7 +81,7 @@ def test_tools_listed_with_annotations(rt) -> None:
             return (await client.list_tools()).tools
 
     tools = {t.name: t for t in anyio.run(go)}
-    assert len(tools) == 113
+    assert len(tools) == 112
     assert not {
         "vibesynergy_coach_propose",
         "vibesynergy_plan_status",
@@ -95,7 +95,6 @@ def test_tools_listed_with_annotations(rt) -> None:
     assert tools["vibesynergy_model_run_write"].annotations.read_only_hint is False
     assert tools["vibesynergy_model_runs"].annotations.read_only_hint is True
     assert tools["vibesynergy_race_set_priority"].annotations.read_only_hint is False
-    assert tools["vibesynergy_current_coaching_state"].annotations.read_only_hint is True
     assert tools["vibesynergy_metric_status"].annotations.read_only_hint is True
     assert tools["vibesynergy_activity_set_coaching"].annotations.read_only_hint is False
     assert tools["vibesynergy_activity_annotation_preview"].annotations.read_only_hint is True

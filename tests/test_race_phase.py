@@ -15,7 +15,7 @@ from vibesynergy.mcp.server import build_server
 from vibesynergy.model import PlannedItem
 from vibesynergy.normalize.normaliser import write_records
 from vibesynergy.portal.api import build_router
-from vibesynergy.query import assessments, plan, views
+from vibesynergy.query import plan, views
 
 
 def _race(runtime, day):
@@ -94,9 +94,6 @@ def test_race_in_nine_days_reaches_mcp_portal_and_coaching_state(runtime):
         data = server._tool_manager.get_tool(tool).fn(**args)["data"]
         assert data["next_race"] == expected_race
         assert data["plan_phase"] == expected_phase
-    state = assessments.current_state(runtime)
-    assert state["next_race"] == expected_race
-    assert state["plan_phase"] == expected_phase
     routes = {
         (route.path, method): route.endpoint
         for route in build_router(runtime).routes

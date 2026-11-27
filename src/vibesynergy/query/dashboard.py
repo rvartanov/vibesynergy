@@ -577,7 +577,6 @@ def delivery_status(engine: Engine, sources: list[str], *, queried_at: str) -> d
     that source (or the whole source), or current activity rows not yet normalised, is
     ``running``. A fetch or mapping problem with no active sync is ``failed``. Otherwise
     ``idle``. A history window is a backfill, not today's arrival.
-    ``follow_up`` stays ``idle``. Internal assessment and daily-review jobs are gone.
     """
     status = views.sync_status(engine)
     fresh = views.freshness(engine)
@@ -610,7 +609,6 @@ def delivery_status(engine: Engine, sources: list[str], *, queried_at: str) -> d
             {"source": source, "last_collected_at": visible[source]} for source in sorted(visible)
         ],
         "activity_sync": activity_sync,
-        "follow_up": "running" if _follow_up_jobs(engine) else "idle",
     }
 
 
@@ -628,12 +626,6 @@ def _activity_sync_jobs(engine: Engine, sources: set[str]) -> bool:
             continue
         if payload.get("dataset") in (None, "", "activities"):
             return True
-    return False
-
-
-def _follow_up_jobs(engine: Engine) -> bool:
-    """Internal assessment jobs are gone. Follow-up is idle."""
-    del engine
     return False
 
 
@@ -693,8 +685,8 @@ def _reading_value(block) -> float | None:
 
 
 def _load(engine: Engine, today: date, athlete: dict | None, rt) -> dict[str, Any]:
-    # Form (CTL/ATL/TSB) is the shared 180-day snapshot. ACWR uses the same intervals.icu
-    # loads over the last 28 days, so every load number comes from one model.
+    # Form (CTL/ATL/TSB) is the shared 180-day snapshot. ACWR uses the same own
+    # (VibeSynergy) loads over the last 28 days, so every load number comes from one model.
     current = training.current_load(rt, today)
     pmc = training.training_load(
         engine,

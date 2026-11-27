@@ -168,14 +168,6 @@ def register(kit: ToolKit) -> None:
         return envelope(daily_coach.read(rt, None if date == "today" else _date(date)))
 
     @tool(READ, "read")
-    def vibesynergy_current_coaching_state(id: str | None = None) -> dict[str, Any]:
-        """Current profile, evidence and saved assessment versions for the latest or a
-        specified activity. Read-only; stale advice never counts as current."""
-        from vibesynergy.query import assessments
-
-        return envelope(assessments.current_state(rt, id))
-
-    @tool(READ, "read")
     def vibesynergy_activity_streams(
         id: str, channels: list[str] | None = None, max_points: int = 500
     ) -> dict[str, Any]:

@@ -23,7 +23,6 @@ from vibesynergy.portal.api import (
 from vibesynergy.query import (
     analysis,
     annotations,
-    assessments,
     catalog,
     coach_workouts,
     knowledge,
@@ -54,16 +53,6 @@ def register(kit: PortalKit) -> None:
             return JSONResponse(status_code=404, content={"error": "proposal_not_found"})
         except ValueError as exc:
             return JSONResponse(status_code=400, content={"error": str(exc)})
-
-    @router.get("/activity-assessment")
-    def activity_assessment(id: str) -> dict[str, Any]:
-        """Private shared assessment and freshness. Reading never creates work."""
-        return envelope(assessments.read(rt, id))
-
-    @router.get("/current-coaching-state")
-    def current_coaching_state(id: str | None = None) -> dict[str, Any]:
-        """Read the current coaching version without creating assessment work."""
-        return envelope(assessments.current_state(rt, id))
 
     @router.get("/activity-annotation-preview")
     def activity_annotation_preview(id: str, lang: str = "en") -> dict[str, Any]:
@@ -284,7 +273,5 @@ def register(kit: PortalKit) -> None:
         from vibesynergy.query import schedule
 
         return envelope(
-            schedule.calendar(
-                engine, date.fromisoformat(start), date.fromisoformat(end), today(), raw=rt.raw
-            )
+            schedule.calendar(engine, date.fromisoformat(start), date.fromisoformat(end), today())
         )

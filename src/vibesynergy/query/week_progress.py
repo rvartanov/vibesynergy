@@ -100,12 +100,12 @@ def week_progress(
             continue
         if act["family"] is None and _seconds(act) < MIN_EXTRA_S:
             continue
-        sessions.append(_extra_session(act, icu.get(gid), effort.get(gid)))
+        sessions.append(_extra_session(act, effort.get(gid)))
 
     weeks = {w["start"]: w for w in plan.get("weeks") or []}
     this_week = weeks.get(lo)
     targets = {t["family"]: t for t in (this_week or {}).get("targets") or []}
-    sports = _sports(sessions, activities, used, containers, targets, icu)
+    sports = _sports(sessions, activities, used, containers, targets)
     counts = {
         status: sum(1 for s in sessions if s["status"] == status)
         for status in (
@@ -266,8 +266,7 @@ def _effort(found: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _actual(act: dict[str, Any], icu_row: dict[str, Any] | None) -> dict[str, Any]:
-    del icu_row  # the load is VibeSynergy's own, not intervals.icu's
+def _actual(act: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": act["group_id"],
         "name": act.get("name"),
@@ -326,7 +325,7 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
             "load": extra.get("load"),
             "intensity": plan_q.planned_intensity(item),
         },
-        "actual": _actual(act, icu_row) if act else None,
+        "actual": _actual(act) if act else None,
         "activity_id": gid if act else None,
         "remaining": item["date"] > str(today) or status == "today",
     }
@@ -334,7 +333,7 @@ def _planned_session(item, today, by_id, paired, icu, effort) -> dict[str, Any]:
     return session
 
 
-def _extra_session(act, icu_row, found) -> dict[str, Any]:
+def _extra_session(act, found) -> dict[str, Any]:
     return {
         "date": str(act["local_date"]),
         "family": act["family"],
@@ -345,7 +344,7 @@ def _extra_session(act, icu_row, found) -> dict[str, Any]:
         "match": None,
         "compliance": None,
         "planned": None,
-        "actual": _actual(act, icu_row),
+        "actual": _actual(act),
         "activity_id": act["group_id"],
         "remaining": False,
         **_effort(found),
@@ -359,13 +358,12 @@ def _sum(values) -> float:
     return round(sum(v or 0 for v in values), 1)
 
 
-def _load(act: dict[str, Any], icu: dict[str, dict]) -> float | None:
+def _load(act: dict[str, Any]) -> float | None:
     """VibeSynergy's own load of the activity (``training.own_loads``)."""
-    del icu
     return act.get("own_load")
 
 
-def _sports(sessions, activities, used, containers, targets, icu) -> list[dict[str, Any]]:
+def _sports(sessions, activities, used, containers, targets) -> list[dict[str, Any]]:
     families = {s["family"] for s in sessions} | set(targets)
     out = []
     for fam in sorted(families, key=lambda f: SPORT_ORDER.index(f) if f in SPORT_ORDER else 9):
@@ -411,7 +409,7 @@ def _sports(sessions, activities, used, containers, targets, icu) -> list[dict[s
                 "basis": "target" if target_s else "planned" if planned_s else None,
                 "done_s": _sum(_seconds(a) for a in done),
                 "done_distance_m": _sum(a.get("distance_m") for a in done) or None,
-                "done_load": _sum(_load(a, icu) for a in done) or None,
+                "done_load": _sum(_load(a) for a in done) or None,
                 "done_count": len(done),
                 "remaining_s": _sum((s["planned"] or {}).get("duration_s") for s in remaining),
                 "remaining": [

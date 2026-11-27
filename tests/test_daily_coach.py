@@ -238,9 +238,7 @@ def test_daily_coach_email_keeps_each_note_and_links_to_coach(runtime, monkeypat
         {"language": "nl", "alert_routes": {"daily_coach": ["email"]}},
     )
     monkeypatch.setattr(alerts, "channels", lambda settings, engine=None: {"email": True})
-    monkeypatch.setattr(
-        alerts, "collect", lambda rt, today, since=None: alerts._daily(rt, since, today)
-    )
+    monkeypatch.setattr(alerts, "collect", lambda rt, today, since=None: alerts._daily(rt, since))
     sent: list[tuple[str, str]] = []
     assert (
         alerts.check(runtime, send=lambda subject, body, channel: sent.append((subject, body)))[

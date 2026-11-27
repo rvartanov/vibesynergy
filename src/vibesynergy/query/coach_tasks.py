@@ -77,16 +77,6 @@ TRACKED: tuple[Tracked, ...] = (
 BY_TRACKED = {t.id: t for t in TRACKED}
 
 
-def schedule_for(rt: Any) -> dict[str, dict[str, Any]]:
-    """The saved schedule (Coach → Settings), or the defaults where it cannot be read."""
-    from vibesynergy.coach_runner import settings as runner_settings
-
-    try:
-        return runner_settings.load(rt).schedule
-    except Exception:
-        return runner_settings.default_schedule()
-
-
 def _cadence(spec: dict[str, Any] | None, task: Any) -> str:
     if spec is None:
         events = [g.detail for g in task.triggers if g.kind == "event"]
@@ -236,7 +226,7 @@ def status(
     switches: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Every task with its last run and, for the tracked ones, the due runs that are
-    missing. ``schedule`` is the saved one (``schedule_for``); without it, the defaults."""
+    missing. ``schedule`` is the saved one (Coach → Settings); without it, the defaults."""
     now_local = now.astimezone(ZoneInfo(timezone))
     since = now_local.date() - timedelta(days=LOOKBACK_DAYS)
     others = _last_by_task(engine)

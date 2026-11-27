@@ -102,8 +102,6 @@ class Runtime:
         handlers = default_handlers(self.sync, self.normaliser)
         handlers[agent_events.JOB] = lambda _job: agent_events.run(self)
         handlers["alerts"] = lambda _job: alerts.check(self)
-        # The Strava → Garmin copy is gone (#175): a check still queued from before ends quietly.
-        handlers["publication_mirror"] = lambda _job: None
         handlers[publication_auto.JOB] = lambda _job: publication_auto.run(self)
         from vibesynergy.query import text_sync
 

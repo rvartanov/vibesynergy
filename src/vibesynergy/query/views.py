@@ -862,36 +862,6 @@ METRIC_MAX_AGE_DAYS = {
 }
 
 
-def selected_metric_status(engine: Engine, metric: str, window: Window) -> dict | None:
-    """Status for the latest best-source observation, using the shared metric contract.
-
-    Selection only identifies a source/dataset; all freshness and failure decisions remain
-    in metric_status. A missing observation has no defensible source to assess.
-    """
-    with engine.connect() as conn:
-        selected = conn.execute(
-            select(daily_metric.c.source, raw_item.c.dataset)
-            .join(
-                daily_unified,
-                and_(
-                    daily_unified.c.subject_id == daily_metric.c.subject_id,
-                    daily_unified.c.date == daily_metric.c.date,
-                    daily_unified.c.metric == daily_metric.c.metric,
-                    daily_unified.c.source == daily_metric.c.source,
-                ),
-            )
-            .join(raw_item, raw_item.c.id == daily_metric.c.raw_item_id)
-            .where(
-                daily_metric.c.subject_id == 1,
-                daily_metric.c.metric == metric,
-                daily_metric.c.date <= window.end,
-            )
-            .order_by(daily_metric.c.date.desc())
-            .limit(1)
-        ).first()
-    return metric_status(engine, metric, selected[0], selected[1], window) if selected else None
-
-
 def metric_status(
     engine: Engine,
     metric: str,
@@ -1249,15 +1219,13 @@ def intensity_distribution(
     *,
     basis: str = "hr",
     include_coaching: bool = True,
-    raw=None,
     parquet=None,
     athlete: dict | None = None,
 ) -> dict:
     """Time per zone over the period, per week and in total, as VibeSynergy counts it from
     each activity's stream with the zones of that day (``zone_times``; without ``parquet``
-    only what was counted before). Heart rate has five zones, power and pace seven. ``raw``
-    is not used. For five heart
-    rate zones the zones are also folded into three (1-2 low, 3 moderate, 4-5 high) with
+    only what was counted before). Heart rate has five zones, power and pace seven. For five
+    heart rate zones the zones are also folded into three (1-2 low, 3 moderate, 4-5 high) with
     the polarisation index of Treff et al. (2019): log10(low/moderate x high x 100) on
     fractions. Power and pace are not folded."""
     if basis not in ("hr", "power", "pace"):
@@ -1272,7 +1240,6 @@ def intensity_distribution(
             activity_unified.c.kind,
         ).where(activity_unified.c.local_date.between(window.start, window.end)),
     )
-    del raw
     weekly: dict[str, dict[int, float]] = {}
     total: dict[int, float] = {}
     coaching_total: dict[int, float] = {}

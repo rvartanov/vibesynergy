@@ -182,8 +182,7 @@ def test_every_view_gives_the_same_text_colour_and_level(rt):
     client = TestClient(create_portal_app(rt), base_url=f"https://{TAILNET}:8447")
     api = client.get("/api/advice").json()["data"]
     page = client.get("/api/dashboard").json()["data"]["advice"]
-    mailed = report.advice_for(rt, "morning", _day(rt), i18n.translator("en"))
-    for found in (standalone, brief["advice"], mcp["advice"], api, page, mailed):
+    for found in (standalone, brief["advice"], mcp["advice"], api, page):
         assert _shape(found) == _shape(advice)
         assert found["text"] == advice["text"] and found["reasons"] == advice["reasons"]
     for verdict in (brief["verdict"], mcp["verdict"]):
@@ -194,7 +193,7 @@ def test_every_view_gives_the_same_text_colour_and_level(rt):
         )
     # The mail leads with the same colour and headline, in the mail's language.
     tr = i18n.translator(report.language(rt.settings))
-    in_mail = report.advice_for(rt, "morning", _day(rt), tr)
+    in_mail = daily_advice.current(rt, _day(rt), tr=tr, trigger=False)
     assert _shape(in_mail) == _shape(advice)
     # The mail leads with the advice's one view (#147): the colour, its meaning and when
     # this version was written, in the mail's language.
@@ -230,7 +229,6 @@ def test_off_gives_no_daily_advice(rt):
     advice = _board(rt)["advice"]
     assert advice["mode"] == "off" and advice["level"] is None and advice["advice"] is None
     assert "Settings" in advice["off_text"]
-    assert report.advice_for(rt, "morning", _day(rt), i18n.translator("en")) is None
 
 
 def test_the_setting_is_validated(rt):

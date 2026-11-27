@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- Behind the scenes: code nothing used any more is removed, among it eight portal endpoints no page called and the MCP tool `vibesynergy_current_coaching_state`, which only returned empty placeholders; a dead-code check in CI keeps it from growing back. Nothing changes in the app (#202).
+
 ## 0.1.0-beta.0.30 – 27-11-2026
 
 - Behind the scenes: the browser tests are more reliable and all run on every change; nothing changes in the app (#209).

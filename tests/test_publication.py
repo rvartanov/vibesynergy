@@ -16,7 +16,13 @@ from vibesynergy.core.config import ConfigError, load_settings
 from vibesynergy.core.secrets import SecretStore
 from vibesynergy.mcp.server import build_server
 from vibesynergy.portal.app import create_portal_app
-from vibesynergy.query import coach, publication, publication_format, publication_plugins
+from vibesynergy.query import (
+    assessments,
+    coach,
+    publication,
+    publication_format,
+    publication_plugins,
+)
 from vibesynergy.store.schema import publication_ledger
 
 DEFAULT_OPENER = publication_format.DEFAULT_OPENER
@@ -569,7 +575,7 @@ def test_one_active_profile_revision_is_shared_across_consumers(runtime, monkeyp
         return client.get("/api/daily-coaching").json()["data"]["active_profile"]
 
     def assessment():
-        return client.get("/api/activity-assessment", params={"id": "garmin:1"}).json()["data"]
+        return assessments.read(runtime, "garmin:1")
 
     def annotation():
         return client.get("/api/activity-annotation-preview", params={"id": "garmin:1"}).json()[

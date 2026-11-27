@@ -38,6 +38,8 @@ jobs:
       - run: uv run ruff format --check .
       # Types: query/ and mcp/, against the baseline in .basedpyright/baseline.json.
       - run: uv run basedpyright
+      # Dead code (#202): settings in pyproject.toml, known names in tools/vulture_whitelist.py.
+      - run: uv run --with vulture==2.16 vulture
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

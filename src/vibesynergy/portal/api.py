@@ -80,12 +80,6 @@ class GearEdit(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-class ActivityGearRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    id: str = Field(min_length=3, max_length=200)
-    ref: str | None = Field(default=None, max_length=100)  # None: the source's; "none": none
-
-
 class WorkoutMediaChange(BaseModel):
     """Remove a photo of a workout in VibeSynergy, or restore it (#114, phase 6)."""
 

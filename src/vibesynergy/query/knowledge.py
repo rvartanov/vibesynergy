@@ -236,7 +236,7 @@ def propose_change(
 ) -> dict[str, Any]:
     """Store a change for the athlete to approve. The current text stays as it is.
 
-    Unless it is a pure lint fix (#137, ``editorial_check``): then it is applied at once as
+    Unless it is a pure lint fix (#137, ``_editorial_check``): then it is applied at once as
     a new version by ``lint/editorial`` (status ``applied``), and the athlete sees it
     afterwards, with an undo. ``editorial`` is the caller's request only; the server
     decides. The check's outcome is stored with the proposal either way.
@@ -757,20 +757,6 @@ def _editorial_check(
     if others:
         return wait("other_pending", fixes)
     return {"applied": True, "reason": None, "fixes": fixes}
-
-
-def editorial_check(
-    engine: Engine, kind: str, target: str, changes: Mapping[str, Any], *, author: str
-) -> dict[str, Any]:
-    """The same check as a proposal gets, without storing anything."""
-    kind = _kind(kind)
-    target = _target(kind, target)
-    cleaned = _clean_changes(kind, dict(changes))
-    trusted = _trusted_author(engine, _author(author))
-    with engine.connect() as conn:
-        return _editorial_check(
-            conn, _lint_context(conn), kind, target, cleaned, trusted=trusted, author=author
-        )
 
 
 def _fix_rationale(fixes: list[dict[str, str]]) -> str:

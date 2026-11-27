@@ -78,6 +78,28 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+# Dead code (#202): CI runs `uv run --with vulture==2.16 vulture`. Tests are not scanned on
+# purpose: code only tests call is dead. tools/vulture_whitelist.py lists the names that
+# frameworks and entry points use; the decorators below mark routes, MCP tools and commands.
+[tool.vulture]
+paths = ["src", "tools/vulture_whitelist.py"]
+exclude = ["src/vibesynergy/store/migrations/"]
+min_confidence = 60
+ignore_decorators = [
+    "@router.get",
+    "@router.post",
+    "@router.api_route",
+    "@app.get",
+    "@app.exception_handler",
+    "@tool",
+    "@server.prompt",
+    "@server.resource",
+    "@*.command",
+    "@*.callback",
+    "@model_validator",
+    "@event.listens_for",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]

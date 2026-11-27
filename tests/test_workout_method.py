@@ -61,7 +61,7 @@ def _z2_band(body: str, band: str, cue: str) -> str:
 
 
 def test_the_seed_covers_every_template_and_reads_without_warnings() -> None:
-    seed = workout_method.seed_tables()
+    seed = workout_method._seed_tables()
     assert set(seed) == set(workout_library.BY_ID)
     assert workout_method.lint_body(workout_method.seed_body()) == []
     for template in workout_library.TEMPLATES:
@@ -227,7 +227,7 @@ def _seed_texts() -> set[str]:
         elif isinstance(value, str) and key in {"nl", "en", "cue", "label", "code", "time"}:
             out.add(value)
 
-    walk(workout_method.seed_tables())
+    walk(workout_method._seed_tables())
     return {t for t in out if len(t) >= 3}
 
 

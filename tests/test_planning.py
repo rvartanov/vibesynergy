@@ -181,8 +181,6 @@ def test_planning_api_and_old_addresses(runtime, monkeypatch) -> None:
         form = client.get("/api/form", params={"range": 42}).json()["data"]
         assert set(form) == {"fitness", "projection"} and len(form["fitness"]["rows"]) == 42
         assert client.get("/api/form", params={"range": 7}).status_code == 400
-        # The old pages' endpoints still answer for older share links.
-        assert client.get("/api/training-plan").status_code == 200
     finally:
         rt.close()
 

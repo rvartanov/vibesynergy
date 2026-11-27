@@ -19,8 +19,8 @@ starts with what was there. A later Strava or Garmin text changes a stored text 
 the two-way sync of a published workout (``text_sync``, phase 3), which stores it as a version
 with its platform as the source.
 
-The private text is the athlete's alone. It is never part of ``public_texts``, of anything
-published to Strava or Garmin, or of an activity view a share link shows.
+The private text is the athlete's alone. It is never part of anything published to Strava or
+Garmin, or of an activity view a share link shows.
 
 **Correction of the AI-coach insight** (#114, phase 4). The athlete's comment on the
 insight ("wasn't with the group") is kept in the same history as a fourth field,
@@ -284,13 +284,6 @@ def texts(engine: Engine, activity_id: str) -> dict[str, Any]:
             }
     out["name"]["lock"] = name_lock(history(engine, group, "name"))
     return out
-
-
-def public_texts(engine: Engine, activity_id: str) -> dict[str, Any]:
-    """What may go out to Strava or Garmin: the name and the public text, never the private
-    text."""
-    found = texts(engine, activity_id)
-    return {"activity_id": found["activity_id"], "name": found["name"], "public": found["public"]}
 
 
 def history(engine: Engine, activity_id: str, field: str | None = None) -> list[dict[str, Any]]:

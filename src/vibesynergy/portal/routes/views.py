@@ -27,7 +27,6 @@ from vibesynergy.query import (
     periods,
     planning,
     training,
-    training_plan,
     views,
     workouts,
 )
@@ -265,12 +264,6 @@ def register(kit: PortalKit) -> None:
             headers={"Content-Disposition": f'attachment; filename="plan-{today()}.pdf"'},
         )
 
-    @router.get("/training-plan")
-    def training_plan_page() -> dict[str, Any]:
-        """Training plan page: the whole intervals.icu plan, read-only (weeks, phases,
-        races, and the workouts of the next nine days)."""
-        return envelope(training_plan.overview(engine, today()))
-
     @router.get("/training")
     def training_page(
         period: str | None = None,
@@ -361,23 +354,6 @@ def register(kit: PortalKit) -> None:
         if isinstance(completed, dict) and isinstance(completed.get("activities"), list):
             activity_effort.attach_full(engine, rt.raw, completed["activities"])
         return envelope(data)
-
-    @router.get("/dashboard-metric-status")
-    def dashboard_metric_status() -> dict[str, Any]:
-        """Private, deferred source/dataset status for the dashboard's recovery evidence."""
-        end = today()
-        window = Window(end - timedelta(days=13), end)
-        return envelope(
-            {
-                metric: views.selected_metric_status(engine, metric, window)
-                for metric in (
-                    "recovery.readiness",
-                    "hrv.night_avg",
-                    "hr.resting",
-                    "sleep.duration",
-                )
-            }
-        )
 
     @router.get("/recovery")
     def recovery_page(

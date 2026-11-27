@@ -31,8 +31,7 @@ WELLNESS = {
 }
 
 
-def calendar(engine: Any, start: date, end: date, today: date, raw: Any = None) -> dict[str, Any]:
-    del raw  # compliance is VibeSynergy's own now (#111); kept for the callers
+def calendar(engine: Any, start: date, end: date, today: date) -> dict[str, Any]:
     if end < start:
         raise ValueError("end before start")
     if (end - start).days + 1 > MAX_DAYS:

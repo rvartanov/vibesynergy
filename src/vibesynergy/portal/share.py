@@ -61,7 +61,7 @@ PAGES: dict[str, dict[str, tuple[str, ...]]] = {
         )
     },
     "training": {"read": ("/planning", "/training", "/power_curve", "/pace_curve", "/races")},
-    "plan": {"read": ("/planning", "/training-plan", "/races")},
+    "plan": {"read": ("/planning", "/races")},
     "sleep": {"read": ("/sleep",)},
     "recovery": {"read": ("/recovery",)},
     "injuries": {"read": ("/injuries",), "write": ("/diary/injury",)},

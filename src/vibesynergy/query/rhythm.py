@@ -252,7 +252,7 @@ def _signals(
         include_coaching=False,
     )["totals"].get("all", {})
     recent_s, usual_s = recent.get("moving_s", 0), previous.get("moving_s", 0) / 4
-    # One load model everywhere: intervals.icu's.
+    # One load model everywhere: VibeSynergy's own.
     load = training.training_load(
         reader,
         Window(day - timedelta(days=34), day),

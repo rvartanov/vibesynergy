@@ -199,16 +199,6 @@ def stored(engine: Engine) -> dict[str, str]:
     return {r.client_id: r.role for r in rows if r.role in ROLES}
 
 
-def primary_client(engine: Engine) -> str:
-    """The connection that is the primary AI coach: the stored one, else the AI coach
-    inside VibeSynergy."""
-    found = stored(engine)
-    for client, role in found.items():
-        if role == PRIMARY and client != RUNNER_CLIENT:
-            return client
-    return RUNNER_CLIENT
-
-
 def role_of(engine: Engine, client: str, found: dict[str, str] | None = None) -> str:
     """The role of one connection id (``oa-…``, ``pat:<id>``, ``coach-runner``)."""
     found = stored(engine) if found is None else found
@@ -216,10 +206,6 @@ def role_of(engine: Engine, client: str, found: dict[str, str] | None = None) ->
     if client == RUNNER_CLIENT:
         return ADVISORY if other_primary else PRIMARY
     return found.get(client, DEFAULT_ROLE)
-
-
-def primary_author(engine: Engine) -> str:
-    return f"client:{primary_client(engine)}"
 
 
 def author_role(engine: Engine, author: str | None, found: dict[str, str] | None = None) -> str:

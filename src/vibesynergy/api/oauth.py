@@ -1062,17 +1062,6 @@ def list_personal_access_tokens(engine: Engine) -> list[dict[str, Any]]:
     return [_pat_row(r) for r in rows]
 
 
-def rename_personal_access_token(engine: Engine, token_id: str, display_name: str) -> bool:
-    label = display_name.strip()
-    if not label:
-        raise ValueError("name is required")
-    with engine.begin() as conn:
-        result = conn.execute(
-            update(mcp_pat).where(mcp_pat.c.id == token_id).values(display_name=label)
-        )
-    return result.rowcount == 1
-
-
 def rename_oauth_client(engine: Engine, client_id: str, display_name: str) -> bool:
     label = display_name.strip()
     if not label:

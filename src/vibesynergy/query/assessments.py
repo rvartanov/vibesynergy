@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import and_, literal_column, or_, select, tuple_, union_all
 
-from vibesynergy.core.timeutil import Window, today_in
+from vibesynergy.core.timeutil import Window
 from vibesynergy.core.user_datetime import format_user_local_time_hhmm
 from vibesynergy.query import (
     activity_analysis,
@@ -193,7 +193,7 @@ def _coach_context(reader, rt, activity_id, detail, day, daily, planned_today):
         except ValueError:
             pass  # A short or incomplete stream has no meaningful two-half comparison.
     recent, recent_s, usual_s, ramp = _volume_parts(reader, day)
-    # One load model everywhere: intervals.icu's.
+    # One load model everywhere: VibeSynergy's own.
     load = training.training_load(
         reader,
         Window(day - timedelta(days=34), day),
@@ -875,37 +875,6 @@ def own_training():
     return or_(activity_unified.c.kind.is_(None), activity_unified.c.kind != "coaching")
 
 
-def current_state(rt, activity_id: str | None = None) -> dict:
-    """Profile and race context. Internal assessments are not read."""
-    del activity_id
-    profile = coach.snapshot(rt.engine, raw=rt.raw)
-    active = coach.profile_binding(profile)
-    return {
-        **plan.race_phase(rt.engine, today_in(rt.settings.timezone)),
-        "contract_version": 1,
-        "activity_id": None,
-        "profile": _profile_versions(profile["documents"]),
-        "profile_version": active["profile_version"],
-        "active_profile": active,
-        "bound_versions": {
-            **active,
-            "prompt_version": None,
-            "evidence_version": None,
-        },
-        "needs_revision": False,
-        "evidence_version": None,
-        "input_version": None,
-        "assessment_id": None,
-        "assessment_version": None,
-        "current_assessment_id": None,
-        "freshness": "missing",
-        "error": None,
-        "assessed_at": None,
-        "last_decision": None,
-        "reason": "retired",
-    }
-
-
 def unavailable_state(reason: str, activity_id: str | None = None) -> dict:
     """A cheap, non-authoritative result for an optional dashboard coaching panel."""
     return {
@@ -926,13 +895,6 @@ def unavailable_state(reason: str, activity_id: str | None = None) -> dict:
         "assessed_at": None,
         "last_decision": None,
         "reason": reason,
-    }
-
-
-def _profile_versions(documents: dict) -> dict:
-    return {
-        kind: {"version": document["version"], "fingerprint": document["fingerprint"]}
-        for kind, document in documents.items()
     }
 
 

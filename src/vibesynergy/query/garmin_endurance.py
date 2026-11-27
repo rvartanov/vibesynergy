@@ -270,11 +270,6 @@ def build_multisport(name: str, parts: list[tuple[str, dict[str, Any]]]) -> dict
     return out
 
 
-def build_brick(name: str, ride: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
-    """Ride and run as one multisport workout."""
-    return build_multisport(name, [("ride", ride), ("run", run)])
-
-
 def _is_brick_run(row) -> bool:
     text = f"{row.external_id or ''} {row.name or ''}".lower()
     return row.brick_part == "loop" or "brick" in text
