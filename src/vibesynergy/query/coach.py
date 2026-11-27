@@ -605,45 +605,6 @@ def coaching_race_context(
     }
 
 
-WORKOUT_EQUIPMENT_RULE = (
-    "Prescribe only items that are confirmed; for 'unknown', ask the athlete first."
-)
-
-
-def workout_equipment_context(engine: Engine, location_key: str) -> dict:
-    """Equipment rows that may appear in a workout prompt for one location (scenario 10)."""
-    from vibesynergy.query import equipment as equipment_query
-
-    items = equipment_query.prescribable_items(engine, location_key)
-    return {
-        "location_key": location_key,
-        "rule": WORKOUT_EQUIPMENT_RULE,
-        "items": items,
-    }
-
-
-def workout_prompt_context(
-    engine: Engine,
-    location_key: str,
-    *,
-    subject_id: int = 1,
-    raw=None,
-) -> dict:
-    """Assemble workout-facing coach context: user equipment notes plus the location register."""
-    profile = snapshot(engine, subject_id=subject_id, raw=raw)
-    context = profile.get("documents", {}).get("context", {}).get("effective") or {}
-    equipment_notes = [
-        row
-        for row in context.get("constraints") or []
-        if row.get("kind") == "equipment" and row.get("active", True)
-    ]
-    register = workout_equipment_context(engine, location_key)
-    return {
-        "equipment_register": register,
-        "equipment_context_entries": equipment_notes,
-    }
-
-
 def age_on(birth_date: str | None, day) -> int | None:
     """Whole years on ``day`` for an ISO birth date, or None when it is not set."""
     if not birth_date:
