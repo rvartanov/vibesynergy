@@ -15,6 +15,10 @@ The short "What changed" the portal shows after an update is in
 
 - Charts are fitted to their box again whenever it changes size, so a chart drawn while its start-page block was folded (the timeline) no longer stays squeezed after the block is opened.
 
+## 0.1.0-beta.0.32 – 27-11-2026
+
+- Behind the scenes: the service repeats less work. The publishing settings are read from disk only when the file changed, the start page computes the training load once instead of four times and keeps the gear usage until a sync or gear change, finished jobs older than 30 days are removed once a day, and the audit log has indexes for its lookups. Nothing changes in the app (#203).
+
 ## 0.1.0-beta.0.31 – 27-11-2026
 
 - Behind the scenes: code nothing used any more is removed, among it eight portal endpoints no page called and the MCP tool `vibesynergy_current_coaching_state`, which only returned empty placeholders; a dead-code check in CI keeps it from growing back. Nothing changes in the app (#202).

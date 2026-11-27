@@ -134,9 +134,9 @@ class Review(Exception):
 def enabled(rt) -> bool:
     """Settings → Publishing and sync → "Keep name, texts and gear the same everywhere" (the
     gear follows the same switch, ``gear_sync``)."""
-    from vibesynergy.core.config import load_settings
+    from vibesynergy.core.config import current_publication
 
-    return load_settings(rt.settings.config_path).publication.get("text_sync_enabled") is True
+    return current_publication(rt.settings.config_path).get("text_sync_enabled") is True
 
 
 def _key(text: str | None) -> str:

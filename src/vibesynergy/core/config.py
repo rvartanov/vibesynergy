@@ -8,9 +8,12 @@ then ``$XDG_DATA_HOME/vibesynergy`` (default ``~/.local/share/vibesynergy``).
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import re
+import threading
+import time
 import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -207,6 +210,44 @@ def migrate_publication(table: dict[str, Any]) -> dict[str, Any]:
     if "targets" not in table:
         table["targets"] = ["strava", "garmin"] if mirror else ["strava"]
     return table
+
+
+# [publication] per config file, with the file's stamp when it was read (#203): the scheduler
+# asks for it on every tick, and the publishing code on every workout.
+_PUBLICATION_CACHE: dict[Path, tuple[tuple[int, int, int] | None, dict[str, Any]]] = {}
+_PUBLICATION_LOCK = threading.Lock()
+_SETTLE_NS = 2_000_000_000
+
+
+def _file_stamp(path: Path) -> tuple[int, int, int] | None:
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return None
+    return (st.st_mtime_ns, st.st_size, st.st_ino)
+
+
+def current_publication(path: Path) -> dict[str, Any]:
+    """``[publication]`` as the config file holds it now. The file is read again only when
+    it changed (time, size or inode); a portal save replaces the file and drops the entry
+    too, so a saved setting counts on the next call. Each caller gets its own copy."""
+    stamp = _file_stamp(path)
+    with _PUBLICATION_LOCK:
+        hit = _PUBLICATION_CACHE.get(path)
+    # A file changed in the last moments may change again within the clock's resolution
+    # with the same size (an edit in place): it is read again until it has settled.
+    settled = stamp is None or time.time_ns() - stamp[0] > _SETTLE_NS
+    if hit is None or hit[0] != stamp or not settled:
+        hit = (stamp, load_settings(path).publication)
+        with _PUBLICATION_LOCK:
+            _PUBLICATION_CACHE[path] = hit
+    return copy.deepcopy(hit[1])
+
+
+def forget_publication(path: Path) -> None:
+    """Read ``[publication]`` from disk on the next ``current_publication`` call."""
+    with _PUBLICATION_LOCK:
+        _PUBLICATION_CACHE.pop(path, None)
 
 
 def publication_targets(publication: dict[str, Any]) -> list[str]:

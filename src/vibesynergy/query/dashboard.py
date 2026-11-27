@@ -126,7 +126,7 @@ def dashboard(
     # badly recorded night stays out of them.
     marks = _block(lambda: _sleep_marks(engine, rt, today, timezone))
     recovery = _block(lambda: _recovery(engine, today, timezone))
-    load = _block(lambda: _load(engine, today, athlete, load_rt))
+    load = _block(lambda: _load(engine, today, load_rt))
     _today_zones(engine, rt, today, athlete)
     plan = _block(
         lambda: plan_q.plan(
@@ -499,7 +499,7 @@ def rules_verdict(rt, day: date, *, tr: Translator = ENGLISH, include_calendar: 
     completed = _completed(engine, day)
     marks = _block(lambda: _sleep_marks(engine, rt, day, settings.timezone))
     recovery = _recovery(engine, day, settings.timezone)
-    load = _load(engine, day, settings.athlete, rt)
+    load = _load(engine, day, rt)
     _today_zones(engine, rt, day, settings.athlete)
     plan = plan_q.plan(
         engine,
@@ -684,19 +684,16 @@ def _reading_value(block) -> float | None:
 # Load ---------------------------------------------------------------------------------
 
 
-def _load(engine: Engine, today: date, athlete: dict | None, rt) -> dict[str, Any]:
+ACWR_DAYS = 28
+
+
+def _load(engine: Engine, today: date, rt) -> dict[str, Any]:
     # Form (CTL/ATL/TSB) is the shared 180-day snapshot. ACWR uses the same own
     # (VibeSynergy) loads over the last 28 days, so every load number comes from one model.
-    current = training.current_load(rt, today)
-    pmc = training.training_load(
-        engine,
-        Window(today - timedelta(days=27), today),
-        athlete=athlete,
-        load="vibesynergy",
-        raw=getattr(rt, "raw", None),
-        parquet=getattr(rt, "parquet", None),
-    )
-    loads = [row[1] for row in pmc["rows"]]
+    # One 180-day series (#203): its last 28 days are the ACWR's, as the same loads a
+    # separate 28-day window with its own warm-up gave.
+    current, rows = training.load_snapshot(rt, today)
+    loads = [row[1] for row in rows[-ACWR_DAYS:]]
     acute = statistics.fmean(loads[-7:]) if loads else 0.0
     chronic = statistics.fmean(loads) if loads else 0.0
     with engine.connect() as conn:
@@ -705,9 +702,8 @@ def _load(engine: Engine, today: date, athlete: dict | None, rt) -> dict[str, An
                 activity_unified.c.local_date <= today
             )
         ).scalar()
-    merged = {**(pmc["current"] or {}), **current}
     return {
-        **merged,
+        **current,
         "acwr": round(acute / chronic, 2) if chronic else None,
         "days_since_training": (today - last).days if last else None,
     }

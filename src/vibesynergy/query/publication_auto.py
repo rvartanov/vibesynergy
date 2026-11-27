@@ -70,9 +70,9 @@ DONE = ("published", "needs_review", "gave_up", KEPT)
 
 
 def _settings(rt) -> dict[str, Any]:
-    from vibesynergy.core.config import load_settings
+    from vibesynergy.core.config import current_publication
 
-    return load_settings(rt.settings.config_path).publication
+    return current_publication(rt.settings.config_path)
 
 
 def enabled(rt) -> bool:

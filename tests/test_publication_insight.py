@@ -57,7 +57,9 @@ def write(runtime, key, **kwargs):
 
 def audits(runtime, action):
     with runtime.engine.connect() as conn:
-        rows = conn.execute(select(audit_log).where(audit_log.c.action == action))
+        rows = conn.execute(
+            select(audit_log).where(audit_log.c.action == action).order_by(audit_log.c.id)
+        )
         return rows.mappings().all()
 
 
