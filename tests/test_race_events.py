@@ -507,3 +507,27 @@ def test_own_agent_writes_at_once_and_the_coach_runner_proposes(rt) -> None:
         {"reason": "nog eens", "name": "Veluwecross", "date": day, "sport": "run"},
     )
     assert is_error and "already" in text  # a proposal that can never be carried out
+
+
+def test_a_one_day_race_read_back_with_the_next_day_as_end_is_not_rewritten(rt) -> None:
+    """intervals.icu returns a one-day event with ``end_date_local`` set to the next day.
+    That is the copy as written, not another app's change: no rewrite, no put-back."""
+    _icu(rt, [])
+    today = _today(rt)
+    day = today + timedelta(days=20)
+    client = FakeIcu()
+    ident = race_events.add(
+        rt.engine,
+        {"name": "Winter 10 km", "date": day, "sport": "run", "priority": "C"},
+        reason="Ingeschreven",
+        author="test",
+    )["race"]["id"]
+    assert race_mirror.mirror(rt.engine, client, today=today)["created"] == [ident]
+    (copy,) = client.events.values()
+    # The next sync reads the copy back the way intervals.icu returns it.
+    _icu(rt, [{**copy, "end_date_local": f"{(day + timedelta(days=1)).isoformat()}T00:00:00"}])
+    client.calls.clear()
+    for _ in range(4):
+        out = race_mirror.mirror(rt.engine, client, today=today)
+        assert out["unchanged"] == 1 and out["put_back"] == [] and out["updated"] == []
+    assert client.calls == []

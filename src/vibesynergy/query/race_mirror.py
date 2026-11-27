@@ -87,12 +87,19 @@ def fingerprint(want: dict[str, Any]) -> str:
 
 def _cached_shape(row: dict[str, Any]) -> dict[str, Any]:
     raw = row.get("raw") or {}
-    end = raw.get("end_date_local")
+    end = date.fromisoformat(str(raw["end_date_local"])[:10]) if raw.get("end_date_local") else None
+    start = row.get("date")
+    if isinstance(start, str):
+        start = date.fromisoformat(start[:10])
+    if end is not None and start is not None and end == start + timedelta(days=1):
+        # intervals.icu reads a one-day event back with the next day as its end: that is the
+        # copy as written (no end date), not another app's change.
+        end = None
     return {
         "category": row.get("category"),
         "name": row.get("name"),
         "date": row.get("date"),
-        "end": date.fromisoformat(str(end)[:10]) if end else None,
+        "end": end,
         "type": row.get("type") or None,
         "description": (row.get("description") or "").strip(),
     }
