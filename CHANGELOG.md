@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.32 – 27-11-2026
+
 - Behind the scenes: the service repeats less work. The publishing settings are read from disk only when the file changed, the start page computes the training load once instead of four times and keeps the gear usage until a sync or gear change, finished jobs older than 30 days are removed once a day, and the audit log has indexes for its lookups. Nothing changes in the app (#203).
 
 ## 0.1.0-beta.0.31 – 27-11-2026
