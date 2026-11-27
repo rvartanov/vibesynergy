@@ -15,7 +15,7 @@ steps of `.github/workflows/ci.yml`, one command per step:
 ```bash
 VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_coach_runner_a11y.py tests/test_login_a11y.py tests/test_bug_report_a11y.py tests/test_future_day_a11y.py tests/test_workout_page_a11y.py tests/test_workout_gear_a11y.py tests/test_workout_media_a11y.py -q
 VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_language_appearance.py tests/test_portal_polish.py -q
-VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_dashboard_phone.py tests/test_alert_click_dismiss.py tests/test_chart_fit_browser.py -q
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_dashboard_phone.py tests/test_alert_click_dismiss.py tests/test_chart_fit_browser.py tests/test_first_load_browser.py -q
 VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_settings_tabs.py tests/test_start_page_browser.py tests/test_portal_quicklog.py -q
 VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright --with radicale pytest tests/test_caldav_radicale_e2e.py -q
 ```
@@ -119,10 +119,10 @@ In a pull request:
   end of `ITEMS` in `src/vibesynergy/releases.py`: an id (`"<number>-<word>"`), the audience
   (`"you"`, the person using the portal, or `"ai"`, AI coaches and AI apps, for MCP and
   harness changes) and a short English text by the communication rule, with its Dutch in
-  `portal/static/i18n/nl.json` (and the same key in `en.json`). Items for `you` show once in
-  the "What changed" card after the update and then under Waiting for you → Notices; items
-  for `ai` go into `vibesynergy_coach_handbook` (`what_changed`) and the MCP server
-  information. Small fixes get no items.
+  `portal/static/i18n/nl.json` (`en.json` only holds the few texts whose English is not the
+  key itself). Items for `you` show once in the "What changed" card after the update and
+  then under Waiting for you → Notices; items for `ai` go into `vibesynergy_coach_handbook`
+  (`what_changed`) and the MCP server information. Small fixes get no items.
 - **Features**: a feature that is added, changed or removed is updated in FEATURES.md, in its
   area.
 - **Internal only** (refactor, tests, CI, docs for developers): add the label `no-changelog`.

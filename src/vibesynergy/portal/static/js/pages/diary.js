@@ -70,6 +70,9 @@ function entryFlags(entryForms) {
   };
 }
 
+// Roots that already clear the message when a form is sent.
+const flashCleared = new WeakSet();
+
 /** Draw the diary (history, complaints and the full entry forms) into `root` on the start page.
  * `section` is kept in the address when the period changes, so the page reopens here. */
 export async function mountDiary(root, ctx, { embedded = false, hashBase, skipHeading = false, entryForms = true, section = null } = {}) {
@@ -173,11 +176,16 @@ export async function mountDiary(root, ctx, { embedded = false, hashBase, skipHe
     },
   });
 
-  root.addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button || button.type !== "submit") return;
-    clearFlash();
-  });
+  // The diary redraws into the same root after every save: one listener, not one per save.
+  if (!flashCleared.has(root)) {
+    flashCleared.add(root);
+    root.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || button.type !== "submit") return;
+      const flash = root.querySelector(".flash");
+      if (flash) flash.innerHTML = "";
+    });
+  }
 
   if (!forms.checkin && !forms.note && !forms.pain) return;
 

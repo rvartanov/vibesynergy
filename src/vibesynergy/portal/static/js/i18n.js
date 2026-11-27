@@ -1,5 +1,7 @@
 // Translations. English text is the catalogue key; values take {name} placeholders.
-// Catalogues live in static/i18n/{en,nl}.json (a test requires the same keys in both).
+// Catalogues live in static/i18n/{en,nl}.json. nl.json has every key; en.json only the few
+// whose English is not the key itself (the design system's ids), so a text missing from a
+// catalogue shows as its key.
 // The choice is kept on this device (localStorage, like the theme) and, when the portal
 // can save preferences, also on the server so alerts match. auto follows the browser.
 const STORAGE_KEY = "vibesynergy-language";

@@ -1,12 +1,8 @@
-/* VibeSynergy portal. Colours are role tokens; dark mode has its own validated steps. */
+/* VibeSynergy portal. Colours are role tokens; dark mode has its own validated steps.
+   The colour roles (--page, --surface, --ink, --ink-2, --muted, colour-scheme) and --radius
+   live in design-tokens.css and design.css; these are the chart and fill tokens only. */
 
 :root {
-  color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
   --grid: #e1e0d9;
   --axis: #c3c2b7;
   --ring: rgba(11, 11, 11, 0.10);
@@ -15,18 +11,11 @@
   --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
   --seq-100: #cde2fb; --seq-300: #6da7ec; --seq-500: #256abf; --seq-700: #0d366b;
   --cov-1: #b7d3f6; --cov-2: #6da7ec; --cov-3: #2a78d6; --cov-4: #104281;
-  --radius: 10px;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --ink: #ffffff;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
     --grid: #2c2c2a;
     --axis: #383835;
     --ring: rgba(255, 255, 255, 0.10);
@@ -38,12 +27,6 @@
 }
 
 :root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
   --grid: #2c2c2a;
   --axis: #383835;
   --ring: rgba(255, 255, 255, 0.10);

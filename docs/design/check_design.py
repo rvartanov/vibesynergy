@@ -46,10 +46,9 @@ def check_design_tokens():
         assert count == 3, f"{palette}: {count} blocks, expected light, dark and system dark"
 
 
-# style.css predates design-tokens.css and keeps a few of its own role tokens (notably
-# --muted) that design.css overrides per theme with literal hex, since they must stay
-# readable against the newer --page/--surface from design-tokens.css, not style.css's
-# original warm-palette values. Check the actual cascade result, not either file alone.
+# --muted is set per theme in design.css with literal hex (style.css's original warm-palette
+# value is gone, #208); it must stay readable against --page/--surface from
+# design-tokens.css. Check the two files together.
 def check_legacy_muted():
     tokens_css = (
         Path(__file__).parents[2] / "src/vibesynergy/portal/static/css/design-tokens.css"

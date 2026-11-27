@@ -32,6 +32,7 @@ def dutch() -> dict[str, str]:
 
 
 def english() -> dict[str, str]:
+    """Only the entries whose English is not the key itself; every other key shows as is."""
     return json.loads((STATIC / "i18n" / "en.json").read_text())
 
 
@@ -41,26 +42,20 @@ def test_every_portal_text_has_a_dutch_translation() -> None:
     assert not missing, f"add to static/i18n/nl.json: {json.dumps(missing, indent=1)}"
 
 
-def test_nl_and_en_catalogues_have_the_same_keys() -> None:
-    nl, en = dutch(), english()
-    assert set(nl) == set(en), json.dumps(
-        {"only_nl": sorted(set(nl) - set(en)), "only_en": sorted(set(en) - set(nl))},
-        indent=1,
-        ensure_ascii=False,
-    )
-
-
 # The design system's catalog keys: msg.* message types and sport.* sport names. They
 # are ids, not English text, so the same word can mean two things ("Run": a sport, a button).
 DESIGN_SYSTEM_KEY = re.compile(r"(msg|sport)\.[a-z]+")
 
 
-def test_english_catalogue_keeps_the_source_text() -> None:
-    for key, value in english().items():
-        if DESIGN_SYSTEM_KEY.fullmatch(key):
-            assert value.strip() and value != key, key
-            continue
-        assert value == key, key
+def test_english_catalogue_holds_only_the_design_system_labels() -> None:
+    """English text is its own key, so en.json is not downloaded for nothing (#208): it
+    holds the design system's ids and their English label, and nothing that maps a text to
+    itself. Every other key falls back to the key (see the node test below)."""
+    nl, en = dutch(), english()
+    assert set(en) <= set(nl), sorted(set(en) - set(nl))
+    for key, value in en.items():
+        assert DESIGN_SYSTEM_KEY.fullmatch(key), f"remove from static/i18n/en.json: {key}"
+        assert value.strip() and value != key, key
 
 
 def test_design_system_labels_are_in_both_catalogues() -> None:
@@ -71,12 +66,6 @@ def test_design_system_labels_are_in_both_catalogues() -> None:
     nl, en = dutch(), english()
     assert not labels - set(nl) and not labels - set(en), sorted(labels - (set(nl) & set(en)))
     assert nl["sport.run"] == "Hardlopen" and en["sport.run"] == "Run"
-
-
-def test_every_portal_text_is_in_both_catalogues() -> None:
-    keys = set(dutch()) & set(english())
-    missing = {text: where for text, where in texts().items() if text not in keys}
-    assert not missing, f"add to static/i18n/en.json and nl.json: {json.dumps(missing, indent=1)}"
 
 
 def test_metric_labels_have_a_dutch_translation() -> None:
@@ -219,9 +208,9 @@ def unused_keys(keys: list[str]) -> list[str]:
 
 def test_every_catalogue_key_is_used() -> None:
     """A text that no page or server code asks for any more leaves both catalogues."""
-    unused = unused_keys(list(english()))
+    unused = unused_keys(sorted(set(dutch()) | set(english())))
     assert not unused, (
-        f"remove from static/i18n/en.json and nl.json ({len(unused)} unused): "
+        f"remove from static/i18n/nl.json (and en.json) ({len(unused)} unused): "
         f"{json.dumps(unused, indent=1, ensure_ascii=False)}"
     )
 
@@ -325,6 +314,11 @@ if (language() !== 'nl' || t('Language') !== 'Taal' || t('Settings') !== 'Instel
 persistLanguage('en');
 await setLanguage(storedLanguage());
 if (language() !== 'en' || t('Language') !== 'Language') throw new Error('english');
+// en.json has only the design system's labels; everything else is the key itself.
+if (t('sport.run') !== 'Run' || t('A text no catalogue has') !== 'A text no catalogue has') {
+  throw new Error('english fallback');
+}
+if (t('{n} days', { n: 3 }) !== '3 days') throw new Error('english placeholder');
 process.stdout.write('ok\n');
 """
     result = subprocess.run(

@@ -1,8 +1,8 @@
 /* UI design v1: shared roles and controls, retaining page routes and existing layouts. */
-/* --muted (style.css) kept its old warm-palette value, which fails 4.5:1 against the newer
-   --page/--surface (checked with docs/design/check_design.py's contrast formula: 3.3-3.6:1
-   light, 4.2-4.9:1 dark). Retune it in the same cool blue-grey family as --ink/--secondary,
-   lighter (light theme) or darker (dark theme) than --ink-2 but still >=4.5:1 on both roles. */
+/* --muted (once in style.css, with an old warm-palette value that failed 4.5:1 against the
+   newer --page/--surface) lives here, in the same cool blue-grey family as --ink/--secondary,
+   lighter (light theme) or darker (dark theme) than --ink-2 but still >=4.5:1 on both roles
+   (docs/design/check_design.py). */
 :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
   --ink-2: var(--secondary);
   --zone-0: var(--secondary); --zone-other: var(--secondary);
@@ -157,7 +157,7 @@ html { scroll-padding-top: 8rem; }
    it is 4.41:1 on white and 4.11:1 on the dark surface. Use the action role instead. */
 .linkish { color: var(--action); text-decoration: underline; text-underline-offset: 3px; }
 .table-wrap:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
-.card, .fill-source, .ai-connection { border-color: var(--line); }
+.card, .fill-source { border-color: var(--line); }
 /* Row headers share the row's divider, so a row reads as one line (and the last row has none). */
 tbody th { color: var(--ink); font-size: 14px; font-weight: 600; padding: 8px; border-bottom: 1px solid var(--grid); }
 tbody tr:last-child th { border-bottom: 0; }
@@ -212,9 +212,6 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 /* Settings → Publishing and sync: one status line per connection, chip text first. */
 .sync-status { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: grid; gap: var(--space-2); }
 .sync-status li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
-.agent-links { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: grid; gap: var(--space-5); }
-.agent-link { border-top: 1px solid var(--subtle); padding-top: var(--space-4); }
-.agent-link:first-child { border-top: 0; padding-top: 0; }
 [data-sport-row].settings-grid { grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-2); margin: 0; }
 [data-sport-methods] { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: var(--space-3); }
 [data-sport-methods] > label { display: flex; flex-direction: column; gap: var(--space-1); font-size: 13px; color: var(--ink-2); }

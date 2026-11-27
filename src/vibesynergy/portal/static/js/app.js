@@ -1,5 +1,5 @@
 // Portal shell: hash routes (#/dashboard, #/dashboard/2026-09-25, …), theme switch, footer.
-import { get, invalidateMeta, meta, setMetaMaxAge } from "./api.js";
+import { get, invalidateMeta, meta, prefs as loadAllPrefs, setMetaMaxAge } from "./api.js";
 import { calendarDay, shouldAutoRefresh } from "./refresh_policy.js";
 import { bindBugReport } from "./bugreport.js";
 import { ago, esc } from "./format.js";
@@ -535,7 +535,7 @@ function dayChanged(now = new Date()) {
 
 async function loadRefresh() {
   try {
-    const prefs = (await get("prefs")).data;
+    const prefs = (await loadAllPrefs()).data;
     refreshMin = prefs.refresh_min ?? 5;
   } catch {
     // shared view: the default

@@ -3,7 +3,7 @@
 // body and measurements, best runs and the diary, as blocks you can reorder and hide.
 // #/today, #/day/<date>, #/diary and #/calendar land here.
 import { captureViewState, restoreViewState } from "../refresh_state.js";
-import { get, post } from "../api.js";
+import { get, post, prefs as loadAllPrefs } from "../api.js";
 import { recoverySummaryText } from "../recovery_summary.js";
 import { dashboardCoachingHtml, dashboardCoachingPlan, dayCoachingHtml } from "../daily_review.js";
 import { adviceHtml, adviceLevel, bindAdviceRefresh, tomorrowAdviceHtml } from "../daily_advice.js";
@@ -87,7 +87,7 @@ export async function render(view, { args, query, meta, stale }) {
     showBoard ? get("dashboard") : null,
     showDay ? get("today", { date }) : null,
     // Block order and hidden blocks; a shared view has no prefs and gets the defaults.
-    share ? {} : get("prefs").then((reply) => reply.data || {}, () => ({})),
+    share ? {} : loadAllPrefs().then((reply) => reply.data || {}, () => ({})),
     // Known before the page is drawn, so an empty Body block never flashes by. When it
     // fails the block is drawn and reports it.
     showMeasured ? get("body-summary", { date }).then((reply) => reply.data, () => null) : null,

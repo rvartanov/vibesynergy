@@ -34,7 +34,8 @@ def test_semantic_colours_have_one_home() -> None:
 
 
 def test_vendored_icons_match_the_svg_files() -> None:
-    """The inline icons (ds_icons.js) and the CSS mask files (vendor/lucide) are one set."""
+    """The CSS mask files (vendor/lucide) are the inline icons' shapes (ds_icons.js), and
+    only the ones design.css loads are shipped (the sport icons are inline only, #208)."""
     import re
 
     static = Path(__file__).parents[1] / "src/vibesynergy/portal/static"
@@ -42,13 +43,15 @@ def test_vendored_icons_match_the_svg_files() -> None:
         re.findall(r'^  "([\w-]+)": "(.*)",$', (static / "js/ds_icons.js").read_text(), re.M)
     )
     assert len(icons) == 16
-    for name, body in icons.items():
-        svg = (static / f"vendor/lucide/{name}.svg").read_text()
-        assert body.replace('\\"', '"') in svg, name
-        assert 'aria-hidden="true"' in svg
     css = (static / "css/design.css").read_text()
-    for name in re.findall(r'url\("\.\./vendor/lucide/([\w-]+)\.svg"\)', css):
+    used = set(re.findall(r'url\("\.\./vendor/lucide/([\w-]+)\.svg"\)', css))
+    shipped = {path.stem for path in (static / "vendor/lucide").glob("*.svg")}
+    assert used == shipped, {"unused": sorted(shipped - used), "missing": sorted(used - shipped)}
+    for name in used:
         assert name in icons, name
+        svg = (static / f"vendor/lucide/{name}.svg").read_text()
+        assert icons[name].replace('\\"', '"') in svg, name
+        assert 'aria-hidden="true"' in svg
     assert (static / "vendor/lucide/LICENSE").exists()
     index = (static / "index.html").read_text()
     assert (
@@ -88,8 +91,5 @@ def test_layout_tokens_match_design_contract() -> None:
 
 
 def test_legacy_muted_token_contrast() -> None:
-    """style.css's --muted, overridden per theme in design.css, against the current
-
-    --page/--surface from design-tokens.css (not style.css's own older values).
-    """
+    """design.css's --muted, per theme, against --page/--surface from design-tokens.css."""
     _load().check_legacy_muted()

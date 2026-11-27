@@ -207,10 +207,10 @@ def test_portal_texts_name_no_model_or_provider() -> None:
     nl, en = _catalogue("nl"), _catalogue("en")
     assert set(nl) >= PROVIDER_SETTINGS_TEXTS, "an exemption that no longer exists"
     found = {}
-    for key in en:
+    for key in nl:  # en.json only has the entries whose English is not the key (#208)
         if key in PROVIDER_SETTINGS_TEXTS:
             continue
-        names = named_models(f"{key}\n{en[key]}\n{nl[key]}")
+        names = named_models(f"{key}\n{en.get(key, key)}\n{nl[key]}")
         if names:
             found[key] = names
     assert not found, found
