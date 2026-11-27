@@ -442,46 +442,6 @@ activity_purpose_override = Table(
     Column("auto_mark", String),
 )
 
-equipment_location = Table(
-    "equipment_location",
-    metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("key", String, nullable=False),
-    Column("name", String, nullable=False),
-    Column("created_at", UTCDateTime, nullable=False),
-    Column("updated_at", UTCDateTime, nullable=False),
-    UniqueConstraint("key", name="uq_equipment_location_key"),
-)
-
-equipment_item = Table(
-    "equipment_item",
-    metadata,
-    Column("id", Integer, primary_key=True, autoincrement=True),
-    Column(
-        "location_id",
-        Integer,
-        ForeignKey("equipment_location.id"),
-        nullable=False,
-    ),
-    Column("item", String, nullable=False),
-    Column("category", String, nullable=False),
-    Column("status", String, nullable=False),
-    Column("source", String),
-    Column("last_verified", Date),
-    Column("gear_id", String),
-    Column("garmin_catalogue_key", String),
-    Column("notes", Text),
-    Column("created_at", UTCDateTime, nullable=False),
-    Column("updated_at", UTCDateTime, nullable=False),
-    UniqueConstraint(
-        "location_id",
-        "item",
-        "category",
-        name="uq_equipment_item_location_item_category",
-    ),
-    Index("ix_equipment_item_location_status", "location_id", "status"),
-)
-
 athlete_threshold = Table(
     "athlete_threshold",
     metadata,

@@ -313,81 +313,50 @@ def test_migration_0022_athlete_threshold_table(tmp_path):
         engine.dispose()
 
 
-def test_migration_0024_equipment_tables(tmp_path):
-    from alembic.autogenerate import compare_metadata
-    from alembic.runtime.migration import MigrationContext
+def test_migration_0070_drops_empty_equipment_register(tmp_path):
     from sqlalchemy import inspect
 
     from vibesynergy.store import db
-    from vibesynergy.store.schema import metadata
 
     engine = db.create_db_engine(tmp_path / "equip.db")
     try:
-        db.upgrade(engine, "0023")
+        db.upgrade(engine, "0069")
+        assert {"equipment_item", "equipment_location"} <= set(inspect(engine).get_table_names())
         db.upgrade(engine)
         tables = set(inspect(engine).get_table_names())
-        assert "equipment_location" in tables
-        assert "equipment_item" in tables
-        with engine.connect() as conn:
-            assert compare_metadata(MigrationContext.configure(conn), metadata) == []
+        assert "equipment_item" not in tables
+        assert "equipment_location" not in tables
     finally:
         engine.dispose()
 
 
-def test_equipment_upsert_idempotent(runtime):
-    from vibesynergy.query import equipment
+def test_migration_0070_keeps_a_used_equipment_register(tmp_path, caplog):
+    import logging
 
-    first = equipment.upsert_item(
-        runtime.engine,
-        "home",
-        "resistance bands",
-        "gym_kit",
-        "confirmed",
-    )
-    second = equipment.upsert_item(
-        runtime.engine,
-        "home",
-        "resistance bands",
-        "gym_kit",
-        "unknown",
-    )
-    assert first == second
-    rows = equipment.list_items(runtime.engine, location_key="home")
-    assert len([r for r in rows if r["item"] == "resistance bands"]) == 1
-    assert rows[0]["status"] == "unknown"
+    from sqlalchemy import inspect, text
 
+    from vibesynergy.store import db
 
-def test_equipment_prescribable_only_confirmed(runtime):
-    from vibesynergy.query import equipment
-
-    equipment.upsert_item(runtime.engine, "pool", "kickboard", "pool_kit", "confirmed")
-    equipment.upsert_item(runtime.engine, "pool", "snorkel", "pool_kit", "unknown")
-    equipment.upsert_item(runtime.engine, "pool", "broken fins", "pool_kit", "unavailable")
-    confirmed = equipment.confirmed_items(runtime.engine, "pool")
-    prescribable = equipment.prescribable_items(runtime.engine, "pool")
-    assert {row["item"] for row in confirmed} == {"kickboard"}
-    assert prescribable == confirmed
-
-
-def test_workout_prompt_excludes_non_confirmed_equipment(runtime):
-    from vibesynergy.query import coach, equipment
-
-    equipment.upsert_item(runtime.engine, "home", "dynabands", "gym_kit", "confirmed")
-    equipment.upsert_item(runtime.engine, "home", "foam roller", "gym_kit", "unknown")
-    prompt = coach.workout_prompt_context(runtime.engine, "home")
-    names = {row["item"] for row in prompt["equipment_register"]["items"]}
-    assert "dynabands" in names
-    assert "foam roller" not in names
-    assert coach.WORKOUT_EQUIPMENT_RULE in prompt["equipment_register"]["rule"]
-
-
-def test_equipment_invalid_status(runtime):
-    import pytest
-
-    from vibesynergy.query import equipment
-
-    with pytest.raises(ValueError, match="status must be"):
-        equipment.upsert_item(runtime.engine, "home", "x", "gym_kit", "maybe")
+    engine = db.create_db_engine(tmp_path / "equip.db")
+    try:
+        db.upgrade(engine, "0069")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO equipment_location (key, name, created_at, updated_at) "
+                    "VALUES ('home', 'Home', '2026-01-01 00:00:00', '2026-01-01 00:00:00')"
+                )
+            )
+        with caplog.at_level(logging.WARNING, logger="vibesynergy.store.migrations"):
+            db.upgrade(engine)
+        tables = set(inspect(engine).get_table_names())
+        assert {"equipment_item", "equipment_location"} <= tables
+        assert "equipment_location still has rows" in caplog.text
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT count(*) FROM equipment_location")).scalar() == 1
+            assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0070"
+    finally:
+        engine.dispose()
 
 
 def test_oauth_mcp_identity_not_clobbered():

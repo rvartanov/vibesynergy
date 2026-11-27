@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- Removed the unused workout-equipment register (the `equipment_item` and `equipment_location` tables). The tables are dropped only when they are empty; an install with rows keeps them and logs a warning. The Gear page and your coach's "Equipment" items to remember are unchanged (#211).
+
 ## 0.1.0-beta.0.36 – 27-11-2026
 
 - The portal's start page loads faster: in English it no longer downloads a 260 KB word list it did not need, the map is only loaded on an activity with a route, and your preferences are fetched once instead of three times (#208).

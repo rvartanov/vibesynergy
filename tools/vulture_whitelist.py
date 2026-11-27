@@ -95,8 +95,6 @@ _.UI_STRINGS  # the i18n catalogue guard reads the OAuth page's strings
 # --- Known leftovers: no caller in src, not part of #202 ---------------------------------
 # Remove these in a follow-up (with the tests that only test them), then drop them here.
 
-_.upsert_item  # query/equipment.py: #211
-_.workout_prompt_context  # query/coach.py
 _.portal_address  # portal/hosts.py: old alias of canonical_url
 _.OPTIONAL  # coach_runner/model.py
 _.AI_COACH_AUTHOR  # mcp/identity.py
