@@ -75,11 +75,21 @@ def test_version_order_and_the_next_number() -> None:
         releases.version_key("0.0.1a1")
 
 
+def _pep440(version: str) -> str:
+    """The package version for a line: ``0.1.0-beta.0.N`` -> ``0.1.0b0``, ``1.0.3`` -> itself.
+    pyproject.toml keeps this one, so it changes only with the minor or the beta line."""
+    if m := releases._BETA.match(version):
+        major, minor, patch, line, _ = m.groups()
+        return f"{major}.{minor}.{patch}b{line}"
+    assert releases._FINAL.match(version), version
+    return version
+
+
 def test_pyproject_keeps_a_pep440_version_for_the_line() -> None:
     from packaging.version import Version
 
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
-    assert project["version"] == releases.pep440(releases.VERSION) == "0.1.0b0"
+    assert project["version"] == _pep440(releases.VERSION) == "0.1.0b0"
     assert str(Version(project["version"])) == project["version"]
 
 

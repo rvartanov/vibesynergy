@@ -10,7 +10,7 @@ from mcp import Client
 
 from vibesynergy.mcp.server import build_server
 from vibesynergy.portal.app import create_portal_app
-from vibesynergy.query import athlete_threshold, coach
+from vibesynergy.query import coach
 from vibesynergy.sync.scheduler import Scheduler
 
 WRITE = {"x-vibesynergy": "portal", "origin": "http://127.0.0.1:8447"}
@@ -38,24 +38,6 @@ def test_schedule_save_reloads_without_queueing_or_restart(runtime) -> None:
     assert body["restart_needed"] is False
     assert scheduler._next["dropfolder"] == 60
     assert [job["id"] for job in runtime.jobs.recent(limit=20)] == before
-
-
-def test_threshold_edit_stays_local(runtime) -> None:
-    reply = _client(runtime).post(
-        "/api/athlete/thresholds",
-        json={"lthr": 170, "threshold_pace": 4.5},
-        headers=WRITE,
-    )
-    assert reply.status_code == 200
-    saved = reply.json()["data"]["thresholds"]
-    assert saved["lthr"]["value"] == 170
-    assert saved["lthr"]["unit"] == "bpm"
-    assert saved["threshold_pace"]["value"] == 4.5
-    assert saved["threshold_pace"]["unit"] == "min/km"
-    current = athlete_threshold.current_thresholds(runtime.engine)["run"]
-    assert current["lthr"]["value"] == 170
-    too_high = _client(runtime).post("/api/athlete/thresholds", json={"lthr": 20}, headers=WRITE)
-    assert too_high.status_code == 400
 
 
 def test_coach_notes_are_readable_and_not_writable_by_the_tool(runtime) -> None:

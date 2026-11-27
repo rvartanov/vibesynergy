@@ -476,27 +476,6 @@ def register(kit: PortalKit) -> None:
         data["seconds"] = round((datetime.now(UTC) - started).total_seconds(), 3)
         return envelope(data)
 
-    @router.get("/metric-status")
-    def metric_status_page(
-        metric: str,
-        source: str,
-        dataset: str,
-        start: str,
-        end: str,
-        previous_version: str | None = None,
-    ) -> dict[str, Any]:
-        """Source/dataset-specific metric coverage and stage freshness."""
-        return envelope(
-            views.metric_status(
-                engine,
-                metric,
-                source,
-                dataset,
-                Window(date.fromisoformat(start), date.fromisoformat(end)),
-                previous_version=previous_version,
-            )
-        )
-
     @router.post("/resync")
     def resync(request: ResyncRequest) -> dict[str, Any]:
         """Queue a sync of one source (optionally one dataset) for a period. Up to a month

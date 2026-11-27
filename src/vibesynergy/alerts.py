@@ -412,7 +412,7 @@ def collect(rt: Any, today: date, since: datetime | None = None) -> list[Alert]:
     # The contact window (#119): an AI coach's messages wait while it is closed.
     from vibesynergy.coach_runner import contact
 
-    out += _daily(rt, contact.coach_since(rt, since), today)
+    out += _daily(rt, contact.coach_since(rt, since))
     out += _expiring_tokens(rt)
     out += _plan_conflicts(rt)
     out += _group_trainings(rt, today)
@@ -549,12 +549,9 @@ def _history(rt: Any, since: datetime | None) -> list[Alert]:
     return out
 
 
-def _daily(rt: Any, since: datetime | None, delivery_day: date | None = None) -> list[Alert]:
-    """A new morning note from a coach. This reads the coach feed, not internal reviews.
-
-    ``delivery_day`` is unused. The alert is the note itself, not a generated review.
-    """
-    del delivery_day
+def _daily(rt: Any, since: datetime | None) -> list[Alert]:
+    """A new morning note from a coach. This reads the coach feed, not internal reviews:
+    the alert is the note itself, not a generated review."""
     if not since:
         return []
     from vibesynergy.store.schema import coach_decision_log

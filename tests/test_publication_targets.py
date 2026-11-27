@@ -17,7 +17,7 @@ from test_publication import DEFAULT_OPENER, garmin_activity
 from vibesynergy.core import config_edit
 from vibesynergy.core.errors import RateLimited
 from vibesynergy.query import publication, publication_auto, publication_plugins, workout_page
-from vibesynergy.store.schema import job, publication_mirror
+from vibesynergy.store.schema import publication_mirror
 
 
 class FakeStrava:
@@ -263,28 +263,6 @@ def test_publishing_starts_no_watch_and_reads_strava_only_to_publish(runtime, fa
     assert text_sync.due(runtime, now=datetime.now(UTC) + timedelta(hours=3)) is False
     assert strava.reads == reads
     assert "Strava words" not in garmin.text and garmin.titles == []
-
-
-def test_a_queued_check_from_before_ends_quietly(runtime):
-    now = datetime.now(UTC)
-    with runtime.engine.begin() as conn:
-        conn.execute(
-            job.insert().values(
-                kind="publication_mirror",
-                payload={},
-                status="queued",
-                priority=5,
-                run_after=now - timedelta(minutes=1),
-                attempts=0,
-                max_attempts=3,
-                created_at=now,
-            )
-        )
-    assert runtime.worker().run_once() is True
-    with runtime.engine.connect() as conn:
-        assert conn.scalar(select(job.c.status).where(job.c.kind == "publication_mirror")) == (
-            "done"
-        )
 
 
 def test_garmin_originals_from_the_old_copy_are_kept(runtime, fakes):

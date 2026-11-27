@@ -59,7 +59,6 @@ OWNER_ONLY = {
     ("POST", "/activity-texts"),
     ("POST", "/activity-texts/restore"),
     ("POST", "/activity-publish"),
-    ("POST", "/activity-gear"),  # gear choices are the owner's
     # The workout's gear card, your own gear and the gear mapping (#114): the owner's.
     ("GET", "/workout-gear"),
     ("POST", "/workout-gear"),

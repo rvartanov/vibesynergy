@@ -345,8 +345,8 @@ def test_activity_gear_is_identity_only(runtime) -> None:
 
 
 def test_exercise_catalog_fingerprint_is_stable() -> None:
-    first = workouts.exercise_catalog()
-    second = workouts.exercise_catalog()
+    first = workouts._load_catalog()[1]
+    second = workouts._load_catalog()[1]
     assert first == second
     assert first["duplicate_rows"] == 0
     labels, duplicates, fingerprint = workouts._index_exercise_rows(
@@ -367,23 +367,6 @@ def test_exercise_catalog_fingerprint_is_stable() -> None:
             ]
         )[2]
     )
-
-
-def test_exercise_references_mark_duplicate_and_unknown_steps() -> None:
-    resolved = workouts.exercise_references(
-        [
-            {"category": "BENCH_PRESS", "name": "BARBELL_BENCH_PRESS"},
-            {"category": "BENCH_PRESS", "name": "BARBELL_BENCH_PRESS"},
-            {"category": "MADE_UP_CATEGORY", "name": "NOT_A_REAL_ONE"},
-            {"name": "no category"},
-        ]
-    )
-    assert resolved["unique"] == 2 and resolved["unknown"] == 2
-    assert resolved["steps"][1]["duplicate"] is True and resolved["steps"][1]["duplicate_of"] == 0
-    assert resolved["steps"][1]["ref"] == resolved["steps"][0]["ref"]
-    assert resolved["steps"][3]["problem"] == "missing_category"
-    with pytest.raises(ValueError):
-        workouts.exercise_references("BENCH_PRESS")  # type: ignore[arg-type]
 
 
 def test_exercises_freshness_follows_activities_collection(runtime) -> None:
@@ -442,7 +425,7 @@ def test_gear_empty_garmin_snapshot_is_reported_not_merged(runtime) -> None:
     assert result["other_sources"]["garmin"]["item_count"] == 0
 
 
-def test_exercise_history_and_validation_share_one_identity(runtime) -> None:
+def test_exercise_history_shares_one_identity(runtime) -> None:
     messy = [
         {"category": " BENCH_PRESS ", "name": " BARBELL_BENCH_PRESS "},
         {"category": "BENCH_PRESS", "name": "BARBELL_BENCH_PRESS"},
@@ -458,20 +441,11 @@ def test_exercise_history_and_validation_share_one_identity(runtime) -> None:
         "p1",
     )
     history = workouts.exercises(runtime.engine)
-    steps = [s for s in messy if isinstance(s, dict)]
-    validation = workouts.exercise_references(steps)
     history_refs = {e["ref"]: e for e in history["exercises"]}
-    validated = {s["ref"]: s for s in validation["steps"] if s["ref"]}
-    assert set(history_refs) == set(validated)
     assert len(history_refs) == 3
-    for ref, entry in history_refs.items():
-        assert validated[ref]["known"] is entry["known"]
-        assert validated[ref]["label"] == entry["label"]
     assert history_refs["garmin:exercise:BENCH_PRESS/BARBELL_BENCH_PRESS"]["sessions"] == 1
-    assert history["catalog"] == validation["catalog"] == workouts.exercise_catalog()
-    assert validation["steps"][4]["problem"] == "missing_category"
-    assert validation["steps"][0]["ref"] == validation["steps"][1]["ref"]
-    assert validation["steps"][1]["duplicate_of"] == 0
+    assert history_refs["garmin:exercise:BENCH_PRESS/BARBELL_BENCH_PRESS"]["known"] is True
+    assert history["catalog"] == workouts._load_catalog()[1]
 
 
 def test_exercise_history_ignores_malformed_extra(runtime) -> None:

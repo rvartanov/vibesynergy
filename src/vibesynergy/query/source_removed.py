@@ -61,11 +61,6 @@ def live(conn, refs: Sequence[str] | None) -> list[str]:
     return [r for r in refs if r not in gone]
 
 
-def is_removed(engine, source: str, source_id: str) -> bool:
-    with engine.connect() as conn:
-        return bool(removed(conn, [f"{source}:{source_id}"]))
-
-
 def mark(engine, source: str, source_id: str, *, reason: str, now: datetime | None = None) -> None:
     """Record the removal once; a later mark keeps the first time and reason."""
     stmt = insert(source_removed).values(

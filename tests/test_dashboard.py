@@ -180,7 +180,6 @@ def test_dashboard_receives_new_and_corrected_activities(runtime) -> None:
     assert third["completed"]["changed_at"] > second["completed"]["changed_at"]
     assert "Vandaag één activiteit" in third["verdict"]["advice"]
     assert second["delivery"]["activity_sync"] == "idle"
-    assert second["delivery"]["follow_up"] == "idle"
     assert second["delivery"]["queried_at"] >= first["updated_at"]
     assert third["delivery"]["queried_at"] >= second["delivery"]["queried_at"]
 
@@ -190,7 +189,7 @@ def test_dashboard_coaching_state_degrades_for_unbacked_activity(runtime) -> Non
 
     from vibesynergy.core.timeutil import today_in, utc_now
     from vibesynergy.portal.api import build_router
-    from vibesynergy.query import assessments, coach
+    from vibesynergy.query import coach
     from vibesynergy.store.schema import activity_unified
 
     coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
@@ -219,9 +218,6 @@ def test_dashboard_coaching_state_degrades_for_unbacked_activity(runtime) -> Non
     data = route(request)["data"]
     assert data["completed"]["totals"]["count"] == 1
     assert "coaching_state" not in data
-    state = assessments.current_state(runtime)
-    assert state["freshness"] == "missing"
-    assert state["reason"] == "retired"
     with runtime.engine.begin() as conn:
         conn.execute(
             activity_unified.update()
@@ -230,21 +226,6 @@ def test_dashboard_coaching_state_degrades_for_unbacked_activity(runtime) -> Non
         )
     corrected = route(request)["data"]
     assert corrected["completed"]["activities"][0]["name"] == "Corrected synthetic workout"
-    assert assessments.current_state(runtime)["reason"] == "retired"
-
-
-def test_dashboard_coaching_state_uses_default_profile(runtime) -> None:
-    from starlette.requests import Request
-
-    from vibesynergy.portal.api import build_router
-    from vibesynergy.query import assessments
-
-    route = next(r.endpoint for r in build_router(runtime).routes if r.path == "/dashboard")
-    request = Request({"type": "http", "method": "GET", "path": "/dashboard", "headers": []})
-    assert "coaching_state" not in route(request)["data"]
-    state = assessments.current_state(runtime)
-    assert state["freshness"] == "missing"
-    assert state["profile"]["policy"]["version"] == 0
 
 
 def test_planned_session_follows_the_stored_workout(runtime) -> None:
@@ -339,7 +320,7 @@ def test_planned_session_follows_the_stored_workout(runtime) -> None:
     assert "Today's Easy run is done" in corrected["verdict"]["advice"]
 
 
-def test_stored_workout_stays_visible_while_sync_and_follow_up_change(runtime) -> None:
+def test_stored_workout_stays_visible_while_sync_changes(runtime) -> None:
     from vibesynergy.core.timeutil import today_in, utc_now
     from vibesynergy.query.dashboard import dashboard as build
     from vibesynergy.store.schema import activity_unified, dataset_state, raw_item
@@ -381,7 +362,6 @@ def test_stored_workout_stays_visible_while_sync_and_follow_up_change(runtime) -
     waiting = read()
     assert waiting["completed"]["totals"]["count"] == 0
     assert waiting["delivery"]["activity_sync"] == "running"
-    assert waiting["delivery"]["follow_up"] == "idle"
     assert "garmin_export" not in {row["source"] for row in waiting["delivery"]["sources"]}
     with runtime.engine.begin() as conn:
         conn.execute(
@@ -451,9 +431,8 @@ def test_stored_workout_stays_visible_while_sync_and_follow_up_change(runtime) -
     assert syncing["completed"]["activities"][0]["distance_m"] == 4000
     runtime.jobs.complete(sync_job)
     assert read()["delivery"]["activity_sync"] == "idle"
-    # An old assessment job kind is not a dashboard follow-up.
+    # An old assessment job kind changes nothing on the dashboard.
     runtime.jobs.enqueue("assess_activity", {"activity": "garmin:visible"}, dedupe_key="old")
-    assert read()["delivery"]["follow_up"] == "idle"
     with runtime.engine.begin() as conn:
         conn.execute(
             activity_unified.update()
@@ -463,7 +442,6 @@ def test_stored_workout_stays_visible_while_sync_and_follow_up_change(runtime) -
     corrected = read()
     assert corrected["completed"]["activities"][0]["name"] == "Corrected synthetic workout"
     assert corrected["completed"]["activities"][0]["distance_m"] == 4500
-    assert corrected["delivery"]["follow_up"] == "idle"
     assert corrected["delivery"]["activity_sync"] == "idle"
 
 

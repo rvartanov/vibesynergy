@@ -438,9 +438,9 @@ provider or model, and the server enforces them for every write tool
   `suspect`, `incomplete` or `bad`; `updated` is now one of its reasons).
 - Data: `vibesynergy_sync_status`, `vibesynergy_latency`, `vibesynergy_coverage`, `vibesynergy_metric_status`,
   `vibesynergy_refresh`, `vibesynergy_sql`
-- Shared coaching read: `vibesynergy_activity_assessment`, `vibesynergy_current_coaching_state`,
-  `vibesynergy_daily_coaching`. All read what the coach wrote (the coach feed) and the fixed
-  safety rules; none starts inference.
+- Shared coaching read: `vibesynergy_activity_assessment`, `vibesynergy_daily_coaching`. Both
+  read what the coach wrote (the coach feed) and the fixed safety rules; neither starts
+  inference.
 - Diary (phase 6): `vibesynergy_notes`, `vibesynergy_add_note`, `vibesynergy_edit_note`,
   `vibesynergy_checkin`, `vibesynergy_injuries`, `vibesynergy_log_injury` over
   `src/vibesynergy/query/journal.py`: notes for a day, a span or an activity with tags, a
@@ -1350,8 +1350,6 @@ Open-Meteo at its start and hour).
   used, each matched against Garmin's own workout-editor catalog (`known: true/false`) with
   a readable `label`, stable `ref`, session count and first/last date seen. `freshness` is
   the Garmin activities collection. `catalog.fingerprint` identifies the unique catalog rows.
-  Workout validation looks up the same catalog with `query/workouts.exercise_references()`;
-  no second catalog.
 
 #### `vibesynergy_profile`
 - Returns: current heart-rate and power zones and thresholds per sport, with their history

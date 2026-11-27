@@ -443,17 +443,6 @@ def next_version(version: str | None) -> str:
     raise ValueError(f"not a VibeSynergy version: {version!r}")
 
 
-def pep440(version: str) -> str:
-    """The package version for a line: ``0.1.0-beta.0.N`` → ``0.1.0b0``, ``1.0.3`` → ``1.0.3``.
-    pyproject.toml keeps this one, so it changes only with the minor or the beta line."""
-    if m := _BETA.match(version):
-        major, minor, patch, line, _ = m.groups()
-        return f"{major}.{minor}.{patch}b{line}"
-    if _FINAL.match(version):
-        return version
-    raise ValueError(f"not a VibeSynergy version: {version!r}")
-
-
 def items_of(release: Release, audience: str | None = None) -> list[Item]:
     by_id = {item.id: item for item in ITEMS}
     found = [by_id[i] for i in release.items if i in by_id]

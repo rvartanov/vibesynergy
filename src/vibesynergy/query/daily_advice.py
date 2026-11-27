@@ -334,7 +334,7 @@ def upcoming(rt, today: date, *, tr: Translator = ENGLISH) -> dict[str, Any] | N
     if not any(ai_safety(e.get("meta")) is not None for e in entries):
         return None
     try:
-        # The same call as the notice's (``report.advice_for``): the same colour and words.
+        # The same call as the dashboard's (``current``): the same colour and words.
         found = current(rt, day, tr=tr, trigger=False)
     except RuntimeError:  # no advice to show: neither the AI coach's nor the rules'
         return None

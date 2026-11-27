@@ -76,6 +76,11 @@ def ride(runtime, monkeypatch):
     return strava, garmin
 
 
+def _is_removed(runtime, source: str, source_id: str) -> bool:
+    with runtime.engine.connect() as conn:
+        return bool(source_removed.removed(conn, [f"{source}:{source_id}"]))
+
+
 def publish(runtime):
     item = publication.preview(runtime, "strava:2", "strava", language="nl")
     return publication.publish(
@@ -89,7 +94,7 @@ def test_publishing_goes_to_the_copy_that_is_left_and_stops_retrying(runtime, ri
     result = publish(runtime)
     assert result["others"]["garmin"] == {"state": "published", "removed": ["1"]}
     assert garmin.writes == ["3"] and PUBLIC in garmin.text["3"]
-    assert source_removed.is_removed(runtime.engine, "garmin", "1")
+    assert _is_removed(runtime, "garmin", "1")
     # The choice rule, the Garmin target and the figures all follow the copy that is left.
     assert publication_format.copy_id(runtime, "garmin:1", "garmin") == "3"
     assert publication._source_id(runtime, "garmin:1", "garmin") == "3"
@@ -166,7 +171,7 @@ def test_provider_rechecks_a_404_once_before_marking(runtime, monkeypatch):
     with pytest.raises(publication.Gone):
         _provider(runtime, monkeypatch, client).read("1")
     assert client.calls == ["1", "1"]
-    assert source_removed.is_removed(runtime.engine, "garmin", "1")
+    assert _is_removed(runtime, "garmin", "1")
 
 
 def test_a_single_404_is_not_a_removal(runtime, monkeypatch):
@@ -174,7 +179,7 @@ def test_a_single_404_is_not_a_removal(runtime, monkeypatch):
     client = _Client(misses=1)
     with pytest.raises(GarminConnectNotFoundError):
         _provider(runtime, monkeypatch, client).read("1")
-    assert not source_removed.is_removed(runtime.engine, "garmin", "1")
+    assert not _is_removed(runtime, "garmin", "1")
 
 
 def test_a_write_404_is_rechecked_with_a_read(runtime, monkeypatch):
@@ -223,7 +228,7 @@ def test_the_sync_check_finds_a_copy_garmin_no_longer_lists(runtime):
     back = _Source(listed={"1", "3"})
     summary = source_removed.check_recent(runtime.engine, back, _results(day), today=day)
     assert summary["restored"] == 1 and back.asked == []
-    assert not source_removed.is_removed(runtime.engine, "garmin", "1")
+    assert not _is_removed(runtime, "garmin", "1")
 
 
 def test_the_sync_check_marks_nothing_without_a_404(runtime):
@@ -232,7 +237,7 @@ def test_the_sync_check_marks_nothing_without_a_404(runtime):
     for source in (_Source(listed={"3"}), _Source(listed={"3"}, failing={"1"})):
         source_removed.check_recent(runtime.engine, source, _results(day), today=day)
         assert source.asked == ["1"]
-    assert not source_removed.is_removed(runtime.engine, "garmin", "1")
+    assert not _is_removed(runtime, "garmin", "1")
     # Old activities are not asked about: the check stays light.
     late = _Source(listed=set(), missing={"1", "3"})
     later = day + timedelta(days=30)

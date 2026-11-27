@@ -162,7 +162,7 @@ def test_default_roles_and_exactly_one_primary(runtime) -> None:
     assert roles.role_of(engine, "oa-new") == roles.OWN
     # Giving the primary role to an app takes it from the AI coach inside VibeSynergy.
     roles.set_role(engine, "oa-coach", roles.PRIMARY)
-    assert roles.primary_client(engine) == "oa-coach"
+    assert roles.role_of(engine, "oa-coach") == roles.PRIMARY
     assert roles.role_of(engine, roles.RUNNER_CLIENT) == roles.ADVISORY
     roles.set_role(engine, "oa-other", roles.PRIMARY)
     found = roles.stored(engine)

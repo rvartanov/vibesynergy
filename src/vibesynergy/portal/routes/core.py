@@ -21,7 +21,6 @@ from vibesynergy.portal.api import (
     TODAY_METRICS,
     TREND_DAYS,
     ActivityEffortRequest,
-    ActivityGearRequest,
     ActivityInsightCorrection,
     ActivityPublishTick,
     ActivityPurposeRequest,
@@ -401,11 +400,6 @@ def register(kit: PortalKit) -> None:
     def gear_default_route(request: GearDefaultRequest) -> dict[str, Any]:
         """Default gear per sport, from today on."""
         return envelope(workouts.set_gear_default(engine, request.sport, request.ref, today()))
-
-    @router.post("/activity-gear")
-    def activity_gear_route(request: ActivityGearRequest) -> dict[str, Any]:
-        """Change the gear of one activity; it counts in the totals at once."""
-        return envelope(workouts.set_activity_gear(engine, request.id, request.ref))
 
     @router.get("/workout-gear")
     def workout_gear_route(id: str) -> dict[str, Any]:

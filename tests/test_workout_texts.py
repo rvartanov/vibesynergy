@@ -164,9 +164,7 @@ def test_input_is_checked(runtime):
 def test_the_private_text_never_reaches_anything_public(runtime):
     group = _workout(runtime)
     workout_texts.set_texts(runtime.engine, group, private=SECRET, public="Voor iedereen")
-    public = workout_texts.public_texts(runtime.engine, group)
-    assert "private" not in public and SECRET not in json.dumps(public)
-    # Not in the activity view either (which share links and vibesynergy_activity show).
+    # Not in the activity view (which share links and vibesynergy_activity show).
     detail = views.activity_detail(runtime.engine, runtime.parquet, group)
     assert SECRET not in json.dumps(detail, default=str)
 

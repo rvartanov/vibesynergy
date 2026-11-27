@@ -207,11 +207,6 @@ class PatId(BaseModel):
     id: str
 
 
-class PatRename(BaseModel):
-    id: str
-    display_name: str = Field(min_length=1, max_length=80)
-
-
 class ClientRename(BaseModel):
     client_id: str
     display_name: str = Field(min_length=1, max_length=80)
@@ -257,14 +252,6 @@ class CoachRestore(CoachActivate):
 class CoachPreview(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     payload: dict[str, Any]
-
-
-class AthleteThresholds(BaseModel):
-    """Athlete edits on You. Stored locally. Nothing here is sent to Garmin."""
-
-    model_config = ConfigDict(extra="forbid")
-    lthr: float | None = None
-    threshold_pace: float | None = None
 
 
 def _with_conflicts(result: dict, kind: str) -> dict:
@@ -719,19 +706,6 @@ def build_settings_router(rt: Runtime) -> APIRouter:
                 rt.scheduler.reload()
         return {"data": current()}
 
-    @router.post("/athlete/thresholds")
-    def save_athlete_thresholds(request: AthleteThresholds) -> dict[str, Any]:
-        """Save threshold heart rate and pace for the athlete. Does not write to Garmin."""
-        if request.lthr is not None:
-            if not 80 <= request.lthr <= 230:
-                raise ValueError("Enter a threshold heart rate between 80 and 230.")
-            _store_threshold(rt.engine, "lthr", request.lthr, "bpm")
-        if request.threshold_pace is not None:
-            if not 1 <= request.threshold_pace <= 20:
-                raise ValueError("Enter a threshold pace between 1 and 20 min/km.")
-            _store_threshold(rt.engine, "threshold_pace", request.threshold_pace, "min/km")
-        return {"data": current()}
-
     @router.get("/settings/best_source")
     def best_source_overview() -> dict[str, Any]:
         """Per daily metric: the sources that deliver it, the order in use, the winner now."""
@@ -1145,12 +1119,6 @@ def build_settings_router(rt: Runtime) -> APIRouter:
             raise ValueError("No active token with that id.")
         return {"data": _mcp_payload()}
 
-    @router.post("/mcp/pats/rename")
-    def rename_pat(request: PatRename) -> dict[str, Any]:
-        if not mcp_oauth.rename_personal_access_token(rt.engine, request.id, request.display_name):
-            raise ValueError("No token with that id.")
-        return {"data": _mcp_payload()}
-
     @router.post("/mcp/passphrase")
     def set_mcp_passphrase(request: PassphraseBody) -> dict[str, Any]:
         store = SecretStore(settings.secrets_dir, "mcp")
@@ -1255,11 +1223,6 @@ def _threshold_summary(engine) -> dict[str, Any]:
         return {"value": row["value"], "unit": row["unit"], "sport": "run"}
 
     return {"lthr": pick("lthr"), "threshold_pace": pick("threshold_pace", per_minute=True)}
-
-
-def _store_threshold(engine, metric: str, value: float, unit: str) -> None:
-    seconds = float(value) * 60 if unit == "min/km" else float(value)
-    thresholds.set_value(engine, sport="run", metric=metric, value=seconds)
 
 
 # Settings tab that holds each config field the running service only reads at start, so

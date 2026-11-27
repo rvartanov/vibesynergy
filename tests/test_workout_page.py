@@ -158,7 +158,7 @@ def test_the_private_text_stays_out_of_every_public_output(runtime, monkeypatch)
     assert client.post("/api/activity-publish", json={"id": group, "publish": True},
                        headers=WRITE).status_code == 200  # fmt: skip
     assert fake.writes and all(SECRET not in w for w in fake.writes)
-    assert workout_texts.public_texts(runtime.engine, group)["public"]["text"] == "Voor iedereen"
+    assert workout_texts.texts(runtime.engine, group)["public"]["text"] == "Voor iedereen"
 
 
 def test_a_share_link_cannot_read_or_write_the_texts(runtime):

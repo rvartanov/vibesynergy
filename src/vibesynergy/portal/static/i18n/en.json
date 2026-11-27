@@ -1752,8 +1752,6 @@
  "Stored only on this server, never shown again. For iCloud, Gmail and others with two-step login, use an app-specific password.": "Stored only on this server, never shown again. For iCloud, Gmail and others with two-step login, use an app-specific password.",
  "Restart the service on this server to apply them.": "Restart the service on this server to apply them.",
  "Saved on this server.": "Saved on this server.",
- "Enter a threshold heart rate between 80 and 230.": "Enter a threshold heart rate between 80 and 230.",
- "Enter a threshold pace between 1 and 20 min/km.": "Enter a threshold pace between 1 and 20 min/km.",
  "Couldn't save. Check your connection and try again.": "Couldn't save. Check your connection and try again.",
  "Optional names for the statistics and quote sections. Leave blank for the default in your language.": "Optional names for the statistics and quote sections. Leave blank for the default in your language.",
  "Dark": "Dark",

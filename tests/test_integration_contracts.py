@@ -1,7 +1,7 @@
 """Shared freshness, ownership and coaching state contracts with synthetic records."""
 
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import func, select
@@ -9,9 +9,9 @@ from test_evidence import START, activity, put
 
 from vibesynergy.core.timeutil import Window
 from vibesynergy.mcp.server import build_server
-from vibesynergy.model import DailyMetric, PlannedItem
+from vibesynergy.model import DailyMetric
 from vibesynergy.portal.api import NoteRequest, build_router
-from vibesynergy.query import assessments, coach, journal, ownership, views
+from vibesynergy.query import assessments, coach, ownership, views
 from vibesynergy.store.schema import dataset_state, job
 
 WINDOW = Window(date(2026, 9, 19), date(2026, 9, 22))
@@ -171,21 +171,6 @@ def test_shared_coaching_state_is_retired_and_read_does_not_write(runtime):
     assert again["assessment"] is None
 
 
-def test_current_state_uses_stable_alias_and_keeps_profile_without_activity(runtime):
-    coach.save_draft(
-        runtime.engine, "policy", {"athlete": "masters"}, expected_version=0, reason="test"
-    )
-    coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
-    empty = assessments.current_state(runtime)
-    assert empty["freshness"] == "missing"
-    assert empty["profile"]["policy"]["version"] == 1
-    put(runtime, "garmin", activity())
-    detail = views.activity_detail(runtime.engine, runtime.parquet, "garmin:1")
-    assert assessments.current_state(
-        runtime, detail["activity"]["group_id"]
-    ) == assessments.current_state(runtime, "garmin:1")
-
-
 def test_selected_dataset_status_matches_full_status(runtime):
     put(runtime, "garmin", activity())
     put(runtime, "strava", replace(activity(), source_id="2", fit_id="strava"))
@@ -195,48 +180,6 @@ def test_selected_dataset_status_matches_full_status(runtime):
         d for d in all_datasets if (d["source"], d["dataset"]) == ("garmin", "test")
     ]
     assert views.sync_status(runtime.engine, datasets=set())["datasets"] == []
-
-
-def test_current_state_keeps_profile_without_an_internal_assessment(runtime):
-    coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
-    coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
-    put(runtime, "garmin", activity())
-    state = assessments.current_state(runtime)
-    assert state["freshness"] == "missing"
-    assert state["reason"] == "retired"
-    assert state["activity_id"] is None
-    assert state["profile"]["policy"]["version"] == 1
-    journal.add_note(runtime.engine, text="Synthetic diary", start=START.date())
-    journal.set_checkin(runtime.engine, START.date(), mood=2)
-    journal.log_injury(runtime.engine, today=START.date(), body_part="calf", side="left", pain=3)
-    coach.save_draft(
-        runtime.engine, "policy", {"athlete": "masters"}, expected_version=1, reason="test"
-    )
-    coach.activate(runtime.engine, "policy", expected_version=2, reason="test")
-    changed_profile = assessments.current_state(runtime)
-    assert changed_profile["profile"]["policy"]["version"] == 2
-    assert changed_profile["reason"] == "retired"
-
-
-def test_current_state_rechecks_date_without_database_write(runtime, monkeypatch):
-    coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
-    coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
-    put(runtime, "garmin", activity())
-    put(
-        runtime,
-        "garmin",
-        PlannedItem("race", START.date() + timedelta(days=9), "event", is_race=True),
-    )
-    from vibesynergy.query import races
-
-    races.adopt(runtime.engine)  # Garmin's races moved into VibeSynergy once (#111)
-    monkeypatch.setattr(assessments, "today_in", lambda _: START.date())
-    first = assessments.current_state(runtime)
-    monkeypatch.setattr(assessments, "today_in", lambda _: START.date() + timedelta(days=1))
-    next_day = assessments.current_state(runtime)
-    assert first["input_version"] == next_day["input_version"]
-    assert first["next_race"]["days_to_go"] == 9
-    assert next_day["next_race"]["days_to_go"] == 8
 
 
 def test_diary_changes_do_not_queue_internal_assessments(runtime):
@@ -256,49 +199,38 @@ def test_diary_changes_do_not_queue_internal_assessments(runtime):
         assert conn.scalar(select(func.count()).select_from(job)) == 0
 
 
-def test_portal_dashboard_activity_and_mcp_share_coaching_state(runtime):
+def test_mcp_coaching_and_metric_reads_share_the_query_and_write_nothing(runtime):
     coach.save_draft(runtime.engine, "policy", {}, expected_version=0, reason="test")
     coach.activate(runtime.engine, "policy", expected_version=1, reason="test")
     put(runtime, "garmin", activity())
-    expected = assessments.current_state(runtime)
-    assert expected["reason"] == "retired"
     with runtime.engine.connect() as conn:
         before = conn.scalar(select(func.count()).select_from(job))
-    routes = {
-        (route.path, method): route.endpoint
-        for route in build_router(runtime).routes
-        for method in route.methods
-    }
-    current = routes["/current-coaching-state", "GET"]()["data"]
-    activity_read = routes["/activity-assessment", "GET"]("garmin:1")["data"]
-    activity_state = activity_read["coaching_state"]
-    portal_metric = routes["/metric-status", "GET"](
-        "sleep.duration", "garmin", "test", "2026-09-19", "2026-09-22"
-    )["data"]
 
     server = build_server(runtime)
     registered = {tool.name: tool for tool in server._tool_manager.list_tools()}
-    assert len(registered) == 113
+    assert len(registered) == 112
     assert registered["vibesynergy_model_run_write"].annotations.read_only_hint is False
     assert registered["vibesynergy_model_runs"].annotations.read_only_hint is True
     assert registered["vibesynergy_race_set_priority"].annotations.read_only_hint is False
-    assert registered["vibesynergy_current_coaching_state"].annotations.read_only_hint is True
     assert registered["vibesynergy_metric_status"].annotations.read_only_hint is True
+    assert "vibesynergy_current_coaching_state" not in registered
     metric = server._tool_manager.get_tool("vibesynergy_metric_status").fn(
         "sleep.duration", "garmin", "test", "2026-09-19", "2026-09-22"
     )["data"]
-    state = server._tool_manager.get_tool("vibesynergy_current_coaching_state").fn()["data"]
-    assert current == state == expected
+    assert metric == views.metric_status(runtime.engine, "sleep.duration", "garmin", "test", WINDOW)
+    activity_read = server._tool_manager.get_tool("vibesynergy_activity_assessment").fn("garmin:1")[
+        "data"
+    ]
     assert activity_read["state"] == "missing"
-    assert activity_state["reason"] == "retired"
-    assert metric == portal_metric
+    assert activity_read["coaching_state"]["reason"] == "retired"
     with runtime.engine.connect() as conn:
         after = conn.scalar(select(func.count()).select_from(job))
     assert after == before
 
 
 def test_retired_internal_assessment_routes_are_gone(runtime):
-    """The old 410 stubs and the empty recent list are removed; the read routes stay."""
+    """The old 410 stubs, the empty recent list and the portal's assessment read are removed;
+    the MCP read (vibesynergy_activity_assessment) stays."""
     from pathlib import Path
 
     from fastapi.testclient import TestClient
@@ -308,7 +240,8 @@ def test_retired_internal_assessment_routes_are_gone(runtime):
     client = TestClient(create_portal_app(runtime), base_url="http://127.0.0.1:8447")
     headers = {"x-vibesynergy": "portal"}
     post = client.post("/api/activity-assessment", json={"id": "x"}, headers=headers)
-    assert post.status_code == 405
+    assert post.status_code == 404
+    assert client.get("/api/activity-assessment", params={"id": "x"}).status_code == 404
     post = client.post("/api/daily-coaching", json={"kind": "morning"}, headers=headers)
     assert post.status_code == 405
     assert client.get("/api/activity-assessments/recent").status_code == 404

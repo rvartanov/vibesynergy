@@ -313,7 +313,6 @@ def test_a_correction_is_private_rewrites_at_once_and_reaches_the_context(runtim
     assert FIX not in client.get("/api/activity", params={"id": group}).text
     item = publication.preview(runtime, group, "strava", language="nl")
     assert FIX not in item["description"] and SECRET not in item["description"]
-    assert FIX not in json.dumps(workout_texts.public_texts(runtime.engine, group))
     # The rewrite's context: the current insight and the correction, marked private.
     found = context.preload(runtime, "insight", START.date(), activity_ids=[group])
     text = found["text"]

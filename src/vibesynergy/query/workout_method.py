@@ -172,13 +172,6 @@ def _seed_tables() -> dict[str, Any]:
     return data or {}
 
 
-def seed_tables() -> dict[str, Any]:
-    """The seed's tables (a copy, so a caller cannot change the cached one)."""
-    import copy
-
-    return copy.deepcopy(_seed_tables())
-
-
 # --- the method in use -----------------------------------------------------------------------
 
 

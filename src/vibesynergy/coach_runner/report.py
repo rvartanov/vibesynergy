@@ -71,20 +71,6 @@ def advice_view(rt, entry: dict[str, Any], target: date, tr) -> dict[str, Any] |
     return view_q.view(rt, entry, tr)
 
 
-def advice_for(rt, job: str, day: date, tr) -> dict[str, Any] | None:
-    """The day's current advice (``daily_advice``) for a daily advice report, so the mail
-    says the same colour and words as the dashboard (#89). ``None`` for other reports."""
-    from vibesynergy.query import daily_advice
-
-    if job not in daily_advice.ADVICE_JOBS:
-        return None
-    try:
-        found = daily_advice.current(rt, day, tr=tr, trigger=False)
-    except Exception:
-        return None
-    return found if found.get("level") else None
-
-
 def _verdict_lines(view: dict[str, Any] | None) -> list[str]:
     """The colour and its meaning ("Oranje - Doe het wat rustiger aan"), or "Gedaan voor
     vandaag" with the recovery line; then when and why this version came."""

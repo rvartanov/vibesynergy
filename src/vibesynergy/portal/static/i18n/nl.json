@@ -1752,8 +1752,6 @@
  "Stored only on this server, never shown again. For iCloud, Gmail and others with two-step login, use an app-specific password.": "Alleen op deze server bewaard, nooit meer getoond. Voor iCloud, Gmail en anderen met tweestapsverificatie: gebruik een app-specifiek wachtwoord.",
  "Restart the service on this server to apply them.": "Herstart de service op deze server om ze toe te passen.",
  "Saved on this server.": "Opgeslagen op deze server.",
- "Enter a threshold heart rate between 80 and 230.": "Vul een drempelhartslag tussen 80 en 230 in.",
- "Enter a threshold pace between 1 and 20 min/km.": "Vul een drempeltempo tussen 1 en 20 min/km in.",
  "Couldn't save. Check your connection and try again.": "Opslaan lukte niet. Controleer je verbinding en probeer het opnieuw.",
  "Optional names for the statistics and quote sections. Leave blank for the default in your language.": "Optionele namen voor de statistiek- en quotesectie. Laat leeg voor de standaard in je taal.",
  "Dark": "Donker",

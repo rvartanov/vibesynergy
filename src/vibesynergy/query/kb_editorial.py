@@ -3,7 +3,7 @@
 Once a day VibeSynergy runs ``knowledge.editorial_sweep``: every lint finding with a
 mechanical fix (an old article name, the old app name, a rule range from 1 that ends too
 early, a fixed threshold on a plain instruction line) is fixed through the same path as an
-AI coach's proposal, so the server's check (``knowledge.editorial_check``) decides. What it
+AI coach's proposal, so the server's check (``knowledge._editorial_check``) decides. What it
 fixed shows afterwards on Coach → Methods & rules and as one line under Notices, each with
 an undo; nothing is pushed or mailed.
 """
