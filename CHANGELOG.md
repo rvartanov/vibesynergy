@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.34 – 27-11-2026
+
 - The Today card on the start page and the Coach page always shows the current colour (green, amber or red) on its edge, also once the day is done; "Done for today" stays as text. When there is no colour (advice off, not loaded, none yet) the edge is neutral grey instead of green, and a short line says why (#217).
 
 ## 0.1.0-beta.0.33 – 27-11-2026
