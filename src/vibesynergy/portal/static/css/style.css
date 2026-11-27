@@ -588,7 +588,10 @@ input.btn.wide { width: 100%; }
 .coach-reply-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
 .coach-reply p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-coach-runner] progress { width: 100%; max-width: 24rem; }
-.verdict { border-left: 6px solid var(--msg-success); }
+/* The advice card's edge shows the current colour, also once the day is done (#217); with
+   no colour known it stays neutral, never green. */
+.verdict { border-left: 6px solid var(--line); }
+.verdict.green { border-left-color: var(--msg-success); }
 .verdict.amber { border-left-color: var(--msg-warning-border); }
 .verdict.red { border-left-color: var(--msg-danger); }
 .verdict h2.verdict-advice { margin: 0; font-size: 18px; font-weight: 650; }

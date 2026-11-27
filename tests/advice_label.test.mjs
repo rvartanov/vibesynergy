@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  adviceHtml,
   adviceLevel,
   reportHeadHtml,
   tomorrowAdviceHtml,
@@ -57,10 +58,27 @@ test("the colour state: a colour and its meaning, or done for today with the rec
   assert.equal(verdictHtml({ ...COLOUR, state: "none" }), "");
 });
 
-test("a day that is done calls for no colour on the card", () => {
-  assert.equal(adviceLevel({ level: "amber", view: DONE }), "done");
+test("the card always shows the current colour, also once the day is done (#217)", () => {
+  assert.equal(adviceLevel({ level: "amber", view: DONE }), "amber");
+  assert.equal(adviceLevel({ level: "green", view: { ...DONE, colour: "red" } }), "red");
   assert.equal(adviceLevel({ level: "amber", view: COLOUR }), "amber");
   assert.equal(adviceLevel({ level: "green" }), "green");
+});
+
+test("no colour known: no colour class, so the edge is neutral, never green (#217)", () => {
+  assert.equal(adviceLevel({ error: "unavailable" }), "");
+  assert.equal(adviceLevel(null), "");
+  assert.equal(adviceLevel({ mode: "off", level: null, view: null }), "");
+  assert.equal(adviceLevel({ level: null, view: { ...COLOUR, state: "none", colour: null } }), "");
+  assert.equal(adviceLevel({ level: "toString" }), "");
+});
+
+test("an advice without a colour says why in a short line (#217)", () => {
+  const none = adviceHtml({ mode: "ai", level: null, advice: "Rest well.", view: null });
+  assert.match(none, /data-advice-no-colour/);
+  const amber = adviceHtml({ mode: "rules", level: "amber", advice: "Easy today." });
+  assert.doesNotMatch(amber, /data-advice-no-colour/);
+  assert.match(adviceHtml({ mode: "off" }), /data-advice-off/);
 });
 
 test("an entry's head is its label and stamp, with no run in it", () => {

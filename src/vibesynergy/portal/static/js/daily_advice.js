@@ -37,11 +37,12 @@ export function verdictHtml(view, tag = "p") {
   return `<${tag} class="advice-verdict" data-advice-state="colour"><span class="chip ${TONES[view.colour] || ""}">${esc(view.colour_name)}</span> ${esc(view.headline)}</${tag}>`;
 }
 
-/** The colour class of an advice card: none once the day is done, so the card does not
- * call for a colour the text no longer asks for. */
+/** The colour class of an advice card: always the current colour (#217), also once the
+ * day is done ("Done for today" stays as text), so the edge shows the status at a glance.
+ * "" when no colour is known: the card then gets a neutral edge, never green. */
 export function viewLevel(view, fallback = "") {
-  if (view?.state === "done") return "done";
-  return view?.colour || fallback || "";
+  const level = view?.colour || fallback || "";
+  return Object.hasOwn(COLOURS, level) ? level : "";
 }
 
 /** The head of an advice entry (Coach page, report page): its label and stamp. */
@@ -72,7 +73,7 @@ export function failedAdvice(advice) {
   return !advice || (advice.error === "unavailable" && Object.keys(advice).length === 1);
 }
 
-/** The card's colour class: green, amber, red, or none (off, failed). */
+/** The card's colour class: green, amber, red, or none (off, failed, no colour yet). */
 export function adviceLevel(advice) {
   return failedAdvice(advice) ? "" : viewLevel(advice.view, advice.level);
 }
@@ -261,6 +262,10 @@ export function adviceHtml(advice, { keyPrefix = "dashboard", refresh = false } 
   if (advice.mode === "off") {
     return `<p class="sub" data-advice-off>${esc(t("Daily advice is off."))} <a href="#/settings/system">${esc(t("Turn it on in Settings → System."))}</a></p>`;
   }
+  // No colour known (#217): the card's edge stays neutral and this line says why.
+  const noColour = adviceLevel(advice)
+    ? ""
+    : `<p class="sub" data-advice-no-colour>${esc(t("No colour yet: there is no advice for this day yet."))}</p>`;
   const reasons = advice.reasons || [];
   const updating = advice.updating?.text
     ? `<span role="status" data-advice-updating>${esc(advice.updating.text)}</span> `
@@ -280,12 +285,12 @@ export function adviceHtml(advice, { keyPrefix = "dashboard", refresh = false } 
       ${why}${because ? `<p>${esc(because)}</p>` : ""}<p class="sub">${esc(sourceLine(advice))}</p>${differencesHtml(advice)}</details>`;
   // The AI coach's colour state first (#147): its colour and meaning, or "done for today".
   // It opens the status line, with when and why and the update button, so the card stays
-  // within one screen on a phone. The rules' advice keeps its colour on the card's edge.
+  // within one screen on a phone. The card's edge always shows the colour (#217).
   const verdict = advice.view ? verdictHtml(advice.view, "span") : "";
   const status = verdict || updated || updating || fallback || refresh
     ? `<p class="sub advice-status${fallback ? " advice-fallback" : ""}">${verdict ? `${verdict} · ` : ""}${updated}${updating}${fallback}${refresh ? refreshButtonHtml() : ""}</p>`
     : "";
-  return `<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}${secondOpinionsHtml(advice, { keyPrefix })}`;
+  return `${noColour}<p class="verdict-advice dash-keep-line" data-dash-main>${esc(advice.advice || "")}</p>${status}${details}${secondOpinionsHtml(advice, { keyPrefix })}`;
 }
 
 export function refreshButtonHtml() {

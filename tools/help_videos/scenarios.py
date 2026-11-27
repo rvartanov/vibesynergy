@@ -151,11 +151,12 @@ def _today(r: Rec):
     r.check(verdict.count() > 0, "the advice should show its colour state (#147)")
     r.point(verdict)
     r.say(
-        "De kleur met wat die betekent. Is je training van vandaag gedaan, dan staat hier "
-        "'Gedaan voor vandaag', met je herstel in een kleine regel.",
-        "The colour and what it means. Once today's training is done, it says 'Done for "
-        "today', with your recovery in a small line.",
-        3.2,
+        "De kleur met wat die betekent; de rand van de kaart heeft altijd die kleur. Is je "
+        "training van vandaag gedaan, dan staat hier 'Gedaan voor vandaag' en houdt de rand "
+        "de kleur van je herstel.",
+        "The colour and what it means; the card's edge always has that colour. Once today's "
+        "training is done, it says 'Done for today' and the edge keeps your recovery colour.",
+        3.6,
     )
     updated = advice.locator("[data-advice-updated]")
     r.check(updated.count() > 0, "the advice should say when it was updated")

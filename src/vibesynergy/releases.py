@@ -410,6 +410,13 @@ ITEMS: tuple[Item, ...] = (
         "A race you add no longer sets off the warning that another app keeps changing your plan "
         "in intervals.icu.",
     ),
+    Item(
+        "today-colour-always",
+        "you",
+        "The Today card on the start page and the Coach page now always shows the current "
+        "colour on its edge, also once the day is done. Without a colour the edge stays grey, "
+        "never green, and a short line says why.",
+    ),
 )
 
 VERSION = RELEASES[0].version

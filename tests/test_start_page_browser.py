@@ -1,6 +1,7 @@
 """Start page blocks in Chrome: reorder with the keyboard only, hide and show a block,
 reset, choose the best-runs period, workout context on diary notes, and no axe violations
-(WCAG 2.x A/AA) in English and Dutch, with the arrange panel open."""
+(WCAG 2.x A/AA) in English and Dutch, with the arrange panel open. And the Today card's
+edge: always the current colour, also once the day is done; neutral without one (#217)."""
 
 from __future__ import annotations
 
@@ -9,10 +10,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from browser_helpers import axe_script, portal_server, require_browser, run_axe
+from sqlalchemy import insert
 from tests_helpers import add_race
 
 from vibesynergy.core.config import load_settings
-from vibesynergy.core.timeutil import today_in
+from vibesynergy.core.timeutil import today_in, utc_now
 from vibesynergy.derive import unify
 from vibesynergy.model import Activity, DailyMetric, PlannedItem
 from vibesynergy.normalize.normaliser import write_records
@@ -20,6 +22,7 @@ from vibesynergy.portal import prefs
 from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query import journal
 from vibesynergy.runtime import Runtime
+from vibesynergy.store.schema import coach_decision_log
 
 pytestmark = pytest.mark.integration
 
@@ -234,6 +237,110 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
             assert not violations, violations
             width = page.evaluate("() => document.documentElement.scrollWidth")
             assert width <= 390
+            browser.close()
+    finally:
+        rt.close()
+
+
+def _done_advice(rt: Runtime) -> None:
+    """An AI coach's advice for today, amber, that marks today's only session done: the
+    start page says "Done for today"."""
+    today = today_in(rt.settings.timezone)
+    meta = {
+        "safety": {"level": "ease", "colour": "amber", "reasons": ["Made-up reason for a test"]},
+        "author_name": "AI coach (API)",
+        "harness": {
+            "version": 3,
+            "via": "runner",
+            "task": "morning",
+            "target": today.isoformat(),
+            "trigger": "schedule",
+        },
+        "sessions": [{"title": "Easy swim", "decision": "done"}],
+    }
+    with rt.engine.begin() as conn:
+        conn.execute(
+            insert(coach_decision_log).values(
+                subject_id=1,
+                at=utc_now(),
+                kind="coach",
+                author="client:coach-runner",
+                entry_type="morning",
+                idempotency_key="test-done-advice",
+                for_date=today,
+                text="The swim is done; nothing more today.",
+                meta=meta,
+            )
+        )
+
+
+# The card's left edge against the colour a token resolves to, both as the browser
+# computes them.
+_EDGE = """([selector, token]) => {
+  const card = document.querySelector(selector);
+  const probe = document.createElement("span");
+  probe.style.color = `var(${token})`;
+  document.body.append(probe);
+  const want = getComputedStyle(probe).color;
+  probe.remove();
+  return { edge: getComputedStyle(card).borderLeftColor, want, classes: card.className };
+}"""
+
+
+def _edge(page, selector: str, token: str) -> dict:
+    return page.evaluate(_EDGE, [selector, token])
+
+
+def test_today_card_always_shows_the_status_colour(tmp_path, monkeypatch) -> None:
+    chrome = require_browser()
+    from playwright.sync_api import sync_playwright
+
+    config = tmp_path / "config.toml"
+    config.write_text('[user]\ntimezone = "Europe/Amsterdam"\n[sources.demo]\nenabled = true\n')
+    monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
+    monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "data"))
+    rt = Runtime.open(load_settings())
+    rt.migrate()
+    try:
+        _seed(rt)
+        _done_advice(rt)
+        with portal_server(create_portal_app(rt)) as base, sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=chrome, headless=True)
+            page = browser.new_page(viewport={"width": 1280, "height": 900})
+            card = ".card.dash-today.verdict"
+
+            # A done day keeps its colour on the edge; "Done for today" stays as text.
+            page.goto(base + "/#/dashboard", wait_until="domcontentloaded")
+            page.locator(f"{card} [data-advice-state='done']").wait_for(timeout=20000)
+            assert "Done for today" in page.locator(card).inner_text()
+            found = _edge(page, card, "--msg-warning-border")
+            assert "amber" in found["classes"].split() and "done" not in found["classes"]
+            assert found["edge"] == found["want"], found
+            assert page.locator(f"{card} [data-advice-no-colour]").count() == 0
+
+            # The Coach page: the same card, the same colour.
+            coach = "[data-coach-advice]"
+            page.goto(base + "/#/coach", wait_until="domcontentloaded")
+            page.locator(f"{coach} [data-advice-state='done']").wait_for(timeout=20000)
+            _wait(
+                lambda: "amber" in _edge(page, coach, "--line")["classes"].split(),
+                "the Coach card's colour",
+            )
+            found = _edge(page, coach, "--msg-warning-border")
+            assert found["edge"] == found["want"], found
+
+            # No colour known (daily advice off): a neutral edge, never green, with a line.
+            prefs.save(rt.settings.data_dir, {"daily_advice": "off"})
+            page.goto(base + "/#/dashboard", wait_until="domcontentloaded")
+            page.locator(f"{card} [data-advice-off]").wait_for(timeout=20000)
+            found = _edge(page, card, "--line")
+            assert not {"green", "amber", "red"} & set(found["classes"].split()), found
+            assert found["edge"] == found["want"], found
+            assert found["edge"] != _edge(page, card, "--msg-success")["want"]
+            page.goto(base + "/#/coach", wait_until="domcontentloaded")
+            page.locator(f"{coach} [data-advice-off]").wait_for(timeout=20000)
+            found = _edge(page, coach, "--line")
+            assert found["edge"] == found["want"], found
             browser.close()
     finally:
         rt.close()

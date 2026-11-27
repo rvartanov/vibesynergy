@@ -328,8 +328,9 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   advice when they are read, so an old notice never shows an old wording. The banner is one
   or two lines ("Advies voor vandaag bijgewerkt om 13:48, na je training: … · Bekijk"). Once
   the day's sessions are done and your AI coach's version says so, the label is "Gedaan
-  voor vandaag" with the recovery colour in a small line, so the colour never asks for
-  something the text says is over. A version that only reports (a session done) is quiet:
+  voor vandaag" with the recovery colour in a small line; the card's edge keeps the
+  current colour (#217). Without a colour (advice off, not loaded, none yet) the edge is
+  neutral, never green, and a short line says why. A version that only reports (a session done) is quiet:
   no push, no mail; the notice points at it. From the evening run until midnight the start
   page shows tomorrow's advice in a small card under today's. Notice and push texts end on a
   whole sentence or word, with "…".
