@@ -3567,5 +3567,6 @@
  "Suggested new values": "Suggested new values",
  "Mark a workout as a race or a test. A test or race that was planned is marked by itself, and you can undo it. A test gives your new thresholds as proposals under Zones & thresholds.": "Mark a workout as a race or a test. A test or race that was planned is marked by itself, and you can undo it. A test gives your new thresholds as proposals under Zones & thresholds.",
  "The purpose test is new. VibeSynergy computes FTP, CSS, LTHR, threshold pace and max HR from a marked test or race as proposals; vibesynergy_threshold_test shows how. The test evaluation explains them and does not compute again.": "The purpose test is new. VibeSynergy computes FTP, CSS, LTHR, threshold pace and max HR from a marked test or race as proposals; vibesynergy_threshold_test shows how. The test evaluation explains them and does not compute again.",
- "A notice at the top of the page now goes away once you click it, not only with its close button.": "A notice at the top of the page now goes away once you click it, not only with its close button."
+ "A notice at the top of the page now goes away once you click it, not only with its close button.": "A notice at the top of the page now goes away once you click it, not only with its close button.",
+ "A race you add no longer sets off the warning that another app keeps changing your plan in intervals.icu.": "A race you add no longer sets off the warning that another app keeps changing your plan in intervals.icu."
 }

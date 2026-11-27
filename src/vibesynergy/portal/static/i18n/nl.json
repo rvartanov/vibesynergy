@@ -3567,5 +3567,6 @@
  "Suggested new values": "Voorgestelde nieuwe waarden",
  "Mark a workout as a race or a test. A test or race that was planned is marked by itself, and you can undo it. A test gives your new thresholds as proposals under Zones & thresholds.": "Markeer een training als wedstrijd of test. Een geplande test of wedstrijd wordt vanzelf gemarkeerd, en je kunt dat ongedaan maken. Een test geeft je nieuwe drempels als voorstel onder Zones & drempels.",
  "The purpose test is new. VibeSynergy computes FTP, CSS, LTHR, threshold pace and max HR from a marked test or race as proposals; vibesynergy_threshold_test shows how. The test evaluation explains them and does not compute again.": "Het doel test is nieuw. VibeSynergy berekent FTP, CSS, LTHR, drempeltempo en max HR uit een gemarkeerde test of wedstrijd als voorstellen; vibesynergy_threshold_test laat zien hoe. De testevaluatie legt ze uit en rekent niet opnieuw.",
- "A notice at the top of the page now goes away once you click it, not only with its close button.": "Een melding bovenaan de pagina verdwijnt nu zodra je erop klikt, niet alleen met het sluitknopje."
+ "A notice at the top of the page now goes away once you click it, not only with its close button.": "Een melding bovenaan de pagina verdwijnt nu zodra je erop klikt, niet alleen met het sluitknopje.",
+ "A race you add no longer sets off the warning that another app keeps changing your plan in intervals.icu.": "Een wedstrijd die je toevoegt geeft niet meer de waarschuwing dat een andere app steeds je schema in intervals.icu wijzigt."
 }

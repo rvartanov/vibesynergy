@@ -400,6 +400,12 @@ ITEMS: tuple[Item, ...] = (
         "A notice at the top of the page now goes away once you click it, not only with its "
         "close button.",
     ),
+    Item(
+        "race-copy-end",
+        "you",
+        "A race you add no longer sets off the warning that another app keeps changing your plan "
+        "in intervals.icu.",
+    ),
 )
 
 VERSION = RELEASES[0].version
