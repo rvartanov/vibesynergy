@@ -28,8 +28,8 @@ def test_vibesynergy_load_is_the_default_and_the_only_fitness(runtime) -> None:
     unify.rebuild(runtime.engine)
     thresholds.set_value(runtime.engine, sport="bike", metric="ftp", value=200.0, date_set=day)
     span = Window(day, day)
-    daily = training.daily_vibesynergy(runtime.engine, span)
-    assert round(daily[day]) == 100  # an hour at FTP is 100
+    loads = training.activity_loads(runtime.engine, span)
+    assert round(sum(x["load"] for x in loads if x["date"] == day)) == 100  # an hour at FTP
     out = training.training_load(runtime.engine, span, warmup_days=0)
     with pytest.raises(ValueError):
         training.training_load(runtime.engine, span, load="intervals")

@@ -617,6 +617,9 @@ audit_log = Table(
     Column("target", String),
     Column("outcome", String),
     Column("ms", Integer),
+    # Rows are looked up by action and target, and old read rows deleted by time (#203).
+    Index("ix_audit_log_action_target", "action", "target"),
+    Index("ix_audit_log_at", "at"),
 )
 
 # Secret links that show (parts of) the portal to someone without tailnet access. Only a hash

@@ -21,6 +21,7 @@ from vibesynergy.cli.main import (
     load_app,
     plan_app,
 )
+from vibesynergy.sync.jobs import PRUNE_DAYS
 
 
 @coaching_app.command("backfill")
@@ -64,7 +65,9 @@ def coach_redo_insight(
 
 @jobs_app.command("prune")
 def jobs_prune(
-    days: Annotated[int, typer.Option(min=1, help="keep jobs finished in the last N days")] = 30,
+    days: Annotated[
+        int, typer.Option(min=1, help="keep jobs finished in the last N days")
+    ] = PRUNE_DAYS,
     dead: Annotated[bool, typer.Option("--dead", help="also failed (dead) jobs")] = False,
     apply: Annotated[bool, typer.Option("--apply", help="delete; without it only count")] = False,
     config: ConfigOpt = None,

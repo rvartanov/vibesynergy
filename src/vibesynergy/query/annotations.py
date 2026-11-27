@@ -8,7 +8,7 @@ adopt existing markers, or modify a human-written description.
 
 from __future__ import annotations
 
-from vibesynergy.core.config import load_settings
+from vibesynergy.core.config import current_publication
 from vibesynergy.query import coach, evidence, publication_format, publication_insight
 
 FORMAT_VERSION = 2
@@ -58,7 +58,7 @@ def preview(rt, activity_id: str, *, language: str = "en") -> dict:
         # The coach's public sentence still shows on the workout page, with the reason (#146).
         return {**result, "reason": "no_public_statistics", "insight": insight(rt, activity_id)}
     labels = publication_format.section_labels(
-        load_settings(rt.settings.config_path).publication, language
+        current_publication(rt.settings.config_path), language
     )
     block = publication_format.compose(
         insight=None,

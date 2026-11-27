@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 import requests
 from sqlalchemy import select
 
-from vibesynergy.core.config import load_settings
+from vibesynergy.core.config import current_publication
 from vibesynergy.query import publication_format, views
 from vibesynergy.store.schema import activity, activity_unified, publication_enrichment
 
@@ -1500,7 +1500,7 @@ def collect(
     """
     del insight, safety
     identity = views.resolve_activity(rt.engine, activity_id)
-    settings = load_settings(rt.settings.config_path).publication
+    settings = current_publication(rt.settings.config_path)
     sections: dict[str, str] = {}
     states = {}
     for name in PLUGINS:

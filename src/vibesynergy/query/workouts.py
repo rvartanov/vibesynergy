@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import Engine, func, select
 
 from vibesynergy.core.timeutil import utc_now
-from vibesynergy.query import views
+from vibesynergy.query import gear_cache, views
 from vibesynergy.query.units import presentation
 from vibesynergy.store.parquet import ParquetStore
 from vibesynergy.store.raw import RawStore
@@ -221,7 +221,13 @@ def _source_freshness(engine: Engine, raw: RawStore, source: str, dataset: str) 
 
 
 def _activity_gear(engine: Engine) -> list[dict[str, Any]]:
-    """Garmin gear cited on activities, by uuid only. No distance, brand or model."""
+    """Garmin gear cited on activities, by uuid only. No distance, brand or model. Kept
+    until the activities change (``gear_cache``)."""
+    kept = gear_cache.cached(engine, "activity_gear", lambda: _read_activity_gear(engine))
+    return [dict(entry) for entry in kept]
+
+
+def _read_activity_gear(engine: Engine) -> list[dict[str, Any]]:
     with engine.connect() as conn:
         rows = conn.execute(
             select(activity.c.local_date, activity.c.extra).where(
@@ -442,7 +448,13 @@ def group_extras(engine: Engine) -> dict[str, list[str]]:
 
 def _group_gear(engine: Engine) -> list[dict[str, Any]]:
     """Per activity: the gear its source gave it, and the gear that counts: yours
-    first, then the source's, then the sport's default from its start date on."""
+    first, then the source's, then the sport's default from its start date on. Kept until
+    the activities or the gear choices change (``gear_cache``)."""
+    kept = gear_cache.cached(engine, "group_gear", lambda: _read_group_gear(engine))
+    return [dict(row) for row in kept]
+
+
+def _read_group_gear(engine: Engine) -> list[dict[str, Any]]:
     gear_id = func.json_extract(activity.c.extra, "$.gear_id")
     with engine.connect() as conn:
         source_gear = {
