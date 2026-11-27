@@ -22,6 +22,7 @@ from vibesynergy.core.config import (
     RETIRED_KEYS,
     ConfigError,
     Settings,
+    forget_publication,
     load_settings,
     migrate_publication,
 )
@@ -165,6 +166,7 @@ def _write(path: Path, document: Any) -> Settings:
         _prune_backups(path)
     os.chmod(candidate, path.stat().st_mode if path.exists() else 0o600)
     os.replace(candidate, path)
+    forget_publication(path)
     return load_settings(path)
 
 

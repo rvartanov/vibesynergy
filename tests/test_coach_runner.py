@@ -141,7 +141,8 @@ def run_row(rt, job="morning", key=None):
 
 def audits(rt, action):
     with rt.engine.connect() as conn:
-        return conn.execute(select(audit_log).where(audit_log.c.action == action)).mappings().all()
+        query = select(audit_log).where(audit_log.c.action == action).order_by(audit_log.c.id)
+        return conn.execute(query).mappings().all()
 
 
 # --- settings --------------------------------------------------------------------------------

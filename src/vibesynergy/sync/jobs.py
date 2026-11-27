@@ -18,6 +18,8 @@ BACKOFF_MAX = timedelta(hours=1)
 # Never pruned: archive and history imports resume from their jobs (history.py).
 KEEP_KINDS = ("history", "history_archive")
 PRUNE_STATUSES = ("done", "cancelled")
+# Finished jobs kept this many days: `vibesynergy jobs prune` and the daily prune (#203).
+PRUNE_DAYS = 30
 
 
 @dataclass(frozen=True)

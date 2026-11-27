@@ -23,12 +23,13 @@ import logging
 import threading
 import time
 from collections.abc import Callable
+from datetime import timedelta
 
 from vibesynergy.alerts import ALERT_MINUTES
 from vibesynergy.core.config import Settings
 from vibesynergy.dropfolder import DROP_MINUTES
 from vibesynergy.sources.registry import SourceRegistry
-from vibesynergy.sync.jobs import JobQueue
+from vibesynergy.sync.jobs import PRUNE_DAYS, PRUNE_STATUSES, JobQueue
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +46,8 @@ DEFAULT_MINUTES = {
     "garmin.scheduled_workouts": 15,
 }
 SERVICE_MINUTES = {"dropfolder": DROP_MINUTES, "alerts": ALERT_MINUTES}
+# Finished jobs are pruned once a day, with the retention of `vibesynergy jobs prune` (#203).
+PRUNE_EVERY_S = 24 * 3600.0
 
 
 def minutes_for(settings: Settings, key: str) -> float:
@@ -84,6 +87,7 @@ class Scheduler:
         self._jobs = jobs
         self._clock = clock
         self._next: dict[str, float] = {}
+        self._next_prune = 0.0  # the first tick prunes, then once a day
 
     def _configured(self, sid: str) -> bool:
         try:
@@ -113,6 +117,7 @@ class Scheduler:
         """Enqueue the syncs that are due, and the alert check when alerts are set up;
         returns what was queued."""
         now = self._clock()
+        self._prune(now)
         queued = []
         cfg = self._settings.alerts
         drop = minutes_for(self._settings, "dropfolder")
@@ -143,6 +148,23 @@ class Scheduler:
             if self._jobs.enqueue("sync", payload, dedupe_key=dedupe):
                 queued.append(key)
         return queued
+
+    def _prune(self, now: float) -> None:
+        """Remove finished jobs older than ``PRUNE_DAYS`` once a day, as the CLI does
+        (without ``--dead``: failed jobs stay for a look). A failure waits for the next day
+        and never stops the syncs."""
+        if now < self._next_prune:
+            return
+        self._next_prune = now + PRUNE_EVERY_S
+        try:
+            removed = self._jobs.prune(
+                older_than=timedelta(days=PRUNE_DAYS), statuses=PRUNE_STATUSES, apply=True
+            )
+        except Exception:
+            log.exception("pruning finished jobs failed")
+            return
+        if total := sum(removed.values()):
+            log.info("removed %d finished jobs older than %d days", total, PRUNE_DAYS)
 
     def reload(self) -> None:
         """Follow the intervals on the current settings from the next tick.

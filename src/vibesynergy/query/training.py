@@ -290,6 +290,25 @@ def activity_loads(
     ``activity_load`` and computed again only when what it came from changed (the activity,
     its stream or the thresholds). Without ``parquet`` the heart-rate average stands in for
     the stream, and nothing is stored, so the stored value always comes from the stream."""
+    from vibesynergy.query import own_load
+
+    found = _loads_with_kind(
+        engine, window, athlete, parquet=parquet, sport=sport, include_coaching=include_coaching
+    )
+    return own_load.without_duplicates([item for item, _coaching in found])
+
+
+def _loads_with_kind(
+    engine: Engine,
+    window: Window,
+    athlete: dict[str, Any] | None = None,
+    *,
+    parquet: ParquetStore | None = None,
+    sport: str | None = None,
+    include_coaching: bool = True,
+) -> list[tuple[dict[str, Any], bool]]:
+    """``activity_loads`` before twins are dropped, each with whether it is a training you
+    give (coaching): one pass gives both the load with and without coaching (#203)."""
     from sqlalchemy.dialects.sqlite import insert
 
     from vibesynergy.core.timeutil import utc_now
@@ -306,7 +325,7 @@ def activity_loads(
         where.append(t.c.kind.is_distinct_from("coaching"))
     fields = (
         t.c.group_id, t.c.local_date, t.c.sport, t.c.moving_s, t.c.elapsed_s, t.c.norm_power,
-        t.c.avg_power, t.c.avg_hr, t.c.avg_speed, t.c.stream_key, t.c.start_utc,
+        t.c.avg_power, t.c.avg_hr, t.c.avg_speed, t.c.stream_key, t.c.start_utc, t.c.kind,
     )  # fmt: skip
     with engine.connect() as conn:
         rows = [dict(r._mapping) for r in conn.execute(select(*fields).where(and_(*where)))]
@@ -371,17 +390,16 @@ def activity_loads(
                     {"group_id": row["group_id"], "inputs": key, "method": method,
                      "load": round(load, 2), "computed_at": utc_now()}
                 )  # fmt: skip
-        out.append(
-            {
-                "date": row["local_date"],
-                "id": row["group_id"],
-                "method": method,
-                "load": load,
-                "family": fam,
-                "start": row["start_utc"],
-                "seconds": float(seconds),
-            }
-        )
+        item = {
+            "date": row["local_date"],
+            "id": row["group_id"],
+            "method": method,
+            "load": load,
+            "family": fam,
+            "start": row["start_utc"],
+            "seconds": float(seconds),
+        }
+        out.append((item, row["kind"] == "coaching"))
     # Inside a read-only snapshot (the coach capturing the state of the day) there is no
     # transaction of our own to write in: the loads are used now and kept by a later read.
     if fresh and hasattr(engine, "begin"):
@@ -397,7 +415,7 @@ def activity_loads(
                         },
                     )
                 )
-    return own_load.without_duplicates(out)
+    return out
 
 
 def own_loads(engine: Engine, window: Window, ids: list[str]) -> dict[str, float]:
@@ -441,20 +459,14 @@ def load_of_activity(rt, group_id: str) -> dict[str, Any] | None:
     return {"load": round(item["load"]), "method": item["method"]}
 
 
-def daily_vibesynergy(
-    engine: Engine,
-    window: Window,
-    athlete: dict[str, Any] | None = None,
-    *,
-    parquet: ParquetStore | None = None,
-    sport: str | None = None,
-    include_coaching: bool = True,
-) -> dict[date, float]:
-    """VibeSynergy's own load per day: the sum of ``activity_loads``."""
+def _daily_sum(found: list[tuple[dict[str, Any], bool]], *, coaching: bool) -> dict[date, float]:
+    """Load per day of ``_loads_with_kind``, twins dropped like ``activity_loads`` does;
+    ``coaching=False`` leaves the trainings you give out."""
+    from vibesynergy.query import own_load
+
+    items = [item for item, is_coaching in found if coaching or not is_coaching]
     daily: dict[date, float] = defaultdict(float)
-    for item in activity_loads(
-        engine, window, athlete, parquet=parquet, sport=sport, include_coaching=include_coaching
-    ):
+    for item in own_load.without_duplicates(items):
         daily[item["date"]] += item["load"]
     return daily
 
@@ -476,6 +488,7 @@ def training_load(
     # Default warm-up is 3 x the 42-day CTL constant, before the window starts.
     warmup = Window(window.start - timedelta(days=warmup_days), window.end)
     profile = None
+    found: list[tuple[dict[str, Any], bool]] = []
     if load == "trimp":
         profile = hr_profile(engine, athlete)
         daily = daily_trimp(engine, warmup, profile, sport=sport, include_coaching=include_coaching)
@@ -486,7 +499,8 @@ def training_load(
     elif load == "vibesynergy":
         # The coach and the assessments read hr_profile whatever the model (8-11 crash).
         profile = hr_profile(engine, athlete)
-        daily = daily_vibesynergy(
+        # One pass over the activities gives the load with and without coaching (#203).
+        found = _loads_with_kind(
             engine,
             warmup,
             athlete,
@@ -494,6 +508,7 @@ def training_load(
             sport=sport,
             include_coaching=include_coaching,
         )
+        daily = _daily_sum(found, coaching=True)
     else:
         t = activity_unified
         where = [t.c.local_date.between(warmup.start, warmup.end)]
@@ -518,9 +533,7 @@ def training_load(
             own_daily = daily_tss(engine, warmup, ftps, sport=sport, include_coaching=False)
         elif load == "vibesynergy":
             all_daily = daily
-            own_daily = daily_vibesynergy(
-                engine, warmup, athlete, parquet=parquet, sport=sport, include_coaching=False
-            )
+            own_daily = _daily_sum(found, coaching=False)
         else:
             own_daily = defaultdict(float)
             with engine.connect() as conn:
@@ -658,6 +671,12 @@ CURRENT_WARMUP_DAYS = 180
 
 def current_load(rt, today: date) -> dict[str, Any]:
     """CTL, ATL and TSB for ``today``, after a fixed 180-day warm-up ending that day."""
+    return load_snapshot(rt, today)[0]
+
+
+def load_snapshot(rt, today: date) -> tuple[dict[str, Any], list[list[Any]]]:
+    """``current_load`` and the daily rows it came from (oldest first, ``today`` last), so
+    the start page slices its 28 days from the same series instead of computing it again."""
     start = today - timedelta(days=CURRENT_WARMUP_DAYS - 1)
     result = training_load(
         rt.engine,
@@ -678,7 +697,7 @@ def current_load(rt, today: date) -> dict[str, Any]:
         "form_pct": current.get("form_pct"),
         "ctl_ramp_7d": current.get("ctl_ramp_7d"),
         "source": current.get("source"),
-    }
+    }, result["rows"]
 
 
 def volume(

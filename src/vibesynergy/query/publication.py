@@ -11,7 +11,7 @@ from typing import Protocol
 
 from sqlalchemy import select
 
-from vibesynergy.core.config import load_settings
+from vibesynergy.core.config import current_publication
 from vibesynergy.core.secrets import SecretStore
 from vibesynergy.core.timeutil import utc_now
 from vibesynergy.query import (
@@ -237,7 +237,7 @@ def preview(rt, activity_id: str, destination: str, *, language: str = "en", cli
     if not isinstance(current, str):
         raise Conflict("Provider description is unreadable")
     previous = _ledger(rt, destination, source_id)
-    pub = load_settings(rt.settings.config_path).publication
+    pub = current_publication(rt.settings.config_path)
     labels = publication_format.section_labels(pub, language)
     if previous and previous["state"] == "removing":
         if not publication_format.same_text(
@@ -469,7 +469,7 @@ def targets(rt) -> list[str]:
     """Settings → Publishing and sync → "Publish to" (#175): Strava and/or Garmin, Strava first."""
     from vibesynergy.core.config import publication_targets
 
-    return publication_targets(load_settings(rt.settings.config_path).publication)
+    return publication_targets(current_publication(rt.settings.config_path))
 
 
 def group_lock(rt, group: str):
