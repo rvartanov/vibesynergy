@@ -11,7 +11,7 @@ VibeSynergy runs on your own computer or server. Pick one way:
 Installing with an AI assistant (Claude Code, Codex, Cursor, …)? Point it at
 [For AI assistants](#for-ai-assistants) below.
 
-Status: alpha (0.0.1). Expect changes between versions.
+Status: beta (`0.1.0-beta.0.…`). Expect changes between versions; the current version and what changed are in [CHANGELOG.md](CHANGELOG.md).
 
 ## A. Container (Windows, macOS, Linux)
 
@@ -179,7 +179,7 @@ docker inspect -f '{{.State.Health.Status}}' vibesynergy               # healthy
 
 ```bash
 uv tool install git+https://github.com/rvartanov/vibesynergy
-vibesynergy version                              # 0.0.1a1 or newer
+vibesynergy version                              # 0.1.0-beta.0.… (CHANGELOG.md)
 vibesynergy init --email PERSON@EXAMPLE.COM      # prints the login link
 ```
 

@@ -3,13 +3,29 @@ name: Container
 # The image for Linux, macOS and Windows (amd64 and arm64): ghcr.io/rvartanov/vibesynergy.
 # A pull request builds it and checks that it starts; main pushes :latest, :main and :sha-…,
 # a tag v* pushes that version too.
+#
+# A pull request builds it only when the image can differ: the files the Dockerfile copies
+# (.dockerignore keeps the rest out) and this workflow. Main pushes keep the wider filter, so
+# :sha-… exists for every commit that is not docs-only; tags ignore path filters.
 on:
   push:
     branches: [main]
     tags: ["v*"]
-    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md", "docs/COACH_PROTOCOL.md", "docs/workout-method.md"]
   pull_request:
-    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "README.md"
+      - "LICENSE"
+      - "THIRD_PARTY.md"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "deploy/container/**"
+      - "docs/COACH_PROTOCOL.md"
+      - "docs/workout-method.md"
+      - ".github/workflows/container.yml"
 
 concurrency:
   group: container-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}

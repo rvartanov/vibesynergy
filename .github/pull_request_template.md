@@ -4,10 +4,11 @@
 
 ## Changelog and features
 
-<!-- Add a line to CHANGELOG.md under "Unreleased" (Added / Changed / Fixed / Removed) for
-anything a user or an AI app notices, and update docs/FEATURES.md when a feature is added,
-changed or removed. Internal-only change (refactor, tests, CI)? Say so here and add the label
-`no-changelog`; CI checks this. -->
+<!-- Anything you or an AI app notice: one plain-language line at the end of the list under
+`## Unreleased` in CHANGELOG.md (no subheadings), with the PR or issue number, and
+docs/FEATURES.md updated when a feature is added, changed or removed. Internal-only change
+(refactor, tests, CI, developer docs)? Say so here and add the label `no-changelog`; CI checks
+this. See CONTRIBUTING.md#versions-and-changelog. -->
 
 ## Checks
 

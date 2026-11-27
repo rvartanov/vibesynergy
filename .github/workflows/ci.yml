@@ -1,12 +1,14 @@
 name: CI
 
-# Docs-only (Markdown) changes skip CI, except README.md and THIRD_PARTY.md, which the package build reads.
+# Docs-only (Markdown) changes skip CI, except the Markdown the package carries: README.md and
+# THIRD_PARTY.md (read by the build), and the coach protocol and workout method seed (in the
+# wheel and the image, pyproject.toml force-include). Later patterns win over "!**.md".
 on:
   push:
     branches: [main]
-    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md", "docs/COACH_PROTOCOL.md", "docs/workout-method.md"]
   pull_request:
-    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md"]
+    paths: ["**", "!**.md", "README.md", "THIRD_PARTY.md", "docs/COACH_PROTOCOL.md", "docs/workout-method.md"]
 
 # Read-only token by default; a job that needs more says so itself.
 permissions:
@@ -43,10 +45,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: node tools/check_zone_presentation.mjs
+      # check_zone_presentation.mjs and check_dashboard_refresh.mjs run inside pytest below
+      # (test_zone_ui_acceptance.py, test_dashboard.py), so a local `uv run pytest` covers them.
       - run: node tools/check_nav.mjs
       - run: node tools/check_period_picker.mjs
-      - run: node tools/check_dashboard_refresh.mjs
       # Portal JS has no build step: catch syntax errors in every module, then run the
       # node:test unit tests.
       - run: for f in $(find src/vibesynergy/portal/static/js -name '*.js'); do node --check "$f"; done

@@ -9,21 +9,28 @@ uv run pytest -n 4
 ```
 
 Portal changes also run the browser tests (they skip without Playwright or Chrome; set
-`VIBESYNERGY_A11Y_REQUIRED=1` to make that a failure, as CI does):
+`VIBESYNERGY_A11Y_REQUIRED=1` to make that a failure, as CI does). These are the browser
+steps of `.github/workflows/ci.yml`, one command per step:
 
 ```bash
-VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest -q tests/test_portal_a11y.py tests/test_portal_polish.py
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_coach_runner_a11y.py tests/test_login_a11y.py tests/test_bug_report_a11y.py tests/test_future_day_a11y.py tests/test_workout_page_a11y.py tests/test_workout_gear_a11y.py tests/test_workout_media_a11y.py -q
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_language_appearance.py tests/test_portal_polish.py -q
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_dashboard_phone.py tests/test_alert_click_dismiss.py tests/test_chart_fit_browser.py -q
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest tests/test_settings_tabs.py tests/test_start_page_browser.py tests/test_portal_quicklog.py -q
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright --with radicale pytest tests/test_caldav_radicale_e2e.py -q
 ```
 
-CI runs every browser test file (see `.github/workflows/ci.yml`; a test fails when one is
-missing there). They share `tests/browser_helpers.py`: Chrome, axe-core (cached under
-`~/.cache/vibesynergy-tests`) and throwaway servers on ports picked while the test runs, so
-two test runs can go side by side.
+CI runs every browser test file, and `tests/test_browser_tests_in_ci.py` fails when one is
+missing from `.github/workflows/ci.yml` or from the commands above. They share
+`tests/browser_helpers.py`: Chrome, axe-core (cached under `~/.cache/vibesynergy-tests`) and
+throwaway servers on ports picked while the test runs, so two test runs can go side by side.
 
-and the JavaScript checks: `node --check` on every module, `node --test tests/*.test.mjs`,
+Then the JavaScript checks: `node --check` on every module, `node --test tests/*.test.mjs`,
 `node tools/check_*.mjs` and `uv run python docs/design/check_design.py`. CI runs all of
-these. Portal changes also run `uv run python tools/check_help_videos.py` (see
-[Help videos](#help-videos)). Docs-only changes: check links and `git diff --check`.
+these (`check_zone_presentation.mjs` and `check_dashboard_refresh.mjs` inside `pytest`, the
+other checks as their own steps). Portal changes also run
+`uv run python tools/check_help_videos.py` (see [Help videos](#help-videos)). Docs-only
+changes: check links and `git diff --check`.
 
 Small pull requests, one theme each; say in the description which checks you ran.
 

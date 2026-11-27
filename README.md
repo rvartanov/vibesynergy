@@ -16,7 +16,7 @@ it unless you connect a service yourself.
 - Everything it does: [docs/FEATURES.md](docs/FEATURES.md); what changed: [CHANGELOG.md](CHANGELOG.md)
 - Reporting a bug or asking for a feature: [docs/REPORTING.md](docs/REPORTING.md)
 
-Status: alpha (0.0.1). Expect changes between versions.
+Status: beta (`0.1.0-beta.0.…`). Expect changes between versions; the current version and what changed are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
