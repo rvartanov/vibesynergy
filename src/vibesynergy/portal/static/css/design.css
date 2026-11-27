@@ -237,10 +237,9 @@ a.tile.link:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px
 .header-sync-chip[data-advice-notice] > span:first-child { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 0; flex: 1; }
 .header-sync-chip[data-advice-notice] > a { white-space: nowrap; }
 /* The colour state of an advice (#147): its colour and meaning, or "Done for today" with the
-   recovery colour in a small line; a day that is done calls for no colour. */
+   recovery colour in a small line. The card's edge keeps the colour either way (#217). */
 .advice-verdict { margin: 0 0 var(--space-1); display: flex; flex-wrap: wrap; gap: var(--space-1); align-items: baseline; }
 .advice-status .advice-verdict { display: inline; margin: 0; color: var(--ink); }
-.verdict.done { border-left-color: var(--line); }
 .advice-report-head { margin: 0 0 var(--space-3); }
 .advice-report-head h2 { margin: 0; }
 .advice-report-head > p { margin: var(--space-1) 0 0; }

@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- The Today card on the start page and the Coach page always shows the current colour (green, amber or red) on its edge, also once the day is done; "Done for today" stays as text. When there is no colour (advice off, not loaded, none yet) the edge is neutral grey instead of green, and a short line says why (#217).
+
 ## 0.1.0-beta.0.33 – 27-11-2026
 
 - Charts are fitted to their box again whenever it changes size, so a chart drawn while its start-page block was folded (the timeline) no longer stays squeezed after the block is opened.

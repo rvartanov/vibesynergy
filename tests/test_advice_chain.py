@@ -228,6 +228,8 @@ def test_one_day_of_advice_reads_the_same_on_every_surface(rt, sent, plan):
     view = advice_view.for_entry_id(rt, after, NL)
     assert view is not None
     assert view["label"] == label and view["state"] == "done"
+    # A done day keeps its colour, for the card's edge (#217).
+    assert view["colour"] == "green"
     assert view["headline"] == view["verdict"] == "Gedaan voor vandaag"
     assert view["recovery"] == "Herstel: groen \N{EN DASH} Nacht en check-in goed."
     assert view["why"] == "na je training"
