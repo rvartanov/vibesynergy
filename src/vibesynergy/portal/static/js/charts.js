@@ -20,10 +20,21 @@ export function alpha(hex, a) {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
+// A chart drawn while its block is folded or hidden gets no width; when the block opens
+// (or its box changes size for any other reason) the chart is fitted to it again.
+const fitted = new ResizeObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.contentRect.width) continue;
+    const chart = echarts.getInstanceByDom(entry.target);
+    if (chart && !chart.isDisposed()) chart.resize();
+  }
+});
+
 export function mount(el, option) {
   const chart = echarts.init(el, null, { renderer: "svg" });
   chart.setOption({ animation: false, textStyle: { fontFamily: token("font") }, ...option });
   live.add(chart);
+  fitted.observe(el);
   return chart;
 }
 
@@ -36,7 +47,10 @@ export function onLeave(fn) {
 
 // Dispose every chart (and map) of the page being left.
 export function disposeAll() {
-  for (const chart of live) chart.dispose();
+  for (const chart of live) {
+    fitted.unobserve(chart.getDom());
+    chart.dispose();
+  }
   live.clear();
   while (cleanups.length) {
     try {

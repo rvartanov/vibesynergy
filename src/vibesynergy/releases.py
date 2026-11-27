@@ -343,6 +343,12 @@ ITEMS: tuple[Item, ...] = (
         "in intervals.icu.",
     ),
     Item(
+        "chart-fit",
+        "you",
+        "A chart in a start-page block you open again (such as the timeline) now fills the block "
+        "instead of being squeezed.",
+    ),
+    Item(
         "112-ai-gear-line",
         "ai",
         "Harness rules v10: when the AI coach writes or changes a session that needs "
