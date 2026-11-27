@@ -1,20 +1,9 @@
 // Settings → Account: the login. Change the password, the optional second factor (a code by
 // mail or an authenticator app, with backup codes), the devices you are logged in on, and
 // log out here or everywhere. The account's own API lives under /auth.
+import { auth as call } from "./api.js";
 import { deviceName, esc, userDateTime } from "./format.js";
 import { t } from "./i18n.js";
-
-async function call(method, path, body) {
-  const response = await fetch(path, {
-    method,
-    headers: method === "POST" ? { "content-type": "application/json", "x-vibesynergy": "portal" } : {},
-    body: method === "POST" ? JSON.stringify(body || {}) : undefined,
-    credentials: "same-origin",
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || data.detail || "Something went wrong. Try again.");
-  return data;
-}
 
 const MFA = { none: "Off", mail: "A code by mail", totp: "An authenticator app" };
 
@@ -53,6 +42,9 @@ function html(a) {
   </section>`;
 }
 
+// Hosts whose click handler is already there.
+const bound = new WeakSet();
+
 export async function mountAccount(host) {
   if (!host) return;
   let data;
@@ -63,14 +55,27 @@ export async function mountAccount(host) {
     return;
   }
   host.innerHTML = html(data);
-  const status = host.querySelector("[data-account-status]");
-  const say = (text, error = false) => {
-    status.textContent = t(text);
-    status.setAttribute("role", error ? "alert" : "status");
-  };
-  const redraw = () => mountAccount(host);
-  const confirmPassword = () => host.querySelector("#account-mfa-current")?.value || null;
+  // A redraw replaces the card but not the host: its click handler is bound once.
+  if (bound.has(host)) return bindPassword(host);
+  bound.add(host);
+  bindPassword(host);
+  bindButtons(host);
+}
 
+// The status line of the card as drawn now (a redraw makes a new one). Server messages
+// are translated too: the catalogue has them.
+function say(host, text, error = false) {
+  const status = host.querySelector("[data-account-status]");
+  if (!status) return;
+  status.textContent = t(text);
+  status.setAttribute("role", error ? "alert" : "status");
+}
+
+function confirmPassword(host) {
+  return host.querySelector("#account-mfa-current")?.value || null;
+}
+
+function bindPassword(host) {
   host.querySelector("[data-account-password]").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
@@ -78,19 +83,22 @@ export async function mountAccount(host) {
         password: host.querySelector("#account-new").value,
         current: host.querySelector("#account-current")?.value || null,
       });
-      say("Password changed. Other devices are logged out.");
+      say(host, "Password changed. Other devices are logged out.");
       event.target.reset();
     } catch (error) {
-      say(error.message, true);
+      say(host, error.message, true);
     }
   });
+}
 
+function bindButtons(host) {
+  const redraw = () => mountAccount(host);
   host.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
     try {
       if (button.dataset.mfa === "totp") {
-        const setup = await call("POST", "/auth/totp/start", { current: confirmPassword() });
+        const setup = await call("POST", "/auth/totp/start", { current: confirmPassword(host) });
         const box = host.querySelector("[data-totp-setup]");
         box.innerHTML = `<p>${esc(t("Add this key to your authenticator app, then enter the code it shows."))}</p>
           <p><code data-totp-secret>${esc(setup.secret.match(/.{1,4}/g).join(" "))}</code></p>
@@ -108,17 +116,17 @@ export async function mountAccount(host) {
               <ul class="plain backup-codes">${done.backup_codes.map((c) => `<li><code>${esc(c)}</code></li>`).join("")}</ul>
               <button class="btn" type="button" data-refresh>${esc(t("I have saved them"))}</button>`;
           } catch (error) {
-            say(error.message, true);
+            say(host, error.message, true);
           }
         });
         box.querySelector("#totp-code").focus();
       } else if (button.dataset.mfa === "mail") {
-        await call("POST", "/auth/mfa/mail", { on: true, current: confirmPassword() });
-        say("From now on you get a code by mail when you log in.");
+        await call("POST", "/auth/mfa/mail", { on: true, current: confirmPassword(host) });
+        say(host, "From now on you get a code by mail when you log in.");
         redraw();
       } else if (button.dataset.mfa === "off") {
-        await call("POST", "/auth/mfa/mail", { on: false, current: confirmPassword() });
-        say("The second step is off.");
+        await call("POST", "/auth/mfa/mail", { on: false, current: confirmPassword(host) });
+        say(host, "The second step is off.");
         redraw();
       } else if (button.dataset.refresh !== undefined) {
         redraw();
@@ -133,7 +141,7 @@ export async function mountAccount(host) {
         location.assign("/login");
       }
     } catch (error) {
-      say(error.message, true);
+      say(host, error.message, true);
     }
   });
 }

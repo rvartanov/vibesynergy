@@ -1,7 +1,6 @@
 // One activity: summary, route map (MapLibre), stream charts as aligned panels sharing the
 // elapsed-time axis (hovering a chart moves a marker along the route), laps, time in zones
 // and the copy from each source.
-import * as maplibregl from "../../vendor/maplibre/maplibre-gl.mjs";
 import { annotationPreview } from "../annotation_preview.js";
 import { get, post } from "../api.js";
 import { bindEffort, effortHtml } from "../effort.js";
@@ -189,7 +188,7 @@ export async function render(view, { args, meta, stale }) {
     sources.filter((source) => !source.removed_at).map((source) => source.id.split(":")[0])
       .filter((source) => ["strava", "garmin"].includes(source)));
   let marker = null;
-  if (hasRoute) marker = routeMap(view.querySelector(".map"), cols, meta.data.tiles);
+  if (hasRoute) marker = routeMap(view.querySelector(".map"), cols, meta.data.tiles, stale);
   if (panels.length) streamCharts(view.querySelector(".streams"), cols, panels, marker, zones);
 }
 
@@ -283,7 +282,43 @@ function notesHtml(notes) {
 
 // Map ------------------------------------------------------------------------------------
 
-function routeMap(el, cols, tiles) {
+// MapLibre and its stylesheet load only when an activity has a route (#208): most pages
+// never show a map. The stylesheet goes before the portal's own, as it did in index.html.
+let mapLibrary = null;
+function loadMapLibrary() {
+  if (!mapLibrary) {
+    const href = new URL("../../vendor/maplibre/maplibre-gl.css", import.meta.url).href;
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      document.head.insertBefore(link, document.head.querySelector('link[rel="stylesheet"]'));
+    }
+    mapLibrary = import("../../vendor/maplibre/maplibre-gl.mjs").catch((error) => {
+      mapLibrary = null; // a later visit tries again
+      throw error;
+    });
+  }
+  return mapLibrary;
+}
+
+// The route on a map; returns the function that moves the hover dot (a no-op until the
+// map has loaded).
+function routeMap(el, cols, tiles, stale) {
+  let move = null;
+  loadMapLibrary().then(
+    (maplibregl) => {
+      if (stale() || !el.isConnected) return;
+      move = drawRoute(maplibregl, el, cols, tiles);
+    },
+    () => {
+      if (!stale()) el.closest(".map-card")?.remove(); // no map rather than an empty box
+    },
+  );
+  return (i) => move?.(i);
+}
+
+function drawRoute(maplibregl, el, cols, tiles) {
   const coords = [];
   cols.lat.forEach((lat, i) => {
     const lon = cols.lon[i];

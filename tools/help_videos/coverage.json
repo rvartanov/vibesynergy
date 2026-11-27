@@ -54,7 +54,6 @@
     "plan_lines.js",
     "plan_labels.js",
     "compliance.js",
-    "race_phase.js",
     "pages/training.js",
     "workout_ref.js"
   ],

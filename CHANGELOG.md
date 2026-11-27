@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- The portal's start page loads faster: in English it no longer downloads a 260 KB word list it did not need, the map is only loaded on an activity with a route, and your preferences are fetched once instead of three times (#208).
+
 ## 0.1.0-beta.0.35 – 27-11-2026
 
 Small fixes behind the scenes.

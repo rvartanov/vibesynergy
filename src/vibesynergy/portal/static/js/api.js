@@ -57,7 +57,8 @@ async function parse(response) {
     // not JSON: fall through to the status message
   }
   if (!response.ok) {
-    throw new ApiError(body?.error || `${response.status} ${response.statusText}`, body?.code, body?.values);
+    const message = body?.error || (typeof body?.detail === "string" ? body.detail : null);
+    throw new ApiError(message || `${response.status} ${response.statusText}`, body?.code, body?.values);
   }
   return body;
 }
@@ -82,11 +83,31 @@ export async function get(path, params, options = {}) {
 // Writes carry the X-VibeSynergy header; the server refuses writes without it, which stops
 // other web pages from triggering actions here.
 export async function post(path, body = {}) {
-  return call("POST", url(path), () =>
+  const reply = await call("POST", url(path), () =>
     fetch(url(path), {
       method: "POST",
       headers: { "content-type": "application/json", "x-vibesynergy": "portal" },
       body: JSON.stringify(body),
+    }),
+  );
+  // A saved preference answers with all preferences: the cache below is current again.
+  if (path === "prefs" && reply?.data) primePrefs(reply);
+  return reply;
+}
+
+// The login's own API (/auth/…, outside api/): the same failure log (for a bug report)
+// and error messages as every other call.
+export async function auth(method, path, body) {
+  const write = method !== "GET";
+  return call(method, path, () =>
+    fetch(path, {
+      method,
+      cache: write ? undefined : "no-store",
+      credentials: "same-origin",
+      headers: write
+        ? { "content-type": "application/json", "x-vibesynergy": "portal" }
+        : { accept: "application/json" },
+      body: write ? JSON.stringify(body || {}) : undefined,
     }),
   );
 }
@@ -106,6 +127,29 @@ export function setMetaMaxAge(ms) {
 export function invalidateMeta() {
   metaPromise = null;
   metaAt = 0;
+}
+
+// All preferences (menu, language, start-page blocks, …), asked once for a page load
+// instead of by every part that reads them (#208), with the same age cap as meta(). Each
+// caller gets its own copy, so one that changes it does not change the others'. Saving a
+// preference (post("prefs")) refreshes it; a shared view has none and the call fails.
+let prefsPromise = null;
+let prefsAt = 0;
+
+function primePrefs(reply) {
+  prefsAt = Date.now();
+  prefsPromise = Promise.resolve(reply);
+}
+
+export function prefs() {
+  if (!prefsPromise || Date.now() - prefsAt > metaMaxAgeMs) {
+    prefsAt = Date.now();
+    prefsPromise = get("prefs").catch((error) => {
+      prefsPromise = null;
+      throw error;
+    });
+  }
+  return prefsPromise.then((reply) => structuredClone(reply));
 }
 
 export function meta() {

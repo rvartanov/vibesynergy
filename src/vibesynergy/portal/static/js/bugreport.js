@@ -20,7 +20,8 @@ function prepare() {
       target = reply.data.new_issue_url || target;
     })
     .catch(() => {});
-  fetch("/version", { credentials: "same-origin" })
+  // Relative, like app.js: the portal also works below a path prefix (shared links).
+  fetch("version", { cache: "no-store" })
     .then((reply) => reply.json())
     .then((info) => {
       version = [info.version, info.commit].filter(Boolean).join(" · ");

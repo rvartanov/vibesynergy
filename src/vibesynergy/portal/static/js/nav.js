@@ -2,7 +2,7 @@
 // sections and of the pages in them, and which pages are hidden, are kept on the server
 // (api/prefs), so they are the same on the phone and the laptop. Routes don't change:
 // #/sleep still opens Sleep, wherever it sits in the menu.
-import { get, post } from "./api.js";
+import { post, prefs as loadAllPrefs } from "./api.js";
 import { esc } from "./format.js";
 import { N, t } from "./i18n.js";
 
@@ -21,9 +21,6 @@ export const SECTIONS = [
 
 // Pages that belong to another page's menu entry.
 export const PARENT = { activity: "activities" };
-
-// Saved menu prefs may still list pages that moved into another section.
-export const LEGACY_PAGE_SECTION = {};
 
 function withSection(query, section) {
   const params = new URLSearchParams(query.replace(/^\?/, ""));
@@ -60,7 +57,7 @@ let allowed = null; // behind a share link: only its pages
 export async function loadPrefs() {
   let prefs = {};
   try {
-    prefs = (await get("prefs")).data;
+    prefs = (await loadAllPrefs()).data;
   } catch {
     // shared view (no prefs there) or an older server: the defaults
   }
@@ -80,18 +77,6 @@ function ordered(items, order, key) {
 const KNOWN_SECTIONS = new Set(SECTIONS.map((s) => s.id));
 const KNOWN_PAGES = new Set(SECTIONS.flatMap((s) => s.pages.map((p) => p[0])));
 
-function pageLabel(pageId) {
-  for (const section of SECTIONS) {
-    const found = section.pages.find(([id]) => id === pageId);
-    if (found) return found;
-  }
-  return null;
-}
-
-function prefsListsPage(pageId, prefs) {
-  return Object.values(prefs.pages || {}).some((list) => list?.includes(pageId));
-}
-
 function filterOrder(order, valid) {
   if (!order) return order;
   return order.filter((id) => valid.has(id));
@@ -99,21 +84,14 @@ function filterOrder(order, valid) {
 
 // The sections in the saved order, each with its pages in order and a hidden flag.
 export function layout(prefs = saved) {
-  const hidden = new Set((prefs.hidden || []).filter((id) => id !== "diary"));
+  const hidden = new Set(prefs.hidden || []);
   const sectionOrder = filterOrder(prefs.sections, KNOWN_SECTIONS);
   return ordered(SECTIONS, sectionOrder, (s) => s.id).map((s) => {
-    let pages = [...s.pages];
-    for (const [pageId, sectionId] of Object.entries(LEGACY_PAGE_SECTION)) {
-      if (sectionId !== s.id || pages.some(([id]) => id === pageId)) continue;
-      if (!prefsListsPage(pageId, prefs)) continue;
-      const def = pageLabel(pageId);
-      if (def) pages.push(def);
-    }
     const pageOrder = filterOrder(prefs.pages?.[s.id], KNOWN_PAGES);
     return {
       ...s,
       label: t(s.label),
-      pages: ordered(pages, pageOrder, (p) => p[0]).map(([id, label]) => ({
+      pages: ordered(s.pages, pageOrder, (p) => p[0]).map(([id, label]) => ({
         id,
         label: t(label),
         hidden: hidden.has(id),

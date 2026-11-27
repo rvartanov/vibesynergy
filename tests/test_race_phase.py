@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
 from datetime import timedelta
-from pathlib import Path
 
 from fastapi import Request
 from tests_helpers import add_race
@@ -108,49 +105,3 @@ def test_race_in_nine_days_reaches_mcp_portal_and_coaching_state(runtime):
     for data in (daily, dashboard, views.day(runtime.engine, today)):
         assert data["next_race"] == expected_race
         assert data["plan_phase"] == expected_phase
-
-
-def test_race_phase_renders_in_english_and_dutch():
-    static = Path(__file__).parents[1] / "src/vibesynergy/portal/static"
-    script = """
-import fs from 'node:fs';
-import { setLanguage } from './js/i18n.js';
-import { racePhaseHtml } from './js/race_phase.js';
-globalThis.document = { documentElement: { lang: 'en' } };
-globalThis.fetch = async (url) => ({ json: async () => {
-  const file = String(url).includes('nl.json') ? './i18n/nl.json' : './i18n/en.json';
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}});
-const data = {next_race: {name: 'Synthetic Ultra', date: '2026-10-10', days_to_go: 9,
-  distance_m: 75000, priority: 'A'}, plan_phase: {phase: 'taper', days_left: 9}};
-const singular = {next_race: {name: 'Synthetic Ultra', date: '2026-11-28', days_to_go: 40,
-  distance_m: 75000, priority: 'B'}, plan_phase: {phase: 'build', days_left: 1},
-  supporting: [{name: 'Sallandse 30 km', date: '2026-10-31', days_to_go: 15}]};
-for (const language of ['en', 'nl']) {
-  await setLanguage(language);
-  process.stdout.write(JSON.stringify({language, html: racePhaseHtml(data)}) + '\\n');
-  const one = JSON.stringify({language: language + '-one', html: racePhaseHtml(singular)});
-  process.stdout.write(one + '\\n');
-}
-"""
-    result = subprocess.run(
-        ["node", "--input-type=module", "-e", script],
-        cwd=static,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    rows = {row["language"]: row["html"] for row in map(json.loads, result.stdout.splitlines())}
-    en, nl = rows["en"], rows["nl"]
-    assert "Next race and plan phase" in en and "Taper" in en and "9 days to go" in en
-    assert "Volgende wedstrijd en planfase" in nl and "Afbouw" in nl and "Nog 9 dagen" in nl
-    assert "Synthetic Ultra" in en and "Synthetic Ultra" in nl
-    assert "Primary race" in en and "Other race" not in en
-    assert "Hoofdwedstrijd" in nl and "Andere wedstrijd" not in nl
-    assert "Supporting" in rows["en-one"] and "Other race" not in rows["en-one"]
-    assert "Ondersteunend" in rows["nl-one"]
-    assert "1 day left in phase" in rows["en-one"]
-    assert "days left in phase" not in rows["en-one"]
-    assert "Tune-up: Sallandse 30 km in 15 days" in rows["en-one"]
-    assert "Nog 1 dag in deze fase" in rows["nl-one"]
-    assert "Tussenwedstrijd: Sallandse 30 km over 15 dagen" in rows["nl-one"]

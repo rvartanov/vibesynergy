@@ -7,7 +7,7 @@ import { fitnessHeadHtml } from "../fitness_tabs.js";
 import { mountBests } from "../bests_block.js";
 import { FITNESS_RANGES, formHtml, mountForm } from "../form_block.js";
 import { mountPredictions } from "../race_predictions.js";
-import { get, post } from "../api.js";
+import { get, post, prefs as loadAllPrefs } from "../api.js";
 import { esc, number, userDate, userDateTime } from "../format.js";
 import { N, t } from "../i18n.js";
 import { isoToday } from "../period_picker.js";
@@ -95,7 +95,7 @@ async function renderForm(view, { query, stale }) {
 async function renderBests(view, { meta, stale }) {
   document.title = `${t("Best efforts")} · ${t("Fitness")} · VibeSynergy`;
   const share = meta?.data?.share;
-  const prefs = share ? {} : await get("prefs").then((reply) => reply.data || {}, () => ({}));
+  const prefs = share ? {} : await loadAllPrefs().then((reply) => reply.data || {}, () => ({}));
   if (stale()) return;
   view.innerHTML = `${fitnessHeadHtml("bests", t("Your best times, power and longest sessions, per sport or all together."))}
     <section class="card" aria-label="${esc(t("Best efforts"))}"><div data-bests></div></section>`;
