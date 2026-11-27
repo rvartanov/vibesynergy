@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pytest import MonkeyPatch
 
 
 def add_public_url(config: Path, url: str = "https://server.example.ts.net") -> None:
@@ -125,3 +129,36 @@ def add_race(engine, name: str, day, priority: str | None = None, **values) -> s
             )
         )
     return ident
+
+
+def no_live_intervals_icu(monkeypatch: MonkeyPatch) -> None:
+    """Pages and tools that read intervals.icu sport settings never reach the network."""
+    from vibesynergy.query import thresholds
+    from vibesynergy.sources.intervals_icu.client import IntervalsIcuError
+
+    def offline():
+        raise IntervalsIcuError("intervals.icu is not set up: tests")
+
+    monkeypatch.setattr(thresholds, "icu_settings_live", offline)
+
+
+def contact_window_off(monkeypatch: MonkeyPatch) -> None:
+    """The contact window (#119) has its own tests, which save one. The rest must not
+    depend on the hour they run at, so an unsaved window is off here."""
+    from vibesynergy.coach_runner import contact
+
+    monkeypatch.setattr(contact, "DEFAULT", {**contact.DEFAULT_WINDOW, "on": False})
+
+
+def portal_login_off(monkeypatch: MonkeyPatch) -> None:
+    """The login gate has its own tests (marked ``auth``); the rest test the portal itself."""
+    from vibesynergy.portal import auth_gate
+
+    monkeypatch.setattr(auth_gate, "auth_required", lambda settings: False)
+
+
+def isolate(monkeypatch: MonkeyPatch) -> None:
+    """All three of the above, for a module-scoped fixture that sets up before them."""
+    no_live_intervals_icu(monkeypatch)
+    contact_window_off(monkeypatch)
+    portal_login_off(monkeypatch)

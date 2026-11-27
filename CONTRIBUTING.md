@@ -8,11 +8,17 @@ uv run basedpyright          # query/ and mcp/, against .basedpyright/baseline.j
 uv run pytest -n 4
 ```
 
-Portal changes also run the browser tests (they skip silently without Playwright):
+Portal changes also run the browser tests (they skip without Playwright or Chrome; set
+`VIBESYNERGY_A11Y_REQUIRED=1` to make that a failure, as CI does):
 
 ```bash
-uv run --with playwright pytest -q tests/test_portal_a11y.py tests/test_portal_polish.py
+VIBESYNERGY_A11Y_REQUIRED=1 uv run --with playwright pytest -q tests/test_portal_a11y.py tests/test_portal_polish.py
 ```
+
+CI runs every browser test file (see `.github/workflows/ci.yml`; a test fails when one is
+missing there). They share `tests/browser_helpers.py`: Chrome, axe-core (cached under
+`~/.cache/vibesynergy-tests`) and throwaway servers on ports picked while the test runs, so
+two test runs can go side by side.
 
 and the JavaScript checks: `node --check` on every module, `node --test tests/*.test.mjs`,
 `node tools/check_*.mjs` and `uv run python docs/design/check_design.py`. CI runs all of

@@ -54,6 +54,12 @@ jobs:
       - run: uv run pytest -n 4
         env:
           VIBESYNERGY_FULL_MATRIX: ${{ github.event_name == 'push' && '1' || '' }}
+      # axe-core for the browser tests below: fetched from npm once per version into this
+      # folder (tests/browser_helpers.py), kept between runs.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/vibesynergy-tests
+          key: browser-tests-${{ hashFiles('tests/browser_helpers.py') }}
       # Populated portal, axe and keyboard. Own step so a missing browser fails here,
       # and the default pytest run above stays skipped and fast.
       - run: uv run --with playwright pytest tests/test_portal_a11y.py tests/test_calendar_settings_a11y.py tests/test_coach_runner_a11y.py tests/test_login_a11y.py tests/test_bug_report_a11y.py tests/test_future_day_a11y.py tests/test_workout_page_a11y.py tests/test_workout_gear_a11y.py tests/test_workout_media_a11y.py -q
@@ -62,9 +68,20 @@ jobs:
       # Language/appearance and small-polish browser checks. Their own step, so a
       # change to the a11y list above does not touch this line.
       - run: uv run --with playwright pytest tests/test_language_appearance.py tests/test_portal_polish.py -q
+        env:
+          VIBESYNERGY_A11Y_REQUIRED: "1"
       # Phone start page: advice first, check-in next, keyboard and axe at 390x844.
       # Its own step, like the two above, so it cannot go stale outside CI again.
       - run: uv run --with playwright pytest tests/test_dashboard_phone.py tests/test_alert_click_dismiss.py -q
+        env:
+          VIBESYNERGY_A11Y_REQUIRED: "1"
+      # Settings tabs, start page blocks and the quick log (#209: these ran nowhere before).
+      # tests/test_browser_tests_in_ci.py fails when a browser test file is in no step.
+      - run: uv run --with playwright pytest tests/test_settings_tabs.py tests/test_start_page_browser.py tests/test_portal_quicklog.py -q
+        env:
+          VIBESYNERGY_A11Y_REQUIRED: "1"
+      # A real CalDAV server: Radicale, a test-only tool run as its own process.
+      - run: uv run --with playwright --with radicale pytest tests/test_caldav_radicale_e2e.py -q
         env:
           VIBESYNERGY_A11Y_REQUIRED: "1"
 

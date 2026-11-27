@@ -62,7 +62,9 @@ Notes:
   [slurp-garmin-mcp](https://github.com/rvartanov/slurp-garmin-mcp) (MIT), reference commit
   `94979eb`. No code is copied; the calls go through `garminconnect`.
 
-Development-only: pytest (MIT), ruff (MIT).
+Development-only: pytest (MIT), ruff (MIT). Browser tests only, never shipped or vendored:
+Playwright (Apache-2.0), axe-core (MPL-2.0, fetched from npm into a cache) and Radicale
+(GPL-3.0, run as a separate test server process).
 
 ## Vendored or adapted code
 

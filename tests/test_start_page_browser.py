@@ -4,11 +4,12 @@ reset, choose the best-runs period, workout context on diary notes, and no axe v
 
 from __future__ import annotations
 
-import threading
 import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from browser_helpers import axe_script, portal_server, require_browser, run_axe
+from tests_helpers import add_race
 
 from vibesynergy.core.config import load_settings
 from vibesynergy.core.timeutil import today_in
@@ -39,14 +40,6 @@ def _seed(rt: Runtime) -> None:
             "plan-tomorrow", today + timedelta(days=1), "workout", title="Long run", sport="running"
         ),
         PlannedItem("plan-today", today, "workout", title="Easy swim", sport="swimming"),
-        PlannedItem(
-            "race-soon",
-            today + timedelta(days=4),
-            "event",
-            title="Dune 15 km",
-            is_race=True,
-            primary=True,
-        ),
     ]
     for age in range(0, 60, 3):
         records.append(DailyMetric(today - timedelta(days=age), "body.weight", 79 + age / 30, "kg"))
@@ -61,6 +54,8 @@ def _seed(rt: Runtime) -> None:
     with rt.engine.begin() as conn:
         write_records(conn, records, source="garmin", raw_item_id=raw.id)
     unify.rebuild(rt.engine)
+    # Races live in VibeSynergy's own list since #111, not in the planned items.
+    add_race(rt.engine, "Dune 15 km", today + timedelta(days=4), priority="A")
     with rt.engine.connect() as conn:
         group = conn.exec_driver_sql(
             "select group_id from activity_unified where name = 'Harbour loop'"
@@ -99,37 +94,19 @@ def _tab_to(page, test, limit: int = 250) -> None:
 
 
 def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
-    from test_portal_a11y import _axe, _axe_script, _chrome, _port, _ready
-
-    chrome = _chrome()
-    if chrome is None:
-        pytest.skip("Google Chrome is unavailable")
-    pytest.importorskip("playwright.sync_api")
-    import uvicorn
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
-    port = _port()
     config = tmp_path / "config.toml"
-    config.write_text(
-        '[user]\ntimezone = "Europe/Amsterdam"\n'
-        f"[portal]\nport = {port}\n[sources.demo]\nenabled = true\n"
-    )
+    config.write_text('[user]\ntimezone = "Europe/Amsterdam"\n[sources.demo]\nenabled = true\n')
     monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
     monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "data"))
     rt = Runtime.open(load_settings())
     rt.migrate()
-    server = thread = None
     try:
         _seed(rt)
-        server = uvicorn.Server(
-            uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
-        )
-        thread = threading.Thread(target=server.run, daemon=True)
-        thread.start()
-        base = f"http://127.0.0.1:{port}"
-        _ready(base)
-        axe = _axe_script()
-        with sync_playwright() as playwright:
+        axe = axe_script()
+        with portal_server(create_portal_app(rt)) as base, sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             context = browser.new_context(viewport={"width": 1280, "height": 900})
             context.add_init_script(axe)
@@ -154,7 +131,7 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
             page.keyboard.press("Enter")
             assert page.locator("#dash-arrange").is_visible()
             assert page.get_attribute("[data-arrange-toggle]", "aria-expanded") == "true"
-            violations = _axe(page)
+            violations = run_axe(page)
             assert not violations, violations
 
             # Move "Body and measurements" up twice with the keyboard; focus stays on it.
@@ -253,14 +230,10 @@ def test_start_page_blocks_by_keyboard(tmp_path, monkeypatch) -> None:
             assert page.eval_on_selector("[data-bests-period]", "el => el.value") == "all"
             assert page.get_attribute("[data-collapse='upcoming']", "aria-expanded") == "false"
             page.click("[data-arrange-toggle]")
-            violations = _axe(page)
+            violations = run_axe(page)
             assert not violations, violations
             width = page.evaluate("() => document.documentElement.scrollWidth")
             assert width <= 390
             browser.close()
     finally:
-        if server:
-            server.should_exit = True
-        if thread:
-            thread.join(timeout=5)
         rt.close()

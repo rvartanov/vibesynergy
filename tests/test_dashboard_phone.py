@@ -7,11 +7,11 @@ comes right after it, starting inside that first screen so it is in view without
 
 from __future__ import annotations
 
-import threading
 import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from browser_helpers import axe_script, portal_server, require_browser, run_axe
 
 from vibesynergy.core.config import load_settings
 from vibesynergy.core.timeutil import today_in
@@ -90,24 +90,15 @@ def _seed(rt: Runtime) -> None:
 
 
 def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
-    from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools
-
-    chrome = _require_tools()
-    import uvicorn
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
-    port = _port()
     config = tmp_path / "config.toml"
-    config.write_text(
-        '[user]\ntimezone = "Europe/Amsterdam"\n'
-        f"[portal]\nport = {port}\n[sources.demo]\nenabled = true\n"
-    )
+    config.write_text('[user]\ntimezone = "Europe/Amsterdam"\n[sources.demo]\nenabled = true\n')
     monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
     monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "data"))
     rt = Runtime.open(load_settings())
     rt.migrate()
-    server = None
-    thread = None
     try:
         _seed(rt)
         # The everyday start page: the "What changed" card of a release (#140) shows once,
@@ -115,15 +106,8 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
         from vibesynergy.query import release_news
 
         release_news.news(rt.engine)
-        server = uvicorn.Server(
-            uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
-        )
-        thread = threading.Thread(target=server.run, daemon=True)
-        thread.start()
-        base = f"http://127.0.0.1:{port}"
-        _ready(base)
-        axe = _axe_script()
-        with sync_playwright() as playwright:
+        axe = axe_script()
+        with portal_server(create_portal_app(rt)) as base, sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             context = browser.new_context(viewport=PHONE)
             context.add_init_script(axe)
@@ -162,7 +146,7 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
             today_text = page.locator(".dash-today").inner_text()
             assert "Easy run" in today_text
             assert RUN_NAME in today_text
-            violations = _axe(page)
+            violations = run_axe(page)
             assert not violations, violations
             page.keyboard.press("Tab")
             assert "skip-main" in (page.locator(":focus").get_attribute("class") or "")
@@ -196,8 +180,4 @@ def test_phone_dashboard_leads_with_today(tmp_path, monkeypatch) -> None:
             page.screenshot(path=str(tmp_path / "phone-header-notice.png"))
             browser.close()
     finally:
-        if server:
-            server.should_exit = True
-        if thread:
-            thread.join(timeout=5)
         rt.close()

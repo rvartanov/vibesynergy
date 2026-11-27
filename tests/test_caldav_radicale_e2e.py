@@ -1,17 +1,25 @@
-"""Optional browser/Radicale flow with isolated storage and localhost ports."""
+"""A real CalDAV server (Radicale) chosen and synced from the portal, with isolated storage
+and ports picked while the test runs.
+
+CI runs it with ``uv run --with playwright --with radicale``; without Radicale it skips (or
+fails under VIBESYNERGY_A11Y_REQUIRED=1).
+"""
 
 import os
 import shutil
-import socket
 import subprocess
-import threading
 import time
 from datetime import date
-from pathlib import Path
 
 import pytest
 import requests
-import uvicorn
+from browser_helpers import (
+    axe_script,
+    free_port,
+    portal_server,
+    require_browser,
+    run_axe,
+)
 from sqlalchemy import select
 
 from vibesynergy.core.config import load_settings
@@ -24,31 +32,33 @@ from vibesynergy.store.schema import planned_item
 pytestmark = pytest.mark.integration
 
 
-def port():
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
-def ready(url):
-    for _ in range(100):
+def _dav_ready(url: str, process: subprocess.Popen) -> None:
+    """Radicale answers, and it is ours: a Radicale that lost the port to another run ends."""
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            pytest.fail(f"Radicale stopped before it answered: {process.returncode}")
         try:
-            requests.get(url, timeout=0.2)
-            return
+            requests.get(url, timeout=0.5, allow_redirects=False)
         except requests.RequestException:
             time.sleep(0.1)
-    pytest.fail(f"Temporary server did not start: {url}")
+            continue
+        time.sleep(0.3)
+        if process.poll() is None:
+            return
+    pytest.fail(f"Radicale did not start: {url}")
 
 
 def test_radicale_portal_selection_and_sync(tmp_path, monkeypatch):
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        pytest.skip("Playwright is unavailable")
-    if not shutil.which("radicale") or not shutil.which("google-chrome"):
-        pytest.skip("Radicale or Chrome is unavailable")
+    chrome = require_browser()
+    from playwright.sync_api import sync_playwright
+
+    if not shutil.which("radicale"):
+        if os.environ.get("VIBESYNERGY_A11Y_REQUIRED"):
+            pytest.fail("Radicale is unavailable: run with `uv run --with radicale`")
+        pytest.skip("Radicale is unavailable")
     monkeypatch.setattr(caldav_client, "ALLOW_LOCAL_HTTP", True)
-    dav_port, portal_port = port(), port()
+    dav_port = free_port()
     auth = tmp_path / "users"
     auth.write_text("testuser:testpass\n")
     dav_config = tmp_path / "radicale.conf"
@@ -63,11 +73,9 @@ def test_radicale_portal_selection_and_sync(tmp_path, monkeypatch):
         stderr=subprocess.DEVNULL,
     )
     rt = None
-    server = None
-    thread = None
     try:
         dav = f"http://127.0.0.1:{dav_port}"
-        ready(dav)
+        _dav_ready(dav, process)
         session = requests.Session()
         session.auth = ("testuser", "testpass")
         for name in ("chosen", "other"):
@@ -91,30 +99,16 @@ def test_radicale_portal_selection_and_sync(tmp_path, monkeypatch):
                 )
                 assert result.status_code in (201, 204), result.status_code
         config = tmp_path / "vibesynergy.toml"
-        config.write_text(
-            f'[user]\ntimezone = "Europe/Amsterdam"\n[portal]\nport = {portal_port}\n'
-        )
+        config.write_text('[user]\ntimezone = "Europe/Amsterdam"\n')
         monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
         monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "vibesynergy-data"))
         rt = Runtime.open(load_settings())
         rt.migrate()
-        server = uvicorn.Server(
-            uvicorn.Config(
-                create_portal_app(rt), host="127.0.0.1", port=portal_port, log_level="error"
-            )
-        )
-        thread = threading.Thread(target=server.run, daemon=True)
-        thread.start()
-        portal = f"http://127.0.0.1:{portal_port}"
-        ready(portal)
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(
-                executable_path=shutil.which("google-chrome"), headless=True
-            )
+        axe = axe_script()
+        with portal_server(create_portal_app(rt)) as portal, sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             page = browser.new_page()
-            axe_path = os.environ.get("VIBESYNERGY_AXE_SCRIPT")
-            if axe_path:
-                page.add_init_script(script=Path(axe_path).read_text())
+            page.add_init_script(script=axe)
             page.goto(portal + "/#/settings/calendar")
             page.locator("#caldav-provider").select_option("other")
             page.locator("#caldav-url").fill(dav + "/")
@@ -141,25 +135,16 @@ def test_radicale_portal_selection_and_sync(tmp_path, monkeypatch):
             ):
                 page.goto(portal + "/?error-state=1" + route)
                 page.get_by_text(text, exact=False).first.wait_for()
-                if axe_path:
-                    findings = page.evaluate(
-                        "async () => await axe.run(document, "
-                        "{runOnly: {type: 'tag', values: "
-                        "['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']}})"
-                    )
-                    assert not findings["violations"], [
-                        (v["id"], len(v["nodes"])) for v in findings["violations"]
-                    ]
-                detail = page.locator("details:has(summary:text('Details'))").first
-                detail.locator("summary").focus()
+                violations = run_axe(page)
+                assert not violations, violations
+                # The error's technical details open by keyboard.
+                summary = page.locator("summary", has_text="details").first
+                detail = summary.locator("xpath=..")
+                summary.focus()
                 page.keyboard.press("Enter")
                 assert detail.get_attribute("open") is not None
             browser.close()
     finally:
-        if server:
-            server.should_exit = True
-        if thread:
-            thread.join(timeout=5)
         if rt:
             rt.close()
         process.terminate()

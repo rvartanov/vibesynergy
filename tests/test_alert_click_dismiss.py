@@ -5,9 +5,9 @@ The notice is made up."""
 from __future__ import annotations
 
 import json
-import threading
 
 import pytest
+from browser_helpers import portal_server, require_browser
 
 from vibesynergy.core.config import load_settings
 from vibesynergy.portal.app import create_portal_app
@@ -32,28 +32,17 @@ ALERTS = {
 
 
 def test_clicking_a_notice_link_hides_the_notice(tmp_path, monkeypatch) -> None:
-    from test_portal_a11y import _port, _ready, _require_tools
-
-    chrome = _require_tools()
-    import uvicorn
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
-    port = _port()
     config = tmp_path / "config.toml"
-    config.write_text(f'[user]\ntimezone = "Europe/Amsterdam"\n[portal]\nport = {port}\n')
+    config.write_text('[user]\ntimezone = "Europe/Amsterdam"\n')
     monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
     monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "data"))
     rt = Runtime.open(load_settings())
     rt.migrate()
-    server = uvicorn.Server(
-        uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
-    )
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
     try:
-        base = f"http://127.0.0.1:{port}"
-        _ready(base)
-        with sync_playwright() as playwright:
+        with portal_server(create_portal_app(rt)) as base, sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             page = browser.new_page()
             page.route(
@@ -76,6 +65,4 @@ def test_clicking_a_notice_link_hides_the_notice(tmp_path, monkeypatch) -> None:
             assert page.locator(".header-warn-notices").count() == 0
             browser.close()
     finally:
-        server.should_exit = True
-        thread.join(timeout=10)
         rt.close()

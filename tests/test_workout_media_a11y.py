@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import json
 import shutil
-import threading
 
 import pytest
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from test_evidence import START, put
-from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 from test_workout_media import picture
 
 from vibesynergy.model import Activity
@@ -30,7 +28,7 @@ COPY = {
 
 
 def test_workout_photos_by_keyboard_and_axe(runtime, tmp_path):
-    chrome = _require_tools()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
     put(
@@ -56,86 +54,79 @@ def test_workout_photos_by_keyboard_and_axe(runtime, tmp_path):
 
         clip = make_video(tmp_path / "clip.mp4")
         workout_media.add(runtime.engine, runtime.raw.blobs, group, clip)
-    app = create_portal_app(runtime)
-    port = _port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    base = f"http://127.0.0.1:{port}"
-    try:
-        _ready(base)
-        axe = _axe_script()
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(executable_path=chrome, headless=True)
-            for n, (language, theme, width) in enumerate(
-                [("nl", "light", 1280), ("nl", "dark", 390), ("en", "light", 390)]
-            ):
-                photo = tmp_path / f"photo{n}.jpg"
-                photo.write_bytes(picture(10 + n))
-                copy = COPY[language]
-                context = browser.new_context(
-                    viewport={"width": width, "height": 900},
-                    locale="nl-NL" if language == "nl" else "en-GB",
-                    color_scheme=theme,
+    axe = axe_script()
+    with portal_server(create_portal_app(runtime)) as base, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=chrome, headless=True)
+        for n, (language, theme, width) in enumerate(
+            [("nl", "light", 1280), ("nl", "dark", 390), ("en", "light", 390)]
+        ):
+            photo = tmp_path / f"photo{n}.jpg"
+            photo.write_bytes(picture(10 + n))
+            copy = COPY[language]
+            context = browser.new_context(
+                viewport={"width": width, "height": 900},
+                locale="nl-NL" if language == "nl" else "en-GB",
+                color_scheme=theme,
+            )
+            context.add_init_script(axe)
+            page = context.new_page()
+            # Playwright turns file-chooser interception on when the first "filechooser"
+            # listener is added, without waiting for Chrome to confirm it. Added inside
+            # expect_file_chooser, the Enter below could open the chooser first: Chrome
+            # then shows (headless: drops) its own dialog and the test timed out (#209).
+            # Listening from the start means interception is on long before.
+            page.on("filechooser", lambda _chooser: None)
+            errors: list[str] = []
+            page.on("pageerror", lambda exc, errors=errors: errors.append(str(exc)))
+            page.goto(f"{base}/#/activity/{group}")
+            card = page.locator("[data-workout-media]")
+            card.locator("[data-wm-add]").wait_for()
+            assert card.locator("#wm-where").inner_text().strip()
+            if has_video:
+                player = card.locator(".wm-grid video")
+                assert player.get_attribute("aria-label") and player.get_attribute("poster")
+                assert tab_until(
+                    page, "() => document.activeElement?.tagName === 'VIDEO'", steps=250
                 )
-                context.add_init_script(axe)
-                page = context.new_page()
-                errors: list[str] = []
-                page.on("pageerror", lambda exc, errors=errors: errors.append(str(exc)))
-                page.goto(f"{base}/#/activity/{group}")
-                card = page.locator("[data-workout-media]")
-                card.locator("[data-wm-add]").wait_for()
-                assert card.locator("#wm-where").inner_text().strip()
-                if has_video:
-                    player = card.locator(".wm-grid video")
-                    assert player.get_attribute("aria-label") and player.get_attribute("poster")
-                    assert _tab_until(
-                        page, "() => document.activeElement?.tagName === 'VIDEO'", steps=250
-                    )
-                # Add a photo with the keyboard: the button opens the file chooser.
-                assert _tab_until(
-                    page, "() => document.activeElement?.hasAttribute('data-wm-add')", steps=250
-                )
-                with page.expect_file_chooser() as chooser:
-                    page.keyboard.press("Enter")
-                chooser.value.set_files(str(photo))
-                card.locator("[data-wm-status]").get_by_text(copy["added"], exact=True).wait_for()
-                assert page.evaluate("document.activeElement?.hasAttribute('data-wm-add')")
-                img = card.locator(".wm-grid img").last
-                assert img.get_attribute("alt")
-                page.wait_for_function(
-                    "() => [...document.querySelectorAll('[data-workout-media] .wm-grid img')]"
-                    ".every(i => i.complete && i.naturalWidth > 0)"
-                )
-                # Remove it again: it moves to the history, where it can be put back.
-                live = len(workout_media.photos(runtime.engine, group)["photos"])
-                button = card.locator("[data-wm-remove]").last
-                button.focus()
+            # Add a photo with the keyboard: the button opens the file chooser.
+            assert tab_until(
+                page, "() => document.activeElement?.hasAttribute('data-wm-add')", steps=250
+            )
+            with page.expect_file_chooser() as chooser:
                 page.keyboard.press("Enter")
-                page.wait_for_function(
-                    "n => document.querySelectorAll('[data-wm-remove]').length === n", arg=live - 1
-                )
-                assert page.evaluate("document.activeElement?.hasAttribute('data-wm-photos')")
-                summary = card.locator("[data-wm-history] summary")
+            chooser.value.set_files(str(photo))
+            card.locator("[data-wm-status]").get_by_text(copy["added"], exact=True).wait_for()
+            assert page.evaluate("document.activeElement?.hasAttribute('data-wm-add')")
+            img = card.locator(".wm-grid img").last
+            assert img.get_attribute("alt")
+            page.wait_for_function(
+                "() => [...document.querySelectorAll('[data-workout-media] .wm-grid img')]"
+                ".every(i => i.complete && i.naturalWidth > 0)"
+            )
+            # Remove it again: it moves to the history, where it can be put back.
+            live = len(workout_media.photos(runtime.engine, group)["photos"])
+            button = card.locator("[data-wm-remove]").last
+            button.focus()
+            page.keyboard.press("Enter")
+            page.wait_for_function(
+                "n => document.querySelectorAll('[data-wm-remove]').length === n", arg=live - 1
+            )
+            assert page.evaluate("document.activeElement?.hasAttribute('data-wm-photos')")
+            summary = card.locator("[data-wm-history] summary")
+            summary.focus()
+            page.keyboard.press("Enter")
+            assert tab_until(page, "() => document.activeElement?.hasAttribute('data-wm-restore')")
+            page.keyboard.press("Enter")
+            card.locator("[data-wm-status]").get_by_text(copy["back"], exact=True).wait_for()
+            assert len(workout_media.photos(runtime.engine, group)["photos"]) == live
+            summary = card.locator("[data-wm-history] summary")
+            if not summary.evaluate("s => s.parentElement.open"):
                 summary.focus()
                 page.keyboard.press("Enter")
-                assert _tab_until(
-                    page, "() => document.activeElement?.hasAttribute('data-wm-restore')"
-                )
-                page.keyboard.press("Enter")
-                card.locator("[data-wm-status]").get_by_text(copy["back"], exact=True).wait_for()
-                assert len(workout_media.photos(runtime.engine, group)["photos"]) == live
-                summary = card.locator("[data-wm-history] summary")
-                if not summary.evaluate("s => s.parentElement.open"):
-                    summary.focus()
-                    page.keyboard.press("Enter")
-                page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
-                assert not violations, json.dumps(violations, indent=2)
-                assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-                assert not errors
-                context.close()
-            browser.close()
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)
+            page.evaluate("window.scrollTo(0, 0)")
+            violations = run_axe(page)
+            assert not violations, json.dumps(violations, indent=2)
+            assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+            assert not errors
+            context.close()
+        browser.close()
