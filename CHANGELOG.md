@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.33 – 27-11-2026
+
 - Charts are fitted to their box again whenever it changes size, so a chart drawn while its start-page block was folded (the timeline) no longer stays squeezed after the block is opened.
 
 ## 0.1.0-beta.0.32 – 27-11-2026
