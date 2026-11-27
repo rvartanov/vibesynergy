@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.30 – 27-11-2026
+
 - Behind the scenes: the browser tests are more reliable and all run on every change; nothing changes in the app (#209).
 
 ## 0.1.0-beta.0.29 – 27-11-2026
