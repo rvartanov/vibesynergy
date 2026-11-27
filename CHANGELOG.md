@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- Behind the scenes: the browser tests are more reliable and all run on every change; nothing changes in the app (#209).
+
 ## 0.1.0-beta.0.29 – 27-11-2026
 
 - A one-day race copied to intervals.icu was read back with the next day as its end, taken for another app's change and rewritten every run until the conflict guard stopped the plan mirror. It is now seen as unchanged.

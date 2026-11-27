@@ -12,21 +12,17 @@ import time
 from pathlib import Path
 
 import pytest
+import requests
+from tests_helpers import free_port
 
 from vibesynergy.sync.worker import Worker, _owner_alive
 
 
-def _free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
 def _distinct_ports() -> tuple[int, int]:
-    first = _free_port()
-    second = _free_port()
+    first = free_port()
+    second = free_port()
     while second == first:
-        second = _free_port()
+        second = free_port()
     return first, second
 
 
@@ -46,17 +42,33 @@ def _cleanup(process: subprocess.Popen) -> None:
         process.wait(timeout=5)
 
 
-def _wait_for_port(process: subprocess.Popen, port: int) -> None:
-    deadline = time.monotonic() + 12
+def _wait_for_answer(process: subprocess.Popen, url: str, good) -> None:
+    deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            raise RuntimeError(f"serve exited before listening: {process.returncode}")
+            raise RuntimeError(f"serve exited before it was ready: {process.returncode}")
         try:
-            with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+            reply = requests.get(url, timeout=0.5)
+            if reply.ok and good(reply.json()):
                 return
-        except OSError:
-            time.sleep(0.05)
-    raise RuntimeError("serve did not start listening")
+        except (requests.RequestException, ValueError):
+            pass
+        time.sleep(0.05)
+    raise RuntimeError(f"serve did not answer {url}")
+
+
+def _wait_ready(process: subprocess.Popen, port: int, portal_port: int | None = None) -> None:
+    """Ready when this process answers: its /health is ok and, when on, its portal answers.
+
+    Any listener on the port is not enough: another test run could hold it (#209).
+    """
+    health = f"http://127.0.0.1:{port}/vibesynergy/health"
+    _wait_for_answer(process, health, lambda body: body.get("ok") is True)
+    if portal_port is not None:
+        portal = f"http://127.0.0.1:{portal_port}/version"
+        _wait_for_answer(process, portal, lambda body: "build_id" in body)
+        # A portal that lost its port ends its thread, and /health is no longer ok.
+        _wait_for_answer(process, health, lambda body: body.get("ok") is True)
 
 
 def _spawn(command, env, port, portal_port, *, portal=False):
@@ -73,9 +85,7 @@ def _spawn(command, env, port, portal_port, *, portal=False):
             start_new_session=True,
         )
         try:
-            _wait_for_port(process, port)
-            if portal:
-                _wait_for_port(process, portal_port)
+            _wait_ready(process, port, portal_port if portal else None)
             return process, port
         except RuntimeError as exc:
             _cleanup(process)
@@ -245,6 +255,10 @@ async def blocked():
     Path(os.environ['VIBESYNERGY_TEST_MARKER']).touch()
     await asyncio.sleep(30)
 
+@synthetic.get('/vibesynergy/health')
+def health():
+    return {'ok': True}
+
 api.create_app = lambda rt: synthetic
 app()
 """
@@ -322,6 +336,10 @@ synthetic = FastAPI()
 def blocked():
     Path(os.environ['VIBESYNERGY_REQUEST_MARKER']).write_text('started')
     threading.Event().wait(60)
+    return {'ok': True}
+
+@synthetic.get('/vibesynergy/health')
+def health():
     return {'ok': True}
 
 api.create_app = lambda rt: synthetic

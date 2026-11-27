@@ -9,13 +9,11 @@ A throwaway portal on synthetic data; nothing leaves the test.
 from __future__ import annotations
 
 import json
-import threading
 from datetime import timedelta
 
 import pytest
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from test_evidence import START, put
-from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 from test_workout_gear import _snapshots
 
 from vibesynergy.model import Activity
@@ -51,21 +49,14 @@ def _act(rt, sid, start, gear_id=None, source="strava"):
 
 
 def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
-    chrome = _require_tools()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
     _snapshots(runtime)
     _act(runtime, "r1", START - timedelta(days=2), "g2")
     group = _act(runtime, "r2", START, source="garmin")
-    app = create_portal_app(runtime)
-    port = _port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    base = f"http://127.0.0.1:{port}"
-    try:
-        _ready(base)
-        axe = _axe_script()
+    with portal_server(create_portal_app(runtime)) as base:
+        axe = axe_script()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             for language, theme, width in [
@@ -99,7 +90,7 @@ def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
                     page.locator("[data-wg-link]").get_attribute("aria-describedby") == "wg-reason"
                 )
                 # One tap: the suggested gear, by keyboard.
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-wg-link')", steps=200
                 )
                 page.keyboard.press("Enter")
@@ -109,16 +100,14 @@ def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
                 assert workout_gear.current(runtime.engine, group)["main"] == "strava:g2"
                 assert page.locator("[data-wg-link]").count() == 0  # nothing left to suggest
                 # The picker: open it, choose "no gear", save, all with the keyboard.
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.matches('[data-wg-picker] summary')"
                 )
                 page.keyboard.press("Enter")
-                assert _tab_until(page, "() => document.activeElement?.id === 'wg-main'")
+                assert tab_until(page, "() => document.activeElement?.id === 'wg-main'")
                 page.keyboard.press("End")
                 assert page.locator("#wg-main").evaluate("s => s.value") == "none"
-                assert _tab_until(
-                    page, "() => document.activeElement?.hasAttribute('data-wg-save')"
-                )
+                assert tab_until(page, "() => document.activeElement?.hasAttribute('data-wg-save')")
                 page.keyboard.press("Enter")
                 page.locator("[data-wg-status]").get_by_text(copy["saved"], exact=True).wait_for()
                 assert page.evaluate("document.activeElement?.hasAttribute('data-wg-save')")
@@ -129,14 +118,14 @@ def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
                         summary.focus()
                         page.keyboard.press("Enter")
                 page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
                 # The Gear page: use the suggested Garmin matches, add swim gear of your own.
                 page.goto(f"{base}/#/gear")
                 page.locator("[data-gear-map-accept]").wait_for()
-                assert _tab_until(
+                assert tab_until(
                     page,
                     "() => document.activeElement?.hasAttribute('data-gear-map-accept')",
                     steps=300,
@@ -150,9 +139,9 @@ def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
                 summary = page.locator(".gear-own summary")
                 summary.focus()
                 page.keyboard.press("Enter")
-                assert _tab_until(page, "() => document.activeElement?.id === 'gear-own-name'")
+                assert tab_until(page, "() => document.activeElement?.id === 'gear-own-name'")
                 page.keyboard.type(f"Pullbuoy {language} {theme}")
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-gear-own-add')"
                 )
                 page.keyboard.press("Enter")
@@ -163,12 +152,9 @@ def test_workout_gear_and_mapping_by_keyboard_and_axe(runtime):
                 names = [i["name"] for i in gear_map.own_items(runtime.engine)]
                 assert f"Pullbuoy {language} {theme}" in names
                 page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert not errors
                 context.close()
             browser.close()
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)

@@ -1,32 +1,29 @@
 """Settings tabs and Coach → Settings: axe, keyboard, height, redirects.
 
 Skipped without Chrome or Playwright. Uses a throwaway config and data directory,
-its own free portal and serve ports.
+its own portal and serve ports, picked when it runs.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 import pytest
-from tests_helpers import free_port
-
-PORTAL_PORT = free_port()
-SERVE_PORT = free_port()
-PORTAL = f"http://127.0.0.1:{PORTAL_PORT}"
+from browser_helpers import AXE_TAGS, axe_script, free_port, require_browser, serve
 
 pytestmark = pytest.mark.integration
 
 TABS = ("sources", "sync", "alerts", "sharing", "account", "system")
 # System is long by design; the athlete tabs stay short on a phone. Coach settings holds one
-# folded line per harness task, so it grows with the task list.
-LONG_TABS = ("system", "coach-settings")
+# folded line per harness task, so it grows with the task list. Sources holds one card per
+# data source (Garmin, Strava, Withings, intervals.icu, RunSynergy, calendar, files), so it
+# grows with the sources.
+LONG_TABS = ("system", "coach-settings", "sources")
 # Old tab addresses keep working; Coaching moved to the Coach page, its notes
 # and what to remember to Coach → Memory.
 NOTES_STATUS = '[data-coach-kind="policy"] [data-status]'
@@ -39,29 +36,6 @@ REDIRECTS = {
 }
 # Settings → You was split up: its sport values are on Training → Zones & thresholds.
 PAGE_REDIRECTS = {"you": "#/zones", "profile": "#/zones"}
-AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
-CHROME = "/usr/bin/google-chrome"
-
-
-def _require() -> str:
-    if not Path(CHROME).is_file() or shutil.which("npm") is None:
-        pytest.skip("Chrome or npm is unavailable")
-    pytest.importorskip("playwright.sync_api")
-    return str(Path(sys.executable).parent / "vibesynergy")
-
-
-def _axe_script() -> str:
-    dest = Path("/tmp/vibesynergy-axe") / "4.10.3"
-    script = dest / "node_modules" / "axe-core" / "axe.min.js"
-    if not script.is_file():
-        dest.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["npm", "install", "--prefix", str(dest), "axe-core@4.10.3"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    return script.read_text()
 
 
 def _poll(page, expression: str, timeout: float = 15, arg=None) -> bool:
@@ -74,27 +48,17 @@ def _poll(page, expression: str, timeout: float = 15, arg=None) -> bool:
     return False
 
 
-def _ready(url: str) -> None:
-    import requests
-
-    for _ in range(100):
-        try:
-            requests.get(url, timeout=0.2)
-            return
-        except requests.RequestException:
-            time.sleep(0.1)
-    pytest.fail(f"portal did not start: {url}")
-
-
 def test_settings_tabs_accessibility(tmp_path: Path) -> None:
-    vibesynergy = _require()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
+    vibesynergy = str(Path(sys.executable).parent / "vibesynergy")
+    portal_port = free_port()
     config = tmp_path / "config.toml"
     data = tmp_path / "data"
     config.write_text(
         '[user]\ntimezone = "Europe/Amsterdam"\nunits = "metric"\n'
-        f"[portal]\nport = {PORTAL_PORT}\nauth = false\n[sources.demo]\nenabled = true\n"
+        f"[portal]\nport = {portal_port}\nauth = false\n[sources.demo]\nenabled = true\n"
     )
     env = {
         **os.environ,
@@ -104,28 +68,12 @@ def test_settings_tabs_accessibility(tmp_path: Path) -> None:
     subprocess.run([vibesynergy, "init"], env=env, check=True, capture_output=True, text=True)
     _tokens(config, data)
     _two_sources(config, data)
-    proc = subprocess.Popen(
-        [vibesynergy, "serve", "--port", str(SERVE_PORT)],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-    )
     findings: list[dict] = []
-    try:
-        _ready(f"{PORTAL}/")
-        axe = _axe_script()
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(executable_path=CHROME, headless=True)
-            _visit(browser, axe, findings)
-            browser.close()
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=8)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=5)
+    axe = axe_script()
+    with serve(env, portal_port=portal_port) as served, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=chrome, headless=True)
+        _visit(browser, served.portal, axe, findings)
+        browser.close()
     assert not findings, json.dumps(findings, indent=2, ensure_ascii=False)
 
 
@@ -188,11 +136,11 @@ def _two_sources(config: Path, data: Path) -> None:
         rt.close()
 
 
-def _best_source_keyboard(browser, findings: list[dict]) -> None:
+def _best_source_keyboard(browser, base: str, findings: list[dict]) -> None:
     """System → Best source: move a source with the keyboard, focus follows, then reset."""
     context = browser.new_context(viewport={"width": 390, "height": 844}, locale="en-GB")
     page = context.new_page()
-    page.goto(f"{PORTAL}/#/settings/system", wait_until="domcontentloaded")
+    page.goto(f"{base}/#/settings/system", wait_until="domcontentloaded")
     row = '[data-metric="sleep.score"]'
     if not _poll(page, f"() => Boolean(document.querySelector({row!r} + ' .bs-order'))"):
         findings.append({"where": "best source", "missing": "sleep.score row"})
@@ -257,7 +205,7 @@ def _revoked(page, findings: list[dict]) -> None:
         findings.append({"where": "sharing revoked", "state": state})
 
 
-def _visit(browser, axe: str, findings: list[dict]) -> None:
+def _visit(browser, base: str, axe: str, findings: list[dict]) -> None:
     counts: dict[str, int] = {}
     for width in (390, 1280):
         context = browser.new_context(viewport={"width": width, "height": 844}, locale="en-GB")
@@ -269,7 +217,7 @@ def _visit(browser, axe: str, findings: list[dict]) -> None:
         ]
         for tab, path in pages:
             label = f"{width} {tab}"
-            page.goto(f"{PORTAL}/#/{path}", wait_until="domcontentloaded")
+            page.goto(f"{base}/#/{path}", wait_until="domcontentloaded")
             if not _poll(
                 page,
                 """() => {
@@ -323,16 +271,16 @@ def _visit(browser, axe: str, findings: list[dict]) -> None:
     visible = sum(counts.get(tab, 0) for tab in TABS if tab not in LONG_TABS)
     if visible > 60:
         findings.append({"where": "visible controls", "counts": counts, "sum": visible})
-    _redirects(browser, findings)
-    _keyboard(browser, findings)
-    _best_source_keyboard(browser, findings)
+    _redirects(browser, base, findings)
+    _keyboard(browser, base, findings)
+    _best_source_keyboard(browser, base, findings)
 
 
-def _redirects(browser, findings: list[dict]) -> None:
+def _redirects(browser, base: str, findings: list[dict]) -> None:
     context = browser.new_context(viewport={"width": 1280, "height": 844}, locale="en-GB")
     page = context.new_page()
     for old, new in REDIRECTS.items():
-        page.goto(f"{PORTAL}/#/settings/{old}", wait_until="domcontentloaded")
+        page.goto(f"{base}/#/settings/{old}", wait_until="domcontentloaded")
         if not _poll(
             page,
             """(tab) => {
@@ -343,14 +291,14 @@ def _redirects(browser, findings: list[dict]) -> None:
         ):
             findings.append({"where": "redirect", "from": old, "expected": new})
     for old, new in PAGE_REDIRECTS.items():
-        page.goto(f"{PORTAL}/#/settings/{old}", wait_until="domcontentloaded")
+        page.goto(f"{base}/#/settings/{old}", wait_until="domcontentloaded")
         if not _poll(page, "(hash) => location.hash === hash", arg=new):
             findings.append({"where": "redirect", "from": old, "expected": new})
-    page.goto(f"{PORTAL}/#/settings/you", wait_until="domcontentloaded")
+    page.goto(f"{base}/#/settings/you", wait_until="domcontentloaded")
     if not _poll(page, "() => Boolean(document.querySelector('#about-you [name=max_hr]'))"):
         findings.append({"where": "redirect", "missing": "About you on Zones & thresholds"})
     # Sync is its own page under Sources: the panel, not the rest of Settings.
-    page.goto(f"{PORTAL}/#/settings/data/sync", wait_until="domcontentloaded")
+    page.goto(f"{base}/#/settings/data/sync", wait_until="domcontentloaded")
     if not _poll(
         page,
         """() => {
@@ -364,10 +312,10 @@ def _redirects(browser, findings: list[dict]) -> None:
     context.close()
 
 
-def _keyboard(browser, findings: list[dict]) -> None:
+def _keyboard(browser, base: str, findings: list[dict]) -> None:
     context = browser.new_context(viewport={"width": 1280, "height": 844}, locale="en-GB")
     page = context.new_page()
-    page.goto(f"{PORTAL}/#/coach/memory", wait_until="domcontentloaded")
+    page.goto(f"{base}/#/coach/memory", wait_until="domcontentloaded")
     if not _poll(page, "() => Boolean(document.querySelector('[name=instructions]'))"):
         findings.append({"where": "keyboard", "missing": "notes field"})
         context.close()
@@ -393,7 +341,7 @@ def _keyboard(browser, findings: list[dict]) -> None:
             )
             findings.append({"where": "keyboard notes", "status": status})
     for tab in TABS:
-        page.goto(f"{PORTAL}/#/settings/sources", wait_until="domcontentloaded")
+        page.goto(f"{base}/#/settings/sources", wait_until="domcontentloaded")
         # Hash-only navigation keeps the previous settings DOM until the new one draws.
         # Wait until Sources is current, or Enter on the next tab races that draw and loses.
         if not _poll(

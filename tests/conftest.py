@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests_helpers import contact_window_off, no_live_intervals_icu, portal_login_off
 
 from vibesynergy.core.config import Settings, load_settings
 from vibesynergy.runtime import Runtime
@@ -46,33 +47,18 @@ def runtime(settings: Settings):
 
 @pytest.fixture(autouse=True)
 def _no_live_intervals_icu(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pages and tools that read intervals.icu sport settings never reach the network."""
-    from vibesynergy.query import thresholds
-    from vibesynergy.sources.intervals_icu.client import IntervalsIcuError
-
-    def offline():
-        raise IntervalsIcuError("intervals.icu is not set up: tests")
-
-    monkeypatch.setattr(thresholds, "icu_settings_live", offline)
+    no_live_intervals_icu(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
 def _contact_window_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The contact window (#119) has its own tests, which save one. The rest must not
-    depend on the hour they run at, so an unsaved window is off here."""
-    from vibesynergy.coach_runner import contact
-
-    monkeypatch.setattr(contact, "DEFAULT", {**contact.DEFAULT_WINDOW, "on": False})
+    contact_window_off(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
 def _portal_login_off(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The login gate has its own tests (marked ``auth``); the rest test the portal itself."""
-    if request.node.get_closest_marker("auth"):
-        return
-    from vibesynergy.portal import auth_gate
-
-    monkeypatch.setattr(auth_gate, "auth_required", lambda settings: False)
+    if not request.node.get_closest_marker("auth"):
+        portal_login_off(monkeypatch)
 
 
 def drop_workout_method(rt) -> None:

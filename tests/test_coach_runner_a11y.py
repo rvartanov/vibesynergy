@@ -4,13 +4,11 @@ A throwaway portal; nothing calls the model or sends mail.
 """
 
 import json
-import threading
 from datetime import date
 
 import pytest
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from sqlalchemy import select
-from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 
 from vibesynergy.coach_runner import settings as runner_settings
 from vibesynergy.portal.app import create_portal_app
@@ -23,7 +21,7 @@ KEY = "sk-ant-api03-SYNTHETIC-a11y-key-never-shown"
 
 
 def test_coach_runner_keyboard_and_axe(runtime):
-    chrome = _require_tools()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
     entry = coach_workouts.coach_write(
@@ -35,15 +33,8 @@ def test_coach_runner_keyboard_and_axe(runtime):
         for_date=date(2026, 11, 1),
         author="client:coach-runner",
     )
-    app = create_portal_app(runtime)
-    port = _port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    base = f"http://127.0.0.1:{port}"
-    try:
-        _ready(base)
-        axe = _axe_script()
+    with portal_server(create_portal_app(runtime)) as base:
+        axe = axe_script()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             for language, theme, width in [("en", "light", 1280), ("nl", "dark", 390)]:
@@ -63,7 +54,7 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 page.goto(base + "/#/coach/settings")
                 page.locator("#coach-runner-key-anthropic").wait_for()
                 assert page.locator("[data-coach-runner] input[name=enabled]").is_disabled()
-                assert _tab_until(
+                assert tab_until(
                     page,
                     "() => document.activeElement?.id === 'coach-runner-key-anthropic'",
                     steps=150,
@@ -76,14 +67,14 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 page.keyboard.press("Enter")
                 page.locator("[data-runner-status]").get_by_text(saved, exact=True).wait_for()
                 assert runner_settings.load(runtime).api_key_set
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.name === 'enabled'", steps=150
                 )
                 page.keyboard.press("Space")
                 page.locator("[data-coach-runner] .notice").wait_for()
                 assert runner_settings.load(runtime).enabled
                 page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert KEY not in page.content()
@@ -92,7 +83,7 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 page.goto(base + f"/#/coach/report/{entry['id']}")
                 reply_id = f"reply-new-{entry['id']}"
                 page.locator(f"#{reply_id}").wait_for()
-                assert _tab_until(
+                assert tab_until(
                     page, f"() => document.activeElement?.id === '{reply_id}'", steps=150
                 )
                 page.keyboard.type("Akkoord")
@@ -116,7 +107,7 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 page.locator("[data-reply-edit-status]").first.get_by_text(
                     saved, exact=True
                 ).wait_for()
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
@@ -128,11 +119,8 @@ def test_coach_runner_keyboard_and_axe(runtime):
                 archive.focus()
                 page.keyboard.press("Enter")
                 page.locator(f"#{reply_id}").wait_for()
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert not errors
                 context.close()
             browser.close()
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)

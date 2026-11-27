@@ -9,13 +9,11 @@ test.
 from __future__ import annotations
 
 import json
-import threading
 from dataclasses import replace
 
 import pytest
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from test_evidence import put
-from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 from test_publication import garmin_activity
 from test_publication_targets import FakeStrava
 
@@ -33,7 +31,7 @@ COPY = {
 
 
 def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
-    chrome = _require_tools()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
     monkeypatch.setattr(publication_plugins, "_weather", lambda *_, **__: None)
@@ -57,15 +55,8 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
         public_insight="Duurloop met de groep, netjes in Z2.",
     )
 
-    app = create_portal_app(runtime)
-    port = _port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    base = f"http://127.0.0.1:{port}"
-    try:
-        _ready(base)
-        axe = _axe_script()
+    with portal_server(create_portal_app(runtime)) as base:
+        axe = axe_script()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             for language, theme, width in [("nl", "light", 1280), ("nl", "dark", 390),
@@ -92,7 +83,7 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                 assert SECRET in page.locator("#wt-private").input_value()
                 # Correct the insight (#114): the label, the help and the status, by keyboard.
                 fix = f"Ik liep alleen ({language}, {theme})"
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.id === 'wt-correction'", steps=200
                 )
                 page.keyboard.type(fix)
@@ -106,7 +97,7 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                 assert workout_texts.corrections(runtime.engine, group)[0]["text"] == fix
                 assert page.locator("[data-wt-rewrite]").inner_text().strip()
                 text = f"Mooie ronde ({language}, {theme})"
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.id === 'wt-public'", steps=200
                 )
                 page.keyboard.press("Control+A")
@@ -117,12 +108,12 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                 assert page.evaluate("document.activeElement?.hasAttribute('data-wt-save')")
                 assert workout_texts.texts(runtime.engine, group)["public"]["text"] == text
                 # History: open it and restore the version before this one.
-                assert _tab_until(
+                assert tab_until(
                     page,
                     "() => document.activeElement?.matches('[data-wt-field=public] summary')",
                 )
                 page.keyboard.press("Enter")
-                assert _tab_until(
+                assert tab_until(
                     page,
                     "() => document.activeElement?.matches("
                     "'[data-wt-field=public] [data-wt-restore]')",
@@ -135,7 +126,7 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                 assert page.evaluate("document.activeElement?.id") == "wt-public"
                 assert workout_texts.texts(runtime.engine, group)["public"]["text"] != text
                 # The Publish tick, with Space.
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-wt-publish')"
                 )
                 page.keyboard.press("Space")
@@ -149,12 +140,9 @@ def test_workout_texts_by_keyboard_and_axe(runtime, monkeypatch):
                         summary.focus()
                         page.keyboard.press("Enter")
                 page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 assert not errors
                 context.close()
             browser.close()
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)

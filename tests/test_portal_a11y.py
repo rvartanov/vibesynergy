@@ -7,27 +7,24 @@ today's advice, an activity's evidence, a coach setting, and a form error.
 
 Skipped when Playwright or Chrome is missing so the default pytest run stays fast.
 CI runs this file on its own. Set VIBESYNERGY_A11Y_REQUIRED=1 to fail instead of skip.
+One module-scoped server holds the data; each route combination and each flow is its own
+test, so a failure names the flow that broke.
 """
 
 from __future__ import annotations
 
 import json
-import os
-import shutil
-import socket
-import subprocess
-import threading
 import time
+from collections.abc import Iterator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from datetime import time as clock
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
-import requests
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from sqlalchemy import update
-from tests_helpers import midday_timezone
+from tests_helpers import isolate, midday_timezone
 
 from vibesynergy.core.config import load_settings
 from vibesynergy.core.timeutil import Window, today_in, utc_now
@@ -51,8 +48,6 @@ from vibesynergy.store.schema import activity_unified, dataset_state
 
 pytestmark = pytest.mark.integration
 
-AXE_VERSION = "4.10.3"
-AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
 ADVICE = "Keep today's easy run. You are recovered enough to do it as planned."
 # The dashboard leads with the stored workout. A saved review that no longer matches
 # the inputs sits behind the earlier-advice disclosure, in the active language.
@@ -70,7 +65,6 @@ DASHBOARD_COPY = {
 }
 RUN_NAME = "Synthetic easy run"
 SOURCE = "garmin"
-CHROME = ("/usr/bin/google-chrome", "/usr/local/bin/google-chrome")
 # The athlete's zone for the run: about noon now, so "today" cannot flip mid-run.
 # Server, seeded data and browser all use it. Set at the start of the test.
 TIMEZONE = "Europe/Amsterdam"
@@ -86,46 +80,6 @@ COMBOS = [
     ("en", "light", (1280, 800)),
     ("en", "dark", (390, 844)),
 ]
-
-
-def _port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
-
-
-def _ready(url: str) -> None:
-    for _ in range(100):
-        try:
-            requests.get(url, timeout=0.2)
-            return
-        except requests.RequestException:
-            time.sleep(0.1)
-    pytest.fail(f"Temporary portal did not start: {url}")
-
-
-def _chrome() -> str | None:
-    for path in CHROME:
-        if Path(path).is_file():
-            return path
-    return shutil.which("google-chrome") or shutil.which("google-chrome-stable")
-
-
-def _axe_script() -> str:
-    configured = os.environ.get("VIBESYNERGY_AXE_SCRIPT")
-    if configured and Path(configured).is_file():
-        return Path(configured).read_text()
-    dest = Path("/tmp/vibesynergy-axe") / AXE_VERSION
-    script = dest / "node_modules" / "axe-core" / "axe.min.js"
-    if not script.is_file():
-        dest.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            ["npm", "install", "--prefix", str(dest), f"axe-core@{AXE_VERSION}"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    return script.read_text()
 
 
 def _put(rt: Runtime, *records: object, key: str) -> None:
@@ -608,27 +562,6 @@ def _open(page, base: str, route: str) -> None:
     )
 
 
-def _axe(page) -> list[dict]:
-    raw = page.evaluate(
-        """async (tags) => {
-          const result = await axe.run(document, {runOnly: {type: 'tag', values: tags}});
-          return result.violations.map((v) => ({
-            id: v.id,
-            impact: v.impact,
-            help: v.help,
-            count: v.nodes.length,
-            nodes: v.nodes.slice(0, 4).map((n) => ({
-              target: n.target,
-              html: (n.html || '').slice(0, 180),
-              summary: (n.failureSummary || '').slice(0, 280),
-            })),
-          }));
-        }""",
-        AXE_TAGS,
-    )
-    return raw
-
-
 def _structure(page) -> dict:
     return page.evaluate(
         """() => {
@@ -671,15 +604,6 @@ def _focus_ring(page) -> dict:
     )
 
 
-def _tab_until(page, expression: str, arg=None, steps: int = 60) -> bool:
-    for _ in range(steps):
-        page.keyboard.press("Tab")
-        hit = page.evaluate(expression) if arg is None else page.evaluate(expression, arg)
-        if hit:
-            return True
-    return False
-
-
 def _obscured(page, steps: int = 25) -> list[str]:
     covered = []
     for _ in range(steps):
@@ -703,70 +627,147 @@ def _obscured(page, steps: int = 25) -> list[str]:
     return covered
 
 
-def _require_tools() -> str:
-    chrome = _chrome()
-    if shutil.which("npm") is None or chrome is None:
-        if os.environ.get("VIBESYNERGY_A11Y_REQUIRED"):
-            pytest.fail("Portal accessibility check needs npm and Google Chrome")
-        pytest.skip("npm or Google Chrome is unavailable")
-    pytest.importorskip("playwright.sync_api")
-    return chrome
+@dataclass
+class Portal:
+    base: str
+    seeded: dict
+    routes: list[str]
 
 
-def test_populated_portal_accessibility(tmp_path, monkeypatch) -> None:
+@pytest.fixture(scope="module")
+def portal(tmp_path_factory) -> Iterator[Portal]:
+    """One populated throwaway portal for every test in this file.
+
+    The tests share it and run in file order; each one opens its own browser context
+    and sets the language it reads.
+    """
     global TIMEZONE
-    chrome = _require_tools()
+    require_browser()
+    TIMEZONE = midday_timezone()
+    tmp = tmp_path_factory.mktemp("portal")
+    config = tmp / "config.toml"
+    config.write_text(
+        f'[user]\ntimezone = "{TIMEZONE}"\nunits = "metric"\n[sources.demo]\nenabled = true\n'
+    )
+    with pytest.MonkeyPatch.context() as mp:
+        isolate(mp)
+        mp.setenv("VIBESYNERGY_CONFIG", str(config))
+        mp.setenv("VIBESYNERGY_DATA_DIR", str(tmp / "data"))
+        rt = Runtime.open(load_settings())
+        try:
+            rt.migrate()
+            seeded = populate(rt)
+            with portal_server(create_portal_app(rt)) as base:
+                yield Portal(base, seeded, _routes(seeded["activity"]))
+        finally:
+            rt.close()
+
+
+@pytest.fixture(scope="module")
+def browser(portal):
     from playwright.sync_api import sync_playwright
 
-    axe = _axe_script()
-    port = _port()
-    TIMEZONE = midday_timezone()
-    config = tmp_path / "config.toml"
-    config.write_text(
-        f'[user]\ntimezone = "{TIMEZONE}"\nunits = "metric"\n'
-        f"[portal]\nport = {port}\n[sources.demo]\nenabled = true\n"
-    )
-    monkeypatch.setenv("VIBESYNERGY_CONFIG", str(config))
-    monkeypatch.setenv("VIBESYNERGY_DATA_DIR", str(tmp_path / "data"))
-    rt = Runtime.open(load_settings())
-    rt.migrate()
-    server = None
-    thread = None
-    findings: list[dict] = []
-    try:
-        seeded = populate(rt)
-        routes = _routes(seeded["activity"])
-        server = uvicorn.Server(
-            uvicorn.Config(create_portal_app(rt), host="127.0.0.1", port=port, log_level="error")
-        )
-        thread = threading.Thread(target=server.run, daemon=True)
-        thread.start()
-        base = f"http://127.0.0.1:{port}"
-        _ready(base)
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(executable_path=chrome, headless=True)
-            _scan(browser, base, routes, axe, findings)
-            _states(browser, base, axe, findings)
-            _checkin_reflow(browser, base, axe, findings)
-            _tasks(browser, base, seeded, findings)
-            _coach_tabs(browser, base, findings)
-            _calendar_keyboard(browser, base, findings)
-            _offline_page(browser, base, findings)
-            _quick_add_keyboard(browser, base, axe, findings)
-            _search_keyboard(browser, base, findings)
-            _bests_keyboard(browser, base, axe, findings)
-            _share_keyboard(browser, base, findings)
-            _zones_keyboard(browser, base, findings)
-            _gear_keyboard(browser, base, findings)
-            _zone_contract(browser, base, seeded, findings)
-            browser.close()
-    finally:
-        if server:
-            server.should_exit = True
-        if thread:
-            thread.join(timeout=5)
-        rt.close()
+    with sync_playwright() as playwright:
+        launched = playwright.chromium.launch(executable_path=require_browser(), headless=True)
+        yield launched
+        launched.close()
+
+
+@pytest.fixture(scope="module")
+def axe() -> str:
+    return axe_script()
+
+
+def _clean(findings: list[dict]) -> None:
     assert not findings, json.dumps(findings, indent=2, ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    "combo", COMBOS, ids=[f"{lang}-{theme}-{size[0]}" for lang, theme, size in COMBOS]
+)
+def test_routes(portal, browser, axe, combo) -> None:
+    """Every main route: axe, one h1, no heading jumps, lang, no sideways scroll."""
+    findings: list[dict] = []
+    _scan(browser, portal.base, portal.routes, axe, findings, [combo])
+    _clean(findings)
+
+
+def test_loading_empty_and_error_states(portal, browser, axe) -> None:
+    findings: list[dict] = []
+    _states(browser, portal.base, axe, findings)
+    _clean(findings)
+
+
+def test_checkin_reflow(portal, browser, axe) -> None:
+    findings: list[dict] = []
+    _checkin_reflow(browser, portal.base, axe, findings)
+    _clean(findings)
+
+
+def test_keyboard_tasks(portal, browser) -> None:
+    findings: list[dict] = []
+    _tasks(browser, portal.base, portal.seeded, findings)
+    _clean(findings)
+
+
+def test_coach_tabs(portal, browser) -> None:
+    findings: list[dict] = []
+    _coach_tabs(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_calendar_keyboard(portal, browser) -> None:
+    findings: list[dict] = []
+    _calendar_keyboard(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_offline_page(portal, browser) -> None:
+    findings: list[dict] = []
+    _offline_page(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_quick_add_keyboard(portal, browser, axe) -> None:
+    findings: list[dict] = []
+    _quick_add_keyboard(browser, portal.base, axe, findings)
+    _clean(findings)
+
+
+def test_search_keyboard(portal, browser) -> None:
+    findings: list[dict] = []
+    _search_keyboard(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_bests_keyboard(portal, browser, axe) -> None:
+    findings: list[dict] = []
+    _bests_keyboard(browser, portal.base, axe, findings)
+    _clean(findings)
+
+
+def test_share_keyboard(portal, browser) -> None:
+    findings: list[dict] = []
+    _share_keyboard(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_zones_keyboard(portal, browser) -> None:
+    findings: list[dict] = []
+    _zones_keyboard(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_gear_keyboard(portal, browser) -> None:
+    findings: list[dict] = []
+    _gear_keyboard(browser, portal.base, findings)
+    _clean(findings)
+
+
+def test_zone_contract(portal, browser) -> None:
+    findings: list[dict] = []
+    _zone_contract(browser, portal.base, portal.seeded, findings)
+    _clean(findings)
 
 
 def _context(browser, axe: str, language: str, theme: str, width: int, height: int):
@@ -781,8 +782,8 @@ def _context(browser, axe: str, language: str, theme: str, width: int, height: i
     return context
 
 
-def _scan(browser, base: str, routes: list[str], axe: str, findings: list[dict]) -> None:
-    for language, theme, (width, height) in COMBOS:
+def _scan(browser, base, routes: list[str], axe: str, findings: list[dict], combos) -> None:
+    for language, theme, (width, height) in combos:
         context = _context(browser, axe, language, theme, width, height)
         page = context.new_page()
         _open(page, base, "#/dashboard")
@@ -795,7 +796,7 @@ def _scan(browser, base: str, routes: list[str], axe: str, findings: list[dict])
             except Exception as exc:
                 findings.append({"where": label, "error": str(exc)})
                 continue
-            violations = _axe(page)
+            violations = run_axe(page)
             structure = _structure(page)
             if violations:
                 extra = {}
@@ -855,13 +856,13 @@ def _states(browser, base: str, axe: str, findings: list[dict]) -> None:
             }
         )
     else:
-        loading = _axe(page)
+        loading = run_axe(page)
         if loading:
             findings.append({"where": "nl light loading dashboard", "axe": loading})
     _open(page, base, "#/activities?text=zzz-no-such-workout")
     if "Geen activiteiten die aan deze filters voldoen." not in page.locator("#view").inner_text():
         findings.append({"where": "empty activities", "missing": "empty explanation"})
-    empty = _axe(page)
+    empty = run_axe(page)
     if empty:
         findings.append({"where": "nl light empty activities", "axe": empty})
     _open(page, base, "#/settings/data/sync")
@@ -1062,7 +1063,7 @@ def _zone_contract(browser, base: str, seeded: dict, findings: list[dict]) -> No
             )
         _open(page, base, "#/training")
         page.wait_for_selector("[data-zone-kind]", timeout=15000)
-        if not _tab_until(
+        if not tab_until(
             page,
             "() => document.activeElement?.matches('[data-zone-kind]')",
         ):
@@ -1181,7 +1182,7 @@ def _checkin_reflow(browser, base: str, axe: str, findings: list[dict]) -> None:
         _set_language(page, language)
         page.reload(wait_until="domcontentloaded")
         _open(page, base, "#/dashboard")
-        if not _tab_until(
+        if not tab_until(
             page, "() => document.activeElement?.hasAttribute('data-edit-checkin')", steps=80
         ):
             findings.append({"where": where, "missing": "edit check-in button by keyboard"})
@@ -1213,14 +1214,14 @@ def _checkin_reflow(browser, base: str, axe: str, findings: list[dict]) -> None:
         for row in layout["rows"]:
             if row["smallest"] < 44 or row["right"] > 320:
                 findings.append({"where": where, "row": row})
-        if not _tab_until(page, "() => document.activeElement?.classList.contains('ql-dot')"):
+        if not tab_until(page, "() => document.activeElement?.classList.contains('ql-dot')"):
             findings.append({"where": where, "missing": "first dot by keyboard"})
         else:
             ring = _focus_ring(page)
             box = page.evaluate("() => document.activeElement.getBoundingClientRect().right")
             if ring["style"] == "none" or float(ring["width"].rstrip("px")) < 3 or box > 320:
                 findings.append({"where": f"{where} dot focus", "ring": ring, "right": box})
-        violations = _axe(page)
+        violations = run_axe(page)
         if violations:
             findings.append({"where": where, "axe": violations})
         context.close()
@@ -1255,7 +1256,7 @@ def _tasks(browser, base: str, seeded: dict, findings: list[dict]) -> None:
     _open(page, base, "#/dashboard")
     # A link, not <body>: past the last control the page body has focus, and its text holds
     # every name on the (longer) start page.
-    if not _tab_until(
+    if not tab_until(
         page,
         """(name) => document.activeElement?.tagName === 'A'
           && (document.activeElement.textContent || '').includes(name)""",
@@ -1274,7 +1275,7 @@ def _tasks(browser, base: str, seeded: dict, findings: list[dict]) -> None:
         except Exception as exc:
             findings.append({"where": "open activity", "error": str(exc)})
         else:
-            if not _tab_until(
+            if not tab_until(
                 page,
                 """() => document.activeElement?.tagName === 'SUMMARY'
                   && (document.activeElement.textContent || '').includes('Details')""",
@@ -1296,7 +1297,7 @@ def _tasks(browser, base: str, seeded: dict, findings: list[dict]) -> None:
             if covered:
                 findings.append({"where": "activity focus obscured", "controls": covered})
     _open(page, base, "#/coach/memory")
-    if not _tab_until(page, "() => document.activeElement?.name === 'tone'"):
+    if not tab_until(page, "() => document.activeElement?.name === 'tone'"):
         findings.append({"where": "coach setting", "missing": "feedback style control"})
     else:
         page.keyboard.press("ArrowDown")
@@ -1306,7 +1307,7 @@ def _tasks(browser, base: str, seeded: dict, findings: list[dict]) -> None:
         except Exception as exc:
             findings.append({"where": "coach setting", "error": str(exc)})
     _open(page, base, "#/settings/calendar")
-    if not _tab_until(
+    if not tab_until(
         page,
         """() => document.activeElement?.type === 'submit'
           && (document.activeElement.textContent || '').includes('Verbinden')""",
@@ -1333,7 +1334,7 @@ def _share_keyboard(browser, base: str, findings: list[dict]) -> None:
     context = _context(browser, "void 0", "nl", "light", 390, 844)
     page = context.new_page()
     _open(page, base, "#/settings/sharing")
-    if not _tab_until(
+    if not tab_until(
         page,
         "() => Boolean(document.activeElement?.closest('[data-share-edit] summary'))",
         steps=120,
@@ -1342,9 +1343,7 @@ def _share_keyboard(browser, base: str, findings: list[dict]) -> None:
         context.close()
         return
     page.keyboard.press("Enter")
-    if not _tab_until(
-        page, "() => (document.activeElement?.name || '').endsWith('-all')", steps=10
-    ):
+    if not tab_until(page, "() => (document.activeElement?.name || '').endsWith('-all')", steps=10):
         findings.append({"where": "share edit", "missing": "Everything not reached by Tab"})
     else:
         page.keyboard.press("Space")
@@ -1367,7 +1366,7 @@ def _gear_keyboard(browser, base: str, findings: list[dict]) -> None:
     context = _context(browser, "void 0", "nl", "light", 390, 844)
     page = context.new_page()
     _open(page, base, "#/gear")
-    if not _tab_until(
+    if not tab_until(
         page, "() => Boolean(document.activeElement?.closest('.gear-item summary'))", steps=80
     ):
         findings.append({"where": "gear", "missing": "item settings not reached by Tab"})
@@ -1395,15 +1394,13 @@ def _zones_keyboard(browser, base: str, findings: list[dict]) -> None:
     _open(page, base, "#/zones")
     if page.locator("[data-sport-card] .zones-summary").count() == 0:
         findings.append({"where": "zones", "missing": "summary line on the tiles"})
-    if not _tab_until(
+    if not tab_until(
         page, "() => Boolean(document.activeElement?.closest('.zones-more > summary'))", steps=80
     ):
         findings.append({"where": "zones", "missing": "tile not reached by Tab"})
     else:
         page.keyboard.press("Enter")
-        if not _tab_until(
-            page, "() => document.activeElement?.hasAttribute('data-edit')", steps=15
-        ):
+        if not tab_until(page, "() => document.activeElement?.hasAttribute('data-edit')", steps=15):
             findings.append({"where": "zones", "missing": "Change not reached in the open tile"})
     if "Zwift" in page.locator("#view").inner_text():
         findings.append({"where": "zones", "problem": "Zwift notice still shown"})
@@ -1453,7 +1450,7 @@ def _bests_keyboard(browser, base: str, axe: str, findings: list[dict]) -> None:
         )
     except Exception as exc:
         findings.append({"where": "bests bike", "error": str(exc)})
-    violations = _axe(page)
+    violations = run_axe(page)
     if violations:
         findings.append({"where": "bests bike", "axe": violations})
     context.close()
@@ -1478,7 +1475,7 @@ def _quick_add_keyboard(browser, base: str, axe: str, findings: list[dict]) -> N
         inside = page.evaluate("() => Boolean(document.activeElement?.closest('.quick-dialog'))")
         if not inside:
             findings.append({"where": f"quick add {width}", "focus": "not in the dialog"})
-        violations = _axe(page)
+        violations = run_axe(page)
         if violations:
             findings.append({"where": f"quick add {width}", "axe": violations})
         page.keyboard.press("Escape")
@@ -1560,7 +1557,7 @@ def _coach_tabs(browser, base: str, findings: list[dict]) -> None:
         findings.append({"where": "knowledge redirect", "url": page.url})
 
     _open(page, base, "#/coach/log")
-    if not _tab_until(
+    if not tab_until(
         page, "() => Boolean(document.activeElement?.closest('.coach-log summary'))", steps=80
     ):
         findings.append({"where": "change log", "missing": "entry not reached by Tab"})
@@ -1602,7 +1599,7 @@ def _coach_settings_axe(page, base: str, findings: list[dict]) -> None:
     """axe on Coach → Settings, which has no card for outgoing coach links any more (#182)."""
     _open(page, base, "#/coach/settings")
     page.locator("#coach-runner-title").wait_for(timeout=8000)
-    violations = _axe(page)
+    violations = run_axe(page)
     if violations:
         findings.append({"where": "nl light coach settings", "axe": violations})
     if page.locator("[data-sync-agents], [data-agent-links]").count():

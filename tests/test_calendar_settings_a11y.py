@@ -1,15 +1,13 @@
 """Calendar preview/classification in a throwaway portal, with fake provider HTTP only."""
 
 import json
-import threading
 from datetime import date
 
 import pytest
-import uvicorn
+from browser_helpers import axe_script, portal_server, require_browser, run_axe, tab_until
 from fastapi.testclient import TestClient
 from test_caldav import response
 from test_caldav_setup import WRITE, FakeHTTP, connect, icloud_routes
-from test_portal_a11y import _axe, _axe_script, _port, _ready, _require_tools, _tab_until
 
 from vibesynergy.portal.app import create_portal_app
 from vibesynergy.query import calendar_mirror
@@ -19,7 +17,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypatch):
-    chrome = _require_tools()
+    chrome = require_browser()
     from playwright.sync_api import sync_playwright
 
     target = "https://p01-caldav.icloud.com:443/12345/calendars/home/"
@@ -53,14 +51,8 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
         api.post("/api/caldav/garmin-target", json={"url": target}, headers=WRITE).status_code
         == 200
     )
-    port = _port()
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    base = f"http://127.0.0.1:{port}"
-    try:
-        _ready(base)
-        axe = _axe_script()
+    with portal_server(app) as base:
+        axe = axe_script()
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=chrome, headless=True)
             for language, theme, width in [
@@ -88,7 +80,7 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
                 page.on("pageerror", lambda exc, errors=errors: errors.append(str(exc)))
                 page.goto(base + "/#/settings/calendar")
                 page.locator("[data-calendar-context]").wait_for()
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-calendar-context')"
                 )
                 page.keyboard.press("Home")
@@ -105,7 +97,7 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
                 # Copying Garmin workouts lives on Settings → Publishing and sync.
                 page.goto(base + "/#/settings/sync")
                 page.locator("[data-calendar-copy] [data-garmin-mirror-preview]").wait_for()
-                assert _tab_until(
+                assert tab_until(
                     page, "() => document.activeElement?.hasAttribute('data-garmin-mirror-preview')"
                 )
                 page.keyboard.press("Enter")
@@ -113,7 +105,7 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
                 body = page.locator("[data-garmin-preview-body]").inner_text()
                 assert "Synthetic obsolete workout" in body and "10-10-2026" in body
                 page.evaluate("window.scrollTo(0, 0)")
-                violations = _axe(page)
+                violations = run_axe(page)
                 assert not violations, json.dumps(violations, indent=2)
                 assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                 page.locator("[data-garmin-preview-body] summary").focus()
@@ -141,6 +133,3 @@ def test_calendar_preview_and_classification_keyboard_and_axe(runtime, monkeypat
                 assert not errors
                 context.close()
             browser.close()
-    finally:
-        server.should_exit = True
-        thread.join(timeout=5)
