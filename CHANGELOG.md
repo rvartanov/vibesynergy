@@ -15,6 +15,10 @@ The short "What changed" the portal shows after an update is in
 
 - The Today card on the start page and the Coach page always shows the current colour (green, amber or red) on its edge, also once the day is done; "Done for today" stays as text. When there is no colour (advice off, not loaded, none yet) the edge is neutral grey instead of green, and a short line says why (#217).
 
+## 0.1.0-beta.0.33 – 27-11-2026
+
+- Charts are fitted to their box again whenever it changes size, so a chart drawn while its start-page block was folded (the timeline) no longer stays squeezed after the block is opened.
+
 ## 0.1.0-beta.0.32 – 27-11-2026
 
 - Behind the scenes: the service repeats less work. The publishing settings are read from disk only when the file changed, the start page computes the training load once instead of four times and keeps the gear usage until a sync or gear change, finished jobs older than 30 days are removed once a day, and the audit log has indexes for its lookups. Nothing changes in the app (#203).

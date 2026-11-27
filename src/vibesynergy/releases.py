@@ -50,6 +50,7 @@ class Release:
 # Newest first. Written by `vibesynergy update`, not by hand.
 RELEASES: tuple[Release, ...] = (
     # The next release goes below this line.
+    Release("0.1.0-beta.0.33", date(2026, 11, 27), ("chart-fit",)),
     Release("0.1.0-beta.0.32", date(2026, 11, 27)),
     Release("0.1.0-beta.0.31", date(2026, 11, 27)),
     Release("0.1.0-beta.0.30", date(2026, 11, 27)),
@@ -342,6 +343,12 @@ ITEMS: tuple[Item, ...] = (
         "A planned workout that needs gear now says so at the top of its notes, like "
         '"Materiaal: pullbuoy, paddles": on the start page, in This week, in Garmin and '
         "in intervals.icu.",
+    ),
+    Item(
+        "chart-fit",
+        "you",
+        "A chart in a start-page block you open again (such as the timeline) now fills the block "
+        "instead of being squeezed.",
     ),
     Item(
         "112-ai-gear-line",
