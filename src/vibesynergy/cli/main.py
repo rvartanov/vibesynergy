@@ -126,6 +126,12 @@ def update(
         bool, typer.Option(help="Restart the user service afterwards (when it runs).")
     ] = True,
     force: Annotated[bool, typer.Option(help="Update even while a job runs.")] = False,
+    release: Annotated[
+        bool,
+        typer.Option(
+            "--release", help="Make a new version even when today has one (an urgent fix)."
+        ),
+    ] = False,
     config: ConfigOpt = None,
 ) -> None:
     """Update to the newest version on GitHub: release, backup, upgrade, migrations, restart."""
@@ -155,10 +161,14 @@ def update(
         raise typer.Exit(1)
     if not yes and not typer.confirm("Back up the database and update now?", default=True):
         raise typer.Exit(0)
+    from functools import partial
+
     from vibesynergy import cut_release
 
-    # The merged pull requests become one release: the next number with today's date (#140).
-    record = updater.run(rt.settings, restart=restart, say=console.print, cut=cut_release.cut)
+    # The merged pull requests become one release: the next number with today's date (#140),
+    # at most one a day unless --release (#205).
+    cut = partial(cut_release.cut, urgent=release)
+    record = updater.run(rt.settings, restart=restart, say=console.print, cut=cut)
     raise typer.Exit(0 if record["result"] == "ok" else 1)
 
 

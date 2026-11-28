@@ -224,6 +224,25 @@ def test_update_makes_one_release_of_several_pull_requests(origin) -> None:
     assert again and again["to"] == new and not again["new"] and again["items"] == made["items"]
 
 
+def test_at_most_one_release_a_day_unless_urgent(origin) -> None:
+    bare, work = origin
+    day = date(2026, 11, 23)
+    first = cut_release.cut(str(bare), today=day, say=lambda _: None)
+    assert first and first["new"]
+    _git(work, "pull", "-q", "origin", "main")
+    _add_item(work, "143-later", "Later item.", "Later line (#143).")
+    said: list[str] = []
+    # A second update the same day installs main without a new number (#205).
+    assert cut_release.cut(str(bare), today=day, say=said.append) is None
+    assert said and first["to"] in said[0] and "--release" in said[0]
+    _git(work, "pull", "-q", "--tags", "origin", "main")
+    assert _git(work, "log", "-1", "--format=%s").strip() == "PR 143-later"
+    # The next day's update collects it; --release makes one the same day (an urgent fix).
+    urgent = cut_release.cut(str(bare), today=day, say=said.append, urgent=True)
+    assert urgent and urgent["new"] and urgent["items"] == ["Later item."]
+    assert urgent["to"] == releases.next_version(first["to"])
+
+
 def test_without_push_rights_the_update_goes_on_without_a_number(origin) -> None:
     bare, _ = origin
     said: list[str] = []

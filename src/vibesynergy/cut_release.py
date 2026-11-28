@@ -9,7 +9,10 @@ Before the upgrade, in a fresh shallow clone of ``main``:
    CHANGELOG.md gets the version and date as its heading, and that is one commit on ``main``
    with the tag ``v<version>``, pushed together. ``uv tool upgrade`` then installs that commit.
 
-Several pull requests merged since the last update therefore make one release. Making it
+At most one release a day (#205): when the newest release already has today's date, the
+update installs ``main`` without a new number, and what it brings waits for the next day's
+release (``urgent`` makes one anyway, for an urgent fix). Several pull requests merged since
+the last release therefore make one release. Making it
 needs the right to push to the repository (the server's git credentials); an install
 without it updates as before and keeps the number it has.
 """
@@ -71,7 +74,7 @@ def _tag_at(url: str, head: str, git: Git) -> str | None:
     return None
 
 
-def _attempt(url: str, today: date, git: Git, work: Path) -> dict[str, Any]:
+def _attempt(url: str, today: date, git: Git, work: Path, urgent: bool) -> dict[str, Any]:
     repo = work / "main"
     out = git(["clone", "--quiet", "--depth", "1", "--branch", "main", url, str(repo)], None)
     if out.returncode != 0:
@@ -82,6 +85,8 @@ def _attempt(url: str, today: date, git: Git, work: Path) -> dict[str, Any]:
     if tagged:
         release = module.RELEASES[0]
         return {"version": tagged, "new": False, "items": _texts(module, release)}
+    if module.RELEASES and module.RELEASES[0].day == today and not urgent:
+        raise _AlreadyToday(module.RELEASES[0].version)
     version = module.next_version(module.VERSION)
     ids = [item.id for item in module.unreleased()]
     source = repo / RELEASES_PY
@@ -106,6 +111,10 @@ def _attempt(url: str, today: date, git: Git, work: Path) -> dict[str, Any]:
     return {"version": version, "new": True, "items": [by_id[i].text for i in ids]}
 
 
+class _AlreadyToday(RuntimeError):
+    """Today has its release already: this update waits for the next one."""
+
+
 class _Rejected(RuntimeError):
     """``main`` moved while the release was made: try once more on the new ``main``."""
 
@@ -116,14 +125,26 @@ def _texts(module: ModuleType, release: Any) -> list[str]:
 
 
 def cut(
-    url: str, *, today: date, say: Callable[[str], None] = print, git: Git = _git
+    url: str,
+    *,
+    today: date,
+    say: Callable[[str], None] = print,
+    git: Git = _git,
+    urgent: bool = False,
 ) -> dict[str, Any] | None:
     """Make the release for what ``main`` has now. Returns ``{"from", "to", "new", "items"}``,
-    or None when it can't (no push right, no network): the update then goes on without one."""
+    or None when there is none (today has its release, no push right, no network): the update
+    then goes on without one."""
     for attempt in (1, 2):
         work = Path(tempfile.mkdtemp(prefix="vibesynergy-release-"))
         try:
-            made = _attempt(url, today, git, work)
+            made = _attempt(url, today, git, work, urgent)
+        except _AlreadyToday as exc:
+            say(
+                f"No new version number: {exc} is today's release. These changes go into the "
+                "next one (vibesynergy update --release makes one now, for an urgent fix)."
+            )
+            return None
         except _Rejected as exc:
             if attempt == 2:
                 say(f"No new version number: main kept moving ({exc})")
