@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.39 – 28-11-2026
+
 - At most one new version a day: later updates that day wait for the next version (#205).
 
 ## 0.1.0-beta.0.38 – 28-11-2026
