@@ -196,7 +196,7 @@ PROVIDER_SETTINGS_TEXTS = {
     "This does not look like a key for this provider (it should start with xai-).",
 }
 # "Your coach" as a person: the calendar's own appointments and who a share link is for.
-HUMAN_COACH_TEXTS = {"Sessions with your coach", "Sharing with your coach or an app"}
+HUMAN_COACH_TEXTS = {"Sessions with your coach"}
 
 
 def _catalogue(lang: str) -> dict[str, str]:
