@@ -428,6 +428,12 @@ ITEMS: tuple[Item, ...] = (
         "colour on its edge, also once the day is done. Without a colour the edge stays grey, "
         "never green, and a short line says why.",
     ),
+    Item(
+        "help-offline",
+        "you",
+        "Help is offline for now. The video manuals are gone; Help comes back later as written "
+        "guides.",
+    ),
 )
 
 VERSION = RELEASES[0].version

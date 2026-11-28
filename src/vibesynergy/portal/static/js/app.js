@@ -30,7 +30,6 @@ const PAGE_LOADERS = {
   data: () => import("./pages/data.js"),
   sources: () => import("./pages/sources.js"),
   history: () => import("./pages/history.js"),
-  help: () => import("./pages/help.js"),
 };
 const CHART_PAGES = new Set([
   "dashboard", "metrics", "sleep", "sql", "planning", "activity", "body", "correlations",
@@ -293,8 +292,7 @@ async function render() {
   if (!again) {
     hideNews(); // the "What changed" card stays until you go to another page (#140)
     view.innerHTML = `<div class="loading">${esc(t("Loading…"))}</div>`;
-    // Another page opens at its top, not where the last one was scrolled (#44). A page that
-    // opens at a part of itself (#/help/<id>) scrolls there while it renders.
+    // Another page opens at its top, not where the last one was scrolled (#44).
     if (!refreshing) window.scrollTo(0, 0);
   }
   let rendered = false;
@@ -646,8 +644,6 @@ function labelHeader() {
   label("a.inbox-link:not(.search-link)", t("Waiting for you"));
   label("a.search-link", t("Search (/)"));
   label(".quick-add", t("Quick add"));
-  const help = document.querySelector(".foot .help-link");
-  if (help) help.textContent = t("Help");
   const bug = document.querySelector(".foot .bug-report");
   if (bug) {
     bug.textContent = t("Report a bug");
