@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+## 0.1.0-beta.0.38 – 28-11-2026
+
 - Help is offline for now: the video manuals are gone, and Help will come back as written guides.
 
 ## 0.1.0-beta.0.37 – 27-11-2026
