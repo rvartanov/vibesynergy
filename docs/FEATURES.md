@@ -30,7 +30,8 @@ Status: beta (version 0.1.0-beta.0.N, see Versions below). The portal is in Dutc
   `vibesynergy update` (`--check`). Each update backs up the database first and logs what it
   did. A container updates by pulling the new image.
 - **Versions and "What changed"** (#140): the version (`0.1.0-beta.0.1`, `0.1.0-beta.0.2`, …;
-  every update that brings new changes adds one to the last number) is at the bottom of every
+  at most one a day, #205: the first update of a day that brings new changes adds one to the
+  last number, later ones that day wait for the next; `--release` makes one anyway) is at the bottom of every
   page with the commit, in `vibesynergy --version` and `vibesynergy version`, `/version`, the
   MCP server information and Settings → System → About this version. `vibesynergy update`
   makes the release when it installs merged pull requests: the next number with the date,

@@ -83,9 +83,9 @@ happens next: [docs/REPORTING.md](docs/REPORTING.md).
 [docs/FEATURES.md](docs/FEATURES.md) lists everything VibeSynergy does; [CHANGELOG.md](CHANGELOG.md)
 says what changed, per version. Both are part of the change itself, in the same pull request.
 
-**Versions** (#140, the model of RunSynergy): `0.1.0-beta.0.1`, `0.1.0-beta.0.2`, … Every
-deploy that brings merged pull requests is a release, and every release adds one to the last
-number. A next minor (`0.2.0-beta.0.1`) only when the owner says so; out of beta it becomes
+**Versions** (#140, the model of RunSynergy): `0.1.0-beta.0.1`, `0.1.0-beta.0.2`, … At most
+one release a day (#205): the first deploy of a day that brings merged pull requests makes it,
+and every release adds one to the last number. A next minor (`0.2.0-beta.0.1`) only when the owner says so; out of beta it becomes
 `1.0.0`. The numbers live in `src/vibesynergy/releases.py`; `pyproject.toml` keeps a PEP 440
 version for the line (`0.1.0b0`), because `0.1.0-beta.0.1` is not one. Never write a version
 number or a release by hand.
@@ -113,7 +113,11 @@ commits: on a fresh clone of `main` it puts the next number with the day's date 
 `## <version> – <d-m-yyyy>` under a new empty `## Unreleased`, commits that as
 `Release <version>`, tags it `v<version>` (the container workflow publishes it) and pushes
 both, then installs that commit. It prints `0.1.0-beta.0.3 → 0.1.0-beta.0.4` and the items.
-Several pull requests deployed at once make one release. If `main` already carries a version
+Several pull requests deployed at once make one release. A later deploy the same day installs
+`main` without a new number; what it brings goes into the next day's release
+(`vibesynergy update --release` makes one anyway, for an urgent fix). CI and the container's
+main build skip the `Release <version>` commit, which only stamps the number; its tag builds
+and publishes the image once. If `main` already carries a version
 tag (an update that failed after the release), it installs that version without a new number.
 It needs the right to push to the repository; an install without it updates as before. An open
 pull request may then get a conflict in CHANGELOG.md: keep your line under `## Unreleased`.

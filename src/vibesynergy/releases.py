@@ -435,6 +435,11 @@ ITEMS: tuple[Item, ...] = (
         "Help is offline for now. The video manuals are gone; Help comes back later as written "
         "guides.",
     ),
+    Item(
+        "205-daily-release",
+        "you",
+        "A new version comes at most once a day, with everything since the last one.",
+    ),
 )
 
 VERSION = RELEASES[0].version

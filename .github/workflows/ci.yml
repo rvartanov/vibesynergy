@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   test:
+    # The commit `vibesynergy update` makes (#205) only stamps the version: no second run.
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Release ')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -91,6 +93,8 @@ jobs:
           VIBESYNERGY_A11Y_REQUIRED: "1"
 
   install:
+    # The commit `vibesynergy update` makes (#205) only stamps the version: no second run.
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Release ')
     # The app installs and starts from the built package alone, with demo data.
     runs-on: ubuntu-latest
     timeout-minutes: 10
