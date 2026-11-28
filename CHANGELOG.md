@@ -13,6 +13,8 @@ The short "What changed" the portal shows after an update is in
 
 ## Unreleased
 
+- Help is offline for now: the video manuals are gone, and Help will come back as written guides.
+
 ## 0.1.0-beta.0.37 – 27-11-2026
 
 - Removed the unused workout-equipment register (the `equipment_item` and `equipment_location` tables). The tables are dropped only when they are empty; an install with rows keeps them and logs a warning. The Gear page and your coach's "Equipment" items to remember are unchanged (#211).

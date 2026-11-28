@@ -528,11 +528,8 @@ Details: [AI_HARNESS.md](AI_HARNESS.md), [COACH_RUNNER.md](COACH_RUNNER.md),
   menu, schedules, best source per measurement, drop folder, about this version).
   Edits save directly; settings the service reads at start say so with a restart banner.
 
-## Help and feedback
+## Feedback
 
-- **Help** in the footer of every page: short video manuals for each thing you do, with
-  Dutch and English captions; `#/help/<manual>` opens one. They are recorded from the demo
-  data with [tools/help_videos](../tools/help_videos/README.md).
 - **Report a bug** in the footer of every page and under Settings → System: opens GitHub's
   bug form with the version, page, error and browser filled in; you send it from your own
   account.
